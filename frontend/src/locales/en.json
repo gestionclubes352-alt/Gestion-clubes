@@ -448,6 +448,7 @@
   "login": {
     "selectTeamFirst": "Select a team first",
     "wrongCredentials": "Wrong credentials",
+    "configError": "Configuration error: cannot reach the authentication server. Contact your administrator.",
     "importError": "Error importing team data",
     "googleLoginError": "Error signing in with Google",
     "nameRequired": "Name is required",
