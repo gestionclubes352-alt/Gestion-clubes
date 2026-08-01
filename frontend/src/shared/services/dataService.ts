@@ -61,6 +61,11 @@ export interface Equipo {
   categoria?: string;
   competicion?: string;
   temporada: string;
+  logo_url?: string;
+  sub_equipo?: string;
+  estadio?: string;
+  localidad?: string;
+  enlace?: string;
 }
 
 export interface Jugador { // tabla `plantillas`
@@ -71,8 +76,40 @@ export interface Jugador { // tabla `plantillas`
   nombre: string;
   posicion: 'Portero' | 'Defensa' | 'Medio' | 'Delantero';
   posicion_juego?: string;
-  perfil?: 'D' | 'I';
+  perfil?: 'D' | 'I' | 'A';
   fecha_nacimiento?: string;
+  apodo?: string;
+  estado?: 'APTO' | 'LESIONADO' | 'OTRO';
+  otra_demarcacion?: string;
+  otra_posicion?: string;
+  descripcion?: string;
+  ataque?: string;
+  defensa?: string;
+  persona?: string;
+  observaciones?: string;
+  rating_tecnica?: number;
+  rating_tactica?: number;
+  rating_condicional?: number;
+  rating_psicologico?: number;
+  rating_humano?: number;
+  partidos_jugados?: number;
+  minutos?: number;
+  titular?: number;
+  goles?: number;
+  dni?: string;
+  telefono?: string;
+  correo?: string;
+  nombre_pila?: string;
+  primer_apellido?: string;
+  segundo_apellido?: string;
+  nombre_completo?: string;
+  anio_nacimiento?: number;
+  etapa?: string;
+  enlace?: string;
+  temporada?: string;
+  nombre_tutor?: string;
+  correo_tutor?: string;
+  telefono_tutor?: string;
 }
 
 export interface Personal {

@@ -13,8 +13,7 @@ import eu from './eu.json';
 // Idiomas disponibles
 export const AVAILABLE_LANGUAGES = [
   { code: 'es', name: 'Castellano', shortCode: 'ES' },
-  { code: 'en', name: 'English', shortCode: 'EN' },
-  { code: 'eu', name: 'Euskara', shortCode: 'EU' }
+  { code: 'en', name: 'English', shortCode: 'EN' }
 ] as const;
 
 export type LanguageCode = typeof AVAILABLE_LANGUAGES[number]['code'];

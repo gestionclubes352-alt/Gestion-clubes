@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
-import EquipoSelect from '../../../shared/components/EquipoSelect';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Player } from '../types';
+import type { CompetitionTeam } from '../../competicion/types';
 
 interface EditPlayerModalProps {
   player: Player;
   clubId: string;
-  availableTeams?: string[];
+  /** Equipos reales de Supabase a los que se puede asignar el jugador */
+  equipos: CompetitionTeam[];
   onClose: () => void;
   onSave: (player: Player, originalId?: Player['id']) => Promise<void>;
 }
@@ -64,7 +65,7 @@ const createCompressedPhotoDataUrl = (file: File): Promise<string> =>
     image.src = objectUrl;
   });
 
-const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, availableTeams = [], onClose, onSave }) => {
+const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, onClose, onSave }) => {
   const { t } = useTranslation();
   const isHuesca = clubId === 'escuela-huesca' || player.club?.toUpperCase().includes('HUESCA');
   const initialPhotoUrl = isPersistedImage(player.fotoUrl) ? player.fotoUrl : '';
@@ -110,14 +111,22 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, avail
       if (field === 'fechaNacimiento') {
         next.anioNacimiento = getBirthYear(value);
       }
-      if (field === 'equipo') {
-        next.equipoId = slugify(value);
-      }
       if (field === 'competicion') {
         next.competicionId = slugify(value);
       }
       return next;
     });
+  };
+
+  const handleEquipoSelect = (equipoId: string) => {
+    const team = equipos.find(t => String(t.id) === equipoId);
+    setFormData(prev => ({
+      ...prev,
+      equipoId,
+      equipo: team?.equipo || team?.nombre || '',
+      club: team?.nombre || prev.club,
+      clubId: team?.clubId ? String(team.clubId) : prev.clubId,
+    }));
   };
   const handleSave = async () => {
     setIsSaving(true);
@@ -144,7 +153,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, avail
       // Si no hay foto, permitir guardar sin fotoUrl
       const extended = isHuesca ? {
         clubId,
-        equipoId: formData.equipoId || slugify(formData.equipo || ''),
+        equipoId: formData.equipoId,
         competicionId: formData.competicionId || slugify(formData.competicion || ''),
         anioNacimiento: formData.anioNacimiento ?? getBirthYear(formData.fechaNacimiento),
         nombreCompleto: formData.nombreCompleto || `${formData.nombrePila || ''} ${formData.primerApellido || ''} ${formData.segundoApellido || ''}`.replace(/\s+/g, ' ').trim(),
@@ -518,11 +527,25 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, avail
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.team')}</label>
-              <EquipoSelect
-                value={formData.equipo || ''}
-                onChange={(val) => handleChange('equipo', val)}
-                extraTeams={availableTeams}
-              />
+              {equipos.length === 0 ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
+                  <i className="fa-solid fa-circle-info"></i>
+                  Crea antes un equipo en la sección Equipos.
+                </div>
+              ) : (
+                <select
+                  value={formData.equipoId || ''}
+                  onChange={(e) => handleEquipoSelect(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+                >
+                  <option value="">-- Selecciona un equipo --</option>
+                  {equipos.map(eq => (
+                    <option key={String(eq.id)} value={String(eq.id)}>
+                      {eq.nombre}{eq.equipo ? ` — ${eq.equipo}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.birthDate')}</label>
@@ -775,8 +798,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, avail
           >
             {t('editPlayer.exportPdf')}
           </button>
-          <button 
-            disabled={isSaving}
+          <button
+            disabled={isSaving || !formData.equipoId}
             onClick={handleSave}
             className="flex-2 py-4 bg-[var(--accent)] text-white rounded-2xl font-black hover:bg-[var(--accent-dark)] transition-all shadow-xl shadow-[var(--accent)]/20 uppercase text-xs tracking-widest flex items-center justify-center gap-3 disabled:opacity-70"
           >

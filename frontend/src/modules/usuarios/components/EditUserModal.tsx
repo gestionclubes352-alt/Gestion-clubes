@@ -1,9 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { User } from '../types';
-import { USER_DEPARTAMENTOS, ROLES_TECNICOS } from '../types';
 import { uploadStaffPhoto } from '../../../shared/services/staffPhotoService';
-import { AVAILABLE_TEAMS } from '../../auth/types';
 
 interface EditUserModalProps {
   user: User;
@@ -22,7 +20,7 @@ const getInitials = (name: string): string => {
 
 const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onClose, onSave }) => {
   const { t } = useTranslation();
-  const [formData, setFormData] = useState<User>({ ...user, departamento: user.departamento || 'Personal' });
+  const [formData, setFormData] = useState<User>({ ...user });
   const [password, setPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -59,15 +57,13 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
       }
     }
 
-    // Limpiar rolTecnico si el departamento no es Personal
     const dataToSave = {
       ...formData,
       fotoUrl: fotoUrl || formData.fotoUrl,
-      rolTecnico: formData.departamento === 'Personal' ? formData.rolTecnico : undefined,
     };
     setIsSaving(true);
     try {
-      await onSave(dataToSave, isNew ? password : undefined);
+      await onSave(dataToSave, password || undefined);
     } finally {
       setIsSaving(false);
     }
@@ -131,101 +127,26 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.accessEmail')}</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none"
-                placeholder={t('editUser.emailPlaceholder')}
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('common.phone')}</label>
-              <input
-                type="tel"
-                value={formData.telefono || ''}
-                onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none"
-                placeholder="600 000 000"
-              />
-            </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.accessEmail')}</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none"
+              placeholder={t('editUser.emailPlaceholder')}
+            />
           </div>
 
-          {isNew && (
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.password')}</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-                placeholder={t('editUser.passwordPlaceholder')}
-              />
-            </div>
-          )}
-
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.department')}</label>
-            <select
-              value={formData.departamento}
-              onChange={(e) => setFormData({...formData, departamento: e.target.value as User['departamento']})}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
-            >
-              {USER_DEPARTAMENTOS.map(dep => (
-                <option key={dep} value={dep}>{dep}</option>
-              ))}
-            </select>
-          </div>
-
-          {formData.departamento === 'Personal' && (
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.technicalRole')}</label>
-              <select
-                value={formData.rolTecnico || ''}
-                onChange={(e) => setFormData({...formData, rolTecnico: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
-              >
-                <option value="">{t('editUser.selectRole')}</option>
-                {ROLES_TECNICOS.map(rol => (
-                  <option key={rol} value={rol}>{rol}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Club */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Club</label>
-            {(formData.rol === 'Administrador' || formData.rol === 'Responsable') ? (
-              <div className="w-full bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                <div className="flex -space-x-1.5">
-                  {AVAILABLE_TEAMS.slice(0, 3).map(team => (
-                    team.logoUrl ? (
-                      <img key={team.id} src={team.logoUrl} alt={team.shortName} className="w-6 h-6 rounded-full object-contain border-2 border-violet-50 bg-white" />
-                    ) : (
-                      <div key={team.id} className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black text-white border-2 border-violet-50" style={{ backgroundColor: team.colors.primary }}>
-                        {team.shortName.charAt(0)}
-                      </div>
-                    )
-                  ))}
-                </div>
-                <span className="text-sm font-black text-violet-600 uppercase tracking-wider">Todos los clubs</span>
-              </div>
-            ) : (
-              <select
-                value={formData.clubId || ''}
-                onChange={(e) => setFormData({...formData, clubId: e.target.value || undefined})}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
-              >
-                <option value="">{t('editUser.selectRole')}</option>
-                {AVAILABLE_TEAMS.map(team => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-              </select>
-            )}
+            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{isNew ? t('editUser.password') : t('editUser.passwordEditLabel')}</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              placeholder={isNew ? t('editUser.passwordPlaceholder') : t('editUser.passwordKeepPlaceholder')}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

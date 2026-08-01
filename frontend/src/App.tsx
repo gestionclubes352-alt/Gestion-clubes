@@ -11,7 +11,8 @@ import { LoginPage } from '@modules/auth';
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { Header, BottomNav, HomeSectionsView } from '@shared/components';
-import { db, setActiveTeamId, clubesService } from '@shared/services/dataService';
+import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService } from '@shared/services/dataService';
+import type { Usuario, Club as DbClub, Equipo, Jugador } from '@shared/services/dataService';
 import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
 import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES } from '@shared/constants';
 
@@ -25,7 +26,6 @@ import { StaffTable } from '@modules/staff';
 // Modules - Usuarios
 import { UserTable, EditUserModal } from '@modules/usuarios';
 import type { User } from '@modules/usuarios';
-import { setUserRole } from '@shared/services/roleService';
 import { authService } from '@shared/services/authService';
 
 // Modules - Competicion
@@ -453,38 +453,88 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 
     try {
       const [pRes, cRes, uRes, eRes, ctRes, sRes, clRes] = await Promise.all([
-        db.players.get(),
+        plantillasService.list(),
         db.campogramas.get(),
-        db.users.get(),
+        usuariosService.list(),
         db.events.get(),
-        db.competition_teams.get(),
+        equiposService.list(),
         db.staff.get(),
-        db.clubes.get(),
+        clubesService.list(),
       ]);
+
+      // Lookups (equipo_id -> equipo, club_id -> club) para derivar nombres en jugadores
+      const equiposById = new Map((ctRes || []).map((e: Equipo) => [String(e.id), e]));
+      const clubesByIdForSquad = new Map((clRes || []).map((c: DbClub) => [String(c.id), c]));
 
       // Usar datos Huesca como fallback solo para escuela-huesca
       const squadFallback = currentTeam?.id === 'escuela-huesca'
         ? [...HUESCA_CADETE_A_PLAYERS, ...HUESCA_JUVENIL_A_PLAYERS]
         : [];
-      const mergedSquad = mergeWithConstants(pRes.data, squadFallback, pRes.deletedIds);
-      setSquadList(mergedSquad);
-
-      // Sincronizar jugadores fallback que no existen en Firestore
-      if (squadFallback.length > 0) {
-        const dbIds = new Set((pRes.data || []).map((p: any) => String(p.id)));
-        const missingPlayers = squadFallback.filter(p => !dbIds.has(String(p.id)) && !pRes.deletedIds.includes(String(p.id)));
-        if (missingPlayers.length > 0) {
-          console.log(`[sync] Sincronizando ${missingPlayers.length} jugadores fallback a Firestore...`);
-          await Promise.all(missingPlayers.map(p => db.players.upsert(p)));
-        }
-      }
+      const mappedSquad: Player[] = (pRes || []).map((p: Jugador): Player => {
+        const equipoRow = equiposById.get(String(p.equipo_id));
+        const clubRow = equipoRow ? clubesByIdForSquad.get(String(equipoRow.club_id)) : undefined;
+        return {
+          id: p.id,
+          fotoUrl: p.foto_url || '',
+          competicion: equipoRow?.competicion || '',
+          club: clubRow?.nombre || '',
+          equipo: equipoRow?.sub_equipo || equipoRow?.nombre || '',
+          dorsal: p.dorsal ?? 0,
+          nombre: p.nombre,
+          apodo: p.apodo,
+          posicion: p.posicion,
+          posicionJuego: p.posicion_juego || '',
+          perfil: (p.perfil || 'D') as Player['perfil'],
+          descripcion: p.descripcion,
+          ataque: p.ataque,
+          defensa: p.defensa,
+          persona: p.persona,
+          observaciones: p.observaciones,
+          fechaNacimiento: p.fecha_nacimiento,
+          partidosJugados: p.partidos_jugados,
+          minutos: p.minutos,
+          titular: p.titular,
+          goles: p.goles,
+          ratingTecnica: p.rating_tecnica,
+          ratingTactica: p.rating_tactica,
+          ratingCondicional: p.rating_condicional,
+          ratingPsicologico: p.rating_psicologico,
+          ratingHumano: p.rating_humano,
+          estado: p.estado,
+          etapa: p.etapa,
+          enlace: p.enlace,
+          nombrePila: p.nombre_pila,
+          primerApellido: p.primer_apellido,
+          segundoApellido: p.segundo_apellido,
+          dni: p.dni,
+          telefono: p.telefono,
+          correo: p.correo,
+          temporada: p.temporada,
+          clubId: equipoRow?.club_id,
+          equipoId: p.equipo_id,
+          nombreCompleto: p.nombre_completo,
+          anioNacimiento: p.anio_nacimiento,
+          nombreTutor: p.nombre_tutor,
+          correoTutor: p.correo_tutor,
+          telefonoTutor: p.telefono_tutor,
+        };
+      });
+      setSquadList(mergeWithConstants(mappedSquad, squadFallback, []));
       setCampogramasList(cRes.data || []);
 
       // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
       setEventsList(hydrateData(eRes.data || []));
 
       // Migrar staff de Firestore a usuarios (una sola vez)
-      let users = uRes.data || [];
+      let users: User[] = (uRes || []).map((u: Usuario): User => ({
+        id: u.id,
+        nombre: u.nombre,
+        email: u.email,
+        rol: u.rol,
+        estado: u.estado,
+        departamento: 'Personal', // no persistido en `usuarios` — ver tabla `personal`
+        clubId: u.club_id ?? undefined,
+      }));
       const staffMembers = sRes.data || [];
       if (staffMembers.length > 0) {
         const userNames = new Set(users.map((u: User) => u.nombre.toUpperCase().trim()));
@@ -520,35 +570,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       }
 
       setUsersList(users);
-      // Equipos de competición desde la BD (aislados por club)
+      // Equipos desde Supabase, con fallback para CD Derio
       const ctFallback = currentTeam?.id === 'cd-derio'
         ? [...INITIAL_COMPETITION_TEAMS]
         : [];
-      setCompetitionTeams(mergeWithConstants(ctRes.data, ctFallback, ctRes.deletedIds));
+      const mappedTeams: CompetitionTeam[] = (ctRes || []).map((e: Equipo): CompetitionTeam => ({
+        id: e.id,
+        clubId: e.club_id,
+        nombre: e.nombre,
+        estadio: e.estadio || '',
+        localidad: e.localidad || '',
+        logoUrl: e.logo_url || undefined,
+        equipo: e.sub_equipo,
+        etapa: e.categoria,
+        competicion: e.competicion,
+        enlace: e.enlace,
+      }));
+      setCompetitionTeams(mergeWithConstants(mappedTeams, ctFallback, []));
 
-      // Sincronizar equipos de competición fallback que no existen en Firestore
-      if (ctFallback.length > 0) {
-        const ctDbIds = new Set((ctRes.data || []).map((t: any) => String(t.id)));
-        const missingTeams = ctFallback.filter(t => !ctDbIds.has(String(t.id)));
-        if (missingTeams.length > 0) {
-          console.log(`[sync] Sincronizando ${missingTeams.length} equipos de competición fallback a Firestore...`);
-          await Promise.all(missingTeams.map(t => db.competition_teams.upsert(t)));
-        }
-      }
-
-      // Clubes desde la BD (aislados por club), con fallback para Escuela Huesca
+      // Clubes desde Supabase, con fallback para Escuela Huesca
       const clFallback = currentTeam?.id === 'escuela-huesca' ? [...HUESCA_CLUBES] : [];
-      setClubesList(mergeWithConstants(clRes.data, clFallback, clRes.deletedIds));
-
-      // Sincronizar clubes fallback que no existen en Firestore
-      if (clFallback.length > 0) {
-        const clDbIds = new Set((clRes.data || []).map((c: any) => String(c.id)));
-        const missingClubes = clFallback.filter(c => !clDbIds.has(String(c.id)));
-        if (missingClubes.length > 0) {
-          console.log(`[sync] Sincronizando ${missingClubes.length} clubes fallback a Firestore...`);
-          await Promise.all(missingClubes.map(c => db.clubes.upsert(c)));
-        }
-      }
+      const mappedClubes: Club[] = (clRes || []).map((c: DbClub): Club => ({
+        id: c.id,
+        nombre: c.nombre,
+        logoUrl: c.escudo_url || undefined,
+        localidad: c.ciudad,
+      }));
+      setClubesList(mergeWithConstants(mappedClubes, clFallback, []));
 
       if (forceSync) {
         setShowStatus("Sincronizaci�n completa");
@@ -786,16 +834,71 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlayerTable squad={filteredSquadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => { const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '' }); await db.players.upsert(toSave); setSquadList(prev => { const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id)); if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl); return [toSave, ...prev]; }); }} onDelete={async id => { await db.players.delete(id); setSquadList(prev => prev.filter(p => String(p.id) !== String(id))); }} />
+                <PlayerTable squad={filteredSquadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => { const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '' }); await db.players.upsert(toSave); setSquadList(prev => { const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id)); if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl); return [toSave, ...prev]; }); }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} />
               } />
               <Route path="/staff" element={
-                <StaffTable staff={filteredUsersList.filter(u => u.departamento === 'Personal')} onEdit={setEditingUser} onDelete={async id => { await db.users.delete(id); await fetchData(); }} onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal', clubId: currentTeam?.id || '' } as User); }} userClubId={perfil?.club_id || currentTeam?.id || ''} userRole={userRole} />
+                <StaffTable
+                  staff={filteredUsersList.filter(u => u.departamento === 'Personal')}
+                  onEdit={setEditingUser}
+                  onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                  onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal', clubId: currentTeam?.id || '' } as User); }}
+                  userClubId={perfil?.club_id || currentTeam?.id || ''}
+                  userRole={userRole}
+                />
               } />
               <Route path="/clubes" element={
-                <ClubesTable clubes={clubesList} clubId={currentTeam?.id || ''} onEdit={async c => { await db.clubes.upsert(c); await fetchData(); }} onDelete={async id => { await db.clubes.delete(id); await fetchData(); }} />
+                <ClubesTable
+                  clubes={clubesList}
+                  clubId={currentTeam?.id || ''}
+                  onEdit={async c => {
+                    const exists = clubesList.some(existing => String(existing.id) === String(c.id));
+                    const payload = { nombre: c.nombre, escudo_url: c.logoUrl || '', ciudad: c.localidad || undefined };
+                    try {
+                      if (exists) await clubesService.update(c.id, payload);
+                      else await clubesService.create(payload);
+                      await fetchData();
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : 'Error al guardar el club');
+                    }
+                  }}
+                  onDelete={async id => {
+                    try { await clubesService.remove(id); await fetchData(); }
+                    catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el club'); }
+                  }}
+                />
               } />
               <Route path="/equipos" element={
-                <CompetitionTable teams={filteredCompetitionTeams} clubes={clubesList} clubId={currentTeam?.id || ''} onEdit={async t => { await db.competition_teams.upsert(t); await fetchData(); }} onDelete={async id => { await db.competition_teams.delete(id); await fetchData(); }} />
+                <CompetitionTable
+                  teams={filteredCompetitionTeams}
+                  clubes={clubesList}
+                  clubId={currentTeam?.id || ''}
+                  onEdit={async t => {
+                    const exists = competitionTeams.some(existing => String(existing.id) === String(t.id));
+                    const payload = {
+                      club_id: t.clubId ? String(t.clubId) : undefined,
+                      nombre: t.nombre,
+                      categoria: t.etapa || undefined,
+                      competicion: t.competicion || undefined,
+                      logo_url: t.logoUrl || '',
+                      sub_equipo: t.equipo || undefined,
+                      estadio: t.estadio || '',
+                      localidad: t.localidad || '',
+                      enlace: t.enlace || undefined,
+                    };
+                    try {
+                      if (exists) await equiposService.update(t.id, payload);
+                      else await equiposService.create(payload);
+                      await fetchData();
+                    } catch (e) {
+                      const message = (e as { message?: string } | null)?.message;
+                      alert(message || 'Error al guardar el equipo');
+                    }
+                  }}
+                  onDelete={async id => {
+                    try { await equiposService.remove(id); await fetchData(); }
+                    catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el equipo'); }
+                  }}
+                />
               } />
               <Route path="/campograma" element={
                 activeCampograma ? (
@@ -859,7 +962,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/rendimiento-fisico" element={<FitnessView />} />
               <Route path="/repositorio-tareas" element={<TaskRepositoryView />} />
               <Route path="/usuarios" element={userRole !== 'Tecnico'
-                ? <UserTable users={usersList} clubId={currentTeam?.id} onEdit={setEditingUser} onDelete={async id => { await db.users.delete(id); await fetchData(); }} onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal' } as User); }} />
+                ? <UserTable
+                    users={usersList}
+                    onEdit={setEditingUser}
+                    onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                    onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal' } as User); }}
+                    onApprove={async (user, rol) => { try { await usuariosService.update(user.id, { rol, estado: 'Activo' }); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al aprobar'); } }}
+                    onReject={async (user) => { try { await usuariosService.update(user.id, { estado: 'Inactivo' }); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al rechazar'); } }}
+                    onRefresh={fetchData}
+                  />
                 : <Navigate to="/" replace />
               } />
               <Route path="/settings" element={userRole === 'Responsable' ? <SettingsPage /> : <Navigate to="/" replace />} />
@@ -869,16 +980,106 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         </div>
         )}
       </main>
-      {editingPlayer && <EditPlayerModal player={editingPlayer} clubId={currentTeam?.id || ''} availableTeams={Array.from(new Set(squadList.map(p => p.equipo).filter(Boolean))).sort()} onClose={() => setEditingPlayer(null)} onSave={async (p, originalId) => { const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || currentTeam?.competition || '' }, originalId); if (originalId !== undefined && String(originalId) !== String(toSave.id)) { await db.players.delete(originalId); } await db.players.upsert(toSave); setSquadList(prev => { const filtered = originalId !== undefined && String(originalId) !== String(toSave.id) ? prev.filter(pl => String(pl.id) !== String(originalId)) : prev; const idx = filtered.findIndex(pl => String(pl.id) === String(toSave.id)); if (idx >= 0) return filtered.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl); return [toSave, ...filtered]; }); }} />}
+      {editingPlayer && <EditPlayerModal
+        player={editingPlayer}
+        clubId={currentTeam?.id || ''}
+        equipos={competitionTeams}
+        onClose={() => setEditingPlayer(null)}
+        onSave={async (p, originalId) => {
+          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || currentTeam?.competition || '' }, originalId);
+          if (!toSave.equipoId) { alert('Selecciona un equipo antes de guardar.'); return; }
+          const payload = {
+            equipo_id: String(toSave.equipoId),
+            foto_url: toSave.fotoUrl || '',
+            dorsal: toSave.dorsal,
+            nombre: toSave.nombre,
+            posicion: toSave.posicion as Jugador['posicion'],
+            posicion_juego: toSave.posicionJuego || undefined,
+            perfil: toSave.perfil as Jugador['perfil'],
+            fecha_nacimiento: toSave.fechaNacimiento || undefined,
+            apodo: toSave.apodo,
+            estado: toSave.estado,
+            otra_demarcacion: toSave.otraDemarcacion,
+            otra_posicion: toSave.otraPosicion,
+            descripcion: toSave.descripcion,
+            ataque: toSave.ataque,
+            defensa: toSave.defensa,
+            persona: toSave.persona,
+            observaciones: toSave.observaciones,
+            rating_tecnica: toSave.ratingTecnica,
+            rating_tactica: toSave.ratingTactica,
+            rating_condicional: toSave.ratingCondicional,
+            rating_psicologico: toSave.ratingPsicologico,
+            rating_humano: toSave.ratingHumano,
+            partidos_jugados: toSave.partidosJugados,
+            minutos: toSave.minutos,
+            titular: toSave.titular,
+            goles: toSave.goles,
+            dni: toSave.dni,
+            telefono: toSave.telefono,
+            correo: toSave.correo,
+            nombre_pila: toSave.nombrePila,
+            primer_apellido: toSave.primerApellido,
+            segundo_apellido: toSave.segundoApellido,
+            nombre_completo: toSave.nombreCompleto,
+            anio_nacimiento: toSave.anioNacimiento,
+            etapa: toSave.etapa,
+            enlace: toSave.enlace,
+            temporada: toSave.temporada,
+            nombre_tutor: toSave.nombreTutor,
+            correo_tutor: toSave.correoTutor,
+            telefono_tutor: toSave.telefonoTutor,
+          };
+          try {
+            const exists = squadList.some(existing => String(existing.id) === String(originalId));
+            if (exists) await plantillasService.update(String(originalId), payload);
+            else await plantillasService.create(payload);
+            await fetchData();
+            setEditingPlayer(null);
+          } catch (e) {
+            alert(e instanceof Error ? e.message : 'Error al guardar el jugador');
+          }
+        }}
+      />}
       {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
-        if (isNewUser && password) {
-          const result = await authService.createAuthUser(u.email, password, u.nombre);
-          if (!result.success) { alert(result.error || 'Error al crear cuenta'); return; }
+        if (isNewUser) {
+          try {
+            const result = await authService.createAuthUser(u.email, password || '', u.nombre, {
+              rol: u.rol as 'Administrador' | 'Responsable' | 'Tecnico',
+              estado: u.estado as 'Activo' | 'Inactivo' | 'Pendiente',
+              clubId: u.clubId || currentTeam?.id || null,
+            });
+            if (!result.success) {
+              alert(result.error || 'No se pudo crear el usuario.');
+              return;
+            }
+            await fetchData();
+            setEditingUser(null); setIsNewUser(false);
+          } catch (e) {
+            alert(e instanceof Error ? e.message : 'Error al crear el usuario');
+          }
+          return;
         }
-        const userToSave = { ...u, clubId: u.clubId || currentTeam?.id || '' };
-        await db.users.upsert(userToSave);
-        try { await setUserRole({ email: userToSave.email }, userToSave.rol, userToSave.clubId || currentTeam?.id); } catch (e) { console.warn('[App] No se pudo sincronizar Custom Claim:', e); }
-        await fetchData(); setEditingUser(null); setIsNewUser(false);
+        try {
+          await usuariosService.update(u.id, {
+            nombre: u.nombre,
+            email: u.email,
+            rol: u.rol as Usuario['rol'],
+            estado: u.estado as Usuario['estado'],
+            club_id: u.clubId || currentTeam?.id || null,
+          });
+          if (password) {
+            const pwResult = await authService.setUserPassword(String(u.id), password);
+            if (!pwResult.success) {
+              alert(pwResult.error || 'No se pudo actualizar la contraseña.');
+              return;
+            }
+          }
+          await fetchData();
+          setEditingUser(null); setIsNewUser(false);
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
+        }
       }} />}
       {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEvent} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} />}
       {showNewModal && <NewEventModal initialDate={new Date()} onClose={() => { setShowNewModal(false); setModalDefaultType(undefined); }} onSave={handleSaveEvent} competitionTeams={competitionTeams} />}
