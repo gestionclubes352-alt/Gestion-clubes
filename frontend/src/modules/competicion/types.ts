@@ -5,8 +5,8 @@ export interface CompetitionTeam {
   /** Club al que pertenece este equipo. Debe existir previamente en el catálogo de Clubes. */
   clubId?: number | string;
   nombre: string;
-  estadio: string;
-  localidad: string;
+  estadio?: string;
+  localidad?: string;
   logoUrl?: string;
   /** Sub-equipo al que pertenece (ej: 'Juvenil A', 'Cadete A'). Sin valor = equipo principal. */
   equipo?: string;
