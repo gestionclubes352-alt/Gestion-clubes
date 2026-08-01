@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* ============================================================================
+   PROSE-AI: Rich markdown rendering for AI chat messages
+   ============================================================================ */
+
+.prose-ai {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--color-slate-700);
+}
+
+/* Dark mode text */
+:is(.dark) .prose-ai {
+  color: var(--color-slate-300);
+}
+
+/* Spacing between direct children */
+.prose-ai > * + * {
+  margin-top: 0.5em;
+}
+
+/* Headings */
+.prose-ai h1,
+.prose-ai h2,
+.prose-ai h3,
+.prose-ai h4 {
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* Paragraphs */
+.prose-ai p {
+  margin-bottom: 0.5em;
+}
+
+.prose-ai p:last-child {
+  margin-bottom: 0;
+}
+
+/* Bold / emphasis */
+.prose-ai strong {
+  font-weight: 650;
+}
+
+/* Lists */
+.prose-ai ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose-ai ol {
+  padding-left: 1.25em;
+}
+
+.prose-ai ol li {
+  padding-left: 0.25em;
+}
+
+.prose-ai li + li {
+  margin-top: 0.25em;
+}
+
+/* Nested lists */
+.prose-ai li > ul,
+.prose-ai li > ol {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+/* Code blocks */
+.prose-ai pre {
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.prose-ai code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Tables */
+.prose-ai table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.prose-ai th {
+  text-align: left;
+}
+
+.prose-ai tr:nth-child(even) td {
+  background-color: var(--color-slate-50);
+}
+
+:is(.dark) .prose-ai tr:nth-child(even) td {
+  background-color: oklch(0.25 0.01 260);
+}
+
+/* Blockquotes */
+.prose-ai blockquote {
+  font-style: italic;
+}
+
+.prose-ai blockquote p {
+  margin-bottom: 0;
+}
+
+/* Horizontal rules */
+.prose-ai hr {
+  border: none;
+  border-top: 1px solid var(--color-slate-200);
+  margin: 1em 0;
+}
+
+:is(.dark) .prose-ai hr {
+  border-top-color: var(--color-slate-700);
+}
+
+/* Links */
+.prose-ai a {
+  text-decoration: none;
+}
+
+.prose-ai a:hover {
+  text-decoration: underline;
+}

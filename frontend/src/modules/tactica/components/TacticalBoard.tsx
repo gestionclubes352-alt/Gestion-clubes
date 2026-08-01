@@ -1,0 +1,262 @@
+import React, { useState, useMemo } from 'react';
+import type { TacticalPosition } from '../types';
+import type { Player } from '@modules/plantilla';
+
+interface TacticalBoardProps {
+  formacion: string;
+  positions: TacticalPosition[];
+  squad: Player[];
+  onAssignPlayer: (posId: string, playerId: string | number) => void;
+  onRemovePlayer: (posId: string, playerId: string | number) => void;
+  onChangeFormation: (newForm: string) => void;
+  onPlayerSelect?: (player: Player) => void;
+}
+
+const TacticalBoard: React.FC<TacticalBoardProps> = ({ 
+  formacion, 
+  positions = [], 
+  squad,
+  onAssignPlayer, 
+  onRemovePlayer,
+  onChangeFormation,
+  onPlayerSelect
+}) => {
+  const [activePosId, setActivePosId] = useState<string | null>(null);
+
+  const groupedPlayers = useMemo(() => {
+    // Detectar si la plantilla usa demarcaciones específicas (modo Escuela/Huesca)
+    const hasSpecificDemarcations = squad.some(p =>
+      ['Lateral', 'Central', 'Pivote', 'Media punta', 'Interior', 'Extremo'].includes(p.posicion)
+    );
+
+    if (hasSpecificDemarcations) {
+      // Orden de demarcaciones específicas
+      const order = ['Portero', 'Lateral', 'Central', 'Pivote', 'Interior', 'Media punta', 'Extremo', 'Delantero'];
+      const groups: Record<string, typeof squad> = {};
+      for (const dem of order) {
+        const players = squad.filter(p => p.posicion === dem);
+        if (players.length > 0) groups[dem.toUpperCase()] = players;
+      }
+      // Agrupar posiciones no reconocidas en "OTROS"
+      const known = new Set(order);
+      const otros = squad.filter(p => !known.has(p.posicion) && p.posicion && p.posicion !== '–');
+      if (otros.length > 0) groups['OTROS'] = otros;
+      return groups;
+    }
+
+    // Modo genérico (4 grupos clásicos)
+    return {
+      PORTERO: squad.filter(p => p.posicion === 'Portero'),
+      DEFENSA: squad.filter(p => p.posicion === 'Defensa' || ['Lateral', 'Central'].includes(p.posicion)),
+      MEDIO: squad.filter(p => p.posicion === 'Medio' || ['Pivote', 'Media punta', 'Interior'].includes(p.posicion)),
+      DELANTERO: squad.filter(p => p.posicion === 'Delantero' || p.posicion === 'Extremo'),
+    };
+  }, [squad]);
+
+  const handlePickPlayer = (playerId: string | number) => {
+    if (activePosId) {
+      onAssignPlayer(activePosId, playerId);
+    }
+  };
+
+  const selectedPos = positions.find(p => p.id === activePosId);
+  const spacingFactor = 1.3;
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+  const fieldBackground = {
+    backgroundColor: '#1e8449',
+    backgroundImage: [
+      'radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.10) 0%, rgba(0, 0, 0, 0.05) 42%, rgba(0, 0, 0, 0.18) 100%)',
+      'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 0 56px, rgba(0, 0, 0, 0.06) 56px 112px)',
+      'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 128px)',
+    ].join(', '),
+    backgroundBlendMode: 'soft-light, multiply, normal',
+  } as const;
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-4 items-stretch w-full max-w-375 mx-auto min-h-150 lg:h-[calc(100vh-180px)] pb-20 lg:pb-0 px-4">
+      
+      {/* Columna Izquierda: El Campo */}
+      <div className="w-full flex-1 min-h-125 flex flex-col">
+        <div className="relative flex-1 rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center p-4 md:p-8 border-[6px] md:border-12 border-white/5 overflow-hidden" style={fieldBackground}>
+          
+          {/* Sistemas Flotantes */}
+          <div className="absolute top-4 left-4 md:top-8 md:left-8 flex bg-white/10 backdrop-blur-md rounded-lg md:rounded-xl p-1 border border-white/10 z-30 shadow-2xl overflow-x-auto max-w-50 md:max-w-none">
+            {['4-3-3', '4-4-2', '4-2-3-1', '5-3-2'].map(f => (
+              <button 
+                key={f}
+                onClick={() => onChangeFormation(f)}
+                className={`px-3 md:px-4 py-1 md:py-1.5 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${formacion === f ? 'bg-[var(--accent)] text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Líneas del campo */}
+          <div className="absolute inset-0 pointer-events-none p-4 md:p-6 opacity-62">
+            <svg
+              className="w-full h-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              shapeRendering="geometricPrecision"
+              aria-hidden="true"
+            >
+              <g
+                fill="none"
+                stroke="#ffffff"
+                strokeOpacity="0.84"
+                strokeWidth="0.32"
+                vectorEffect="non-scaling-stroke"
+              >
+                <rect x="2.6" y="2.6" width="94.8" height="94.8" />
+                <line x1="2.6" y1="50" x2="97.4" y2="50" />
+
+                <circle cx="50" cy="50" r="11.5" />
+                <circle cx="50" cy="50" r="0.38" fill="#ffffff" stroke="none" />
+
+                <circle cx="50" cy="12" r="0.38" fill="#ffffff" stroke="none" />
+                <circle cx="50" cy="88" r="0.38" fill="#ffffff" stroke="none" />
+
+                <rect x="37" y="2.6" width="26" height="11.5" />
+                <rect x="27" y="2.6" width="46" height="20.5" />
+
+                <rect x="37" y="85.9" width="26" height="11.5" />
+                <rect x="27" y="76.9" width="46" height="20.5" />
+              </g>
+            </svg>
+          </div>
+
+          {/* Posiciones e Interacción */}
+          <div className="absolute inset-4 md:inset-6 z-10">
+            {positions.map((pos) => {
+              const assignedPlayers = (pos.playerIds || []).map(id => squad.find(p => String(p.id) === String(id))).filter(Boolean) as Player[];
+              const displayPlayers = assignedPlayers.slice(-3);
+              const isActive = activePosId === pos.id;
+              const adjustedX = clamp(50 + (pos.x - 50) * spacingFactor, 3, 97);
+              const adjustedY = clamp(50 + (pos.y - 50) * spacingFactor, 3, 97);
+
+              return (
+                <div key={pos.id} className="absolute transition-all duration-300" style={{ left: `${adjustedX}%`, top: `${adjustedY}%`, transform: 'translate(-50%, -50%)' }}>
+                  <button 
+                    onClick={() => setActivePosId(isActive ? null : pos.id)}
+                    className="flex flex-col items-center group"
+                  >
+                    <div className="flex items-center justify-center transition-all relative">
+                      <i className="fa-solid fa-plus text-white/60 text-[18px] md:text-[22px]"></i>
+                    </div>
+                    {displayPlayers.length > 0 && (
+                      <div className="mt-1 md:mt-2 bg-black/90 text-white text-[6px] md:text-[7px] font-black px-2 md:px-3 py-1 rounded-md uppercase tracking-widest text-left leading-tight shadow-xl cursor-pointer max-w-45" style={{ minWidth: '80px' }}>
+                        {displayPlayers.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-2 py-0.5 border-b border-white/10 last:border-b-0"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/20 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
+                              {p.fotoUrl && p.fotoUrl.length > 1 ? (
+                                <img src={p.fotoUrl} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-[7px] font-black text-white">{p.nombre.slice(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <span className="bg-white/15 text-white text-[7px] md:text-[8px] font-black px-1.5 py-0.5 rounded cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
+                              {p.dorsal}
+                            </span>
+                            <div className="min-w-0 flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
+                              <div className="whitespace-nowrap truncate">
+                                {p.apodo ? p.apodo : p.nombre}
+                              </div>
+                              <div className="text-[6px] md:text-[7px] text-white/70 font-bold uppercase tracking-widest whitespace-nowrap truncate">
+                                {p.club} - {p.equipo}
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onRemovePlayer(pos.id, p.id); }}
+                              className="ml-1 w-4 h-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center shrink-0 transition-all"
+                              title="Quitar jugador del campo"
+                            >
+                              <i className="fa-solid fa-xmark text-white text-[7px]"></i>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Columna Derecha/Inferior: Selector */}
+      <div className="w-full lg:w-96 bg-white rounded-3xl md:rounded-3xl border border-slate-100 shadow-xl flex flex-col max-h-125 lg:max-h-none overflow-hidden shrink-0">
+        <div className="p-4 md:p-6 border-b border-slate-50 bg-slate-50/50">
+          <h3 className="text-[var(--accent)] font-black text-[10px] md:text-xs uppercase tracking-widest mb-1">CONVOCATORIA</h3>
+          <p className="text-[8px] md:text-[9px] font-bold text-slate-300 uppercase italic">
+            {activePosId ? 'Toca un jugador para añadir (máx 2)' : 'Toca una posición arriba'}
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6 scrollbar-hide">
+          {(Object.keys(groupedPlayers) as Array<keyof typeof groupedPlayers>).map((category) => (
+            <div key={category} className="space-y-2">
+              <h4 className="text-[8px] md:text-[9px] font-black text-slate-400 px-3 py-1 bg-slate-50 rounded-lg tracking-widest uppercase">
+                {category}
+              </h4>
+              <div className="space-y-2">
+                {groupedPlayers[category].map((player) => {
+                  const inThisPos = selectedPos?.playerIds?.some(id => String(id) === String(player.id));
+                  const isOnField = positions.some(p => p.playerIds?.some(id => String(id) === String(player.id)));
+                  const isDisabled = isOnField && !inThisPos;
+                  
+                  return (
+                    <button
+                      key={player.id}
+                      disabled={isDisabled}
+                      onClick={() => {
+                          if (inThisPos) onRemovePlayer(selectedPos!.id, player.id);
+                          else if (activePosId && !isDisabled) handlePickPlayer(player.id);
+                      }}
+                      className={`
+                        w-full flex items-center justify-between gap-3 p-3 rounded-2xl transition-all border
+                        ${inThisPos ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg' : 'bg-white border-slate-100 hover:bg-slate-50'}
+                        ${isDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}
+                        ${!activePosId && !inThisPos && !isDisabled ? 'opacity-50 grayscale' : ''}
+                      `}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center`}>
+                          {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                            <img src={player.fotoUrl} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className={`text-xs font-black ${inThisPos ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
+                              {player.dorsal}
+                            </span>
+                            <span className={`text-sm font-black uppercase truncate ${inThisPos ? 'text-white' : 'text-slate-600'}`}>
+                              {player.apodo || player.nombre}
+                            </span>
+                          </div>
+                          <div className={`text-[10px] font-bold uppercase tracking-widest truncate ${inThisPos ? 'text-white/70' : 'text-slate-400'}`}>
+                            {player.club} · {player.equipo}
+                          </div>
+                        </div>
+                      </div>
+                      <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-xs`}></i>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TacticalBoard;

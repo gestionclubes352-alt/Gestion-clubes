@@ -1,0 +1,340 @@
+import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { CompetitionTeam } from '../types';
+import { Club } from '../../clubes/types';
+import EditTeamModal from './EditTeamModal';
+import { getTeamConfig } from '@shared/services/dataService';
+
+interface CompetitionTableProps {
+  teams: CompetitionTeam[];
+  clubes: Club[];
+  clubId?: string;
+  onEdit?: (team: CompetitionTeam) => void | Promise<void>;
+  onDelete?: (id: number) => void;
+}
+
+/** Agrupa las entradas por nombre de club */
+interface ClubGroup {
+  nombre: string;
+  logoUrl?: string;
+  equipos: CompetitionTeam[];
+}
+
+const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, clubId, onEdit, onDelete }) => {
+  const [editingTeam, setEditingTeam] = useState<CompetitionTeam | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [expandedClubs, setExpandedClubs] = useState<Set<string>>(() => new Set());
+  const [search, setSearch] = useState('');
+  const [clubFilter, setClubFilter] = useState('Todos');
+
+  const myTeamName = useMemo(() => {
+    try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
+  }, []);
+  const isMyTeam = (name: string) => myTeamName && name.toLowerCase().includes(myTeamName.toLowerCase());
+
+  // Agrupa equipos por nombre de club
+  const groups = useMemo<ClubGroup[]>(() => {
+    const map = new Map<string, ClubGroup>();
+    teams.forEach(t => {
+      const key = t.nombre.trim().toUpperCase();
+      if (!map.has(key)) {
+        map.set(key, { nombre: t.nombre, logoUrl: t.logoUrl, equipos: [] });
+      }
+      map.get(key)!.equipos.push(t);
+      // Actualiza el logo del grupo si el equipo tiene uno
+      if (t.logoUrl && !map.get(key)!.logoUrl) {
+        map.get(key)!.logoUrl = t.logoUrl;
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [teams]);
+
+  // Filtrado por búsqueda
+  const filteredGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const bySearch = !q
+      ? groups
+      : groups
+          .map(g => ({
+            ...g,
+            equipos: g.equipos.filter(e =>
+              e.nombre.toLowerCase().includes(q) ||
+              (e.etapa || '').toLowerCase().includes(q) ||
+              (e.equipo || '').toLowerCase().includes(q) ||
+              (e.competicion || '').toLowerCase().includes(q)
+            ),
+          }))
+          .filter(g => g.equipos.length > 0 || g.nombre.toLowerCase().includes(q));
+
+    if (clubFilter === 'Todos') return bySearch;
+    return bySearch.filter(g => g.nombre === clubFilter);
+  }, [groups, search, clubFilter]);
+
+  // Clubs disponibles para el filtro (basados en los grupos sin filtrar)
+  const availableClubs = useMemo(() => groups.map(g => g.nombre), [groups]);
+
+  const toggleClub = (nombre: string) => {
+    setExpandedClubs(prev => {
+      const next = new Set(prev);
+      if (next.has(nombre)) next.delete(nombre);
+      else next.add(nombre);
+      return next;
+    });
+  };
+
+  const expandAll = () => setExpandedClubs(new Set(filteredGroups.map(g => g.nombre)));
+  const collapseAll = () => setExpandedClubs(new Set());
+
+  const { t } = useTranslation();
+
+  return (
+    <>
+      {/* PAGE TITLE */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex-1" />
+        <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
+          {t('sidebar.teamsLabel', 'Equipos')}
+        </h2>
+        <div className="flex-1 flex justify-end">
+          {onEdit && (
+            <button
+              onClick={() => {
+                if (clubes.length === 0) {
+                  alert('Primero debes crear un club en la sección Clubes.');
+                  return;
+                }
+                setIsCreating(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg"
+            >
+              <i className="fa-solid fa-plus text-xs"></i>
+              Nuevo Equipo
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* AVISO: sin clubes todavía */}
+      {clubes.length === 0 && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
+          <i className="fa-solid fa-circle-info"></i>
+          <span className="text-xs font-bold">
+            Aún no hay clubes creados. Ve a la sección Clubes para dar de alta uno antes de crear equipos.
+          </span>
+        </div>
+      )}
+
+      {/* FILTRO CLUB */}
+      {availableClubs.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setClubFilter('Todos')}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+              clubFilter === 'Todos'
+                ? 'bg-[var(--accent)] text-white shadow'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            Todos
+          </button>
+          {availableClubs.map(nombre => (
+            <button
+              key={nombre}
+              onClick={() => setClubFilter(nombre === clubFilter ? 'Todos' : nombre)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+                clubFilter === nombre
+                  ? 'bg-[var(--accent)] text-white shadow'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              {nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* BARRA DE BÚSQUEDA + CONTROLES */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="relative flex-1 min-w-[200px]">
+          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar club, etapa, equipo..."
+            className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+          />
+        </div>
+        <button
+          onClick={expandAll}
+          className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-all"
+          title="Expandir todos"
+        >
+          <i className="fa-solid fa-chevron-down mr-1"></i>Expandir
+        </button>
+        <button
+          onClick={collapseAll}
+          className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-all"
+          title="Colapsar todos"
+        >
+          <i className="fa-solid fa-chevron-up mr-1"></i>Colapsar
+        </button>
+      </div>
+
+      {/* TABLA AGRUPADA */}
+      <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+        {/* Cabecera */}
+        <div className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
+          style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
+        >
+          <div className="px-3 py-3"></div>
+          <div className="px-3 py-3">Club / Equipo</div>
+          <div className="px-3 py-3">Etapa</div>
+          <div className="px-3 py-3">Equipo</div>
+          <div className="px-3 py-3">Competición</div>
+          <div className="px-3 py-3">Enlace</div>
+          <div className="px-3 py-3 text-right">Acciones</div>
+        </div>
+
+        {filteredGroups.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+            <i className="fa-solid fa-shield text-4xl mb-3"></i>
+            <span className="text-sm font-bold uppercase tracking-widest">Sin resultados</span>
+          </div>
+        )}
+
+        {filteredGroups.map((group) => {
+          const isExpanded = expandedClubs.has(group.nombre);
+          const highlight = isMyTeam(group.nombre);
+          return (
+            <div key={group.nombre} className="border-b border-slate-100 last:border-b-0">
+              {/* FILA CLUB (cabecera del grupo) */}
+              <button
+                type="button"
+                onClick={() => toggleClub(group.nombre)}
+                className={`w-full grid items-center text-left transition-colors hover:bg-slate-50 ${highlight ? 'bg-[var(--accent)]/5' : 'bg-white'}`}
+                style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
+              >
+                {/* Logo */}
+                <div className="px-3 py-3 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {group.logoUrl ? (
+                      <img src={group.logoUrl} alt={group.nombre} className="max-w-full max-h-full object-contain" />
+                    ) : (
+                      <i className="fa-solid fa-shield text-slate-300 text-xs"></i>
+                    )}
+                  </div>
+                </div>
+                {/* Nombre club */}
+                <div className="px-3 py-3 flex items-center gap-2">
+                  <i className={`fa-solid fa-chevron-right text-[10px] transition-transform duration-200 text-slate-400 ${isExpanded ? 'rotate-90' : ''}`}></i>
+                  <span className={`text-sm font-black uppercase tracking-tight ${highlight ? 'text-[var(--accent)]' : 'text-slate-800'}`}>
+                    {group.nombre}
+                  </span>
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
+                    {group.equipos.length} {group.equipos.length === 1 ? 'equipo' : 'equipos'}
+                  </span>
+                </div>
+                {/* Columnas vacías en la fila del club */}
+                <div /><div /><div /><div /><div />
+              </button>
+
+              {/* SUB-FILAS EQUIPOS */}
+              {isExpanded && group.equipos.map((eq) => (
+                <div
+                  key={String(eq.id)}
+                  className="grid items-center border-t border-slate-100 bg-slate-50/60 hover:bg-slate-100/60 transition-colors"
+                  style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
+                >
+                  {/* Indent visual */}
+                  <div className="px-3 py-2.5 flex items-center justify-center">
+                    <div className="w-1 h-1 rounded-full bg-slate-300 ml-3"></div>
+                  </div>
+                  {/* Equipo nombre (indentado) */}
+                  <div className="px-3 py-2.5 pl-8">
+                    <span className="text-xs font-semibold text-slate-600">{eq.nombre}</span>
+                  </div>
+                  {/* Etapa */}
+                  <div className="px-3 py-2.5">
+                    {eq.etapa ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-[10px] font-black uppercase tracking-wide">
+                        {eq.etapa}
+                      </span>
+                    ) : <span className="text-slate-300 text-xs">—</span>}
+                  </div>
+                  {/* Equipo */}
+                  <div className="px-3 py-2.5">
+                    <span className="text-xs font-bold text-slate-700">{eq.equipo || <span className="text-slate-300">—</span>}</span>
+                  </div>
+                  {/* Competición */}
+                  <div className="px-3 py-2.5">
+                    <span className="text-xs text-slate-500">{eq.competicion || <span className="text-slate-300">—</span>}</span>
+                  </div>
+                  {/* Enlace */}
+                  <div className="px-3 py-2.5">
+                    {eq.enlace
+                      ? <a href={eq.enlace} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline text-[10px] font-bold truncate max-w-[180px] block" title={eq.enlace}>
+                          <i className="fa-solid fa-arrow-up-right-from-square mr-1 text-[9px]"></i>Ver enlace
+                        </a>
+                      : <span className="text-slate-300 text-xs">—</span>
+                    }
+                  </div>
+                  {/* Acciones */}
+                  <div className="px-3 py-2.5 flex items-center justify-end gap-2">
+                    {onEdit && (
+                      <button
+                        onClick={() => setEditingTeam(eq)}
+                        className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                        title="Editar"
+                      >
+                        <i className="fa-regular fa-pen-to-square text-[11px]"></i>
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(Number(eq.id))}
+                        className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                        title="Eliminar"
+                      >
+                        <i className="fa-regular fa-trash-can text-[11px]"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modales */}
+      {editingTeam && onEdit && (
+        <EditTeamModal
+          team={editingTeam}
+          clubId={clubId}
+          clubes={clubes}
+          onClose={() => setEditingTeam(null)}
+          onSave={async (updated) => {
+            await onEdit(updated);
+            setEditingTeam(null);
+          }}
+        />
+      )}
+      {isCreating && onEdit && (
+        <EditTeamModal
+          team={{ id: Date.now(), nombre: '', estadio: '', localidad: '' }}
+          clubId={clubId}
+          clubes={clubes}
+          isNew
+          onClose={() => setIsCreating(false)}
+          onSave={async (created) => {
+            await onEdit(created);
+            setIsCreating(false);
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+export default CompetitionTable;

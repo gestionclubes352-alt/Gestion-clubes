@@ -1,0 +1,8 @@
+node_modules/
+node_modules_ignore/
+dist/
+build/
+.env
+.env.local
+*.log
+.claude/settings.local.json

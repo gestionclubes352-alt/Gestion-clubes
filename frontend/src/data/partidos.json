@@ -1,0 +1,59 @@
+[
+  {
+    "id": "j1-derio-sanignacio",
+    "competition": "Tercera Federación 25/26",
+    "date": "2025-09-07",
+    "jornada": "1",
+    "localTeam": "DERIO, C.D.",
+    "visitorTeam": "SAN IGNACIO C.D. 'A'",
+    "opponent": "SAN IGNACIO C.D. 'A'",
+    "status": "Finished",
+    "score": "2-1",
+    "location": "Campo Derio"
+  },
+  {
+    "id": "j2-portugalete-derio",
+    "competition": "Tercera Federación 25/26",
+    "date": "2025-09-14",
+    "jornada": "2",
+    "localTeam": "PORTUGALETE, C.",
+    "visitorTeam": "DERIO, C.D.",
+    "opponent": "PORTUGALETE, C.",
+    "status": "Finished",
+    "score": "1-1",
+    "location": "La Florida"
+  },
+  {
+    "id": "j3-derio-deusto",
+    "competition": "Tercera Federación 25/26",
+    "date": "2025-09-21",
+    "jornada": "3",
+    "localTeam": "DERIO, C.D.",
+    "visitorTeam": "DEUSTO, S.D.",
+    "opponent": "DEUSTO, S.D.",
+    "status": "Upcoming",
+    "location": "Campo Derio"
+  },
+  {
+    "id": "j4-lagunonak-derio",
+    "competition": "Tercera Federación 25/26",
+    "date": "2025-09-28",
+    "jornada": "4",
+    "localTeam": "LAGUN ONAK, C.D.",
+    "visitorTeam": "DERIO, C.D.",
+    "opponent": "LAGUN ONAK, C.D.",
+    "status": "Upcoming",
+    "location": "Garmendipe"
+  },
+  {
+    "id": "j5-derio-pasaia",
+    "competition": "Tercera Federación 25/26",
+    "date": "2025-10-05",
+    "jornada": "5",
+    "localTeam": "DERIO, C.D.",
+    "visitorTeam": "PASAIA KIROL ELKARTEA",
+    "opponent": "PASAIA KIROL ELKARTEA",
+    "status": "Upcoming",
+    "location": "Campo Derio"
+  }
+]
