@@ -11,7 +11,25 @@
  *     Firebase, sin equivalente directo en Supabase Auth.
  */
 
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
+
+/**
+ * supabase-js solo expone un mensaje genérico ("Edge Function returned a
+ * non-2xx status code") cuando la función responde con error: el cuerpo JSON
+ * real (`{ error: '...' }`) hay que leerlo aparte desde `error.context`.
+ */
+async function extractFunctionErrorMessage(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return body.error as string;
+    } catch {
+      // El cuerpo no era JSON parseable; seguimos con el mensaje genérico.
+    }
+  }
+  return error instanceof Error ? error.message : 'Error desconocido.';
+}
 
 /** Emails con acceso de desarrollador (ven todos los clubs sin restricción). */
 export const DEV_EMAILS = ['mikelzarate@gmail.com', 'ilandaleioa@gmail.com'];
@@ -52,7 +70,7 @@ class AuthServiceStub {
       },
     });
 
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: await extractFunctionErrorMessage(error) };
     if (data?.error) return { success: false, error: data.error };
     return { success: true, uid: data?.id };
   }
@@ -63,7 +81,7 @@ class AuthServiceStub {
       body: { user_id: userId, password },
     });
 
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: await extractFunctionErrorMessage(error) };
     if (data?.error) return { success: false, error: data.error };
     return { success: true };
   }

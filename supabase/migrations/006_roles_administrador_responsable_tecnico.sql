@@ -8,17 +8,21 @@
 --                      (antes "Analista"/"Staff").
 -- =====================================================
 
--- 1) Migrar datos existentes al nuevo vocabulario
+-- 1) Quitar el CHECK constraint antiguo antes de tocar los datos: si se migran
+--    los valores primero (Staff/Analista -> Tecnico) la restricción vieja
+--    (que no admite 'Tecnico'/'Responsable') rechaza el propio UPDATE.
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+
+-- 2) Migrar datos existentes al nuevo vocabulario
 UPDATE usuarios SET rol = 'Responsable' WHERE rol = 'Entrenador';
 UPDATE usuarios SET rol = 'Tecnico' WHERE rol IN ('Analista', 'Staff');
 
--- 2) Reemplazar el CHECK constraint y el DEFAULT
-ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+-- 3) Poner el DEFAULT y el CHECK constraint nuevos
 ALTER TABLE usuarios ALTER COLUMN rol SET DEFAULT 'Tecnico';
 ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
     CHECK (rol IN ('Administrador', 'Responsable', 'Tecnico'));
 
--- 3) Helpers para políticas RLS basadas en rol/club del usuario autenticado
+-- 4) Helpers para políticas RLS basadas en rol/club del usuario autenticado
 --    (nombres distintos de current_user_rol()/current_user_club() de 002_rls_policies.sql,
 --    que siguen operando sobre la tabla legacy `profiles`)
 CREATE OR REPLACE FUNCTION current_usuario_rol() RETURNS TEXT AS $$
@@ -29,7 +33,7 @@ CREATE OR REPLACE FUNCTION current_usuario_club_id() RETURNS UUID AS $$
     SELECT club_id FROM usuarios WHERE id = auth.uid();
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
--- 4) La tabla `usuarios` solo tenía una política de SELECT ("ver el propio"):
+-- 5) La tabla `usuarios` solo tenía una política de SELECT ("ver el propio"):
 --    nadie podía ver ni gestionar el resto de usuarios de su club.
 --    Añadimos visibilidad/gestión para Administrador (global) y Responsable (su club).
 CREATE POLICY "usuarios: administradores ven todos" ON usuarios
