@@ -448,6 +448,7 @@
   "login": {
     "selectTeamFirst": "Aukeratu talde bat lehenik",
     "wrongCredentials": "Kredentzial okerrak",
+    "configError": "Konfigurazio-errorea: ezin da autentifikazio-zerbitzariarekin konektatu. Jarri harremanetan administratzailearekin.",
     "importError": "Errorea taldearen datuak inportatzean",
     "googleLoginError": "Errorea Google-rekin saioa hastean",
     "nameRequired": "Izena beharrezkoa da",

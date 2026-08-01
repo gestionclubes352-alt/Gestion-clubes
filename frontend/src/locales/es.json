@@ -448,6 +448,7 @@
   "login": {
     "selectTeamFirst": "Selecciona un equipo primero",
     "wrongCredentials": "Credenciales incorrectas",
+    "configError": "Error de configuración: no se puede conectar con el servidor de autenticación. Contacta con el administrador.",
     "importError": "Error al importar datos del equipo",
     "googleLoginError": "Error al iniciar sesión con Google",
     "nameRequired": "El nombre es obligatorio",

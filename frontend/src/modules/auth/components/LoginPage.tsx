@@ -16,6 +16,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@context/AuthContext';
+import { isSupabaseConfigured } from '@shared/services/supabaseClient';
+
+// Mensaje textual que devuelve Supabase Auth cuando el email/password no coinciden.
+// Cualquier otro error (API key inválida, red, URL mal configurada...) se muestra tal cual
+// para poder diagnosticarlo sin abrir la consola del navegador.
+const SUPABASE_INVALID_CREDENTIALS_MESSAGE = 'Invalid login credentials';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -55,7 +61,11 @@ const LoginPage: React.FC = () => {
     setError(null);
     const { error: signInError } = await signIn(email, password);
     if (signInError) {
-      setError(t('login.wrongCredentials'));
+      setError(
+        signInError === SUPABASE_INVALID_CREDENTIALS_MESSAGE
+          ? t('login.wrongCredentials')
+          : signInError
+      );
     }
     setIsEntering(false);
   };
@@ -153,6 +163,12 @@ const LoginPage: React.FC = () => {
             Sports Management Platform
           </p>
         </div>
+
+        {!isSupabaseConfigured && (
+          <div className="mb-4 p-4 bg-amber-900/30 border border-amber-700/50 rounded-2xl text-center">
+            <span className="text-xs font-bold text-amber-400">{t('login.configError')}</span>
+          </div>
+        )}
 
         <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-black/30 border border-slate-700/50 p-8">
           {mode === 'login' ? (
