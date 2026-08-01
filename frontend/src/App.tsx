@@ -277,14 +277,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   // Club activo: se resuelve directamente desde perfil.club_id (tabla `usuarios`),
   // ya no desde un catálogo estático de equipos demo.
   const [currentTeam, setCurrentTeam] = useState<{ id: string; name: string } | null>(null);
+  const [clubLoadError, setClubLoadError] = useState<string | null>(null);
+  const [clubRetryToken, setClubRetryToken] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    if (!perfil?.club_id) { setCurrentTeam(null); return; }
+    if (!perfil?.club_id) {
+      setCurrentTeam(null);
+      setClubLoadError('no-club');
+      return;
+    }
+    setClubLoadError(null);
     clubesService.getById(perfil.club_id)
-      .then(club => { if (!cancelled) setCurrentTeam({ id: club.id, name: club.nombre }); })
-      .catch(err => { console.error('[App] Error cargando club activo:', err); if (!cancelled) setCurrentTeam(null); });
+      .then(club => { if (!cancelled) { setCurrentTeam({ id: club.id, name: club.nombre }); setClubLoadError(null); } })
+      .catch(err => {
+        console.error('[App] Error cargando club activo:', err);
+        if (!cancelled) { setCurrentTeam(null); setClubLoadError('fetch-error'); }
+      });
     return () => { cancelled = true; };
-  }, [perfil?.club_id]);
+  }, [perfil?.club_id, clubRetryToken]);
 
   // Resetear el estado y recargar datos al cambiar de club
   useEffect(() => {
@@ -704,6 +714,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     </div>
   );
 
+  // Pantalla de error cuando no se puede resolver el club activo (evita spinner infinito)
+  const ClubErrorScreen = () => (
+    <div className="flex flex-col h-full items-center justify-center py-40 gap-4 text-center px-4">
+      <i className="fa-solid fa-triangle-exclamation text-5xl text-amber-500"></i>
+      <span className="text-sm font-bold text-slate-300 max-w-md">
+        {clubLoadError === 'no-club'
+          ? 'Tu usuario no tiene ningún club asignado. Contacta con un administrador.'
+          : 'No se ha podido cargar el club activo. Comprueba tu conexión e inténtalo de nuevo.'}
+      </span>
+      <button
+        onClick={() => setClubRetryToken(prev => prev + 1)}
+        className="px-4 py-2 rounded-xl bg-sport-primary text-white text-xs font-black uppercase tracking-widest"
+      >
+        Reintentar
+      </button>
+    </div>
+  );
+
   // Determinar qué partes del shell global ocultar según la vista
   const isMatchReportView = location.pathname.match(/^\/partidos\/[^/]+$/);
   const isSettingsView = location.pathname.startsWith('/settings');
@@ -754,7 +782,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           />
         ) : (
         <div className={`flex-1 min-h-0 overflow-y-auto w-full ${!hideShellSidebar ? 'px-4 pt-3 pb-24 md:px-6 md:pt-4 md:pb-8 lg:px-12 lg:pt-6 lg:pb-10' : ''} scrollbar-hide`}>
-          {isLoading ? <LoadingScreen /> : (
+          {clubLoadError ? <ClubErrorScreen /> : isLoading ? <LoadingScreen /> : (
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
