@@ -12,6 +12,8 @@ interface TaskDetailModalProps {
   open: boolean;
   onClose: () => void;
   onSave: (task: TrainingTask) => void;
+  /** Cuando es true, solo se editan Nombre y Categoría (el resto se completa al añadir la tarea a una sesión). */
+  minimalFields?: boolean;
 }
 
 const emptyTask = (): Omit<TrainingTask, 'id' | 'createdAt' | 'updatedAt'> => ({
@@ -30,7 +32,7 @@ const emptyTask = (): Omit<TrainingTask, 'id' | 'createdAt' | 'updatedAt'> => ({
   notes: '',
 });
 
-const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, onSave }) => {
+const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, onSave, minimalFields = false }) => {
   const { t } = useTranslation();
   const isEditing = !!task;
 
@@ -162,113 +164,119 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
                 {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.sessionPhase')}</label>
-              <select value={form.sessionPhase} onChange={e => set('sessionPhase', e.target.value as SessionPhase)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 bg-white">
-                {SESSION_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.description')}</label>
-            <textarea
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 resize-none"
-              placeholder={t('taskRepository.descriptionPlaceholder')}
-            />
-          </div>
-
-          {/* ---- Parámetros ---- */}
-          <SectionTitle icon="fa-sliders" text={t('taskRepository.parameters')} />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.intensity')}</label>
-              <select value={form.intensity} onChange={e => set('intensity', e.target.value as TaskIntensity)} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 bg-white">
-                {TASK_INTENSITIES.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.duration')}</label>
-              <input type="number" min={1} value={form.durationMinutes} onChange={e => set('durationMinutes', Number(e.target.value))} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.minPlayers')}</label>
-              <input type="number" min={1} value={form.minPlayers} onChange={e => set('minPlayers', Number(e.target.value))} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.maxPlayers')}</label>
-              <input type="number" min={1} value={form.maxPlayers} onChange={e => set('maxPlayers', Number(e.target.value))} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.fieldDimensions')}</label>
-            <input
-              value={form.fieldDimensions}
-              onChange={e => set('fieldDimensions', e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-              placeholder="30x20m"
-            />
-          </div>
-
-          {/* ---- Objetivos ---- */}
-          <SectionTitle icon="fa-bullseye" text={t('taskRepository.objectives')} />
-          <div className="flex gap-2 mb-2">
-            <input value={objectiveInput} onChange={e => setObjectiveInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddObjective()} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" placeholder={t('taskRepository.objectivePlaceholder')} />
-            <button onClick={handleAddObjective} className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"><i className="fa-solid fa-plus"></i></button>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {form.objectives.map((obj, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                <span className="text-xs font-bold text-slate-700 flex-1">{obj}</span>
-                <button onClick={() => handleRemoveObjective(idx)} className="text-red-400 hover:text-red-600 text-xs"><i className="fa-solid fa-xmark"></i></button>
+            {!minimalFields && (
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.sessionPhase')}</label>
+                <select value={form.sessionPhase} onChange={e => set('sessionPhase', e.target.value as SessionPhase)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 bg-white">
+                  {SESSION_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
-            ))}
+            )}
           </div>
 
-          {/* ---- Material ---- */}
-          <SectionTitle icon="fa-box" text={t('taskRepository.materials')} />
-          <div className="flex gap-2 mb-2">
-            <input value={materialName} onChange={e => setMaterialName(e.target.value)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" placeholder={t('taskRepository.materialPlaceholder')} />
-            <input type="number" min={1} value={materialQty} onChange={e => setMaterialQty(Number(e.target.value))} className="w-16 px-2 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
-            <button onClick={handleAddMaterial} className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"><i className="fa-solid fa-plus"></i></button>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {form.materials.map((mat, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                <span className="text-xs font-bold text-slate-700 flex-1">{mat.name} <span className="text-slate-400">x{mat.quantity}</span></span>
-                <button onClick={() => handleRemoveMaterial(idx)} className="text-red-400 hover:text-red-600 text-xs"><i className="fa-solid fa-xmark"></i></button>
+          {!minimalFields && (
+            <>
+              <div className="mt-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.description')}</label>
+                <textarea
+                  value={form.description}
+                  onChange={e => set('description', e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 resize-none"
+                  placeholder={t('taskRepository.descriptionPlaceholder')}
+                />
               </div>
-            ))}
-          </div>
 
-          {/* ---- Etiquetas ---- */}
-          <SectionTitle icon="fa-tags" text={t('taskRepository.tags')} />
-          <div className="flex gap-2 mb-2">
-            <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddTag()} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" placeholder={t('taskRepository.tagPlaceholder')} />
-            <button onClick={handleAddTag} className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"><i className="fa-solid fa-plus"></i></button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {form.tags.map((tag, idx) => (
-              <span key={idx} className="inline-flex items-center gap-1.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest">
-                {tag}
-                <button onClick={() => handleRemoveTag(idx)} className="hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-[8px]"></i></button>
-              </span>
-            ))}
-          </div>
+              {/* ---- Parámetros ---- */}
+              <SectionTitle icon="fa-sliders" text={t('taskRepository.parameters')} />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.intensity')}</label>
+                  <select value={form.intensity} onChange={e => set('intensity', e.target.value as TaskIntensity)} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 bg-white">
+                    {TASK_INTENSITIES.map(i => <option key={i} value={i}>{i}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.duration')}</label>
+                  <input type="number" min={1} value={form.durationMinutes} onChange={e => set('durationMinutes', Number(e.target.value))} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.minPlayers')}</label>
+                  <input type="number" min={1} value={form.minPlayers} onChange={e => set('minPlayers', Number(e.target.value))} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.maxPlayers')}</label>
+                  <input type="number" min={1} value={form.maxPlayers} onChange={e => set('maxPlayers', Number(e.target.value))} className="w-full px-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
+                </div>
+              </div>
 
-          {/* ---- Notas ---- */}
-          <SectionTitle icon="fa-note-sticky" text={t('taskRepository.notes')} />
-          <textarea
-            value={form.notes}
-            onChange={e => set('notes', e.target.value)}
-            rows={2}
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 resize-none"
-            placeholder={t('taskRepository.notesPlaceholder')}
-          />
+              <div className="mt-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">{t('taskRepository.fieldDimensions')}</label>
+                <input
+                  value={form.fieldDimensions}
+                  onChange={e => set('fieldDimensions', e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  placeholder="30x20m"
+                />
+              </div>
+
+              {/* ---- Objetivos ---- */}
+              <SectionTitle icon="fa-bullseye" text={t('taskRepository.objectives')} />
+              <div className="flex gap-2 mb-2">
+                <input value={objectiveInput} onChange={e => setObjectiveInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddObjective()} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" placeholder={t('taskRepository.objectivePlaceholder')} />
+                <button onClick={handleAddObjective} className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"><i className="fa-solid fa-plus"></i></button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {form.objectives.map((obj, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    <span className="text-xs font-bold text-slate-700 flex-1">{obj}</span>
+                    <button onClick={() => handleRemoveObjective(idx)} className="text-red-400 hover:text-red-600 text-xs"><i className="fa-solid fa-xmark"></i></button>
+                  </div>
+                ))}
+              </div>
+
+              {/* ---- Material ---- */}
+              <SectionTitle icon="fa-box" text={t('taskRepository.materials')} />
+              <div className="flex gap-2 mb-2">
+                <input value={materialName} onChange={e => setMaterialName(e.target.value)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" placeholder={t('taskRepository.materialPlaceholder')} />
+                <input type="number" min={1} value={materialQty} onChange={e => setMaterialQty(Number(e.target.value))} className="w-16 px-2 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" />
+                <button onClick={handleAddMaterial} className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"><i className="fa-solid fa-plus"></i></button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {form.materials.map((mat, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    <span className="text-xs font-bold text-slate-700 flex-1">{mat.name} <span className="text-slate-400">x{mat.quantity}</span></span>
+                    <button onClick={() => handleRemoveMaterial(idx)} className="text-red-400 hover:text-red-600 text-xs"><i className="fa-solid fa-xmark"></i></button>
+                  </div>
+                ))}
+              </div>
+
+              {/* ---- Etiquetas ---- */}
+              <SectionTitle icon="fa-tags" text={t('taskRepository.tags')} />
+              <div className="flex gap-2 mb-2">
+                <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddTag()} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30" placeholder={t('taskRepository.tagPlaceholder')} />
+                <button onClick={handleAddTag} className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"><i className="fa-solid fa-plus"></i></button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {form.tags.map((tag, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+                    {tag}
+                    <button onClick={() => handleRemoveTag(idx)} className="hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-[8px]"></i></button>
+                  </span>
+                ))}
+              </div>
+
+              {/* ---- Notas ---- */}
+              <SectionTitle icon="fa-note-sticky" text={t('taskRepository.notes')} />
+              <textarea
+                value={form.notes}
+                onChange={e => set('notes', e.target.value)}
+                rows={2}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 resize-none"
+                placeholder={t('taskRepository.notesPlaceholder')}
+              />
+            </>
+          )}
         </div>
 
         {/* Footer */}

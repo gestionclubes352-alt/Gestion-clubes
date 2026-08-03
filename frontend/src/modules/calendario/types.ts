@@ -1,5 +1,18 @@
 // Tipos específicos del módulo Calendario
 
+import type { TaskCategory, SessionPhase } from '@modules/repositorio-tareas';
+
+export interface SessionTask {
+  id: string;
+  /** id de la tarea en el Repositorio de Tareas, si se añadió desde ahí */
+  linkedTaskId?: string;
+  title: string;
+  category?: TaskCategory;
+  sessionPhase?: SessionPhase;
+  durationMinutes?: number;
+  description?: string;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -22,6 +35,7 @@ export interface CalendarEvent {
   opponent?: string;
   score?: string;
   status?: 'Finished' | 'Upcoming';
+  tasks?: SessionTask[];
 }
 
 export type EventType = CalendarEvent['type'];

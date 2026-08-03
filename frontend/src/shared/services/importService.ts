@@ -3,7 +3,8 @@
  * @description Permite cargar datos masivos a la aplicación de forma sencilla.
  */
 
-import { db, getActiveTeamId, getTeamConfig } from './dataService';
+import { db, getActiveTeamId, getTeamConfig, eventosCalendarioService } from './dataService';
+import type { EventoCalendario } from './dataService';
 
 // ============================================================================
 // TIPOS
@@ -360,13 +361,13 @@ export const importEvents = async (csvContent: string): Promise<ImportResult> =>
   }
 
   const warnings: string[] = [...errors];
-  const validTypes = ['Entrenamiento', 'Partido', 'Otro', 'Actividad'];
+  const validTypes: EventoCalendario['type'][] = ['Entrenamiento', 'Partido', 'Otro', 'Actividad'];
 
   const validEvents = data.map((row: any) => {
     const type = validTypes.find(t => t.toLowerCase() === row.type?.toLowerCase()) || 'Otro';
-    
+
     return {
-      id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       title: row.title || 'Sin título',
       type,
       date: row.date || new Date().toISOString().split('T')[0],
@@ -379,10 +380,9 @@ export const importEvents = async (csvContent: string): Promise<ImportResult> =>
 
   let imported = 0;
 
-  // Usar db.* para respetar el aislamiento por equipo
   try {
     for (const event of validEvents) {
-      await db.events.upsert(event);
+      await eventosCalendarioService.upsert(event);
     }
     imported = validEvents.length;
   } catch (err: any) {

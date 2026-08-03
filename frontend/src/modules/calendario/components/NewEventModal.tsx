@@ -72,6 +72,12 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     .map((team) => team.nombre || '')
     .filter((teamName) => teamName.trim().length > 0);
 
+  const subTeamOptions = Array.from(new Set(
+    competitionTeams
+      .map((team) => team.equipo || team.nombre || '')
+      .filter((teamName) => teamName.trim().length > 0)
+  ));
+
   const handleSubmit = () => {
     if (!typeSelected) return;
 
@@ -192,6 +198,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                     <EquipoSelect
                       value={formData.team}
                       onChange={(team) => setFormData({ ...formData, team })}
+                      extraTeams={subTeamOptions}
                       placeholder={t('newEvent.teamPlaceholder')}
                       className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
                     />
@@ -264,53 +271,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                   </div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>
                   <div className="grid grid-cols-2 gap-4 mt-1">
-                    {teamOptions.length > 0 ? (
-                      <>
-                        <select
-                          name="localTeam"
-                          value={formData.localTeam}
-                          onChange={handleChange}
-                          className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900"
-                        >
-                          <option value="">{t('newEvent.homeTeam')}</option>
-                          {teamOptions.map((teamName) => (
-                            <option key={teamName} value={teamName}>
-                              {teamName}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          name="visitorTeam"
-                          value={formData.visitorTeam}
-                          onChange={handleChange}
-                          className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900"
-                        >
-                          <option value="">{t('newEvent.awayTeam')}</option>
-                          {teamOptions.map((teamName) => (
-                            <option key={teamName} value={teamName}>
-                              {teamName}
-                            </option>
-                          ))}
-                        </select>
-                      </>
-                    ) : (
-                      <>
-                        <input
-                          name="localTeam"
-                          value={formData.localTeam}
-                          onChange={handleChange}
-                          placeholder={t('newEvent.homePlaceholder')}
-                          className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold"
-                        />
-                        <input
-                          name="visitorTeam"
-                          value={formData.visitorTeam}
-                          onChange={handleChange}
-                          placeholder={t('newEvent.awayPlaceholder')}
-                          className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold"
-                        />
-                      </>
-                    )}
+                    <EquipoSelect
+                      value={formData.localTeam}
+                      onChange={(team) => setFormData({ ...formData, localTeam: team })}
+                      extraTeams={teamOptions}
+                      placeholder={t('newEvent.homeTeam')}
+                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
+                    />
+                    <EquipoSelect
+                      value={formData.visitorTeam}
+                      onChange={(team) => setFormData({ ...formData, visitorTeam: team })}
+                      extraTeams={teamOptions}
+                      placeholder={t('newEvent.awayTeam')}
+                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
+                    />
                   </div>
                   <input
                     name="score"
