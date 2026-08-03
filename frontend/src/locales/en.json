@@ -309,7 +309,8 @@
     "emptyTitle": "No tasks",
     "emptyDescription": "Create your first task to start building your repository",
     "createFirst": "Create first task",
-    "duplicate": "Duplicate"
+    "duplicate": "Duplicate",
+    "openDesigner": "Open designer"
   },
   "videos": {
     "title": "Video Library",
@@ -670,7 +671,14 @@
     "minutesAbbr": "min",
     "repositoryPickerTitle": "Choose from Task Repository",
     "repositoryEmpty": "There are no tasks in the Task Repository yet",
-    "searchTasks": "Search tasks..."
+    "searchTasks": "Search tasks...",
+    "sessionNumberLabel": "Session No.",
+    "exerciseLabel": "Exercise",
+    "fieldName": "Name",
+    "fieldTaskType": "Task type",
+    "fieldGamePhase": "Game phase",
+    "fieldDescription": "Description",
+    "describeTaskPlaceholder": "Describe the task..."
   },
   "userTable": {
     "user": "User",

@@ -309,7 +309,8 @@
     "emptyTitle": "Sin tareas",
     "emptyDescription": "Crea tu primera tarea para empezar a construir tu repositorio",
     "createFirst": "Crear primera tarea",
-    "duplicate": "Duplicar"
+    "duplicate": "Duplicar",
+    "openDesigner": "Abrir diseñador"
   },
   "videos": {
     "title": "Videoteca",
@@ -670,7 +671,14 @@
     "minutesAbbr": "min",
     "repositoryPickerTitle": "Elegir del Repositorio de Tareas",
     "repositoryEmpty": "No hay tareas en el Repositorio de Tareas todavía",
-    "searchTasks": "Buscar tareas..."
+    "searchTasks": "Buscar tareas...",
+    "sessionNumberLabel": "Nº Sesión",
+    "exerciseLabel": "Ejercicio",
+    "fieldName": "Nombre",
+    "fieldTaskType": "Tipo de tarea",
+    "fieldGamePhase": "Fase de juego",
+    "fieldDescription": "Descripción",
+    "describeTaskPlaceholder": "Describe la tarea..."
   },
   "userTable": {
     "user": "Usuario",

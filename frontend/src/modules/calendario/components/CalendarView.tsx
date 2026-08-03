@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { CalendarEvent, SessionTask } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Player } from '@modules/plantilla';
+import { db } from '@shared/services/dataService';
+import type { TrainingTask } from '@modules/repositorio-tareas';
 import NewEventModal from './NewEventModal';
 import SessionTasksPanel from './SessionTasksPanel';
 
@@ -32,6 +34,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const location = useLocation();
   const navigate = useNavigate();
   const [showNewModal, setShowNewModal] = useState(false);
+  const [defaultEventType, setDefaultEventType] = useState<'Partido' | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -46,6 +49,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [docUrl, setDocUrl] = useState('');
   const [sessionTasks, setSessionTasks] = useState<SessionTask[]>([]);
   const [attendance, setAttendance] = useState<Record<number, 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro'>>({});
+  // Evita que el tab vuelva a "Datos" cuando reabrimos la sesión tras crear una tarea en el diseñador
+  const skipDatosResetRef = useRef(false);
 
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNamesLong = t('calendarView.daysLong', { returnObjects: true }) as string[];
@@ -75,16 +80,60 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   }, [events]);
 
   useEffect(() => {
-    const openEventId = (location.state as { openEventId?: string } | null)?.openEventId;
-    if (!openEventId) return;
-    const target = events.find(e => String(e.id) === String(openEventId));
-    if (target) setActiveTraining(target);
+    const state = location.state as { openEventId?: string; newTaskId?: string } | null;
+    const openEventId = state?.openEventId;
+    const newTaskId = state?.newTaskId;
+    if (!openEventId && !newTaskId) return;
+
+    const applyIncomingState = async () => {
+      let target = openEventId ? events.find(e => String(e.id) === String(openEventId)) : activeTraining;
+      if (!target) return;
+
+      if (newTaskId) {
+        try {
+          const { data } = await db.task_templates.get();
+          const newTask = (data as TrainingTask[])?.find(t => t.id === newTaskId);
+          if (newTask) {
+            const sessionTask: SessionTask = {
+              id: `rt-${newTask.id}-${Date.now()}`,
+              linkedTaskId: newTask.id,
+              title: newTask.name,
+              category: newTask.category,
+              sessionPhase: 'Parte Principal',
+              durationMinutes: 15,
+              thumbnail: newTask.thumbnail,
+              designerSnapshot: newTask.designerSnapshot,
+            };
+            target = { ...target, tasks: [...(target.tasks || []), sessionTask] };
+            // Persistir de inmediato: si el usuario navega fuera sin pulsar "Guardar",
+            // la tarea recién creada en el diseñador no debe perderse.
+            onSaveEvent(target);
+          }
+        } catch (err) {
+          console.error('Error al cargar la tarea creada:', err);
+        }
+      }
+
+      if (newTaskId) {
+        skipDatosResetRef.current = true;
+      }
+      setActiveTraining(target);
+      if (newTaskId) {
+        setDetailTab('sesion');
+      }
+    };
+
+    applyIncomingState();
     navigate(location.pathname, { replace: true, state: {} });
-  }, [location.state, events, location.pathname, navigate]);
+  }, [location.state, events, location.pathname, navigate, onSaveEvent]);
 
   useEffect(() => {
     if (!activeTraining) return;
-    setDetailTab('datos');
+    if (skipDatosResetRef.current) {
+      skipDatosResetRef.current = false;
+    } else {
+      setDetailTab('datos');
+    }
     setRolesText(activeTraining.staffRoles || '');
     setNotesText(activeTraining.notes || '');
     setVideoUrl(activeTraining.videoUrl || '');
@@ -194,7 +243,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         </div>
 
         {detailTab === 'sesion' && (
-          <SessionTasksPanel tasks={sessionTasks} onChange={setSessionTasks} />
+          <SessionTasksPanel
+            tasks={sessionTasks}
+            onChange={setSessionTasks}
+            eventId={activeTraining.id}
+            date={sessionDate}
+            team={activeTraining.team}
+            sessionNumber={activeTraining.sessionNumber}
+          />
         )}
 
         {detailTab === 'datos' && (
@@ -441,7 +497,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <i className="fa-solid fa-calendar-days"></i>
             </button>
           </div>
-          <button onClick={() => setShowNewModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200">
+          <button onClick={() => { setDefaultEventType('Partido'); setShowNewModal(true); }} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200">
             <i className="fa-solid fa-plus"></i> {t('calendarView.newEventButton')}
           </button>
         </div>
@@ -550,7 +606,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       <button
                         className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
                         style={{ fontSize: '16px' }}
-                        onClick={() => { setShowNewModal(true); }}
+                        onClick={() => { setDefaultEventType('Partido'); setShowNewModal(true); }}
                       >
                         <i className="fa-solid fa-plus"></i>
                       </button>
@@ -629,7 +685,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         </div>
       )}
 
-      {showNewModal && <NewEventModal initialDate={new Date()} onClose={() => setShowNewModal(false)} onSave={onSaveEvent} competitionTeams={competitionTeams} />}
+      {showNewModal && <NewEventModal initialDate={new Date()} defaultType={defaultEventType} onClose={() => { setShowNewModal(false); setDefaultEventType(null); }} onSave={onSaveEvent} competitionTeams={competitionTeams} />}
     </div>
   );
 };

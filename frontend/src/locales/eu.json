@@ -309,7 +309,8 @@
     "emptyTitle": "Zereginik ez",
     "emptyDescription": "Sortu lehen zeregina zure biltegia eraikitzen hasteko",
     "createFirst": "Lehen zeregina sortu",
-    "duplicate": "Bikoiztu"
+    "duplicate": "Bikoiztu",
+    "openDesigner": "Diseinatzailea ireki"
   },
   "videos": {
     "title": "Bideoteka",
@@ -670,7 +671,14 @@
     "minutesAbbr": "min",
     "repositoryPickerTitle": "Zereginen biltegitik aukeratu",
     "repositoryEmpty": "Oraindik ez dago zereginik biltegian",
-    "searchTasks": "Bilatu zereginak..."
+    "searchTasks": "Bilatu zereginak...",
+    "sessionNumberLabel": "Saio Zkia.",
+    "exerciseLabel": "Ariketa",
+    "fieldName": "Izena",
+    "fieldTaskType": "Zeregin mota",
+    "fieldGamePhase": "Jokoaren fasea",
+    "fieldDescription": "Deskribapena",
+    "describeTaskPlaceholder": "Deskribatu zeregina..."
   },
   "userTable": {
     "user": "Erabiltzailea",

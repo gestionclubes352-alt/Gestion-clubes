@@ -21,7 +21,7 @@ import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantill
 import type { Player } from '@modules/plantilla';
 
 // Modules - Staff
-import { StaffTable } from '@modules/staff';
+import { StaffTable, EditStaffModal } from '@modules/staff';
 
 // Modules - Usuarios
 import { UserTable, EditUserModal } from '@modules/usuarios';
@@ -337,6 +337,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<User | null>(null);
+  const [isNewStaff, setIsNewStaff] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [modalDefaultType, setModalDefaultType] = useState<string | undefined>(undefined);
@@ -899,9 +901,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/staff" element={
                 <StaffTable
                   staff={filteredUsersList.filter(u => u.departamento === 'Personal')}
-                  onEdit={setEditingUser}
+                  onEdit={staff => { setIsNewStaff(false); setEditingStaff(staff); }}
                   onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
-                  onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal', clubId: currentTeam?.id || '' } as User); }}
+                  onCreate={() => { setIsNewStaff(true); setEditingStaff({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal', clubId: currentTeam?.id || '' } as User); }}
                   clubes={clubesList}
                   userClubId={perfil?.club_id || currentTeam?.id || ''}
                   userRole={userRole}
@@ -1150,6 +1152,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           setEditingUser(null); setIsNewUser(false);
         } catch (e) {
           alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
+        }
+      }} />}
+      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
+        try {
+          if (isNewStaff) {
+            await usuariosService.create({
+              nombre: s.nombre,
+              email: s.email || `staff-${crypto.randomUUID()}@club.local`,
+              rol: 'Tecnico' as Usuario['rol'],
+              estado: 'Activo' as Usuario['estado'],
+              departamento: 'Personal',
+              rol_tecnico: s.rolTecnico || undefined,
+              telefono: s.telefono || undefined,
+              foto_url: s.fotoUrl || undefined,
+              club_id: s.clubId || currentTeam?.id || null,
+            } as any);
+          } else {
+            await usuariosService.update(s.id, {
+              nombre: s.nombre,
+              rol_tecnico: s.rolTecnico || undefined,
+              telefono: s.telefono || undefined,
+              foto_url: s.fotoUrl || undefined,
+            } as any);
+          }
+          await fetchData();
+          setEditingStaff(null);
+          setIsNewStaff(false);
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Error al guardar el personal');
         }
       }} />}
       {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEvent} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} />}

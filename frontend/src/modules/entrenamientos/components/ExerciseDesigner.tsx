@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { DesignerItem, Exercise } from '../types';
 import { getDesignerItemAnimationClass } from '../types';
+import { renderThumbnail } from '../utils/renderThumbnail';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { db } from '@shared/services/dataService';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
@@ -57,15 +58,17 @@ const ExerciseDesigner: React.FC = () => {
   // Tarea a preseleccionar al llegar desde el Repositorio de Tareas (creación rápida de una tarea nueva)
   const incomingSelectTaskIdRef = useRef<string | null>((location.state as any)?.selectTaskId ?? null);
   const fromSessionCreationRef = useRef<boolean>((location.state as any)?.fromSessionCreation ?? false);
+  const returnEventIdRef = useRef<string | null>((location.state as any)?.returnEventId ?? null);
   const [incomingTaskApplied, setIncomingTaskApplied] = useState(false);
   const [frames, setFrames] = useState<DesignerItem[][]>([[]]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [frameDuration] = useState(2000);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  /** Tras guardar una tarea creada desde una sesión, mostramos un banner persistente
+   * con un botón explícito para volver, en vez de redirigir automáticamente. */
+  const [showReturnToSessionBanner, setShowReturnToSessionBanner] = useState(false);
   const [activeProject, setActiveProject] = useState('NUEVO EJERCICIO TÁCTICO');
-  const [taskName, setTaskName] = useState('');
-  const [taskType, setTaskType] = useState<'Juego' | 'Posesión' | 'Finalización'>('Juego');
   const [tasks, setTasks] = useState<Array<{ id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] }>>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const historyRef = useRef<Array<{ frames: DesignerItem[][]; index: number }>>([]);
@@ -315,120 +318,38 @@ const ExerciseDesigner: React.FC = () => {
     ]
   };
 
-  type LocalTask = { id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] };
-
-  const taskTypes: Array<'Juego' | 'Posesión' | 'Finalización'> = ['Juego', 'Posesión', 'Finalización'];
-  const tasksByType = useMemo(() => {
-    return taskTypes.reduce((acc, type) => {
-      acc[type] = tasks.filter(t => t.type === type);
-      return acc;
-    }, {} as Record<'Juego' | 'Posesión' | 'Finalización', LocalTask[]>);
-  }, [tasks]);
-
   /** Deep-clone de items del canvas para evitar referencias compartidas */
   const deepCloneItems = (items: DesignerItem[]): DesignerItem[] => {
     if (!items || items.length === 0) return [];
     return JSON.parse(JSON.stringify(items));
   };
 
-  /** Persistir snapshot de una tarea en la DB */
-  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[]) => {
+  /** Persistir snapshot (y miniatura) de una tarea en la DB. */
+  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[], thumbnail?: string) => {
     try {
       const { data } = await db.task_templates.get();
       if (!data) return;
       const existing = (data as TrainingTask[]).find(t => t.id === taskId);
       if (existing) {
-        await db.task_templates.upsert({ ...existing, designerSnapshot: snapshot, updatedAt: new Date().toISOString() });
+        await db.task_templates.upsert({
+          ...existing,
+          designerSnapshot: snapshot,
+          ...(thumbnail ? { thumbnail } : {}),
+          updatedAt: new Date().toISOString(),
+        });
       }
     } catch (err) {
       console.error('Error persistiendo snapshot:', err);
     }
   };
 
-  const handleAddTask = async () => {
-    const name = taskName.trim();
-    if (!name) return;
-    // Capturar snapshot actual del canvas (deep-clone)
-    const snapshot = deepCloneItems(frames[currentFrameIndex]);
-    const newTaskId = crypto.randomUUID();
-    const newTask = { id: newTaskId, name, type: taskType, designerSnapshot: snapshot };
-    setTasks(prev => [newTask, ...prev]);
-    setTaskName('');
-    // Limpiar el canvas tras crear la tarea
-    pushHistoryNow();
-    setFrames([[]]);
-    setCurrentFrameIndex(0);
-    setActiveTaskId(null);
-    // Guardar en el repositorio de tareas (db.task_templates)
-    const now = new Date().toISOString();
-    const taskTemplate: TrainingTask = {
-      id: newTaskId,
-      name: newTask.name,
-      category: newTask.type,
-      description: '',
-      sessionPhase: 'Parte Principal',
-      intensity: 'Media',
-      durationMinutes: 15,
-      minPlayers: 2,
-      maxPlayers: 22,
-      objectives: [],
-      materials: [],
-      tags: [],
-      designerSnapshot: snapshot,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await db.task_templates.upsert(taskTemplate);
-    // Si viene de una creación desde sesión, regresar automáticamente con la ID de la tarea creada
-    if (fromSessionCreationRef.current) {
-      navigate('/calendario', { state: { newTaskId } });
-    } else {
-      setSaveStatus('TAREA CREADA');
-      setTimeout(() => setSaveStatus(null), 2000);
-    }
-  };
-
-  const handleRemoveTask = (id: string) => {
-    if (activeTaskId === id) {
-      setActiveTaskId(null);
-      setFrames([[]]);
-      setCurrentFrameIndex(0);
-    }
-    setTasks(prev => prev.filter(t => t.id !== id));
-    db.task_templates.delete(id).catch(err => console.error('Error eliminando tarea:', err));
-  };
-
-  const handleDuplicateTask = (task: { id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] }) => {
-    const snapshot = deepCloneItems(task.designerSnapshot || []);
-    const newTask = { id: crypto.randomUUID(), name: `${task.name} (copia)`, type: task.type, designerSnapshot: snapshot };
-    setTasks(prev => [newTask, ...prev]);
-    const now = new Date().toISOString();
-    const taskTemplate: TrainingTask = {
-      id: newTask.id,
-      name: newTask.name,
-      category: newTask.type,
-      description: '',
-      sessionPhase: 'Parte Principal',
-      intensity: 'Media',
-      durationMinutes: 15,
-      minPlayers: 2,
-      maxPlayers: 22,
-      objectives: [],
-      materials: [],
-      tags: [],
-      designerSnapshot: snapshot,
-      createdAt: now,
-      updatedAt: now,
-    };
-    db.task_templates.upsert(taskTemplate).catch(err => console.error('Error duplicando tarea:', err));
-  };
-
   /** Auto-guardar la tarea activa actual antes de cambiar */
-  const autoSaveActiveTask = () => {
+  const autoSaveActiveTask = async () => {
     if (!activeTaskId) return;
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
+    const thumbnail = renderThumbnail(snapshot);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot } : t));
-    persistTaskSnapshot(activeTaskId, snapshot);
+    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail);
   };
 
   /** Seleccionar una tarea y cargar su snapshot en el canvas */
@@ -470,13 +391,16 @@ const ExerciseDesigner: React.FC = () => {
   }, [tasks, incomingTaskApplied, handleSelectTask, navigate, location.pathname]);
 
   /** Guardar los cambios del canvas de vuelta a la tarea activa */
-  const handleSaveActiveTask = () => {
+  const handleSaveActiveTask = async (options?: { showToast?: boolean }) => {
     if (!activeTaskId) return;
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
+    const thumbnail = renderThumbnail(snapshot);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot } : t));
-    persistTaskSnapshot(activeTaskId, snapshot);
-    setSaveStatus('TAREA GUARDADA');
-    setTimeout(() => setSaveStatus(null), 2000);
+    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail);
+    if (options?.showToast !== false) {
+      setSaveStatus('TAREA GUARDADA');
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
   };
 
   const handleSaveDevelopment = async () => {
@@ -503,22 +427,52 @@ const ExerciseDesigner: React.FC = () => {
     return () => { delete (window as any).saveCurrentExercise; };
   }, [frames, activeProject]);
 
-  /** Guardar: si hay una tarea activa se guarda su snapshot, si no se guarda el desarrollo libre */
-  const handleSaveClick = () => {
+  useEffect(() => {
+    if (!activeTaskId) return;
+    const autoSaveInterval = setInterval(() => {
+      autoSaveActiveTask();
+    }, 30000);
+    return () => clearInterval(autoSaveInterval);
+  }, [activeTaskId, frames, currentFrameIndex]);
+
+  /** Guardar: si hay una tarea activa se guarda su snapshot, si no se guarda el desarrollo libre.
+   * Si venimos de crear una tarea desde una sesión, al guardar mostramos un banner de
+   * confirmación con un botón para volver, en vez de redirigir automáticamente.
+   */
+  const handleSaveClick = async () => {
     if (activeTaskId) {
-      handleSaveActiveTask();
+      if (fromSessionCreationRef.current) {
+        await handleSaveActiveTask({ showToast: false });
+        setShowReturnToSessionBanner(true);
+        console.log('Tarea guardada. ID:', activeTaskId);
+      } else {
+        await handleSaveActiveTask();
+      }
     } else {
       handleSaveDevelopment();
     }
   };
 
+  /** Volver a la sesión de origen tras confirmar el guardado desde el banner */
+  const handleReturnToSession = () => {
+    navigate('/calendario', {
+      state: { newTaskId: activeTaskId, openEventId: returnEventIdRef.current },
+    });
+  };
+
   /** Volver al repositorio de tareas o a la sesión, guardando antes los cambios de la tarea activa */
-  const handleBackClick = () => {
+  const handleBackClick = async () => {
     if (activeTaskId) {
-      autoSaveActiveTask();
+      await autoSaveActiveTask();
+      console.log('Auto-guardada la tarea:', activeTaskId);
     }
     if (fromSessionCreationRef.current) {
-      navigate('/calendario');
+      console.log('Volviendo a la sesión con newTaskId:', activeTaskId, 'openEventId:', returnEventIdRef.current);
+      navigate('/calendario', {
+        state: activeTaskId
+          ? { newTaskId: activeTaskId, openEventId: returnEventIdRef.current }
+          : { openEventId: returnEventIdRef.current },
+      });
     } else {
       navigate('/repositorio-tareas', { state: activeTaskId ? { openTaskId: activeTaskId } : undefined });
     }
@@ -1163,6 +1117,20 @@ const ExerciseDesigner: React.FC = () => {
                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[var(--accent)] text-white text-[9px] font-black px-4 py-1 rounded-full whitespace-nowrap animate-bounce">
                     {saveStatus}
                 </div>
+            )}
+            {showReturnToSessionBanner && (
+              <div className="absolute -top-16 right-0 flex items-center gap-3 rounded-2xl bg-white border border-slate-200 shadow-xl px-4 py-2.5 whitespace-nowrap animate-fade-in">
+                <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-emerald-600">
+                  <i className="fa-solid fa-circle-check"></i> TAREA GUARDADA
+                </span>
+                <button
+                  type="button"
+                  onClick={handleReturnToSession}
+                  className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-md transition-all hover:bg-[var(--accent-dark)]"
+                >
+                  <i className="fa-solid fa-arrow-left"></i> Volver a la sesión
+                </button>
+              </div>
             )}
             <button
               type="button"

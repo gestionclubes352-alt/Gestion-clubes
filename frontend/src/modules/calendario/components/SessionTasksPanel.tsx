@@ -1,21 +1,26 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
-import { CATEGORY_ICONS, CATEGORY_COLORS } from '@modules/repositorio-tareas';
+import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal, DesignerPreview } from '@modules/repositorio-tareas';
 import type { SessionTask } from '../types';
 
 interface SessionTasksPanelProps {
   tasks: SessionTask[];
   onChange: (tasks: SessionTask[]) => void;
+  /** ID del evento/sesión activo, para poder reabrirlo al volver del diseñador */
+  eventId?: string;
+  date?: Date;
+  team?: string;
+  sessionNumber?: number;
 }
 
-const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }) => {
-  const { t } = useTranslation();
+const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber }) => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const [repositoryTasks, setRepositoryTasks] = useState<TrainingTask[]>([]);
   const [repositoryLoading, setRepositoryLoading] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
@@ -47,13 +52,28 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
         category: task.category,
         sessionPhase: 'Parte Principal',
         durationMinutes: 15,
+        thumbnail: task.thumbnail,
+        designerSnapshot: task.designerSnapshot,
       },
     ]);
     setPickerOpen(false);
   };
 
+  const updateTask = (id: string, patch: Partial<SessionTask>) => {
+    onChange(tasks.map(task => (task.id === id ? { ...task, ...patch } : task)));
+  };
+
   const openExerciseDesigner = () => {
-    navigate('/disenador', { state: { fromSessionCreation: true } });
+    setNewTaskModalOpen(true);
+  };
+
+  /** Al confirmar nombre y categoría, se crea la tarea en el repositorio y se abre el diseñador sobre ella */
+  const handleCreateTaskAndDesign = async (task: TrainingTask) => {
+    await db.task_templates.upsert(task);
+    setNewTaskModalOpen(false);
+    navigate('/disenador', {
+      state: { selectTaskId: task.id, fromSessionCreation: true, returnEventId: eventId },
+    });
   };
 
   const removeTask = (id: string) => {
@@ -67,55 +87,6 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
       task.name.toLowerCase().includes(q)
     );
   }, [repositoryTasks, repoSearch]);
-
-  // Detectar si se creó una nueva tarea en el designer y añadirla automáticamente
-  useEffect(() => {
-    const newTaskId = (location.state as { newTaskId?: string } | null)?.newTaskId;
-    if (!newTaskId) return;
-
-    const addNewTask = async () => {
-      const task = repositoryTasks.find(t => t.id === newTaskId);
-      if (task) {
-        onChange([
-          ...tasks,
-          {
-            id: `rt-${task.id}-${Date.now()}`,
-            linkedTaskId: task.id,
-            title: task.name,
-            category: task.category,
-            sessionPhase: task.sessionPhase || 'Parte Principal',
-            durationMinutes: task.durationMinutes || 15,
-            description: task.description,
-          },
-        ]);
-      } else {
-        // Cargar la tarea del repositorio si no está en la lista actual
-        try {
-          const { data } = await db.task_templates.get();
-          const newTask = (data as TrainingTask[]).find(t => t.id === newTaskId);
-          if (newTask) {
-            onChange([
-              ...tasks,
-              {
-                id: `rt-${newTask.id}-${Date.now()}`,
-                linkedTaskId: newTask.id,
-                title: newTask.name,
-                category: newTask.category,
-                sessionPhase: newTask.sessionPhase || 'Parte Principal',
-                durationMinutes: newTask.durationMinutes || 15,
-                description: newTask.description,
-              },
-            ]);
-          }
-        } catch (err) {
-          console.error('Error al cargar la tarea creada:', err);
-        }
-      }
-    };
-
-    addNewTask();
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.state, repositoryTasks, tasks, onChange, navigate, location.pathname]);
 
   return (
     <div className="space-y-6">
@@ -148,31 +119,99 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-6 mb-6 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+              <p className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+              <p className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+              <p className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</p>
+            </div>
+          </div>
+        </div>
+
         {tasks.length === 0 ? (
           <div className="py-12 text-center text-slate-400 font-bold text-sm">{t('calendarView.noSessionTasks')}</div>
         ) : (
-          <div className="space-y-2">
-            {tasks.map(task => (
-              <div key={task.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-500'}`}>
-                  <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'}`}></i>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {tasks.map((task, index) => (
+              <div key={task.id} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {t('calendarView.exerciseLabel')} {index + 1}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                      <i className="fa-solid fa-clock text-slate-400 text-xs"></i>
+                      <input
+                        type="number"
+                        min={0}
+                        value={task.durationMinutes ?? 0}
+                        onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
+                        className="w-10 text-xs font-black text-slate-600 text-center focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeTask(task.id)}
+                      className="w-7 h-7 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
+                      title={t('common.delete')}
+                    >
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-black text-slate-700 text-sm truncate">{task.title}</p>
-                  <p className="text-[11px] text-slate-400 font-bold truncate">
-                    {[task.sessionPhase, task.category].filter(Boolean).join(' • ')}
-                  </p>
-                </div>
-                {typeof task.durationMinutes === 'number' && (
-                  <span className="text-[11px] font-black text-slate-500 flex-shrink-0">{task.durationMinutes} {t('calendarView.minutesAbbr')}</span>
+
+                {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+                  <div className="mb-3">
+                    <DesignerPreview items={task.designerSnapshot} className="w-full" />
+                  </div>
+                ) : task.thumbnail ? (
+                  <div className="w-full h-40 rounded-xl mb-3 bg-[#2f5a30] overflow-hidden flex items-center justify-center">
+                    <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className={`w-full h-40 rounded-xl flex items-center justify-center text-white mb-3 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-500'}`}>
+                    <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-3xl`}></i>
+                  </div>
                 )}
-                <button
-                  onClick={() => removeTask(task.id)}
-                  className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
-                  title={t('common.delete')}
-                >
-                  <i className="fa-solid fa-trash-can text-xs"></i>
-                </button>
+
+                <div className="space-y-2.5">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldName')}</p>
+                    <p className="font-black text-slate-700 text-sm">{task.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldTaskType')}</p>
+                    <p className="font-black text-slate-700 text-sm">{task.category || t('calendarView.notDefined')}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldGamePhase')}</p>
+                    <p className="font-black text-slate-700 text-sm">{task.sessionPhase || t('calendarView.notDefined')}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldDescription')}</p>
+                    <textarea
+                      value={task.description || ''}
+                      onChange={e => updateTask(task.id, { description: e.target.value })}
+                      placeholder={t('calendarView.describeTaskPlaceholder')}
+                      rows={2}
+                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                    />
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -231,6 +270,13 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
         </div>
       )}
 
+      <TaskDetailModal
+        task={null}
+        open={newTaskModalOpen}
+        onClose={() => setNewTaskModalOpen(false)}
+        onSave={handleCreateTaskAndDesign}
+        minimalFields
+      />
     </div>
   );
 };

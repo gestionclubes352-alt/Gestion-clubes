@@ -25,13 +25,15 @@ export const USER_ROLES: UserRole[] = ['Responsable', 'Administrador', 'Tecnico'
 export const USER_STATUSES: UserStatus[] = ['Activo', 'Inactivo', 'Pendiente', 'Sin cuenta'];
 export const USER_DEPARTAMENTOS: UserDepartamento[] = ['Personal', 'Directiva', 'Dirección Deportiva'];
 export const ROLES_TECNICOS: string[] = [
-  '1º ENTRENADOR',
+  'COORDINADOR',
+  'ENTRENADOR',
   '2º ENTRENADOR',
-  'ENTR. PORTEROS',
-  'PREP. FÍSICO',
+  'ENTRENADOR DE PORTEROS',
+  'PREPARADOR FÍSICO',
   'ANALISTA',
-  'ATS',
+  'PSICÓLOGO',
   'MÉDICO',
   'FISIOTERAPEUTA',
+  'ATS',
   'DELEGADO',
 ];

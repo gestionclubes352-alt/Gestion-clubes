@@ -1,6 +1,7 @@
 // Tipos específicos del módulo Calendario
 
 import type { TaskCategory, SessionPhase } from '@modules/repositorio-tareas';
+import type { DesignerItem } from '@modules/entrenamientos/types';
 
 export interface SessionTask {
   id: string;
@@ -11,6 +12,10 @@ export interface SessionTask {
   sessionPhase?: SessionPhase;
   durationMinutes?: number;
   description?: string;
+  /** URL/path de imagen o diagrama asociado, copiada de la tarea del repositorio (fallback si no hay designerSnapshot) */
+  thumbnail?: string;
+  /** Snapshot del diseño táctico, copiado de la tarea del repositorio, para renderizar el dibujo en vivo */
+  designerSnapshot?: DesignerItem[];
 }
 
 export interface CalendarEvent {

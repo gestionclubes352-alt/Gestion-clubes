@@ -14,6 +14,7 @@ import {
   CATEGORY_COLORS,
 } from '../types';
 import TaskDetailModal from './TaskDetailModal';
+import DesignerPreview from './DesignerPreview';
 
 const TaskRepositoryView: React.FC = () => {
   const { t } = useTranslation();
@@ -120,6 +121,10 @@ const TaskRepositoryView: React.FC = () => {
 
   const openNew = () => { setEditingTask(null); setModalOpen(true); };
   const openEdit = (task: TrainingTask) => { setEditingTask(task); setModalOpen(true); };
+  /** Abrir el diseño táctico de una tarea existente (permite editar el dibujo y regenerar su miniatura) */
+  const openInDesigner = (task: TrainingTask) => {
+    navigate('/disenador', { state: { selectTaskId: task.id } });
+  };
 
   // Al volver desde el Diseñador Táctico con una tarea activa, reabrir su edición
   useEffect(() => {
@@ -147,7 +152,11 @@ const TaskRepositoryView: React.FC = () => {
       className="group bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
     >
       {/* Image preview */}
-      {task.thumbnail ? (
+      {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+        <div className="h-16 overflow-hidden">
+          <DesignerPreview items={task.designerSnapshot} className="w-full" />
+        </div>
+      ) : task.thumbnail ? (
         <img src={task.thumbnail} alt={task.name} className="h-16 w-full object-cover" />
       ) : (
         <div className="h-16 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
@@ -164,53 +173,64 @@ const TaskRepositoryView: React.FC = () => {
   );
 
   // ─── Full task preview modal ───
-  const TaskPreviewModal: React.FC<{ task: TrainingTask; onClose: () => void }> = ({ task, onClose }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-      <div
-        onClick={e => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in max-h-[90vh] flex flex-col"
-      >
-        {/* Close button */}
-        <button onClick={onClose} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 text-white hover:bg-black/60 flex items-center justify-center transition-colors">
-          <i className="fa-solid fa-xmark text-sm"></i>
-        </button>
+  const TaskPreviewModal: React.FC<{ task: TrainingTask; onClose: () => void }> = ({ task, onClose }) => {
+    const hasDesignerSnapshot = task.designerSnapshot && task.designerSnapshot.length > 0;
 
-        {/* Image preview */}
-        {task.thumbnail ? (
-          <img src={task.thumbnail} alt={task.name} className="h-52 w-full object-cover shrink-0" />
-        ) : (
-          <div className="h-52 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center shrink-0">
-            <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-4xl`}></i>
-          </div>
-        )}
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div
+          onClick={e => e.stopPropagation()}
+          className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in max-h-[90vh] flex flex-col"
+        >
+          {/* Close button */}
+          <button onClick={onClose} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 text-white hover:bg-black/60 flex items-center justify-center transition-colors">
+            <i className="fa-solid fa-xmark text-sm"></i>
+          </button>
 
-        {/* Content */}
-        <div className="p-5 overflow-y-auto flex-1">
-          {/* Header */}
-          <div className="mb-3">
-            <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 mb-2">{task.name}</h3>
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[task.category]}`}>
-              {task.category}
-            </span>
-          </div>
+          {/* Designer preview or thumbnail */}
+          {hasDesignerSnapshot ? (
+            <div className="shrink-0 p-6 bg-slate-50">
+              <DesignerPreview items={task.designerSnapshot} className="max-w-full" />
+            </div>
+          ) : task.thumbnail ? (
+            <img src={task.thumbnail} alt={task.name} className="h-80 w-full object-cover shrink-0" />
+          ) : (
+            <div className="h-80 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center shrink-0">
+              <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-6xl`}></i>
+            </div>
+          )}
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-            <button onClick={() => { handleDuplicate(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 transition-colors">
-              <i className="fa-solid fa-copy"></i> {t('taskRepository.duplicate')}
-            </button>
-            <button onClick={() => { openEdit(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-[var(--accent)] hover:bg-[var(--accent-dark)] flex items-center gap-1.5 transition-colors">
-              <i className="fa-solid fa-pen"></i> {t('common.edit')}
-            </button>
-            <button onClick={() => { handleDelete(task.id); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-colors">
-              <i className="fa-solid fa-trash"></i> {t('common.delete')}
-            </button>
+          {/* Content */}
+          <div className="p-5 overflow-y-auto flex-1">
+            {/* Header */}
+            <div className="mb-3">
+              <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 mb-2">{task.name}</h3>
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[task.category]}`}>
+                {task.category}
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+              <button onClick={() => { openInDesigner(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 transition-colors">
+                <i className="fa-solid fa-chess-board"></i> {t('taskRepository.openDesigner')}
+              </button>
+              <button onClick={() => { handleDuplicate(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 transition-colors">
+                <i className="fa-solid fa-copy"></i> {t('taskRepository.duplicate')}
+              </button>
+              <button onClick={() => { openEdit(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-[var(--accent)] hover:bg-[var(--accent-dark)] flex items-center gap-1.5 transition-colors">
+                <i className="fa-solid fa-pen"></i> {t('common.edit')}
+              </button>
+              <button onClick={() => { handleDelete(task.id); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-colors">
+                <i className="fa-solid fa-trash"></i> {t('common.delete')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ─── Main render ───
   return (

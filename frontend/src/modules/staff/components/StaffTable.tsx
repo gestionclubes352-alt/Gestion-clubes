@@ -67,16 +67,6 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
       header: t('staffTable.fullName'),
       cell: info => <span className="font-semibold text-slate-800">{info.getValue()}</span>,
     }),
-    columnHelper.display({
-      id: 'dni',
-      header: t('staffTable.dni'),
-      cell: ({ row }) => <span className="text-slate-400 tabular-nums">{(row.original as any).dni || '-'}</span>,
-    }),
-    columnHelper.display({
-      id: 'fechaNacimiento',
-      header: t('staffTable.birthDate'),
-      cell: ({ row }) => <span className="text-slate-400 tabular-nums">{(row.original as any).fechaNacimiento || '-'}</span>,
-    }),
     columnHelper.accessor('rolTecnico', {
       header: t('staffTable.role'),
       cell: info => (
@@ -85,28 +75,14 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         </span>
       ),
     }),
-    columnHelper.display({
-      id: 'equipo',
-      header: t('staffTable.team'),
-      cell: ({ row }) => <span className="text-slate-600 text-xs font-medium">{(row.original as any).equipo || '-'}</span>,
-    }),
-    columnHelper.display({
-      id: 'etapa',
-      header: t('staffTable.stage'),
-      cell: ({ row }) => <span className="text-slate-400 text-xs">{(row.original as any).etapa || '-'}</span>,
-    }),
-    columnHelper.display({
-      id: 'competicion',
-      header: t('staffTable.competition'),
-      cell: ({ row }) => <span className="text-slate-400 text-xs">{(row.original as any).competicion || '-'}</span>,
-    }),
     columnHelper.accessor('telefono', {
       header: t('staffTable.phone'),
       cell: info => <span className="text-slate-400 tabular-nums">{info.getValue() || '-'}</span>,
     }),
-    columnHelper.accessor('email', {
-      header: t('staffTable.email'),
-      cell: info => <span className="text-slate-400">{info.getValue()}</span>,
+    columnHelper.display({
+      id: 'dni',
+      header: t('staffTable.dni'),
+      cell: ({ row }) => <span className="text-slate-400 tabular-nums">{(row.original as any).dni || '-'}</span>,
     }),
   ], []);
 

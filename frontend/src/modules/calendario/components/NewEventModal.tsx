@@ -68,9 +68,11 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const teamOptions = competitionTeams
-    .map((team) => team.nombre || '')
-    .filter((teamName) => teamName.trim().length > 0);
+  const teamOptions = Array.from(new Set(
+    competitionTeams
+      .map((team) => team.equipo || team.nombre || '')
+      .filter((teamName) => teamName.trim().length > 0)
+  ));
 
   const subTeamOptions = Array.from(new Set(
     competitionTeams

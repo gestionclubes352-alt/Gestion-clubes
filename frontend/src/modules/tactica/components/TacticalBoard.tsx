@@ -186,17 +186,17 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
       </div>
 
       {/* Columna Derecha/Inferior: Selector */}
-      <div className="w-full lg:w-96 bg-white rounded-3xl md:rounded-3xl border border-slate-100 shadow-xl flex flex-col max-h-125 lg:max-h-none overflow-hidden shrink-0">
-        <div className="p-4 md:p-6 border-b border-slate-50 bg-slate-50/50">
-          <p className="text-[8px] md:text-[9px] font-bold text-slate-300 uppercase italic">
+      <div className="w-full lg:w-80 bg-white rounded-3xl md:rounded-3xl border border-slate-100 shadow-xl flex flex-col max-h-125 lg:max-h-none overflow-hidden shrink-0">
+        <div className="p-2 md:p-3 border-b border-slate-50 bg-slate-50/50">
+          <p className="text-[7px] md:text-[7.5px] font-bold text-slate-300 uppercase italic leading-tight">
             {activePosId ? 'Toca un jugador para añadir (máx 3)' : 'Toca una posición arriba'}
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-3 scrollbar-hide">
           {(Object.keys(groupedPlayers) as Array<keyof typeof groupedPlayers>).map((category) => (
-            <div key={category} className="space-y-2">
-              <h4 className="text-[8px] md:text-[9px] font-black text-slate-400 px-3 py-1 bg-slate-50 rounded-lg tracking-widest uppercase">
+            <div key={category} className="space-y-1.5">
+              <h4 className="text-[7px] md:text-[7.5px] font-black text-slate-400 px-2 py-0.5 bg-slate-50 rounded-lg tracking-widest uppercase">
                 {category}
               </h4>
               <div className="space-y-2">
@@ -214,35 +214,35 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           else if (activePosId && !isDisabled) handlePickPlayer(player.id);
                       }}
                       className={`
-                        w-full flex items-center justify-between gap-3 p-3 rounded-2xl transition-all border
+                        w-full flex items-center justify-between gap-2 p-2 rounded-xl transition-all border
                         ${inThisPos ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg' : 'bg-white border-slate-100 hover:bg-slate-50'}
                         ${isDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}
                         ${!activePosId && !inThisPos && !isDisabled ? 'opacity-50 grayscale' : ''}
                       `}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-12 h-12 rounded-xl overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-9 h-9 rounded-lg overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center flex-shrink-0`}>
                           {player.fotoUrl && player.fotoUrl.length > 1 ? (
                             <img src={player.fotoUrl} className="w-full h-full object-cover" />
                           ) : (
-                            <span className={`text-xs font-black ${inThisPos ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                            <span className={`text-[10px] font-black ${inThisPos ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
                           )}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-lg text-xs font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
                               {player.dorsal}
                             </span>
-                            <span className={`text-sm font-black uppercase truncate ${inThisPos ? 'text-white' : 'text-slate-600'}`}>
+                            <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : 'text-slate-600'}`}>
                               {player.apodo || player.nombre}
                             </span>
                           </div>
-                          <div className={`text-[10px] font-bold uppercase tracking-widest truncate ${inThisPos ? 'text-white/70' : 'text-slate-400'}`}>
+                          <div className={`text-[8px] font-bold uppercase tracking-widest truncate ${inThisPos ? 'text-white/70' : 'text-slate-400'}`}>
                             {player.club} · {player.equipo}
                           </div>
                         </div>
                       </div>
-                      <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-xs`}></i>
+                      <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-[10px] flex-shrink-0`}></i>
                     </button>
                   );
                 })}
