@@ -41,7 +41,6 @@ const HOME_SECTIONS: HomeSection[] = [
     textColor: 'text-emerald-100',
     items: [
       { labelKey: 'sidebar.tacticalBoardLabel', icon: 'fa-chalkboard-user', route: '/pizarra', menuId: 'PIZARRA TÁCTICA' },
-      { labelKey: 'sidebar.designerLabel', icon: 'fa-person-running', route: '/disenador', menuId: 'DISEÑADOR' },
       { labelKey: 'sidebar.taskRepositoryLabel', icon: 'fa-book-open', route: '/repositorio-tareas', menuId: 'REPOSITORIO DE TAREAS' },
       { labelKey: 'sidebar.sessionsLabel', icon: 'fa-calendar-days', route: '/sesiones', menuId: 'SESIONES' },
       { labelKey: 'sidebar.competitionLabel', icon: 'fa-ranking-star', route: '/competicion', menuId: 'COMPETICIÓN' },
