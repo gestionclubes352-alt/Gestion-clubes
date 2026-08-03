@@ -4,13 +4,15 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '../../../shared/components/DataTable';
 import type { DataTableAction } from '../../../shared/components/DataTable';
 import type { User } from '@modules/usuarios';
-import { AVAILABLE_TEAMS } from '../../auth/types';
+import type { Club } from '@modules/clubes';
 
 interface StaffTableProps {
   staff: User[];
   onEdit: (member: User) => void;
   onDelete?: (id: string | number) => Promise<void>;
   onCreate?: () => void;
+  /** Clubes dados de alta en el sistema */
+  clubes: Club[];
   /** Club del usuario autenticado */
   userClubId?: string;
   /** Rol del usuario autenticado */
@@ -26,12 +28,14 @@ const getInitials = (name: string): string => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
-const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCreate, userClubId, userRole }) => {
+const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCreate, clubes, userClubId, userRole }) => {
   const { t } = useTranslation();
   const isAdmin = userRole === 'Administrador' || userRole === 'Responsable';
 
   // Filtro de club: por defecto muestra solo el club del usuario; admins pueden ver todos
   const [clubFilter, setClubFilter] = useState<string>(isAdmin ? 'all' : (userClubId || 'all'));
+
+  const teamsById = useMemo(() => new Map(clubes.map(c => [String(c.id), c])), [clubes]);
 
   const filteredStaff = useMemo(() => {
     if (clubFilter === 'all') return staff;
@@ -144,8 +148,8 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
               className="bg-white border border-slate-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 appearance-none cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isAdmin && <option value="all">Todos los clubs</option>}
-              {AVAILABLE_TEAMS.map(team => (
-                <option key={team.id} value={team.id}>{team.shortName}</option>
+              {clubes.map(club => (
+                <option key={club.id} value={String(club.id)}>{club.nombre}</option>
               ))}
             </select>
             <i className="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
@@ -154,7 +158,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
           {clubFilter !== 'all' && (() => {
             const selTeam = teamsById.get(clubFilter);
             return selTeam?.logoUrl ? (
-              <img src={selTeam.logoUrl} alt={selTeam.shortName} className="w-6 h-6 rounded object-contain" />
+              <img src={selTeam.logoUrl} alt={selTeam.nombre} className="w-6 h-6 rounded object-contain" />
             ) : null;
           })()}
         </div>

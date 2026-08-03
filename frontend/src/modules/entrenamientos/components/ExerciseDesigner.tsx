@@ -56,6 +56,7 @@ const ExerciseDesigner: React.FC = () => {
   const navigate = useNavigate();
   // Tarea a preseleccionar al llegar desde el Repositorio de Tareas (creación rápida de una tarea nueva)
   const incomingSelectTaskIdRef = useRef<string | null>((location.state as any)?.selectTaskId ?? null);
+  const fromSessionCreationRef = useRef<boolean>((location.state as any)?.fromSessionCreation ?? false);
   const [incomingTaskApplied, setIncomingTaskApplied] = useState(false);
   const [frames, setFrames] = useState<DesignerItem[][]>([[]]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -244,7 +245,8 @@ const ExerciseDesigner: React.FC = () => {
     moved: boolean;
   } | null>(null);
   const selectionBoxRef = useRef<null | { left: number; top: number; right: number; bottom: number }>(null);
-  const suppressNextBackgroundClickRef = useRef(false);
+  const suppressBackgroundClicksUntilRef = useRef(0);
+  const SUPPRESS_BACKGROUND_CLICK_MS = 400;
   const DRAG_THRESHOLD = 3;
 
   useEffect(() => {
@@ -343,12 +345,13 @@ const ExerciseDesigner: React.FC = () => {
     }
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     const name = taskName.trim();
     if (!name) return;
     // Capturar snapshot actual del canvas (deep-clone)
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
-    const newTask = { id: crypto.randomUUID(), name, type: taskType, designerSnapshot: snapshot };
+    const newTaskId = crypto.randomUUID();
+    const newTask = { id: newTaskId, name, type: taskType, designerSnapshot: snapshot };
     setTasks(prev => [newTask, ...prev]);
     setTaskName('');
     // Limpiar el canvas tras crear la tarea
@@ -359,7 +362,7 @@ const ExerciseDesigner: React.FC = () => {
     // Guardar en el repositorio de tareas (db.task_templates)
     const now = new Date().toISOString();
     const taskTemplate: TrainingTask = {
-      id: newTask.id,
+      id: newTaskId,
       name: newTask.name,
       category: newTask.type,
       description: '',
@@ -375,7 +378,14 @@ const ExerciseDesigner: React.FC = () => {
       createdAt: now,
       updatedAt: now,
     };
-    db.task_templates.upsert(taskTemplate).catch(err => console.error('Error guardando tarea:', err));
+    await db.task_templates.upsert(taskTemplate);
+    // Si viene de una creación desde sesión, regresar automáticamente con la ID de la tarea creada
+    if (fromSessionCreationRef.current) {
+      navigate('/calendario', { state: { newTaskId } });
+    } else {
+      setSaveStatus('TAREA CREADA');
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
   };
 
   const handleRemoveTask = (id: string) => {
@@ -502,12 +512,16 @@ const ExerciseDesigner: React.FC = () => {
     }
   };
 
-  /** Volver al repositorio de tareas, guardando antes los cambios de la tarea activa */
+  /** Volver al repositorio de tareas o a la sesión, guardando antes los cambios de la tarea activa */
   const handleBackClick = () => {
     if (activeTaskId) {
       autoSaveActiveTask();
     }
-    navigate('/repositorio-tareas', { state: activeTaskId ? { openTaskId: activeTaskId } : undefined });
+    if (fromSessionCreationRef.current) {
+      navigate('/calendario');
+    } else {
+      navigate('/repositorio-tareas', { state: activeTaskId ? { openTaskId: activeTaskId } : undefined });
+    }
   };
 
   const handlePitchClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -545,7 +559,7 @@ const ExerciseDesigner: React.FC = () => {
       zIndex: nextZ,
       color: coneColor || tools.jugadores.find(p => p.id === selectedTool)?.color || (isText ? textColor : undefined),
       icon: [...tools.anotacion, ...tools.material].find(t => t.id === selectedTool)?.icon,
-      width: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 22 : undefined,
+      width: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 11 : undefined,
       height: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 6 : undefined,
       text: isText ? (textDraft.trim() || 'Texto') : undefined,
       fontSize: isText ? TEXT_SIZES[textSize] : undefined,
@@ -556,8 +570,7 @@ const ExerciseDesigner: React.FC = () => {
   };
 
   const handlePitchBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (suppressNextBackgroundClickRef.current) {
-      suppressNextBackgroundClickRef.current = false;
+    if (Date.now() < suppressBackgroundClicksUntilRef.current) {
       return;
     }
     handlePitchClick(e);
@@ -578,7 +591,7 @@ const ExerciseDesigner: React.FC = () => {
       moved: false,
     };
     dragStartPos.current = { x: e.clientX, y: e.clientY };
-    suppressNextBackgroundClickRef.current = false;
+    suppressBackgroundClicksUntilRef.current = 0;
     const nextSelectionBox = {
       left: start.x,
       top: start.y,
@@ -730,7 +743,7 @@ const ExerciseDesigner: React.FC = () => {
           } else {
             clearSelection();
           }
-          suppressNextBackgroundClickRef.current = true;
+          suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
         } else {
           clearSelection();
         }
@@ -805,7 +818,7 @@ const ExerciseDesigner: React.FC = () => {
       commitHistorySnapshot();
       setResizingId(null);
       setResizeHandle(null);
-      suppressNextBackgroundClickRef.current = true;
+      suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
     };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -1060,7 +1073,13 @@ const ExerciseDesigner: React.FC = () => {
                       <button
                         key={size}
                         type="button"
-                        onClick={() => setTextSize(size)}
+                        onClick={() => {
+                          setTextSize(size);
+                          if (selectedItem?.type === 'text') {
+                            pushHistoryNow();
+                            updateSelectedItem({ fontSize: TEXT_SIZES[size] });
+                          }
+                        }}
                         className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${textSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                       >
                         {size}
@@ -1072,7 +1091,13 @@ const ExerciseDesigner: React.FC = () => {
                       <button
                         key={c}
                         type="button"
-                        onClick={() => setTextColor(c)}
+                        onClick={() => {
+                          setTextColor(c);
+                          if (selectedItem?.type === 'text') {
+                            pushHistoryNow();
+                            updateSelectedItem({ color: c });
+                          }
+                        }}
                         style={{ backgroundColor: c }}
                         className={`h-6 w-6 rounded-full border-2 transition-all ${textColor === c ? 'border-[var(--accent)] scale-110' : 'border-slate-200 hover:scale-105'}`}
                         aria-label={`Color de texto ${c}`}
@@ -1336,8 +1361,13 @@ const ExerciseDesigner: React.FC = () => {
                     }}
                   >
                     {resizingId === item.id && (
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black text-white shadow-lg pointer-events-none z-20">
-                        {Math.round(size.width ?? 0)}% × {Math.round(size.height ?? 0)}%
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 whitespace-nowrap pointer-events-none z-20">
+                        <div className="rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
+                          {Math.round(size.width ?? 0)}% × {Math.round(size.height ?? 0)}%
+                        </div>
+                        <div className="rounded-full bg-black/85 px-2.5 py-1 text-[9px] font-semibold text-white/80 shadow-lg">
+                          Dale a esc para dejar de modificar
+                        </div>
                       </div>
                     )}
                     {item.type === 'zone' ? (
@@ -1416,9 +1446,9 @@ const ExerciseDesigner: React.FC = () => {
                         <SoccerBallIcon size={21} />
                       </div>
                     ) : item.type === 'ladder' ? (
-                      <svg viewBox="0 0 220 60" className={`h-full w-full drop-shadow-lg ${animationClass}`} preserveAspectRatio="none">
-                        <rect x="2" y="2" width="216" height="56" rx="4" fill="none" stroke="#fff" strokeWidth="4" />
-                        {Array.from({ length: 9 }).map((_, i) => {
+                      <svg viewBox="0 0 110 60" className={`h-full w-full drop-shadow-lg ${animationClass}`} preserveAspectRatio="none">
+                        <rect x="2" y="2" width="106" height="56" rx="4" fill="none" stroke="#fff" strokeWidth="4" />
+                        {Array.from({ length: 4 }).map((_, i) => {
                           const rx = 22 + i * 22;
                           return <line key={i} x1={rx} y1="2" x2={rx} y2="58" stroke="#fff" strokeWidth="4" />;
                         })}

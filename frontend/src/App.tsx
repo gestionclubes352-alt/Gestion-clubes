@@ -11,13 +11,13 @@ import { LoginPage } from '@modules/auth';
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { Header, BottomNav, HomeSectionsView } from '@shared/components';
-import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService } from '@shared/services/dataService';
-import type { Usuario, Club as DbClub, Equipo, Jugador } from '@shared/services/dataService';
+import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService } from '@shared/services/dataService';
+import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario } from '@shared/services/dataService';
 import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
 import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES } from '@shared/constants';
 
 // Modules - Plantilla
-import { PlayerTable, EditPlayerModal } from '@modules/plantilla';
+import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
 import type { Player } from '@modules/plantilla';
 
 // Modules - Staff
@@ -334,6 +334,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   };
 
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -415,6 +416,54 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     });
   };
 
+  const eventRowToCalendarEvent = (row: EventoCalendario): CalendarEvent => ({
+    id: row.id,
+    clubId: row.club_id || undefined,
+    title: row.title,
+    type: row.type,
+    date: new Date(row.date),
+    time: row.time || '',
+    team: row.team || undefined,
+    location: row.location || undefined,
+    notes: row.notes || undefined,
+    videoUrl: row.video_url || undefined,
+    docUrl: row.doc_url || undefined,
+    staffRoles: row.staff_roles || undefined,
+    competition: row.competition || undefined,
+    jornada: row.jornada || undefined,
+    sessionNumber: row.session_number ?? undefined,
+    localTeam: row.local_team || undefined,
+    visitorTeam: row.visitor_team || undefined,
+    opponent: row.opponent || undefined,
+    score: row.score || undefined,
+    status: row.status as CalendarEvent['status'] | undefined,
+    tasks: (row.tasks as CalendarEvent['tasks']) || [],
+  });
+
+  const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
+    id: event.id,
+    club_id: event.clubId || null,
+    title: event.title,
+    type: event.type,
+    date: event.date instanceof Date ? event.date.toISOString() : event.date,
+    time: event.time || null,
+    team: event.team || null,
+    location: event.location || null,
+    notes: event.notes || null,
+    video_url: event.videoUrl || null,
+    doc_url: event.docUrl || null,
+    staff_roles: event.staffRoles || null,
+    competition: event.competition || null,
+    jornada: event.jornada || null,
+    session_number: event.sessionNumber ?? null,
+    local_team: event.localTeam || null,
+    visitor_team: event.visitorTeam || null,
+    opponent: event.opponent || null,
+    score: event.score || null,
+    status: event.status || null,
+    tasks: event.tasks || [],
+  });
+
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
   const canonicalizePlayer = (player: Player, fallbackId?: string | number): Player => {
     const dni = normalizePlayerId(String(player.dni || ''));
@@ -456,7 +505,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         plantillasService.list(),
         db.campogramas.get(),
         usuariosService.list(),
-        db.events.get(),
+        eventosCalendarioService.list(),
         equiposService.list(),
         db.staff.get(),
         clubesService.list(),
@@ -523,7 +572,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       setCampogramasList(cRes.data || []);
 
       // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
-      setEventsList(hydrateData(eRes.data || []));
+      setEventsList((eRes || []).map(eventRowToCalendarEvent));
 
       // Migrar staff de Firestore a usuarios (una sola vez)
       let users: User[] = (uRes || []).map((u: Usuario): User => ({
@@ -622,8 +671,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       team: event.team || currentTeam?.name || '',
       clubId: currentTeam?.id || event.clubId || '',
     };
-    const eventToSave = { ...eventWithClub, date: eventWithClub.date instanceof Date ? eventWithClub.date.toISOString() : eventWithClub.date };
-
     setEventsList(prev => {
       const exists = prev.find(e => String(e.id) === eventId);
       if (exists) return prev.map(e => String(e.id) === eventId ? eventWithClub : e);
@@ -635,12 +682,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     setShowStatus("Guardando...");
 
     try {
-      await db.events.upsert(eventToSave);
+      await eventosCalendarioService.upsert(calendarEventToRow(eventWithClub));
       setShowStatus("Guardado correctamente");
     } catch (err) {
+      console.error("Error guardando evento:", err);
       setShowStatus("Error al sincronizar");
     }
     setTimeout(() => setShowStatus(null), 2000);
+  };
+
+  const handleCalendarEventClick = (event: CalendarEvent) => {
+    if (event.type === 'Entrenamiento' || event.type === 'Sesión') {
+      navigate('/sesiones', { state: { openEventId: event.id } });
+    } else {
+      setEditingEvent(event);
+    }
   };
 
   const handleAssignPlayer = async (posId: string, playerId: string | number) => {
@@ -685,7 +741,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const idStr = String(id);
     if (!window.confirm("�Eliminar definitivamente?")) return;
     setEventsList(prev => prev.filter(e => String(e.id) !== idStr));
-    await db.events.delete(idStr);
+    try {
+      await eventosCalendarioService.remove(idStr);
+    } catch (err) {
+      console.error("Error eliminando evento:", err);
+    }
   };
 
   const handleGlobalSave = async () => {
@@ -751,7 +811,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const { matchId } = useParams<{ matchId: string }>();
     const match = filteredEventsList.find(e => String(e.id) === matchId);
     if (!match) return <div className="p-20 text-center">{t('app.matchNotFound')}</div>;
-    return <MatchReportView match={match} onBack={() => navigate('/partidos')} />;
+    return <MatchReportView match={match} onBack={() => navigate('/partidos')} ownClubId={currentTeam?.id || ''} />;
   };
 
   // Componente de carga
@@ -834,7 +894,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlayerTable squad={filteredSquadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => { const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '' }); await db.players.upsert(toSave); setSquadList(prev => { const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id)); if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl); return [toSave, ...prev]; }); }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} />
+                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => { const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' }); await db.players.upsert(toSave); setSquadList(prev => { const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id)); if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl); return [toSave, ...prev]; }); }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
               } />
               <Route path="/staff" element={
                 <StaffTable
@@ -842,6 +902,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   onEdit={setEditingUser}
                   onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
                   onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal', clubId: currentTeam?.id || '' } as User); }}
+                  clubes={clubesList}
                   userClubId={perfil?.club_id || currentTeam?.id || ''}
                   userRole={userRole}
                 />
@@ -930,12 +991,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                 )
               } />
               <Route path="/disenador" element={<ExerciseDesigner />} />
-              <Route path="/pizarra" element={<PizarraTactica />} />
+              <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
                 <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={filteredCompetitionTeams} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} squad={filteredSquadList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={setEditingEvent} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />
+                <GestionCalendarView events={filteredEventsList} squad={filteredSquadList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -964,6 +1025,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/usuarios" element={userRole !== 'Tecnico'
                 ? <UserTable
                     users={usersList}
+                    clubes={clubesList}
                     onEdit={setEditingUser}
                     onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
                     onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal' } as User); }}
@@ -1041,6 +1103,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           }
         }}
       />}
+      {showBulkPhotoUpload && <BulkPhotoUpload
+        squad={squadList}
+        clubId={currentTeam?.id || ''}
+        onClose={() => setShowBulkPhotoUpload(false)}
+        onUploaded={async (playerId, fotoUrl) => {
+          await plantillasService.update(String(playerId), { foto_url: fotoUrl });
+          setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
+        }}
+      />}
       {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
         if (isNewUser) {
           try {
@@ -1083,7 +1154,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       }} />}
       {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEvent} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} />}
       {showNewModal && <NewEventModal initialDate={new Date()} onClose={() => { setShowNewModal(false); setModalDefaultType(undefined); }} onSave={handleSaveEvent} competitionTeams={competitionTeams} />}
-      {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(squadList.map(p => p.equipo).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
+      {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
       {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
 
     </div>

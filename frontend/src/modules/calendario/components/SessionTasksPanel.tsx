@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
-import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal } from '@modules/repositorio-tareas';
+import { CATEGORY_ICONS, CATEGORY_COLORS } from '@modules/repositorio-tareas';
 import type { SessionTask } from '../types';
 
 interface SessionTasksPanelProps {
@@ -12,8 +13,9 @@ interface SessionTasksPanelProps {
 
 const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [designerOpen, setDesignerOpen] = useState(false);
   const [repositoryTasks, setRepositoryTasks] = useState<TrainingTask[]>([]);
   const [repositoryLoading, setRepositoryLoading] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
@@ -43,32 +45,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
         linkedTaskId: task.id,
         title: task.name,
         category: task.category,
-        sessionPhase: task.sessionPhase,
-        durationMinutes: task.durationMinutes,
-        description: task.description,
+        sessionPhase: 'Parte Principal',
+        durationMinutes: 15,
       },
     ]);
     setPickerOpen(false);
   };
 
-  const openCustomForm = () => {
-    setDesignerOpen(true);
-  };
-
-  const saveCustomTask = async (task: TrainingTask) => {
-    await db.task_templates.upsert(task);
-    onChange([
-      ...tasks,
-      {
-        id: `rt-${task.id}-${Date.now()}`,
-        linkedTaskId: task.id,
-        title: task.name,
-        category: task.category,
-        sessionPhase: task.sessionPhase,
-        durationMinutes: task.durationMinutes,
-        description: task.description,
-      },
-    ]);
+  const openExerciseDesigner = () => {
+    navigate('/disenador', { state: { fromSessionCreation: true } });
   };
 
   const removeTask = (id: string) => {
@@ -79,9 +64,58 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
     if (!repoSearch) return repositoryTasks;
     const q = repoSearch.toLowerCase();
     return repositoryTasks.filter(task =>
-      task.name.toLowerCase().includes(q) || task.description?.toLowerCase().includes(q)
+      task.name.toLowerCase().includes(q)
     );
   }, [repositoryTasks, repoSearch]);
+
+  // Detectar si se creó una nueva tarea en el designer y añadirla automáticamente
+  useEffect(() => {
+    const newTaskId = (location.state as { newTaskId?: string } | null)?.newTaskId;
+    if (!newTaskId) return;
+
+    const addNewTask = async () => {
+      const task = repositoryTasks.find(t => t.id === newTaskId);
+      if (task) {
+        onChange([
+          ...tasks,
+          {
+            id: `rt-${task.id}-${Date.now()}`,
+            linkedTaskId: task.id,
+            title: task.name,
+            category: task.category,
+            sessionPhase: task.sessionPhase || 'Parte Principal',
+            durationMinutes: task.durationMinutes || 15,
+            description: task.description,
+          },
+        ]);
+      } else {
+        // Cargar la tarea del repositorio si no está en la lista actual
+        try {
+          const { data } = await db.task_templates.get();
+          const newTask = (data as TrainingTask[]).find(t => t.id === newTaskId);
+          if (newTask) {
+            onChange([
+              ...tasks,
+              {
+                id: `rt-${newTask.id}-${Date.now()}`,
+                linkedTaskId: newTask.id,
+                title: newTask.name,
+                category: newTask.category,
+                sessionPhase: newTask.sessionPhase || 'Parte Principal',
+                durationMinutes: newTask.durationMinutes || 15,
+                description: newTask.description,
+              },
+            ]);
+          }
+        } catch (err) {
+          console.error('Error al cargar la tarea creada:', err);
+        }
+      }
+    };
+
+    addNewTask();
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, repositoryTasks, tasks, onChange, navigate, location.pathname]);
 
   return (
     <div className="space-y-6">
@@ -106,7 +140,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
             </button>
             <button
               type="button"
-              onClick={openCustomForm}
+              onClick={openExerciseDesigner}
               className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
             >
               <i className="fa-solid fa-plus"></i> {t('calendarView.addCustomTask')}
@@ -177,12 +211,16 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
                     onClick={() => addTaskFromRepository(task)}
                     className="w-full flex items-center gap-3 rounded-xl border border-slate-100 hover:border-[var(--accent)]/40 hover:bg-slate-50 p-3 text-left transition-all"
                   >
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${CATEGORY_COLORS[task.category]}`}>
-                      <i className={`fa-solid ${CATEGORY_ICONS[task.category]}`}></i>
-                    </div>
+                    {task.thumbnail ? (
+                      <img src={task.thumbnail} alt={task.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${CATEGORY_COLORS[task.category]}`}>
+                        <i className={`fa-solid ${CATEGORY_ICONS[task.category]}`}></i>
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-slate-700 text-sm truncate">{task.name}</p>
-                      <p className="text-[11px] text-slate-400 font-bold truncate">{task.sessionPhase} • {task.category} • {task.durationMinutes} {t('calendarView.minutesAbbr')}</p>
+                      <p className="text-[11px] text-slate-400 font-bold truncate">{task.category}</p>
                     </div>
                     <i className="fa-solid fa-plus text-[var(--accent)]"></i>
                   </button>
@@ -193,12 +231,6 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange }
         </div>
       )}
 
-      <TaskDetailModal
-        task={null}
-        open={designerOpen}
-        onClose={() => setDesignerOpen(false)}
-        onSave={saveCustomTask}
-      />
     </div>
   );
 };

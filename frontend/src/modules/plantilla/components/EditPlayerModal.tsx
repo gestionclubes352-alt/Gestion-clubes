@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Player } from '../types';
 import type { CompetitionTeam } from '../../competicion/types';
+import PlayerStatsCharts from './PlayerStatsCharts';
 
 interface EditPlayerModalProps {
   player: Player;
@@ -616,6 +617,14 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </div>
             </div>
           </div>
+
+          {/* === GRÁFICAS DE PARTICIPACIÓN === */}
+          <PlayerStatsCharts
+            partidosJugados={formData.partidosJugados}
+            minutos={formData.minutos}
+            titular={formData.titular}
+            goles={formData.goles}
+          />
 
           {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}
           {!isHuesca && (

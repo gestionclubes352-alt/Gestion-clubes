@@ -145,28 +145,25 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                       <i className="fa-solid fa-plus text-white/60 text-[18px] md:text-[22px]"></i>
                     </div>
                     {displayPlayers.length > 0 && (
-                      <div className="mt-1 md:mt-2 bg-black/90 text-white text-[6px] md:text-[7px] font-black px-2 md:px-3 py-1 rounded-md uppercase tracking-widest text-left leading-tight shadow-xl cursor-pointer max-w-45" style={{ minWidth: '80px' }}>
+                      <div className="mt-1 md:mt-2 bg-black/90 text-white font-black px-2 md:px-3 py-1.5 rounded-md uppercase tracking-widest text-left leading-tight shadow-xl cursor-pointer max-w-45" style={{ minWidth: '90px' }}>
                         {displayPlayers.map((p) => (
                           <div
                             key={p.id}
-                            className="flex items-center gap-2 py-0.5 border-b border-white/10 last:border-b-0"
+                            className="flex items-center gap-2 py-1 border-b border-white/10 last:border-b-0"
                           >
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/20 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
                               {p.fotoUrl && p.fotoUrl.length > 1 ? (
                                 <img src={p.fotoUrl} className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-[7px] font-black text-white">{p.nombre.slice(0, 2).toUpperCase()}</span>
+                                <span className="text-[8px] font-black text-white">{p.nombre.slice(0, 2).toUpperCase()}</span>
                               )}
                             </div>
-                            <span className="bg-white/15 text-white text-[7px] md:text-[8px] font-black px-1.5 py-0.5 rounded cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
+                            <span className="bg-white/15 text-white text-[9px] md:text-[10px] font-black px-1.5 py-0.5 rounded cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
                               {p.dorsal}
                             </span>
                             <div className="min-w-0 flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
-                              <div className="whitespace-nowrap truncate">
-                                {p.apodo ? p.apodo : p.nombre}
-                              </div>
-                              <div className="text-[6px] md:text-[7px] text-white/70 font-bold uppercase tracking-widest whitespace-nowrap truncate">
-                                {p.club} - {p.equipo}
+                              <div className="whitespace-nowrap truncate text-[11px] md:text-[12px]">
+                                {p.apodo || p.nombre}
                               </div>
                             </div>
                             <button
@@ -191,9 +188,8 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
       {/* Columna Derecha/Inferior: Selector */}
       <div className="w-full lg:w-96 bg-white rounded-3xl md:rounded-3xl border border-slate-100 shadow-xl flex flex-col max-h-125 lg:max-h-none overflow-hidden shrink-0">
         <div className="p-4 md:p-6 border-b border-slate-50 bg-slate-50/50">
-          <h3 className="text-[var(--accent)] font-black text-[10px] md:text-xs uppercase tracking-widest mb-1">CONVOCATORIA</h3>
           <p className="text-[8px] md:text-[9px] font-bold text-slate-300 uppercase italic">
-            {activePosId ? 'Toca un jugador para añadir (máx 2)' : 'Toca una posición arriba'}
+            {activePosId ? 'Toca un jugador para añadir (máx 3)' : 'Toca una posición arriba'}
           </p>
         </div>
 

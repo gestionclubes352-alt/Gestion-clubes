@@ -571,21 +571,6 @@
     "allDone": "Todas las fotos se han subido correctamente.",
     "someErrors": "Algunas fotos no se han podido subir. Revisa los errores e inténtalo de nuevo."
   },
-  "rivalTeams": {
-    "addTeam": "Nuevo equipo rival",
-    "editTeam": "Editar equipo rival",
-    "confirmDeleteTeam": "¿Eliminar este equipo rival y toda su plantilla?",
-    "noTeams": "Todavía no has dado de alta ningún equipo rival.",
-    "noDetails": "Sin datos",
-    "uploadLogo": "Subir escudo",
-    "season": "Temporada",
-    "notes": "Notas",
-    "addPlayer": "Añadir jugador",
-    "editPlayer": "Editar jugador",
-    "confirmDeletePlayer": "¿Eliminar este jugador de la plantilla rival?",
-    "noPlayers": "Todavía no has añadido jugadores a esta plantilla.",
-    "uploadPhoto": "Subir foto"
-  },
   "staffTable": {
     "photo": "Foto",
     "role": "Rol",

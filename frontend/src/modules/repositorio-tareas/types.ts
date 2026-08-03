@@ -38,42 +38,12 @@ export interface TrainingTask {
   name: string;
   /** Categoría principal */
   category: TaskCategory;
-  /** Descripción detallada / instrucciones */
-  description: string;
-  /** Fase de sesión recomendada */
-  sessionPhase: SessionPhase;
-  /** Intensidad esperada */
-  intensity: TaskIntensity;
-  /** Duración estimada en minutos */
-  durationMinutes: number;
-  /** Número mínimo de jugadores */
-  minPlayers: number;
-  /** Número máximo de jugadores */
-  maxPlayers: number;
-  /** Objetivos de la tarea (lista de texto libre) */
-  objectives: string[];
-  /** Material necesario */
-  materials: TaskMaterial[];
-  /** Etiquetas personalizadas para filtros */
-  tags: string[];
-  /** Dimensiones del espacio (largo x ancho, en metros) */
-  fieldDimensions?: string;
-  /** Observaciones adicionales */
-  notes?: string;
   /** URL/path de imagen o diagrama asociado */
   thumbnail?: string;
-  /** ID del ejercicio vinculado del Diseñador (si existe) */
-  linkedExerciseId?: string;
   /** Fecha de creación (ISO) */
   createdAt: string;
   /** Fecha de última edición (ISO) */
   updatedAt: string;
-  /** Autor / creador */
-  createdBy?: string;
-  /** Marcada como favorita */
-  isFavorite?: boolean;
-  /** Snapshot del diseñador táctico (items del canvas) */
-  designerSnapshot?: any[];
 }
 
 /** Todas las categorías disponibles */

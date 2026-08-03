@@ -8,6 +8,8 @@ import { Player } from '../types';
 
 interface PlayerTableProps {
   squad: Player[];
+  /** Todos los jugadores (todos los clubes), sin el filtro de equipo de la cabecera — usado por la pestaña "Equipos Rivales". */
+  allSquad?: Player[];
   onEdit: (player: Player) => void;
   onSave: (player: Player) => Promise<void>;
   onDelete?: (id: number | string) => void;
@@ -51,20 +53,30 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload }) => {
+const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload }) => {
   const { t } = useTranslation();
   const { isMobile } = useIsMobile();
   const isHuesca = clubId === 'escuela-huesca';
   const positionOrder = isHuesca ? huescaPositionOrder : defaultPositionOrder;
+  const [activeTab, setActiveTab] = useState<'mis' | 'rivales'>('mis');
   const [filterPosition, setFilterPosition] = useState('TODOS');
+  const [filterClub, setFilterClub] = useState('TODOS');
   const [filterTeam, setFilterTeam] = useState('TODOS');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  // Equipos únicos disponibles
+  // Sin clubId propio no hay nada que distinguir: todo cuenta como "propio" (fallback demo/legacy)
+  const isOwnPlayer = (p: Player) => !p.clubId || String(p.clubId) === String(clubId);
+
+  const baseSquad = useMemo(() => {
+    if (activeTab === 'rivales') return (allSquad ?? squad).filter(p => !isOwnPlayer(p));
+    return squad.filter(isOwnPlayer);
+  }, [squad, allSquad, activeTab, clubId]);
+
+  // Equipos únicos disponibles (dentro de la pestaña activa)
   const availableTeams = useMemo(() => {
     const teamMap = new Map<string, string>();
-    squad.forEach(player => {
+    baseSquad.forEach(player => {
       const rawTeam = player.equipo?.trim();
       if (!rawTeam) return;
       const key = normalizeTeamLabel(rawTeam);
@@ -73,15 +85,31 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
       }
     });
     return Array.from(teamMap.values()).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [squad]);
+  }, [baseSquad]);
+
+  // Clubes únicos disponibles (dentro de la pestaña activa) — útil sobre todo en "Equipos Rivales",
+  // donde pueden mezclarse jugadores de varios clubes distintos
+  const availableClubs = useMemo(() => {
+    const clubMap = new Map<string, string>();
+    baseSquad.forEach(player => {
+      const rawClub = player.club?.trim();
+      if (!rawClub) return;
+      const key = normalizeTeamLabel(rawClub);
+      if (!clubMap.has(key)) {
+        clubMap.set(key, rawClub);
+      }
+    });
+    return Array.from(clubMap.values()).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [baseSquad]);
 
   const filteredSquad = useMemo(() => {
-    return squad.filter(p => {
+    return baseSquad.filter(p => {
       const posMatch = filterPosition === 'TODOS' || p.posicion === filterPosition;
+      const clubMatch = filterClub === 'TODOS' || normalizeTeamLabel(p.club || '') === normalizeTeamLabel(filterClub);
       const teamMatch = filterTeam === 'TODOS' || normalizeTeamLabel(p.equipo || '') === normalizeTeamLabel(filterTeam);
-      return posMatch && teamMatch;
+      return posMatch && clubMatch && teamMatch;
     }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [squad, filterPosition, filterTeam]);
+  }, [baseSquad, filterPosition, filterClub, filterTeam]);
 
   const groupedPlayers = useMemo(() => {
     const groups = positionOrder.reduce((acc, pos) => {
@@ -104,7 +132,13 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
     });
   };
 
-  const isLoading = squad.length === 0 && filterPosition === 'TODOS';
+  const switchTab = (tab: 'mis' | 'rivales') => {
+    setActiveTab(tab);
+    setFilterClub('TODOS');
+    setFilterTeam('TODOS');
+  };
+
+  const isLoading = baseSquad.length === 0 && filterPosition === 'TODOS';
 
   const textCell = (val: string | number | undefined | null) =>
     val != null && val !== '' ? <span className="text-slate-600 text-xs whitespace-nowrap">{val}</span> : <span className="text-slate-300">—</span>;
@@ -333,8 +367,34 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* PAGE TITLE */}
       <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
-        {t('sidebar.squadsLabel', 'Plantillas')}
+        {activeTab === 'rivales' ? t('sidebar.rivalTeamsLabel') : 'Mis Plantillas'}
       </h2>
+
+      {/* PESTAÑAS MIS PLANTILLAS / EQUIPOS RIVALES */}
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={() => switchTab('mis')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'mis'
+              ? 'bg-[var(--accent)] text-white shadow'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-shield-halved text-[10px]"></i>
+          Mis Plantillas
+        </button>
+        <button
+          onClick={() => switchTab('rivales')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'rivales'
+              ? 'bg-[#1976d2] text-white shadow'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-user-secret text-[10px]"></i>
+          {t('sidebar.rivalTeamsLabel')}
+        </button>
+      </div>
 
       {/* FILTER BAR */}
       <div className="sticky top-0 z-30 bg-[var(--surface-0)]/90 backdrop-blur-xl border border-[var(--border-soft)] shadow-sm rounded-2xl p-3.5">
@@ -360,6 +420,39 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
               >
                 {t('playerTable.clear')}
               </button>
+            )}
+
+            {/* Separador */}
+            {availableClubs.length > 1 && (
+              <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
+            )}
+
+            {/* Filtro de clubes */}
+            {availableClubs.length > 1 && (
+              <>
+                {['TODOS', ...availableClubs].map((club) => (
+                  <button
+                    key={`club-${club}`}
+                    onClick={() => setFilterClub(club)}
+                    className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
+                      filterClub === club
+                        ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                        : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
+                    }`}
+                  >
+                    <i className="fa-solid fa-shield-halved text-[9px] mr-1"></i>
+                    {club === 'TODOS' ? 'Todos los clubes' : club}
+                  </button>
+                ))}
+                {filterClub !== 'TODOS' && (
+                  <button
+                    onClick={() => setFilterClub('TODOS')}
+                    className="px-3 py-2 rounded-xl text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <i className="fa-solid fa-xmark text-[9px]"></i>
+                  </button>
+                )}
+              </>
             )}
 
             {/* Separador */}
@@ -425,10 +518,14 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
           )}
           <button
             onClick={openNewPlayerCard}
-            className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg shadow-[var(--accent)]/30 hover:shadow-xl hover:scale-[1.02]"
+            className={`inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] ${
+              activeTab === 'rivales'
+                ? 'bg-[#1976d2] hover:bg-[#1565c0] shadow-[#1976d2]/30'
+                : 'bg-[var(--accent)] hover:bg-[var(--accent-dark)] shadow-[var(--accent)]/30'
+            }`}
           >
             <i className="fa-solid fa-plus text-[10px]"></i>
-            {t('players.addPlayer')}
+            {activeTab === 'rivales' ? 'Nuevo Jugador Rival' : t('players.addPlayer')}
           </button>
         </div>
       </div>
@@ -449,8 +546,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
           exportFilename="plantilla"
           loading={isLoading}
           skeletonRows={6}
-          emptyMessage={t('playerTable.noPlayersFound')}
-          emptyIcon="fa-solid fa-futbol"
+          emptyMessage={activeTab === 'rivales' ? 'Todavía no hay jugadores rivales dados de alta.' : t('playerTable.noPlayersFound')}
+          emptyIcon={activeTab === 'rivales' ? 'fa-solid fa-user-secret' : 'fa-solid fa-futbol'}
           onRowClick={(player) => onEdit(player)}
         />
       )}
@@ -516,7 +613,9 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
 
                           {/* Info inferior */}
                           <div className="absolute bottom-0 left-0 right-0 p-1.5">
-                            {player.posicionJuego && (
+                            {activeTab === 'rivales' && player.club ? (
+                              <p className="text-[6px] font-bold uppercase tracking-[0.1em] text-[#1976d2] mb-0.5 truncate">{player.club}</p>
+                            ) : player.posicionJuego && (
                               <p className="text-[6px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-0.5 truncate">{player.posicionJuego}</p>
                             )}
                             <h3 className="text-[10px] font-black text-[var(--text-strong)] uppercase leading-tight tracking-tight truncate">{player.nombre}</h3>
@@ -533,9 +632,11 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
           {!isLoading && groupedPlayers.length === 0 && (
             <div className="py-16 text-center">
               <div className="w-14 h-14 rounded-2xl bg-[var(--surface-1)] border border-[var(--border-soft)] flex items-center justify-center mx-auto mb-3">
-                <i className="fa-solid fa-futbol text-xl text-[var(--text-muted)]"></i>
+                <i className={`fa-solid ${activeTab === 'rivales' ? 'fa-user-secret' : 'fa-futbol'} text-xl text-[var(--text-muted)]`}></i>
               </div>
-              <p className="text-sm text-[var(--text-muted)]">{t('playerTable.noPlayersFoundShort')}</p>
+              <p className="text-sm text-[var(--text-muted)]">
+                {activeTab === 'rivales' ? 'Todavía no hay jugadores rivales dados de alta.' : t('playerTable.noPlayersFoundShort')}
+              </p>
             </div>
           )}
         </div>
@@ -548,7 +649,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
             <i className="fa-solid fa-database text-sm text-[var(--text-muted)]"></i>
           </div>
           <p className="text-xs text-[var(--text-muted)] font-medium">
-            {filteredSquad.length} {t('playerTable.playersCount')}{filterPosition !== 'TODOS' ? ` · ${filterPosition}` : ''}{filterTeam !== 'TODOS' ? ` · ${filterTeam}` : ''}
+            {filteredSquad.length} {t('playerTable.playersCount')}{filterPosition !== 'TODOS' ? ` · ${filterPosition}` : ''}{filterClub !== 'TODOS' ? ` · ${filterClub}` : ''}{filterTeam !== 'TODOS' ? ` · ${filterTeam}` : ''}
           </p>
         </div>
         <button
@@ -556,7 +657,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
           className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
         >
           <i className="fa-solid fa-plus text-[10px]"></i>
-          {t('playerTable.newPlayer')}
+          {activeTab === 'rivales' ? 'Nuevo Jugador Rival' : t('playerTable.newPlayer')}
         </button>
       </div>
     </div>

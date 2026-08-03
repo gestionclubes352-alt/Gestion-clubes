@@ -13,7 +13,7 @@ import { DataTable } from '../../../shared/components/DataTable';
 import type { DataTableAction } from '../../../shared/components/DataTable';
 import { User } from '../types';
 import { useTranslation } from 'react-i18next';
-import { AVAILABLE_TEAMS } from '../../auth/types';
+import type { Club } from '@modules/clubes';
 
 interface UserTableProps {
   users: User[];
@@ -26,6 +26,8 @@ interface UserTableProps {
   onReject?: (user: User) => void;
   /** Recargar manualmente la lista de usuarios */
   onRefresh?: () => void;
+  /** Clubes dados de alta en el sistema */
+  clubes: Club[];
 }
 
 const columnHelper = createColumnHelper<User>();
@@ -71,15 +73,15 @@ const getDeptBadge = (dept: string) => {
   return colors[dept] || 'bg-slate-50 text-slate-500 border-slate-200';
 };
 
-/** Mapa de equipos por id para lookup rápido */
-const teamsById = new Map(AVAILABLE_TEAMS.map(t => [t.id, t]));
-
 // ── Componente ─────────────────────────────────────────────
 
-const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate, onApprove, onReject, onRefresh }) => {
+const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate, onApprove, onReject, onRefresh, clubes }) => {
   const { t } = useTranslation();
   const [busyId, setBusyId] = useState<string | number | null>(null);
   const [approveRole, setApproveRole] = useState<Record<string, Exclude<User['rol'], 'Pendiente'>>>({});
+
+  /** Mapa de clubes por id para lookup rápido */
+  const clubesById = useMemo(() => new Map(clubes.map(c => [String(c.id), c])), [clubes]);
 
   const pendingUsers = useMemo(() => users.filter(u => u.estado === 'Pendiente'), [users]);
 
@@ -182,8 +184,8 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
         }
 
         const cid = info.getValue();
-        const team = cid ? teamsById.get(cid) : undefined;
-        if (!team) {
+        const club = cid ? clubesById.get(String(cid)) : undefined;
+        if (!club) {
           return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider border bg-slate-50 text-slate-400 border-slate-200">
               <i className="fa-solid fa-minus text-[8px]"></i>
@@ -193,14 +195,14 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
         }
         return (
           <div className="flex items-center gap-2">
-            {team.logoUrl ? (
-              <img src={team.logoUrl} alt={team.shortName} className="w-6 h-6 rounded object-contain" />
+            {club.logoUrl ? (
+              <img src={club.logoUrl} alt={club.nombre} className="w-6 h-6 rounded object-contain" />
             ) : (
-              <div className="w-6 h-6 rounded flex items-center justify-center text-[8px] font-black text-white" style={{ backgroundColor: team.colors.primary }}>
-                {team.shortName.charAt(0)}
+              <div className="w-6 h-6 rounded flex items-center justify-center text-[8px] font-black text-white bg-slate-400">
+                {club.nombre.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-xs font-bold text-slate-700">{team.shortName}</span>
+            <span className="text-xs font-bold text-slate-700">{club.nombre}</span>
           </div>
         );
       },
@@ -219,7 +221,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
       cell: info => <span className="text-slate-400 text-xs">{info.getValue() || t('userTable.never')}</span>,
     }),
   ];
-  }, [t]);
+  }, [t, clubesById]);
 
   const actions = useMemo<DataTableAction<User>[]>(() => {
     const acts: DataTableAction<User>[] = [

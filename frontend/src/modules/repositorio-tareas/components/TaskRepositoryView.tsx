@@ -10,12 +10,8 @@ import { db } from '@shared/services/dataService';
 import type { TrainingTask, TaskCategory, TaskIntensity, SessionPhase } from '../types';
 import {
   TASK_CATEGORIES,
-  TASK_INTENSITIES,
-  SESSION_PHASES,
   CATEGORY_ICONS,
   CATEGORY_COLORS,
-  INTENSITY_COLORS,
-  getDesignerItemAnimationClass,
 } from '../types';
 import TaskDetailModal from './TaskDetailModal';
 
@@ -30,11 +26,8 @@ const TaskRepositoryView: React.FC = () => {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TrainingTask | null>(null);
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [previewTask, setPreviewTask] = useState<TrainingTask | null>(null);
-  const [previewAnimating, setPreviewAnimating] = useState(false);
-  const [previewStep, setPreviewStep] = useState(0);
 
   // ─── Data loading ───
   const fetchTasks = useCallback(async () => {
@@ -50,20 +43,6 @@ const TaskRepositoryView: React.FC = () => {
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  useEffect(() => {
-    setPreviewAnimating(false);
-    setPreviewStep(0);
-  }, [previewTask?.id]);
-
-  useEffect(() => {
-    if (!previewAnimating || !previewTask?.designerSnapshot?.length) return;
-
-    const timer = window.setInterval(() => {
-      setPreviewStep(prev => (prev + 1) % (previewTask.designerSnapshot?.length ?? 1));
-    }, 900);
-
-    return () => window.clearInterval(timer);
-  }, [previewAnimating, previewTask?.designerSnapshot]);
 
   // ─── Filtering ───
   const filtered = useMemo(() => {
@@ -160,55 +139,6 @@ const TaskRepositoryView: React.FC = () => {
     });
   };
 
-  const fieldBackgroundStyle = {
-    backgroundColor: '#315b31',
-    backgroundImage: [
-      'radial-gradient(circle at 50% 48%, rgba(117, 166, 99, 0.20) 0%, rgba(80, 121, 73, 0.12) 42%, rgba(18, 30, 18, 0.34) 100%)',
-      'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.020) 0 56px, rgba(0, 0, 0, 0.045) 56px 112px)',
-      'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.010) 0 2px, transparent 2px 128px)',
-    ].join(', '),
-    backgroundBlendMode: 'soft-light, multiply, normal',
-  } as const;
-
-  // ─── Field preview renderer (shared between mini and full views) ───
-  const FieldPreview: React.FC<{ task: TrainingTask; className?: string; itemScale?: number; visibleCount?: number }> = ({ task, className = '', itemScale = 1, visibleCount }) => (
-    <div className={`w-full relative overflow-hidden ${className}`} style={fieldBackgroundStyle}>
-      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-35" viewBox="0 0 68 105" preserveAspectRatio="none">
-        <g fill="none" stroke="white" strokeWidth="0.45">
-          <rect x="0" y="0" width="68" height="105" />
-          <line x1="0" y1="52.5" x2="68" y2="52.5" />
-          <circle cx="34" cy="52.5" r="9.15" />
-          <rect x="13.84" y="0" width="40.32" height="16.5" />
-          <rect x="13.84" y="88.5" width="40.32" height="16.5" />
-        </g>
-      </svg>
-      {task.designerSnapshot?.slice(0, visibleCount ?? task.designerSnapshot.length).map((item: any, idx: number) => (
-        <div key={item.id || idx} className="absolute" style={{ left: `${item.x}%`, top: `${item.y}%`, transform: 'translate(-50%, -50%)' }}>
-          {item.type === 'cone' ? (
-            <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
-              <div className="w-0 h-0" style={{ borderLeft: `${4 * itemScale}px solid transparent`, borderRight: `${4 * itemScale}px solid transparent`, borderBottom: `${7 * itemScale}px solid ${item.color || '#ef4444'}` }}></div>
-            </div>
-          ) : item.type === 'zone' ? (
-            <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
-              <div className="border border-dashed border-white/50" style={{ width: `${(item.width || 15) * 0.6 * itemScale}px`, height: `${(item.height || 15) * 0.6 * itemScale}px` }}></div>
-            </div>
-          ) : item.type === 'goal' ? (
-            <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
-              <div style={{ width: `${24 * itemScale}px`, height: `${12 * itemScale}px`, border: '1px solid white', borderBottom: 'none' }}></div>
-            </div>
-          ) : item.type?.startsWith('player-') ? (
-            <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
-              <div style={{ backgroundColor: item.color || '#ef4444', width: `${12 * itemScale}px`, height: `${12 * itemScale}px` }} className="rounded-full border border-white shadow-sm"></div>
-            </div>
-          ) : (
-            <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
-              <div style={{ width: `${8 * itemScale}px`, height: `${8 * itemScale}px` }} className="bg-white rounded-full opacity-80"></div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
 
   // ─── Mini task card (thumbnail) ───
   const MiniTaskCard: React.FC<{ task: TrainingTask }> = ({ task }) => (
@@ -216,30 +146,19 @@ const TaskRepositoryView: React.FC = () => {
       onClick={() => setPreviewTask(task)}
       className="group bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
     >
-      {/* Mini field preview */}
-      {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-        <FieldPreview task={task} className="h-16" itemScale={0.6} />
+      {/* Image preview */}
+      {task.thumbnail ? (
+        <img src={task.thumbnail} alt={task.name} className="h-16 w-full object-cover" />
       ) : (
         <div className="h-16 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
           <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-lg`}></i>
         </div>
       )}
       <div className="p-2">
-        <div className="flex items-center justify-between gap-1 mb-1">
-          <h4 className="text-[10px] font-black uppercase tracking-tight text-slate-800 truncate leading-tight">{task.name}</h4>
-          {task.isFavorite && <i className="fa-solid fa-star text-amber-400 text-[8px] shrink-0"></i>}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          <span className={`inline-flex items-center px-1.5 py-0 rounded text-[7px] font-black uppercase tracking-wider border ${INTENSITY_COLORS[task.intensity]}`}>
-            {task.intensity}
-          </span>
-          <span className="inline-flex items-center px-1.5 py-0 rounded text-[7px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200">
-            <i className="fa-solid fa-clock mr-0.5 text-[6px]"></i>{task.durationMinutes}'
-          </span>
-          <span className="inline-flex items-center px-1.5 py-0 rounded text-[7px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-500 border border-indigo-100">
-            {task.sessionPhase}
-          </span>
-        </div>
+        <h4 className="text-[10px] font-black uppercase tracking-tight text-slate-800 truncate leading-tight mb-1">{task.name}</h4>
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider text-white ${CATEGORY_COLORS[task.category]}`}>
+          {task.category}
+        </span>
       </div>
     </div>
   );
@@ -257,103 +176,23 @@ const TaskRepositoryView: React.FC = () => {
           <i className="fa-solid fa-xmark text-sm"></i>
         </button>
 
-        {/* Large field preview */}
-        {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-          <div className="relative">
-            <FieldPreview
-              task={task}
-              className="h-52 shrink-0"
-              itemScale={1.2}
-              visibleCount={previewAnimating ? Math.min(task.designerSnapshot.length, previewStep + 1) : task.designerSnapshot.length}
-            />
-            <button
-              type="button"
-              onClick={() => setPreviewAnimating(v => !v)}
-              className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white backdrop-blur-md transition-colors hover:bg-black/70"
-            >
-              <i className={`fa-solid ${previewAnimating ? 'fa-pause' : 'fa-play'} text-[9px]`} />
-              {previewAnimating ? 'Pausar animación' : 'Animar'}
-            </button>
-          </div>
+        {/* Image preview */}
+        {task.thumbnail ? (
+          <img src={task.thumbnail} alt={task.name} className="h-52 w-full object-cover shrink-0" />
         ) : (
-          <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center shrink-0">
+          <div className="h-52 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center shrink-0">
             <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-4xl`}></i>
           </div>
         )}
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto">
+        <div className="p-5 overflow-y-auto flex-1">
           {/* Header */}
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <h3 className="text-lg font-black uppercase tracking-tight text-slate-800">{task.name}</h3>
-            <button onClick={() => handleToggleFavorite(task)} className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${task.isFavorite ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}`}>
-              <i className={`fa-${task.isFavorite ? 'solid' : 'regular'} fa-star`}></i>
-            </button>
-          </div>
-
-          {/* Badges */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${INTENSITY_COLORS[task.intensity]}`}>
-              {task.intensity}
+          <div className="mb-3">
+            <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 mb-2">{task.name}</h3>
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[task.category]}`}>
+              {task.category}
             </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200">
-              <i className="fa-solid fa-clock mr-1 text-[9px]"></i>{task.durationMinutes}'
-            </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200">
-              <i className="fa-solid fa-users mr-1 text-[9px]"></i>{task.minPlayers}-{task.maxPlayers}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 border border-indigo-100">
-              {task.sessionPhase}
-            </span>
-          </div>
-
-          {/* Description */}
-          {task.description && (
-            <p className="text-sm text-slate-600 leading-relaxed mb-3">{task.description}</p>
-          )}
-
-          {/* Tags */}
-          {task.tags && task.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {task.tags.map((tag, i) => (
-                <span key={i} className="inline-block bg-slate-100 text-slate-500 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Details */}
-          <div className="space-y-3">
-            {task.objectives && task.objectives.length > 0 && (
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('taskRepository.objectives')}</span>
-                <ul className="mt-1 space-y-1">
-                  {task.objectives.map((obj, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
-                      <i className="fa-solid fa-check text-emerald-500 text-[9px] mt-1"></i>
-                      {obj}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {task.materials && task.materials.length > 0 && (
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('taskRepository.materials')}</span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {task.materials.map((mat, i) => (
-                    <span key={i} className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-0.5 text-[11px] font-bold text-slate-600">{mat.name} x{mat.quantity}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {task.fieldDimensions && (
-              <div className="text-xs text-slate-500"><i className="fa-solid fa-ruler-combined mr-1"></i> {task.fieldDimensions}</div>
-            )}
-            {task.notes && (
-              <div className="text-xs text-slate-500 italic">{task.notes}</div>
-            )}
           </div>
 
           {/* Actions */}

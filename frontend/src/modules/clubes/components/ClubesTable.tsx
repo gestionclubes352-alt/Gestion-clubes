@@ -18,13 +18,23 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
 
   const filteredClubes = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const sorted = [...clubes].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    // Separar MI CLUB del resto
+    const myClub = clubId ? clubes.find(c => String(c.id) === String(clubId)) : null;
+    const otherClubes = clubes.filter(c => !myClub || String(c.id) !== String(clubId));
+
+    // Ordenar el resto alfabéticamente
+    const sortedOthers = otherClubes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    // MI CLUB primero, luego los demás
+    const sorted = myClub ? [myClub, ...sortedOthers] : sortedOthers;
+
     if (!q) return sorted;
     return sorted.filter(c =>
       c.nombre.toLowerCase().includes(q) ||
       (c.localidad || '').toLowerCase().includes(q)
     );
-  }, [clubes, search]);
+  }, [clubes, search, clubId]);
 
   return (
     <>
@@ -80,44 +90,60 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
           </div>
         )}
 
-        {filteredClubes.map((club) => (
-          <div
-            key={String(club.id)}
-            className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-shadow"
-          >
-            <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {club.logoUrl ? (
-                <img src={club.logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
-              ) : (
-                <i className="fa-solid fa-shield-halved text-slate-300"></i>
+        {filteredClubes.map((club) => {
+          const isMyClub = clubId && String(club.id) === String(clubId);
+          return (
+            <div
+              key={String(club.id)}
+              className={`rounded-2xl border p-4 flex items-center gap-3 transition-all relative ${
+                isMyClub
+                  ? 'border-[var(--accent)] bg-gradient-to-br from-[var(--accent)]/5 to-white shadow-md hover:shadow-lg'
+                  : 'border-slate-200 bg-white shadow-sm hover:shadow-md'
+              }`}
+            >
+              {isMyClub && (
+                <div className="absolute top-2 right-2 px-2 py-1 bg-[var(--accent)] text-white text-[9px] font-black uppercase tracking-widest rounded-lg">
+                  MI CLUB
+                </div>
               )}
+              <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {club.logoUrl ? (
+                  <img src={club.logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <i className="fa-solid fa-shield-halved text-slate-300"></i>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={`text-sm font-black uppercase tracking-tight truncate ${
+                  isMyClub ? 'text-[var(--accent)]' : 'text-slate-800'
+                }`}>
+                  {club.nombre}
+                </div>
+                <div className="text-xs text-slate-400 truncate">{club.localidad || '—'}</div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {onEdit && (
+                  <button
+                    onClick={() => setEditingClub(club)}
+                    className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                    title="Editar"
+                  >
+                    <i className="fa-regular fa-pen-to-square text-[11px]"></i>
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(club.id)}
+                    className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                    title="Eliminar"
+                  >
+                    <i className="fa-regular fa-trash-can text-[11px]"></i>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-black uppercase tracking-tight text-slate-800 truncate">{club.nombre}</div>
-              <div className="text-xs text-slate-400 truncate">{club.localidad || '—'}</div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {onEdit && (
-                <button
-                  onClick={() => setEditingClub(club)}
-                  className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
-                  title="Editar"
-                >
-                  <i className="fa-regular fa-pen-to-square text-[11px]"></i>
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  onClick={() => onDelete(club.id)}
-                  className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
-                  title="Eliminar"
-                >
-                  <i className="fa-regular fa-trash-can text-[11px]"></i>
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Modales */}

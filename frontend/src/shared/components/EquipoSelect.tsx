@@ -36,8 +36,10 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   const [newName, setNewName] = useState('');
 
   const options = useMemo(() => {
-    const set = new Set<string>(DEFAULT_EQUIPOS);
+    const set = new Set<string>();
     extraTeams.forEach(t => { if (t) set.add(t); });
+    // Sin equipos dados de alta todavía: ofrecer catálogo genérico como punto de partida
+    if (set.size === 0) DEFAULT_EQUIPOS.forEach(t => set.add(t));
     // Si el valor actual no está en la lista, añadirlo
     if (value && !set.has(value)) set.add(value);
     return Array.from(set);

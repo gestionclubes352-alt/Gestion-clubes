@@ -3,8 +3,8 @@ import type { Player } from '@modules/plantilla';
 import type { TacticalPosition } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
 import type { MatchReport, VideoEvent } from '../types';
-import { db, equiposRivalesService, jugadoresRivalesService } from '@shared/services/dataService';
-import type { EquipoRival, JugadorRival } from '@shared/services/dataService';
+import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
+import type { Equipo, Jugador } from '@shared/services/dataService';
 import { SQUAD } from '@shared/constants';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next';
 interface MatchReportViewProps {
   match: CalendarEvent;
   onBack: () => void;
+  /** Id de mi club (currentTeam.id) — cualquier otro equipo se trata como rival. */
+  ownClubId?: string;
 }
 
 const getInitialPositions = (formation: string): TacticalPosition[] => {
@@ -145,7 +147,7 @@ const getEmbedUrl = (url: string, startSeconds?: number) => {
   return `${baseUrl}${separator}${params.join('&')}`;
 };
 
-const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
+const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId }) => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('INFORME RIVAL');
   const [isSaving, setIsSaving] = useState(false);
@@ -180,9 +182,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
   const [expandedMediaBlock, setExpandedMediaBlock] = useState<string | null>(null);
 
   // Plantilla rival (scouting) para el Informe de Rival
-  const [rivalTeams, setRivalTeams] = useState<EquipoRival[]>([]);
+  const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
   const [selectedRivalTeamId, setSelectedRivalTeamId] = useState('');
-  const [rivalRoster, setRivalRoster] = useState<JugadorRival[]>([]);
+  const [rivalRoster, setRivalRoster] = useState<Jugador[]>([]);
 
   const samePlayerId = (a?: string | number, b?: string | number) => String(a) === String(b);
 
@@ -300,18 +302,24 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
   useEffect(() => {
     (async () => {
       try {
-        const rows = await equiposRivalesService.list();
-        setRivalTeams(rows.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+        const [equiposRows, clubesRows] = await Promise.all([equiposService.list(), clubesService.list()]);
+        const clubesById = new Map(clubesRows.map(c => [String(c.id), c.nombre]));
+        const rivals = equiposRows
+          .filter(e => !ownClubId || String(e.club_id) !== String(ownClubId))
+          .map(e => ({ ...e, clubNombre: clubesById.get(String(e.club_id)) }))
+          .sort((a, b) => (a.clubNombre || a.nombre).localeCompare(b.clubNombre || b.nombre, 'es'));
+        setRivalTeams(rivals);
       } catch (err) {
         console.error('No se pudieron cargar los equipos rivales', err);
       }
     })();
-  }, []);
+  }, [ownClubId]);
 
   useEffect(() => {
     if (selectedRivalTeamId || !match.opponent || rivalTeams.length === 0) return;
     const normalize = (v: string) => v.trim().toLowerCase();
-    const match_ = rivalTeams.find(rt => normalize(rt.nombre) === normalize(match.opponent || ''));
+    const opponentNorm = normalize(match.opponent || '');
+    const match_ = rivalTeams.find(rt => normalize(rt.clubNombre || rt.nombre) === opponentNorm || normalize(rt.nombre) === opponentNorm);
     if (match_) setSelectedRivalTeamId(match_.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rivalTeams, match.opponent]);
@@ -320,7 +328,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
     if (!selectedRivalTeamId) { setRivalRoster([]); return; }
     (async () => {
       try {
-        const rows = await jugadoresRivalesService.list({ equipo_rival_id: selectedRivalTeamId });
+        const rows = await plantillasService.list({ equipo_id: selectedRivalTeamId });
         setRivalRoster(rows.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
       } catch (err) {
         console.error('No se pudo cargar la plantilla rival', err);
@@ -697,7 +705,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
       if (pos.id === posId) {
         const playerIds = pos.playerIds || [];
         if (playerIds.some(id => samePlayerId(id, playerId))) return pos;
-        return { ...pos, playerIds: [...playerIds, playerId].slice(-2) };
+        return { ...pos, playerIds: [...playerIds, playerId].slice(-3) };
       }
       return pos;
     });
@@ -1616,9 +1624,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
           onChange={e => setSelectedRivalTeamId(e.target.value)}
           className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text)] focus:outline-none"
         >
-          <option value="">{t('rivalTeams.noTeams')}</option>
+          <option value="">Selecciona un equipo rival</option>
           {rivalTeams.map(team => (
-            <option key={team.id} value={team.id}>{team.nombre}</option>
+            <option key={team.id} value={team.id}>
+              {team.clubNombre ? `${team.clubNombre} — ${team.sub_equipo || team.nombre}` : (team.sub_equipo || team.nombre)}
+            </option>
           ))}
         </select>
       </div>
@@ -1762,7 +1772,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
               </div>
             ))}
             {rivalRoster.length === 0 && (
-              <p className="col-span-full text-xs text-[var(--text-muted)]">{t('rivalTeams.noPlayers')}</p>
+              <p className="col-span-full text-xs text-[var(--text-muted)]">Este equipo todavía no tiene jugadores dados de alta en Plantillas.</p>
             )}
           </div>
         </div>

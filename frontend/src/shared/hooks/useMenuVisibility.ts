@@ -14,7 +14,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 6;
+const MENU_VERSION = 8;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {

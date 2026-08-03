@@ -206,26 +206,6 @@ export interface PizarraTactica {
   partido_id?: string | null;
 }
 
-export interface EquipoRival {
-  id: string;
-  club_id?: string | null;
-  nombre: string;
-  escudo_url?: string;
-  competicion?: string;
-  temporada?: string;
-  notas?: string;
-}
-
-export interface JugadorRival {
-  id: string;
-  equipo_rival_id: string;
-  dorsal?: number;
-  nombre: string;
-  posicion?: string;
-  foto_url?: string;
-  anio_nacimiento?: number;
-}
-
 export interface Tarea {
   id: string;
   club_id: string;
@@ -250,8 +230,6 @@ export const sesionesService = createTableService<Sesion>('sesiones');
 export const eventosCalendarioService = createTableService<EventoCalendario>('eventos_calendario');
 export const pizarrasService = createTableService<PizarraTactica>('pizarras_tacticas');
 export const tareasService = createTableService<Tarea>('tareas');
-export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
-export const jugadoresRivalesService = createTableService<JugadorRival>('jugadores_rivales');
 
 // Ejemplo de uso en un componente:
 //
@@ -283,15 +261,140 @@ function createLegacyStub<T = any>(): LegacyStore<T> {
   };
 }
 
+/**
+ * Tabla `task_templates` (repositorio de tareas / plantillas de ejercicios):
+ * el objeto completo (TrainingTask) se guarda como JSONB en la columna
+ * `payload` — ver 016_task_templates_y_fix_rls_exercises.sql.
+ */
+function createJsonPayloadStore<T extends { id: string } = any>(tableName: string): LegacyStore<T> {
+  return {
+    async get() {
+      const { data, error } = await supabase.from(tableName).select('payload');
+      if (error) throw error;
+      return { data: (data ?? []).map((row: { payload: T }) => row.payload) };
+    },
+    async upsert(item: T) {
+      const { error } = await supabase.from(tableName).upsert({ id: item.id, payload: item });
+      if (error) throw error;
+      return item;
+    },
+    async delete(id: string | number) {
+      const { error } = await supabase.from(tableName).delete().eq('id', id);
+      if (error) throw error;
+    },
+    async clearAll() {
+      const { error } = await supabase.from(tableName).delete().neq('id', '');
+      if (error) throw error;
+    },
+  };
+}
+
+interface StoredCampograma {
+  id: string;
+  nombre: string;
+  club: string;
+  equipo: string;
+  jugadoresCount: number;
+  formacion: string;
+  positions: unknown[];
+}
+
+/** Tabla `campogramas` (001_schema.sql): columnas propias, sin payload JSONB. */
+function createCampogramasStore(): LegacyStore<any> {
+  return {
+    async get() {
+      const { data, error } = await supabase
+        .from('campogramas')
+        .select('id, nombre, club, equipo, jugadores_count, formacion, positions');
+      if (error) throw error;
+      return {
+        data: (data ?? []).map((row: { id: string; nombre: string; club: string; equipo: string; jugadores_count: number; formacion: string; positions: unknown[] }) => ({
+          id: row.id,
+          nombre: row.nombre,
+          club: row.club,
+          equipo: row.equipo,
+          jugadoresCount: row.jugadores_count,
+          formacion: row.formacion,
+          positions: row.positions,
+        })),
+      };
+    },
+    async upsert(item: StoredCampograma) {
+      const { error } = await supabase.from('campogramas').upsert({
+        id: item.id,
+        nombre: item.nombre,
+        club: item.club,
+        equipo: item.equipo,
+        jugadores_count: item.jugadoresCount,
+        formacion: item.formacion,
+        positions: item.positions,
+      });
+      if (error) throw error;
+      return item;
+    },
+    async delete(id: string | number) {
+      const { error } = await supabase.from('campogramas').delete().eq('id', id);
+      if (error) throw error;
+    },
+    async clearAll() {
+      const { error } = await supabase.from('campogramas').delete().neq('id', '');
+      if (error) throw error;
+    },
+  };
+}
+
+interface StoredExercise {
+  id: string;
+  title: string;
+  frames: unknown;
+  lastModified: string;
+}
+
+/** Tabla `exercises` (001_schema.sql): columnas propias, sin payload JSONB. */
+function createExercisesStore(): LegacyStore<any> {
+  return {
+    async get() {
+      const { data, error } = await supabase.from('exercises').select('id, title, frames, last_modified');
+      if (error) throw error;
+      return {
+        data: (data ?? []).map((row: { id: string; title: string; frames: unknown; last_modified: string }) => ({
+          id: row.id,
+          title: row.title,
+          frames: row.frames,
+          lastModified: row.last_modified,
+        })),
+      };
+    },
+    async upsert(item: StoredExercise) {
+      const { error } = await supabase.from('exercises').upsert({
+        id: item.id,
+        title: item.title,
+        frames: item.frames,
+        last_modified: item.lastModified,
+      });
+      if (error) throw error;
+      return item;
+    },
+    async delete(id: string | number) {
+      const { error } = await supabase.from('exercises').delete().eq('id', id);
+      if (error) throw error;
+    },
+    async clearAll() {
+      const { error } = await supabase.from('exercises').delete().neq('id', '');
+      if (error) throw error;
+    },
+  };
+}
+
 export const db = {
   players: createLegacyStub(),
   staff: createLegacyStub(),
   clubes: createLegacyStub(),
   competition_teams: createLegacyStub(),
   users: createLegacyStub(),
-  campogramas: createLegacyStub(),
-  task_templates: createLegacyStub(),
-  exercises: createLegacyStub(),
+  campogramas: createCampogramasStore(),
+  task_templates: createJsonPayloadStore('task_templates'),
+  exercises: createExercisesStore(),
   match_reports: createLegacyStub(),
   injuries: createLegacyStub(),
 };

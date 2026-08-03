@@ -8,6 +8,7 @@ import { getTeamConfig } from '@shared/services/dataService';
 interface CompetitionTableProps {
   teams: CompetitionTeam[];
   clubes: Club[];
+  /** Id de mi club (currentTeam.id) — cualquier otro club/equipo se trata como rival. */
   clubId?: string;
   onEdit?: (team: CompetitionTeam) => void | Promise<void>;
   onDelete?: (id: number) => void;
@@ -18,6 +19,7 @@ interface ClubGroup {
   nombre: string;
   logoUrl?: string;
   equipos: CompetitionTeam[];
+  isOwn: boolean;
 }
 
 const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, clubId, onEdit, onDelete }) => {
@@ -26,35 +28,42 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
   const [expandedClubs, setExpandedClubs] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState('');
   const [clubFilter, setClubFilter] = useState('Todos');
+  const [activeTab, setActiveTab] = useState<'todos' | 'equipos' | 'rivales'>('todos');
 
   const myTeamName = useMemo(() => {
     try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
   }, []);
   const isMyTeam = (name: string) => myTeamName && name.toLowerCase().includes(myTeamName.toLowerCase());
 
-  // Agrupa equipos por nombre de club
+  // Agrupa equipos por nombre de club; marca cada grupo como propio o rival según clubId
   const groups = useMemo<ClubGroup[]>(() => {
     const map = new Map<string, ClubGroup>();
     teams.forEach(t => {
       const key = t.nombre.trim().toUpperCase();
       if (!map.has(key)) {
-        map.set(key, { nombre: t.nombre, logoUrl: t.logoUrl, equipos: [] });
+        map.set(key, { nombre: t.nombre, logoUrl: t.logoUrl, equipos: [], isOwn: !!clubId && String(t.clubId) === String(clubId) });
       }
       map.get(key)!.equipos.push(t);
+      if (clubId && String(t.clubId) === String(clubId)) map.get(key)!.isOwn = true;
       // Actualiza el logo del grupo si el equipo tiene uno
       if (t.logoUrl && !map.get(key)!.logoUrl) {
         map.get(key)!.logoUrl = t.logoUrl;
       }
     });
     return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [teams]);
+  }, [teams, clubId]);
+
+  const tabGroups = useMemo(() => {
+    if (activeTab === 'todos') return groups;
+    return groups.filter(g => (activeTab === 'rivales' ? !g.isOwn : g.isOwn));
+  }, [groups, activeTab]);
 
   // Filtrado por búsqueda
   const filteredGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
     const bySearch = !q
-      ? groups
-      : groups
+      ? tabGroups
+      : tabGroups
           .map(g => ({
             ...g,
             equipos: g.equipos.filter(e =>
@@ -68,10 +77,10 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
 
     if (clubFilter === 'Todos') return bySearch;
     return bySearch.filter(g => g.nombre === clubFilter);
-  }, [groups, search, clubFilter]);
+  }, [tabGroups, search, clubFilter]);
 
-  // Clubs disponibles para el filtro (basados en los grupos sin filtrar)
-  const availableClubs = useMemo(() => groups.map(g => g.nombre), [groups]);
+  // Clubs disponibles para el filtro (basados en los grupos de la pestaña activa, sin filtrar por búsqueda)
+  const availableClubs = useMemo(() => tabGroups.map(g => g.nombre), [tabGroups]);
 
   const toggleClub = (nombre: string) => {
     setExpandedClubs(prev => {
@@ -93,7 +102,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
       <div className="flex items-center justify-between mb-6">
         <div className="flex-1" />
         <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
-          {t('sidebar.teamsLabel', 'Equipos')}
+          {activeTab === 'rivales' ? t('sidebar.rivalTeamsLabel') : t('sidebar.teamsLabel', 'Equipos')}
         </h2>
         <div className="flex-1 flex justify-end">
           {onEdit && (
@@ -108,7 +117,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
               className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg"
             >
               <i className="fa-solid fa-plus text-xs"></i>
-              Nuevo Equipo
+              {activeTab === 'rivales' ? 'Nuevo Equipo Rival' : 'Nuevo Equipo'}
             </button>
           )}
         </div>
@@ -124,14 +133,50 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         </div>
       )}
 
-      {/* FILTRO CLUB */}
+      {/* PESTAÑAS MIS EQUIPOS / RIVALES */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => { setActiveTab('todos'); setClubFilter('Todos'); }}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'todos'
+              ? 'bg-slate-800 text-white shadow'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }`}
+        >
+          Todos
+        </button>
+        <button
+          onClick={() => { setActiveTab('equipos'); setClubFilter('Todos'); }}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'equipos'
+              ? 'bg-[var(--accent)] text-white shadow'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-shield-halved text-[10px]"></i>
+          Mis Equipos
+        </button>
+        <button
+          onClick={() => { setActiveTab('rivales'); setClubFilter('Todos'); }}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'rivales'
+              ? 'bg-[#1976d2] text-white shadow'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-user-secret text-[10px]"></i>
+          {t('sidebar.rivalTeamsLabel')}
+        </button>
+      </div>
+
+      {/* FILTRO CLUB (dentro de la pestaña activa) */}
       {availableClubs.length > 0 && (
         <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
           <button
             onClick={() => setClubFilter('Todos')}
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
               clubFilter === 'Todos'
-                ? 'bg-[var(--accent)] text-white shadow'
+                ? 'bg-slate-800 text-white shadow'
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
           >
@@ -143,7 +188,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
               onClick={() => setClubFilter(nombre === clubFilter ? 'Todos' : nombre)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
                 clubFilter === nombre
-                  ? 'bg-[var(--accent)] text-white shadow'
+                  ? 'bg-slate-800 text-white shadow'
                   : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
               }`}
             >

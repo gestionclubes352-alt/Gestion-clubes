@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { db } from '@shared/services/dataService';
+import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
+import type { Equipo } from '@shared/services/dataService';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
@@ -65,13 +66,33 @@ interface SquadPlayer {
   fotoUrl?: string;
 }
 
+interface RivalPlayer {
+  id: string;
+  nombre: string;
+  dorsal?: number;
+}
+
+type AssignableEntity = { id: string; nombre: string; apodo?: string };
+
 type TeamKey = 'my' | 'rival';
 
-const PizarraTactica: React.FC = () => {
+interface PizarraTacticaProps {
+  /** Id del club propio (currentTeam.id) — cualquier otro equipo/club se trata como rival. */
+  ownClubId?: string;
+}
+
+const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const pitchRef = useRef<HTMLDivElement>(null);
   const [squad, setSquad] = useState<SquadPlayer[]>([]);
+  const [rivalPlayers, setRivalPlayers] = useState<RivalPlayer[]>([]);
+  const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
+  const [selectedRivalTeamId, setSelectedRivalTeamId] = useState('');
+  const [rivalNameInput, setRivalNameInput] = useState('');
+  const [rivalDorsalInput, setRivalDorsalInput] = useState('');
+  const [assignTab, setAssignTab] = useState<TeamKey>('my');
   const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
   const [selectedSquadPlayerId, setSelectedSquadPlayerId] = useState<string | null>(null);
+  const [selectedRivalPlayerId, setSelectedRivalPlayerId] = useState<string | null>(null);
   const [myFormation, setMyFormation] = useState('4-4-2');
   const [rivalFormation, setRivalFormation] = useState('4-4-2');
   const [showMyTeam, setShowMyTeam] = useState(true);
@@ -115,9 +136,47 @@ const PizarraTactica: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const { data } = await db.players.get();
-      if (data) setSquad(data as SquadPlayer[]);
+      try {
+        const rows = await plantillasService.list();
+        setSquad(rows.map(row => ({
+          id: row.id,
+          nombre: row.nombre,
+          apodo: row.apodo,
+          dorsal: row.dorsal,
+          posicion: row.posicion,
+          fotoUrl: row.foto_url,
+        })));
+      } catch (err) {
+        console.error('No se pudo cargar la plantilla', err);
+      }
     })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [equiposRows, clubesRows] = await Promise.all([equiposService.list(), clubesService.list()]);
+        const clubesById = new Map(clubesRows.map(c => [String(c.id), c.nombre]));
+        const rivals = equiposRows
+          .filter(e => !ownClubId || String(e.club_id) !== String(ownClubId))
+          .map(e => ({ ...e, clubNombre: clubesById.get(String(e.club_id)) }))
+          .sort((a, b) => (a.clubNombre || a.nombre).localeCompare(b.clubNombre || b.nombre, 'es'));
+        setRivalTeams(rivals);
+      } catch (err) {
+        console.error('No se pudieron cargar los equipos rivales', err);
+      }
+    })();
+  }, [ownClubId]);
+
+  const handleSelectRivalTeam = useCallback(async (equipoId: string) => {
+    setSelectedRivalTeamId(equipoId);
+    if (!equipoId) return;
+    try {
+      const rows = await plantillasService.list({ equipo_id: equipoId });
+      setRivalPlayers(rows.map(row => ({ id: row.id, nombre: row.nombre, dorsal: row.dorsal })));
+    } catch (err) {
+      console.error('No se pudo cargar la plantilla rival', err);
+    }
   }, []);
 
   const buildTeamPlayers = useCallback((formation: string, team: TeamKey): PitchPlayer[] => {
@@ -185,6 +244,7 @@ const PizarraTactica: React.FC = () => {
   const clearPitchSelection = useCallback(() => {
     setSelectedPitchIds([]);
     setSelectedSquadPlayerId(null);
+    setSelectedRivalPlayerId(null);
   }, []);
 
   const selectPitchIds = useCallback((ids: string[]) => {
@@ -372,7 +432,7 @@ const PizarraTactica: React.FC = () => {
   const selectedPitchId = selectedPitchIds[0] ?? null;
   const selectedPlayer = selectedPitchId ? pitchPlayers.find(p => p.id === selectedPitchId) : null;
 
-  const assignPlayer = (player: SquadPlayer, pitchId: string = selectedPitchId ?? '') => {
+  const assignPlayer = (player: AssignableEntity, pitchId: string = selectedPitchId ?? '') => {
     if (!pitchId) return;
     const initials = (player.apodo || player.nombre).slice(0, 2).toUpperCase();
 
@@ -383,12 +443,34 @@ const PizarraTactica: React.FC = () => {
     )));
     setSelectedPitchIds([]);
     setSelectedSquadPlayerId(null);
+    setSelectedRivalPlayerId(null);
   };
 
   const removeAssignment = (pitchId: string) => {
     updatePitchPlayers(prev => prev.map(p => (
       p.id === pitchId ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined } : p
     )));
+  };
+
+  const addRivalPlayer = () => {
+    const nombre = rivalNameInput.trim();
+    if (!nombre) return;
+    const dorsalValue = rivalDorsalInput.trim();
+    const dorsal = dorsalValue ? Number(dorsalValue) : undefined;
+    setRivalPlayers(prev => [
+      ...prev,
+      { id: `rival-manual-${prev.length}-${nombre}-${Math.random().toString(36).slice(2, 7)}`, nombre, dorsal },
+    ]);
+    setRivalNameInput('');
+    setRivalDorsalInput('');
+  };
+
+  const removeRivalPlayer = (id: string) => {
+    setRivalPlayers(prev => prev.filter(p => p.id !== id));
+    updatePitchPlayers(prev => prev.map(p => (
+      p.playerId === id ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined } : p
+    )));
+    if (selectedRivalPlayerId === id) setSelectedRivalPlayerId(null);
   };
 
   const selectedSquadPlayer = selectedSquadPlayerId ? squad.find(p => p.id === selectedSquadPlayerId) : null;
@@ -458,6 +540,19 @@ const PizarraTactica: React.FC = () => {
                   {showRivalTeam ? 'VISIBLE' : 'OCULTO'}
                 </button>
               </div>
+
+              <select
+                value={selectedRivalTeamId}
+                onChange={e => handleSelectRivalTeam(e.target.value)}
+                className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+              >
+                <option value="">Sin plantilla rival (añadir a mano)</option>
+                {rivalTeams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.clubNombre ? `${team.clubNombre} — ${team.sub_equipo || team.nombre}` : (team.sub_equipo || team.nombre)}
+                  </option>
+                ))}
+              </select>
 
               <select
                 value={rivalFormation}
@@ -708,9 +803,14 @@ const PizarraTactica: React.FC = () => {
                         }
                         const clickedPitchId = player.id;
                         setSelectedPitchIds([clickedPitchId]);
-                        if (selectedSquadPlayerId) {
+                        if (selectedSquadPlayerId && player.team === 'my') {
                           const squadPlayer = squad.find(p => p.id === selectedSquadPlayerId);
                           if (squadPlayer) assignPlayer(squadPlayer, clickedPitchId);
+                        } else if (selectedRivalPlayerId && player.team === 'rival') {
+                          const rivalPlayer = rivalPlayers.find(p => p.id === selectedRivalPlayerId);
+                          if (rivalPlayer) assignPlayer(rivalPlayer, clickedPitchId);
+                        } else {
+                          setAssignTab(player.team);
                         }
                       }}
                     >
@@ -789,10 +889,35 @@ const PizarraTactica: React.FC = () => {
                 <div className="mt-4 rounded-md border border-slate-200 bg-white px-4 py-4 text-center text-[14px] leading-tight text-slate-500 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-400">
                   Pulsa un circulo y luego un jugador, o al revés
                 </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setAssignTab('my'); setSelectedRivalPlayerId(null); }}
+                    className={`h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
+                      assignTab === 'my'
+                        ? 'bg-[var(--accent)] text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
+                    }`}
+                  >
+                    MI EQUIPO
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAssignTab('rival'); setSelectedSquadPlayerId(null); }}
+                    className={`h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
+                      assignTab === 'rival'
+                        ? 'bg-[#1976d2] text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
+                    }`}
+                  >
+                    RIVAL
+                  </button>
+                </div>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                {groupedSquad.map(([groupName, players]) => (
+                {assignTab === 'my' && groupedSquad.map(([groupName, players]) => (
                   <div key={groupName} className="mb-5">
                     <div className="mb-3 border-b border-slate-200 pb-2 text-[13px] font-black uppercase tracking-[0.18em] text-slate-400 dark:border-white/10 dark:text-slate-500">
                       {groupName}
@@ -800,7 +925,7 @@ const PizarraTactica: React.FC = () => {
                     <div className="space-y-4">
                       {players.map(player => {
                         const isAssigned = assignedPlayerIds.has(player.id);
-                        const canAssign = !!selectedPitchId && !isAssigned;
+                        const canAssign = !!selectedPitchId && selectedPlayer?.team === 'my' && !isAssigned;
                         return (
                           <button
                             key={player.id}
@@ -833,6 +958,92 @@ const PizarraTactica: React.FC = () => {
                     </div>
                   </div>
                 ))}
+
+                {assignTab === 'rival' && (
+                  <div>
+                    <div className="mb-5 rounded-md border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#1a1a1a]">
+                      <div className="mb-2 text-[12px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Añadir jugador rival
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={rivalNameInput}
+                          onChange={e => setRivalNameInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addRivalPlayer(); }}
+                          placeholder="Nombre"
+                          className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 outline-none dark:border-white/10 dark:bg-[#121212] dark:text-slate-200"
+                        />
+                        <input
+                          type="number"
+                          value={rivalDorsalInput}
+                          onChange={e => setRivalDorsalInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addRivalPlayer(); }}
+                          placeholder="Dorsal"
+                          className="w-20 shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 outline-none dark:border-white/10 dark:bg-[#121212] dark:text-slate-200"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addRivalPlayer}
+                        disabled={!rivalNameInput.trim()}
+                        className="mt-2 h-10 w-full rounded-md bg-[#1976d2] text-[12px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
+                      >
+                        <i className="fa-solid fa-plus mr-2 text-[11px]" />
+                        Añadir
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {rivalPlayers.map(player => {
+                        const isAssigned = assignedPlayerIds.has(player.id);
+                        const canAssign = !!selectedPitchId && selectedPlayer?.team === 'rival' && !isAssigned;
+                        return (
+                          <div key={player.id} className="flex w-full items-center gap-3">
+                            <button
+                              type="button"
+                              disabled={isAssigned}
+                              onClick={() => {
+                                if (selectedPitchId && canAssign) {
+                                  assignPlayer(player);
+                                  return;
+                                }
+                                if (selectedPitchId && !canAssign) return;
+                                setSelectedRivalPlayerId(prev => prev === player.id ? null : player.id);
+                              }}
+                              className={`flex min-w-0 flex-1 items-center gap-4 text-left transition-opacity ${isAssigned ? 'opacity-35 grayscale' : 'opacity-100'} ${selectedRivalPlayerId === player.id ? 'scale-[1.01]' : ''}`}
+                            >
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[15px] font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                {player.dorsal ?? player.nombre.slice(0, 1)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-[18px] font-black text-slate-800 dark:text-white">
+                                  {player.nombre}
+                                </div>
+                              </div>
+                              {selectedRivalPlayerId === player.id && (
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.18em] text-[#1976d2]">SELECCIONADO</span>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeRivalPlayer(player.id)}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-[#cf2227] dark:hover:bg-white/10"
+                              title="Quitar jugador rival"
+                            >
+                              <i className="fa-solid fa-trash-can text-[12px]" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {rivalPlayers.length === 0 && (
+                        <div className="rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-[13px] text-slate-400 dark:border-white/10 dark:text-slate-500">
+                          Añade jugadores del rival para poder colocarlos en el campo
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </aside>
           </div>

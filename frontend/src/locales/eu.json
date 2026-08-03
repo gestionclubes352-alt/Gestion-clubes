@@ -571,21 +571,6 @@
     "allDone": "Argazki guztiak ongi igo dira.",
     "someErrors": "Argazki batzuk ezin izan dira igo. Berrikusi erroreak eta saiatu berriro."
   },
-  "rivalTeams": {
-    "addTeam": "Aurkari talde berria",
-    "editTeam": "Editatu aurkari taldea",
-    "confirmDeleteTeam": "Aurkari talde hau eta bere plantilla osoa ezabatu?",
-    "noTeams": "Oraindik ez duzu aurkari talderik alta eman.",
-    "noDetails": "Daturik ez",
-    "uploadLogo": "Igo ezkutua",
-    "season": "Denboraldia",
-    "notes": "Oharrak",
-    "addPlayer": "Gehitu jokalaria",
-    "editPlayer": "Editatu jokalaria",
-    "confirmDeletePlayer": "Jokalari hau aurkariaren plantillatik ezabatu?",
-    "noPlayers": "Oraindik ez duzu jokalaririk gehitu plantilla honetan.",
-    "uploadPhoto": "Igo argazkia"
-  },
   "staffTable": {
     "photo": "Argazkia",
     "role": "Rola",

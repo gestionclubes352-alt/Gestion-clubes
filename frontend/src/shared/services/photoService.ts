@@ -20,16 +20,6 @@ export async function uploadPlayerPhoto(file: File, playerId: string, clubId: st
   return uploadToStorage(`clubs/${clubId}/players/${playerId}/profile.${ext}`, file);
 }
 
-export async function uploadRivalPlayerPhoto(file: File, playerId: string, clubId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'jpg';
-  return uploadToStorage(`clubs/${clubId}/rivales/players/${playerId}/profile.${ext}`, file);
-}
-
-export async function uploadRivalTeamLogo(file: File, equipoRivalId: string, clubId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'png';
-  return uploadToStorage(`clubs/${clubId}/rivales/teams/${equipoRivalId}/logo.${ext}`, file);
-}
-
 export async function uploadTeamLogo(file: File, teamId: string, clubId: string): Promise<string> {
   const ext = file.name.split('.').pop() || 'png';
   return uploadToStorage(`clubs/${clubId}/teams/${teamId}/logo.${ext}`, file);
@@ -38,4 +28,9 @@ export async function uploadTeamLogo(file: File, teamId: string, clubId: string)
 export async function uploadClubLogo(file: File, clubEntityId: string, clubId: string): Promise<string> {
   const ext = file.name.split('.').pop() || 'png';
   return uploadToStorage(`clubs/${clubId}/clubes/${clubEntityId}/logo.${ext}`, file);
+}
+
+export async function uploadTaskThumbnail(file: File, taskId: string): Promise<string> {
+  const ext = file.name.split('.').pop() || 'png';
+  return uploadToStorage(`tasks/${taskId}/thumbnail.${ext}`, file);
 }

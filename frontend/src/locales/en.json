@@ -571,21 +571,6 @@
     "allDone": "All photos were uploaded successfully.",
     "someErrors": "Some photos could not be uploaded. Check the errors and try again."
   },
-  "rivalTeams": {
-    "addTeam": "New rival team",
-    "editTeam": "Edit rival team",
-    "confirmDeleteTeam": "Delete this rival team and its whole roster?",
-    "noTeams": "You haven't added any rival teams yet.",
-    "noDetails": "No details",
-    "uploadLogo": "Upload badge",
-    "season": "Season",
-    "notes": "Notes",
-    "addPlayer": "Add player",
-    "editPlayer": "Edit player",
-    "confirmDeletePlayer": "Delete this player from the rival roster?",
-    "noPlayers": "You haven't added any players to this roster yet.",
-    "uploadPhoto": "Upload photo"
-  },
   "staffTable": {
     "photo": "Photo",
     "role": "Role",
