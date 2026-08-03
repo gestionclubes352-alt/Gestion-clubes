@@ -12,6 +12,7 @@ interface PlayerTableProps {
   onSave: (player: Player) => Promise<void>;
   onDelete?: (id: number | string) => void;
   clubId?: string;
+  onBulkPhotoUpload?: () => void;
 }
 
 const columnHelper = createColumnHelper<Player>();
@@ -50,7 +51,7 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDelete, clubId }) => {
+const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload }) => {
   const { t } = useTranslation();
   const { isMobile } = useIsMobile();
   const isHuesca = clubId === 'escuela-huesca';
@@ -161,7 +162,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
     }),
     // 5. Posición
     columnHelper.accessor('posicion', {
-      header: t('common.position'),
+      header: isHuesca ? t('editPlayer.demarcation', 'Demarcación') : t('common.position'),
       size: 130,
       cell: info => {
         const pos = info.getValue();
@@ -413,6 +414,15 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, onEdit, onSave, onDele
               <i className="fa-solid fa-grip text-sm"></i>
             </button>
           </div>
+          {onBulkPhotoUpload && (
+            <button
+              onClick={onBulkPhotoUpload}
+              className="inline-flex items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] hover:border-[var(--surface-3)] text-[var(--text)] px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
+            >
+              <i className="fa-solid fa-images text-[10px]"></i>
+              {t('bulkPhotoUpload.button')}
+            </button>
+          )}
           <button
             onClick={openNewPlayerCard}
             className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg shadow-[var(--accent)]/30 hover:shadow-xl hover:scale-[1.02]"
