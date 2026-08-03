@@ -80,6 +80,15 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     docUrl: currentEvent?.docUrl || '',
   });
 
+  useEffect(() => {
+    if (!currentEvent) {
+      setFormData(prev => ({
+        ...prev,
+        date: initialDate.toISOString().slice(0, 10)
+      }));
+    }
+  }, [initialDate, currentEvent]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };

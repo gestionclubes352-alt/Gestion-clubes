@@ -336,6 +336,29 @@
 </head>
 <body>
     <div id="root"></div>
+    <!-- Theme initialization script - runs before React renders to prevent theme flash -->
+    <script>
+      (function() {
+        const THEME_KEY = 'ath-theme-mode';
+        const stored = localStorage.getItem(THEME_KEY);
+
+        // Determine theme: stored preference > system preference > light (default)
+        let theme = 'light';
+        if (stored === 'dark' || stored === 'light') {
+          theme = stored;
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          theme = 'dark';
+        }
+
+        // Apply theme immediately
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+
+        // Save preference
+        localStorage.setItem(THEME_KEY, theme);
+      })();
+    </script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

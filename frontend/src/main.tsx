@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import { DataSourceProvider } from './context/DataSourceContext';
 import { TeamProvider } from './context/TeamContext';
 import { TeamFilterProvider } from './context/TeamFilterContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Importar configuración de i18n (debe estar antes de renderizar)
 import './locales';
@@ -20,16 +21,18 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <TeamProvider>
-          <TeamFilterProvider>
-            <DataSourceProvider>
-              <App />
-            </DataSourceProvider>
-          </TeamFilterProvider>
-        </TeamProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <TeamProvider>
+            <TeamFilterProvider>
+              <DataSourceProvider>
+                <App />
+              </DataSourceProvider>
+            </TeamFilterProvider>
+          </TeamProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   </React.StrictMode>
 );

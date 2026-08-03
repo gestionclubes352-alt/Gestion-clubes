@@ -6,6 +6,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 're
 // Auth
 import { useAuth } from '@context/AuthContext';
 import { useTeamFilter } from '@context/TeamFilterContext';
+import { useTheme } from '@context/ThemeContext';
 import { LoginPage } from '@modules/auth';
 
 // Shared
@@ -256,6 +257,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const { t } = useTranslation();
     const { perfil } = useAuth();
     const { selectedTeams, setSelectedTeams } = useTeamFilter();
+    const { isDark } = useTheme();
     const userRole = perfil?.rol ?? 'Tecnico';
     // Pantalla completa
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -843,7 +845,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 
   // Margen dinámico según estado del sidebar
   return (
-    <div className="flex min-h-screen w-full overflow-hidden bg-white">
+    <div className={`flex min-h-screen w-full overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'}`}>
       {/* Botón pantalla completa, visible en toda la aplicación */}
       <button
         onClick={handleFullscreen}
@@ -856,7 +858,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9V5h4m0 0v4m0-4h-4m-6 6v4H5m0 0v-4m0 4h4" /></svg>
         )}
       </button>
-      <main className={`flex-1 min-w-0 flex flex-col min-h-screen overflow-hidden bg-white transition-all duration-300 ${!hideShellHeader ? 'pt-[72px] md:pt-[80px]' : ''}`}>
+      <main className={`flex-1 min-w-0 flex flex-col min-h-screen overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'} transition-all duration-300 ${!hideShellHeader ? 'pt-[72px] md:pt-[80px]' : ''}`}>
         {!hideShellHeader && (
           <Header
             onMenuClick={() => setIsSidebarOpen(true)}

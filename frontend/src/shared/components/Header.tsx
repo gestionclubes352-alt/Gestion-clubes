@@ -9,7 +9,7 @@ import { useDataSource, DataSourceType } from '@context/index';
 import { useAuth } from '@context/AuthContext';
 import { useTeam } from '@context/TeamContext';
 import { useTeamFilter } from '@context/TeamFilterContext';
-import { useThemeMode } from '@shared/hooks/useThemeMode';
+import { useTheme } from '@context/ThemeContext';
 import LanguageSelector from './LanguageSelector';
 
 interface HeaderProps {
@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
   const { user } = useAuth();
   const { selectedTeam } = useTeam();
   const { selectedTeams, toggleTeam, clearSelectedTeams, setSelectedTeams } = useTeamFilter();
-  const { isDark, toggle } = useThemeMode();
+  const { isDark, toggle } = useTheme();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isDataSourceOpen, setIsDataSourceOpen] = useState(false);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = useState(false);

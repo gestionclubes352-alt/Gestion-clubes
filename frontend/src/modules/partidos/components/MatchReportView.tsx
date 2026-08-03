@@ -152,6 +152,11 @@ const getEmbedUrl = (url: string, startSeconds?: number) => {
   return `${baseUrl}${separator}${params.join('&')}`;
 };
 
+const autoResizeTextarea = (element: HTMLTextAreaElement) => {
+  element.style.height = 'auto';
+  element.style.height = Math.min(element.scrollHeight, 500) + 'px';
+};
+
 const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], onSave, onDelete }) => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('DATOS GENERALES');
@@ -248,6 +253,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
 
   const [expandedMediaBlock, setExpandedMediaBlock] = useState<string | null>(null);
+  const [expandedAbpCard, setExpandedAbpCard] = useState<{ label: string; imageField: keyof MatchReport; videoField: keyof MatchReport; textField: keyof MatchReport } | null>(null);
 
   // Plantilla rival (scouting) para el Informe de Rival
   const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
@@ -1658,7 +1664,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 </div>
             )}
 
-            <textarea value={(report as any)[`${block.id}Text`]} onChange={(e) => handleChange(`${block.id}Text` as any, e.target.value)} className="w-full flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none h-64 resize-none leading-relaxed" placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}></textarea>
+            <textarea
+              value={(report as any)[`${block.id}Text`]}
+              onChange={(e) => {
+                handleChange(`${block.id}Text` as any, e.target.value);
+                autoResizeTextarea(e.currentTarget);
+              }}
+              onInput={(e) => autoResizeTextarea(e.currentTarget)}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-none leading-relaxed min-h-[200px] overflow-hidden"
+              placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
+            ></textarea>
           </div>
         ))}
       </div>
@@ -1772,29 +1787,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const renderInforme = () => (
     <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
-      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-4">
-        <div className="flex items-center gap-2 text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em]">
-          <i className="fa-solid fa-user-secret text-red-500"></i> {t('sidebar.rivalTeamsLabel')}
-        </div>
-        {!match.clubId ? (
-          <p className="text-xs text-[var(--text-muted)]">{t('matchReport.rivalSelector.noClub')}</p>
-        ) : rivalClubTeams.length > 1 ? (
-          <select
-            value={selectedRivalTeamId}
-            onChange={e => setSelectedRivalTeamId(e.target.value)}
-            className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text)] focus:outline-none"
-          >
-            <option value="">{t('matchReport.rivalSelector.selectSubTeam')}</option>
-            {rivalClubTeams.map(team => (
-              <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
-            ))}
-          </select>
-        ) : rivalClubTeams.length === 1 ? (
-          <p className="text-sm font-black text-[var(--text-strong)]">{rivalClubTeams[0].clubNombre} — {rivalClubTeams[0].sub_equipo || rivalClubTeams[0].nombre}</p>
-        ) : (
-          <p className="text-xs text-[var(--text-muted)]">{t('matchReport.rivalSelector.noTeamsForClub')}</p>
-        )}
-      </div>
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
           <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
               <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2"><i className="fa-solid fa-sliders text-red-500"></i> {t('matchReport.finalReports')}</div>
@@ -1870,7 +1862,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     </div>
                 </div>
             )}
-            <textarea value={(report as any)[`${block.id}Text`]} onChange={(e) => handleChange(`${block.id}Text` as any, e.target.value)} className="w-full flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none h-64 resize-none leading-relaxed" placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}></textarea>
+            <textarea
+              value={(report as any)[`${block.id}Text`]}
+              onChange={(e) => {
+                handleChange(`${block.id}Text` as any, e.target.value);
+                autoResizeTextarea(e.currentTarget);
+              }}
+              onInput={(e) => autoResizeTextarea(e.currentTarget)}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-none leading-relaxed min-h-[200px] overflow-hidden"
+              placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
+            ></textarea>
           </div>
         ))}
       </div>
