@@ -2,12 +2,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Player } from '@modules/plantilla';
 import type { TacticalPosition } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
+import type { CompetitionTeam } from '@modules/competicion';
 import type { MatchReport, VideoEvent } from '../types';
 import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
-import type { Equipo, Jugador } from '@shared/services/dataService';
+import type { Equipo, Jugador, Club } from '@shared/services/dataService';
 import { SQUAD } from '@shared/constants';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
+import EquipoSelect from '@shared/components/EquipoSelect';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { authService } from '@shared/services/authService';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +19,9 @@ interface MatchReportViewProps {
   onBack: () => void;
   /** Id de mi club (currentTeam.id) — cualquier otro equipo se trata como rival. */
   ownClubId?: string;
+  competitionTeams?: CompetitionTeam[];
+  onSave?: (event: CalendarEvent) => void;
+  onDelete?: (id: string | number) => void;
 }
 
 const getInitialPositions = (formation: string): TacticalPosition[] => {
@@ -147,11 +152,74 @@ const getEmbedUrl = (url: string, startSeconds?: number) => {
   return `${baseUrl}${separator}${params.join('&')}`;
 };
 
-const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId }) => {
+const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], onSave, onDelete }) => {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState('INFORME RIVAL');
+  const [activeTab, setActiveTab] = useState('DATOS GENERALES');
   const [isSaving, setIsSaving] = useState(false);
   const [squad, setSquad] = useState<Player[]>(SQUAD);
+
+  // Datos generales del partido (fecha, hora, club rival, competición, equipos, resultado)
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [dgSaved, setDgSaved] = useState(false);
+  const toDateInputValue = (d: Date | string) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString()).slice(0, 10);
+  const [dgForm, setDgForm] = useState({
+    date: toDateInputValue(match.date),
+    time: match.time || '18:00',
+    clubId: match.clubId || '',
+    competition: match.competition || '',
+    location: match.location || '',
+    jornada: match.jornada || '',
+    localTeam: match.localTeam || '',
+    visitorTeam: match.visitorTeam || '',
+    score: match.score || '',
+  });
+
+  useEffect(() => {
+    setDgForm({
+      date: toDateInputValue(match.date),
+      time: match.time || '18:00',
+      clubId: match.clubId || '',
+      competition: match.competition || '',
+      location: match.location || '',
+      jornada: match.jornada || '',
+      localTeam: match.localTeam || '',
+      visitorTeam: match.visitorTeam || '',
+      score: match.score || '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id]);
+
+  const clubNameById = useMemo(() => new Map(clubs.map(c => [String(c.id), c.nombre])), [clubs]);
+  const teamOptions = useMemo(
+    () => competitionTeams
+      .map(team => ({ value: team.equipo || team.nombre || '', club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined }))
+      .filter(option => option.value.trim().length > 0),
+    [competitionTeams, clubNameById]
+  );
+
+  const handleSaveDatosGenerales = () => {
+    if (!onSave) return;
+    onSave({
+      ...match,
+      date: new Date(dgForm.date),
+      time: dgForm.time,
+      clubId: dgForm.clubId || undefined,
+      competition: dgForm.competition || undefined,
+      location: dgForm.location || undefined,
+      jornada: dgForm.jornada || undefined,
+      localTeam: dgForm.localTeam || undefined,
+      visitorTeam: dgForm.visitorTeam || undefined,
+      score: dgForm.score || undefined,
+    });
+    setDgSaved(true);
+    setTimeout(() => setDgSaved(false), 2000);
+  };
+
+  const handleDeleteMatch = () => {
+    if (!onDelete) return;
+    onDelete(match.id);
+    onBack();
+  };
   
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
   const [isLinked, setIsLinked] = useState(false);
@@ -185,6 +253,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
   const [selectedRivalTeamId, setSelectedRivalTeamId] = useState('');
   const [rivalRoster, setRivalRoster] = useState<Jugador[]>([]);
+
+  // Equipos propios (mismo club) para resolver la plantilla real del equipo que juega el partido
+  const [ownTeams, setOwnTeams] = useState<Equipo[]>([]);
+  const [ownEquipoId, setOwnEquipoId] = useState('');
 
   const samePlayerId = (a?: string | number, b?: string | number) => String(a) === String(b);
 
@@ -244,6 +316,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     formation: '4-3-3',
     lineupPositions: [],
     substituteIds: [],
+    notConvocadoIds: [],
     videoEvents: [],
     firstHalfStart: '',
     firstHalfEnd: '',
@@ -303,26 +376,37 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     (async () => {
       try {
         const [equiposRows, clubesRows] = await Promise.all([equiposService.list(), clubesService.list()]);
+        setClubs(clubesRows as Club[]);
         const clubesById = new Map(clubesRows.map(c => [String(c.id), c.nombre]));
         const rivals = equiposRows
           .filter(e => !ownClubId || String(e.club_id) !== String(ownClubId))
           .map(e => ({ ...e, clubNombre: clubesById.get(String(e.club_id)) }))
           .sort((a, b) => (a.clubNombre || a.nombre).localeCompare(b.clubNombre || b.nombre, 'es'));
         setRivalTeams(rivals);
+        const own = equiposRows.filter(e => ownClubId && String(e.club_id) === String(ownClubId));
+        setOwnTeams(own);
       } catch (err) {
         console.error('No se pudieron cargar los equipos rivales', err);
       }
     })();
   }, [ownClubId]);
 
+  // El club rival ya se elige en la pestaña "Datos Generales" (match.clubId): aquí solo hay
+  // que resolver qué equipo concreto de ese club (si tiene varios) juega este partido.
+  const rivalClubTeams = useMemo(
+    () => (match.clubId ? rivalTeams.filter(rt => String(rt.club_id) === String(match.clubId)) : []),
+    [rivalTeams, match.clubId]
+  );
+
   useEffect(() => {
-    if (selectedRivalTeamId || !match.opponent || rivalTeams.length === 0) return;
-    const normalize = (v: string) => v.trim().toLowerCase();
-    const opponentNorm = normalize(match.opponent || '');
-    const match_ = rivalTeams.find(rt => normalize(rt.clubNombre || rt.nombre) === opponentNorm || normalize(rt.nombre) === opponentNorm);
-    if (match_) setSelectedRivalTeamId(match_.id);
+    if (rivalClubTeams.length === 0) return;
+    const normalize = (v?: string) => (v || '').trim().toLowerCase();
+    const wantedNames = [normalize(match.visitorTeam), normalize(match.localTeam)].filter(Boolean);
+    const byName = rivalClubTeams.find(rt => wantedNames.includes(normalize(rt.sub_equipo || rt.nombre)));
+    const target = byName || (rivalClubTeams.length === 1 ? rivalClubTeams[0] : null);
+    if (target && target.id !== selectedRivalTeamId) setSelectedRivalTeamId(target.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rivalTeams, match.opponent]);
+  }, [rivalClubTeams, match.visitorTeam, match.localTeam]);
 
   useEffect(() => {
     if (!selectedRivalTeamId) { setRivalRoster([]); return; }
@@ -335,6 +419,48 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       }
     })();
   }, [selectedRivalTeamId]);
+
+  // Resuelve el equipo propio (categoría) que disputa este partido comparando por nombre
+  useEffect(() => {
+    if (ownEquipoId || ownTeams.length === 0) return;
+    const normalize = (v: string) => v.trim().toLowerCase();
+    const ownNameCandidates = [match.team, match.localTeam, match.visitorTeam]
+      .filter((v): v is string => !!v && normalize(v) !== normalize(match.opponent || ''));
+    for (const candidate of ownNameCandidates) {
+      const candidateNorm = normalize(candidate);
+      const found = ownTeams.find(t => normalize(t.sub_equipo || '') === candidateNorm || normalize(t.nombre) === candidateNorm);
+      if (found) { setOwnEquipoId(found.id); return; }
+    }
+    // Si solo hay un equipo propio dado de alta, usarlo por defecto
+    if (ownTeams.length === 1) setOwnEquipoId(ownTeams[0].id);
+  }, [ownTeams, match.team, match.localTeam, match.visitorTeam, match.opponent, ownEquipoId]);
+
+  // Carga la plantilla real del equipo propio (Supabase) para la pestaña Alineación
+  useEffect(() => {
+    if (!ownEquipoId) return;
+    (async () => {
+      try {
+        const rows = await plantillasService.list({ equipo_id: ownEquipoId });
+        const mapped: Player[] = rows.map((p): Player => ({
+          id: p.id,
+          fotoUrl: p.foto_url || '',
+          competicion: '',
+          club: '',
+          equipo: '',
+          dorsal: p.dorsal ?? 0,
+          nombre: p.nombre,
+          apodo: p.apodo,
+          posicion: p.posicion,
+          posicionJuego: p.posicion_juego || '',
+          perfil: (p.perfil || 'D') as Player['perfil'],
+          estado: p.estado,
+        }));
+        if (mapped.length > 0) setSquad(mapped.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
+      } catch (err) {
+        console.error('No se pudo cargar la plantilla propia', err);
+      }
+    })();
+  }, [ownEquipoId]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -709,7 +835,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       }
       return pos;
     });
-    setReport(prev => ({ ...prev, lineupPositions: updatedPositions }));
+    const next = { ...report, lineupPositions: updatedPositions };
+    setReport(next);
+    persistReport(next);
   };
 
   const handleRemovePlayer = async (posId: string, playerId: string | number) => {
@@ -717,12 +845,38 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       if (pos.id === posId) return { ...pos, playerIds: (pos.playerIds || []).filter(id => !samePlayerId(id, playerId)) };
       return pos;
     });
-    setReport(prev => ({ ...prev, lineupPositions: updatedPositions }));
+    const next = { ...report, lineupPositions: updatedPositions };
+    setReport(next);
+    persistReport(next);
   };
 
   const handleChangeFormation = async (newForm: string) => {
     const newPositions = getInitialPositions(newForm);
-    setReport(prev => ({ ...prev, formation: newForm, lineupPositions: newPositions }));
+    const next = { ...report, formation: newForm, lineupPositions: newPositions };
+    setReport(next);
+    persistReport(next);
+  };
+
+  const handleToggleConvocado = async (playerId: string | number, convocado: boolean, reason?: string) => {
+    const currentNotConvocado = report.notConvocadoIds || [];
+    const nextNotConvocado = convocado
+      ? currentNotConvocado.filter(id => !samePlayerId(id, playerId))
+      : [...currentNotConvocado.filter(id => !samePlayerId(id, playerId)), playerId];
+    const nextPositions = convocado
+      ? report.lineupPositions
+      : (report.lineupPositions || []).map(pos => ({
+          ...pos,
+          playerIds: (pos.playerIds || []).filter(id => !samePlayerId(id, playerId))
+        }));
+    const nextReasons = { ...(report.notConvocadoReasons || {}) };
+    if (convocado) {
+      delete nextReasons[String(playerId)];
+    } else {
+      nextReasons[String(playerId)] = reason || 'decision_tecnica';
+    }
+    const next = { ...report, notConvocadoIds: nextNotConvocado, lineupPositions: nextPositions, notConvocadoReasons: nextReasons };
+    setReport(next);
+    persistReport(next);
   };
 
   // ── YouTube Upload Handlers ──────────────────────────────
@@ -1409,15 +1563,18 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <div className="flex justify-end px-6 py-2">
              <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveLineup')}</button>
         </div>
-        <TacticalBoard 
+        <TacticalBoard
             formacion={report.formation || '4-3-3'}
-            positions={report.lineupPositions && report.lineupPositions.length > 0 
-                ? report.lineupPositions 
-                : getInitialPositions(report.formation || '4-3-3')} 
+            positions={report.lineupPositions && report.lineupPositions.length > 0
+                ? report.lineupPositions
+                : getInitialPositions(report.formation || '4-3-3')}
             squad={squad}
+            notConvocadoIds={report.notConvocadoIds || []}
+            notConvocadoReasons={report.notConvocadoReasons || {}}
             onAssignPlayer={handleAssignPlayer}
             onRemovePlayer={handleRemovePlayer}
             onChangeFormation={handleChangeFormation}
+            onToggleConvocado={handleToggleConvocado}
         />
     </div>
   );
@@ -1619,18 +1776,24 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <div className="flex items-center gap-2 text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em]">
           <i className="fa-solid fa-user-secret text-red-500"></i> {t('sidebar.rivalTeamsLabel')}
         </div>
-        <select
-          value={selectedRivalTeamId}
-          onChange={e => setSelectedRivalTeamId(e.target.value)}
-          className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text)] focus:outline-none"
-        >
-          <option value="">Selecciona un equipo rival</option>
-          {rivalTeams.map(team => (
-            <option key={team.id} value={team.id}>
-              {team.clubNombre ? `${team.clubNombre} — ${team.sub_equipo || team.nombre}` : (team.sub_equipo || team.nombre)}
-            </option>
-          ))}
-        </select>
+        {!match.clubId ? (
+          <p className="text-xs text-[var(--text-muted)]">{t('matchReport.rivalSelector.noClub')}</p>
+        ) : rivalClubTeams.length > 1 ? (
+          <select
+            value={selectedRivalTeamId}
+            onChange={e => setSelectedRivalTeamId(e.target.value)}
+            className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text)] focus:outline-none"
+          >
+            <option value="">{t('matchReport.rivalSelector.selectSubTeam')}</option>
+            {rivalClubTeams.map(team => (
+              <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+            ))}
+          </select>
+        ) : rivalClubTeams.length === 1 ? (
+          <p className="text-sm font-black text-[var(--text-strong)]">{rivalClubTeams[0].clubNombre} — {rivalClubTeams[0].sub_equipo || rivalClubTeams[0].nombre}</p>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]">{t('matchReport.rivalSelector.noTeamsForClub')}</p>
+        )}
       </div>
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
           <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
@@ -1807,7 +1970,107 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </div>
   );
 
+  const renderDatosGenerales = () => (
+    <div className="animate-fade-in max-w-3xl mx-auto space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input
+          type="date"
+          value={dgForm.date}
+          onChange={(e) => setDgForm({ ...dgForm, date: e.target.value })}
+          className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+        />
+        <input
+          type="time"
+          value={dgForm.time}
+          onChange={(e) => setDgForm({ ...dgForm, time: e.target.value })}
+          className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+        />
+      </div>
+
+      <select
+        value={dgForm.clubId}
+        onChange={(e) => setDgForm({ ...dgForm, clubId: e.target.value })}
+        className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+      >
+        <option value="">{t('newEvent.club')}</option>
+        {clubs.map(club => (
+          <option key={club.id} value={club.id}>{club.nombre}</option>
+        ))}
+      </select>
+
+      <select
+        value={dgForm.competition}
+        onChange={(e) => setDgForm({ ...dgForm, competition: e.target.value })}
+        className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+      >
+        <option value="">{t('newEvent.competition')}</option>
+        <option value="Liga">{t('newEvent.league')}</option>
+        <option value="Copa">{t('newEvent.cup')}</option>
+        <option value="Amistoso">{t('newEvent.friendly')}</option>
+      </select>
+
+      <input
+        value={dgForm.location}
+        onChange={(e) => setDgForm({ ...dgForm, location: e.target.value })}
+        placeholder={t('common.location')}
+        className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+      />
+
+      <input
+        value={dgForm.jornada}
+        onChange={(e) => setDgForm({ ...dgForm, jornada: e.target.value })}
+        placeholder={t('newEvent.matchdayPlaceholder')}
+        className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+      />
+
+      <div>
+        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">{t('newEvent.teams')}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <EquipoSelect
+            value={dgForm.localTeam}
+            onChange={(team) => setDgForm({ ...dgForm, localTeam: team })}
+            extraTeams={teamOptions}
+            placeholder={t('newEvent.homeTeam')}
+            className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
+          />
+          <EquipoSelect
+            value={dgForm.visitorTeam}
+            onChange={(team) => setDgForm({ ...dgForm, visitorTeam: team })}
+            extraTeams={teamOptions}
+            placeholder={t('newEvent.awayTeam')}
+            className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
+          />
+        </div>
+      </div>
+
+      <input
+        value={dgForm.score}
+        onChange={(e) => setDgForm({ ...dgForm, score: e.target.value })}
+        placeholder={t('newEvent.resultPlaceholder')}
+        className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+      />
+
+      <div className="flex items-center justify-between gap-4 pt-4 border-t border-[var(--border-soft)]">
+        {onDelete ? (
+          <button
+            onClick={handleDeleteMatch}
+            className="px-6 py-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"
+          >
+            <i className="fa-solid fa-trash-can"></i> {t('matchReport.generalData.deleteMatch')}
+          </button>
+        ) : <div />}
+        <button
+          onClick={handleSaveDatosGenerales}
+          className="bg-sport-primary hover:bg-sport-primary-dark text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"
+        >
+          <i className={`fa-solid ${dgSaved ? 'fa-check' : 'fa-floppy-disk'}`}></i> {dgSaved ? t('matchReport.generalData.savedMessage') : t('matchReport.generalData.saveChanges')}
+        </button>
+      </div>
+    </div>
+  );
+
   const tabs = [
+    { id: 'DATOS GENERALES', label: t('matchReport.tabs.generalData'), icon: 'fa-circle-info' },
     { id: 'INFORME RIVAL', label: t('matchReport.tabs.opponentReport'), icon: 'fa-shield-heart' },
     { id: 'ÁRBITRO', label: t('matchReport.tabs.referee'), icon: 'fa-gavel' },
     { id: 'ALINEACIÓN', label: t('matchReport.tabs.lineup'), icon: 'fa-border-all' },
@@ -1832,7 +2095,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
     </div>
   );
 };

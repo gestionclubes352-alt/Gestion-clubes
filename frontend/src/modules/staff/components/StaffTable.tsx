@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '../../../shared/components/DataTable';
 import type { DataTableAction } from '../../../shared/components/DataTable';
-import type { User } from '@modules/usuarios';
 import type { Club } from '@modules/clubes';
+import type { StaffMember } from '../types';
+import type { Personal } from '@shared/services/dataService';
 
 interface StaffTableProps {
-  staff: User[];
-  onEdit: (member: User) => void;
+  staff: Personal[];
+  onEdit: (member: Personal) => void;
   onDelete?: (id: string | number) => Promise<void>;
   onCreate?: () => void;
   /** Clubes dados de alta en el sistema */
@@ -19,7 +20,7 @@ interface StaffTableProps {
   userRole?: string;
 }
 
-const columnHelper = createColumnHelper<User>();
+const columnHelper = createColumnHelper<Personal>();
 
 const getInitials = (name: string): string => {
   const parts = name.trim().split(/\s+/);
@@ -49,12 +50,12 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
       size: 56,
       cell: ({ row }) => {
         const member = row.original;
-        const hasImage = member.fotoUrl && /^(https?:\/\/|data:image\/|\/)/i.test(member.fotoUrl);
+        const hasImage = member.foto_url && /^(https?:\/\/|data:image\/|\/)/i.test(member.foto_url);
         const initials = getInitials(member.nombre);
         return (
           <div className="w-9 h-9 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center font-semibold text-sm border border-slate-100 overflow-hidden">
             {hasImage ? (
-              <img src={member.fotoUrl} alt={member.nombre} className="w-full h-full object-cover" />
+              <img src={member.foto_url} alt={member.nombre} className="w-full h-full object-cover" />
             ) : (
               <span>{initials}</span>
             )}
@@ -67,7 +68,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
       header: t('staffTable.fullName'),
       cell: info => <span className="font-semibold text-slate-800">{info.getValue()}</span>,
     }),
-    columnHelper.accessor('rolTecnico', {
+    columnHelper.accessor('cargo', {
       header: t('staffTable.role'),
       cell: info => (
         <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">

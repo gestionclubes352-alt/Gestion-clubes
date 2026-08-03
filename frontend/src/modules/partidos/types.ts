@@ -62,6 +62,8 @@ export interface MatchReport {
   formation?: string;
   lineupPositions?: TacticalPosition[];
   substituteIds?: Array<string | number>;
+  notConvocadoIds?: Array<string | number>;
+  notConvocadoReasons?: Record<string, string>;
   videoEvents?: VideoEvent[];
   firstHalfStart?: string;
   firstHalfEnd?: string;

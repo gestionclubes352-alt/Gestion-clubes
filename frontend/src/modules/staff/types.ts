@@ -1,23 +1,18 @@
 // Tipos específicos del módulo Staff (Personal)
 
 export interface StaffMember {
-  id: number | string;
+  id: string;
+  club_id: string;
   nombre: string;
-  primerApellido: string;
-  segundoApellido?: string;
-  fotoUrl?: string;
-  dni?: string;
-  fechaNacimiento?: string;
-  rol: string;
-  equipo?: string;
-  etapa?: string;
-  competicion?: string;
+  cargo: string;
   telefono?: string;
-  email?: string;
-  club?: string;
+  dni?: string;
+  foto_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface StaffFilters {
   searchTerm: string;
-  role: string;
+  cargo: string;
 }

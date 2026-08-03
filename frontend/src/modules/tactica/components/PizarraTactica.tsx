@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
-import type { Equipo } from '@shared/services/dataService';
+import type { Club, Equipo } from '@shared/services/dataService';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
@@ -84,8 +84,12 @@ interface PizarraTacticaProps {
 const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const pitchRef = useRef<HTMLDivElement>(null);
   const [squad, setSquad] = useState<SquadPlayer[]>([]);
+  const [myTeams, setMyTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
+  const [selectedMyTeamId, setSelectedMyTeamId] = useState('');
   const [rivalPlayers, setRivalPlayers] = useState<RivalPlayer[]>([]);
   const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
+  const [rivalClubs, setRivalClubs] = useState<Club[]>([]);
+  const [selectedRivalClubId, setSelectedRivalClubId] = useState('');
   const [selectedRivalTeamId, setSelectedRivalTeamId] = useState('');
   const [rivalNameInput, setRivalNameInput] = useState('');
   const [rivalDorsalInput, setRivalDorsalInput] = useState('');
@@ -137,8 +141,19 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   useEffect(() => {
     (async () => {
       try {
-        const rows = await plantillasService.list();
-        setSquad(rows.map(row => ({
+        const [equiposRows, plantillaRows] = await Promise.all([equiposService.list(), plantillasService.list()]);
+
+        const myTeamsFiltered = ownClubId
+          ? equiposRows.filter(e => String(e.club_id) === String(ownClubId))
+          : [];
+
+        setMyTeams(myTeamsFiltered.sort((a, b) => (a.sub_equipo || a.nombre).localeCompare(b.sub_equipo || b.nombre, 'es')));
+
+        if (myTeamsFiltered.length > 0 && !selectedMyTeamId) {
+          setSelectedMyTeamId(String(myTeamsFiltered[0].id));
+        }
+
+        setSquad(plantillaRows.map(row => ({
           id: row.id,
           nombre: row.nombre,
           apodo: row.apodo,
@@ -150,7 +165,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         console.error('No se pudo cargar la plantilla', err);
       }
     })();
-  }, []);
+  }, [ownClubId]);
 
   useEffect(() => {
     (async () => {
@@ -162,11 +177,28 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           .map(e => ({ ...e, clubNombre: clubesById.get(String(e.club_id)) }))
           .sort((a, b) => (a.clubNombre || a.nombre).localeCompare(b.clubNombre || b.nombre, 'es'));
         setRivalTeams(rivals);
+
+        const clubIdsConEquipos = new Set(rivals.map(r => String(r.club_id)));
+        const clubs = clubesRows
+          .filter(c => clubIdsConEquipos.has(String(c.id)))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+        setRivalClubs(clubs);
       } catch (err) {
         console.error('No se pudieron cargar los equipos rivales', err);
       }
     })();
   }, [ownClubId]);
+
+  const rivalTeamsForSelectedClub = useMemo(
+    () => rivalTeams.filter(t => String(t.club_id) === selectedRivalClubId),
+    [rivalTeams, selectedRivalClubId]
+  );
+
+  const handleSelectRivalClub = useCallback((clubId: string) => {
+    setSelectedRivalClubId(clubId);
+    setSelectedRivalTeamId('');
+    setRivalPlayers([]);
+  }, []);
 
   const handleSelectRivalTeam = useCallback(async (equipoId: string) => {
     setSelectedRivalTeamId(equipoId);
@@ -506,24 +538,50 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 </button>
               </div>
 
-              <select
-                value={myFormation}
-                onChange={e => setMyFormation(e.target.value)}
-                className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-              >
-                {Object.keys(FORMATIONS).map(form => <option key={form} value={form}>{form}</option>)}
-              </select>
+              <div className="mt-4">
+                <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Elige equipo
+                </label>
+                <select
+                  value={selectedMyTeamId}
+                  onChange={e => setSelectedMyTeamId(e.target.value)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                >
+                  <option value="">Selecciona tu equipo</option>
+                  {myTeams.map(team => (
+                    <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="mt-4 flex items-center gap-3">
-                {PANEL_COLORS.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setMyTeamColor(color)}
-                    className={`h-9 w-9 rounded-full border-2 ${color === myTeamColor ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30' : 'border-slate-200 dark:border-white/10'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
+              <div className="mt-4">
+                <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Formación
+                </label>
+                <select
+                  value={myFormation}
+                  onChange={e => setMyFormation(e.target.value)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                >
+                  {Object.keys(FORMATIONS).map(form => <option key={form} value={form}>{form}</option>)}
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Color
+                </label>
+                <div className="flex items-center gap-3">
+                  {PANEL_COLORS.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setMyTeamColor(color)}
+                      className={`h-9 w-9 rounded-full border-2 ${color === myTeamColor ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30' : 'border-slate-200 dark:border-white/10'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
               </div>
             </section>
 
@@ -542,15 +600,27 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </div>
 
               <select
-                value={selectedRivalTeamId}
-                onChange={e => handleSelectRivalTeam(e.target.value)}
+                value={selectedRivalClubId}
+                onChange={e => handleSelectRivalClub(e.target.value)}
                 className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
               >
-                <option value="">Sin plantilla rival (añadir a mano)</option>
-                {rivalTeams.map(team => (
-                  <option key={team.id} value={team.id}>
-                    {team.clubNombre ? `${team.clubNombre} — ${team.sub_equipo || team.nombre}` : (team.sub_equipo || team.nombre)}
-                  </option>
+                <option value="">Selecciona un club rival</option>
+                {rivalClubs.map(club => (
+                  <option key={club.id} value={club.id}>{club.nombre}</option>
+                ))}
+              </select>
+
+              <select
+                value={selectedRivalTeamId}
+                onChange={e => handleSelectRivalTeam(e.target.value)}
+                disabled={!selectedRivalClubId}
+                className="mt-3 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+              >
+                <option value="">
+                  {selectedRivalClubId ? 'Selecciona un equipo' : 'Sin plantilla rival (añadir a mano)'}
+                </option>
+                {rivalTeamsForSelectedClub.map(team => (
+                  <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
                 ))}
               </select>
 
@@ -890,11 +960,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   Pulsa un circulo y luego un jugador, o al revés
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="mt-4 space-y-3">
                   <button
                     type="button"
                     onClick={() => { setAssignTab('my'); setSelectedRivalPlayerId(null); }}
-                    className={`h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
+                    className={`w-full h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
                       assignTab === 'my'
                         ? 'bg-[var(--accent)] text-white'
                         : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
@@ -905,7 +975,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   <button
                     type="button"
                     onClick={() => { setAssignTab('rival'); setSelectedSquadPlayerId(null); }}
-                    className={`h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
+                    className={`w-full h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
                       assignTab === 'rival'
                         ? 'bg-[#1976d2] text-white'
                         : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
@@ -914,6 +984,53 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     RIVAL
                   </button>
                 </div>
+
+                {assignTab === 'rival' && (
+                  <div className="mt-4 space-y-3 pb-4 border-b border-slate-200 dark:border-white/10">
+                    <div>
+                      <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Club Rival
+                      </label>
+                      <select
+                        value={selectedRivalClubId}
+                        onChange={e => handleSelectRivalClub(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                      >
+                        <option value="">Selecciona club rival</option>
+                        {rivalClubs.map(club => (
+                          <option key={club.id} value={club.id}>{club.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Equipo Rival
+                      </label>
+                      <select
+                        value={selectedRivalTeamId}
+                        onChange={e => handleSelectRivalTeam(e.target.value)}
+                        disabled={!selectedRivalClubId}
+                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                      >
+                        <option value="">
+                          {selectedRivalClubId ? 'Selecciona equipo' : 'Sin plantilla rival (añadir a mano)'}
+                        </option>
+                        {rivalTeamsForSelectedClub.map(team => (
+                          <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {selectedRivalTeamId && rivalPlayers.length > 0 && (
+                      <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 dark:bg-blue-500/10 dark:border-blue-500/20">
+                        <p className="text-[11px] font-black text-blue-700 dark:text-blue-300">
+                          ✓ {rivalPlayers.length} jugadores cargados
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">

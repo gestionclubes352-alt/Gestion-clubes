@@ -8,6 +8,7 @@ import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import NewEventModal from './NewEventModal';
 import SessionTasksPanel from './SessionTasksPanel';
+import MatchReportView from '@modules/partidos/components/MatchReportView';
 
 interface CalendarViewProps {
   events: CalendarEvent[];
@@ -16,6 +17,7 @@ interface CalendarViewProps {
   onDeleteEvent: (id: string) => void;
   onEditEvent?: (event: CalendarEvent) => void;
   competitionTeams?: CompetitionTeam[];
+  ownClubId?: string;
 }
 
 const getDefaultTrainingEvent = (events: CalendarEvent[]): CalendarEvent | null => {
@@ -29,12 +31,13 @@ const getDefaultTrainingEvent = (events: CalendarEvent[]): CalendarEvent | null 
   return trainings[0] ?? null;
 };
 
-const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveEvent, onDeleteEvent, onEditEvent, competitionTeams }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveEvent, onDeleteEvent, onEditEvent, competitionTeams, ownClubId }) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [showNewModal, setShowNewModal] = useState(false);
   const [defaultEventType, setDefaultEventType] = useState<'Partido' | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -42,6 +45,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [activeTraining, setActiveTraining] = useState<CalendarEvent | null>(null);
+  const [activeMatch, setActiveMatch] = useState<CalendarEvent | null>(null);
   const [detailTab, setDetailTab] = useState<'datos' | 'sesion'>('datos');
   const [rolesText, setRolesText] = useState('');
   const [notesText, setNotesText] = useState('');
@@ -79,6 +83,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       });
   }, [events]);
 
+  const clubFilteredTeams = useMemo(() => {
+    if (!competitionTeams || !ownClubId) return competitionTeams || [];
+    return competitionTeams.filter(team => String(team.clubId) === String(ownClubId));
+  }, [competitionTeams, ownClubId]);
+
   useEffect(() => {
     const state = location.state as { openEventId?: string; newTaskId?: string } | null;
     const openEventId = state?.openEventId;
@@ -103,6 +112,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               durationMinutes: 15,
               thumbnail: newTask.thumbnail,
               designerSnapshot: newTask.designerSnapshot,
+              fieldStructure: newTask.fieldStructure,
             };
             target = { ...target, tasks: [...(target.tasks || []), sessionTask] };
             // Persistir de inmediato: si el usuario navega fuera sin pulsar "Guardar",
@@ -158,6 +168,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return `${dayNamesLong[date.getDay()]}, ${date.getDate()} de ${monthNames[date.getMonth()].toLowerCase()} ${date.getFullYear()}`;
   };
 
+  const handleEventClick = (event: CalendarEvent) => {
+    if (event.type === 'Partido') {
+      setActiveMatch(event);
+    } else {
+      setActiveTraining(event);
+    }
+  };
+
   // --- CALENDARIO MENSUAL ---
   const getMonthMatrix = (date: Date) => {
     const year = date.getFullYear();
@@ -201,6 +219,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   }, [events]);
 
   // --- FIN CALENDARIO MENSUAL ---
+
+  if (activeMatch) {
+    return (
+      <MatchReportView
+        match={activeMatch}
+        onBack={() => setActiveMatch(null)}
+        ownClubId={ownClubId}
+        competitionTeams={competitionTeams}
+        onSave={(event) => { onSaveEvent(event); setActiveMatch(event); }}
+        onDelete={(id) => { onDeleteEvent(String(id)); setActiveMatch(null); }}
+      />
+    );
+  }
 
   if (activeTraining) {
     const sessionDate = activeTraining.date instanceof Date ? activeTraining.date : new Date(activeTraining.date);
@@ -497,7 +528,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <i className="fa-solid fa-calendar-days"></i>
             </button>
           </div>
-          <button onClick={() => { setDefaultEventType('Partido'); setShowNewModal(true); }} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200">
+          <button onClick={() => { setDefaultEventType('Partido'); setSelectedDate(new Date()); setShowNewModal(true); }} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200">
             <i className="fa-solid fa-plus"></i> {t('calendarView.newEventButton')}
           </button>
         </div>
@@ -532,30 +563,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
                       return (
                         <tr key={ev.id} className="hover:bg-slate-50 transition group">
-                          <td className="px-6 py-4 cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                          <td className="px-6 py-4 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             <p className="font-black text-slate-700 text-sm capitalize">
                               {d.toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                             </p>
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             {ev.time || t('calendarView.noTime')}
                           </td>
-                          <td className="px-6 py-4 cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                          <td className="px-6 py-4 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             <p className="font-black text-[var(--accent)] text-sm group-hover:underline">
                               {ev.title || t('calendarView.sessionDefault')}
                               {ev.sessionNumber ? ` — ${t('calendarView.sessionNumber')} ${ev.sessionNumber}` : ''}
                             </p>
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             {ev.team || '—'}
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             {ev.location || '—'}
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => setActiveTraining(ev)}
+                                onClick={() => handleEventClick(ev)}
                                 className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all"
                                 title={t('calendarView.session')}
                               >
@@ -606,7 +637,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       <button
                         className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
                         style={{ fontSize: '16px' }}
-                        onClick={() => { setDefaultEventType('Partido'); setShowNewModal(true); }}
+                        onClick={() => { setDefaultEventType('Partido'); setSelectedDate(date); setShowNewModal(true); }}
                       >
                         <i className="fa-solid fa-plus"></i>
                       </button>
@@ -615,7 +646,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     <div className="flex-1 flex flex-col gap-1">
                       {date && eventsByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`]?.map(ev => (
                         <div key={ev.id} className="bg-red-100 text-red-800 rounded px-1.5 py-1 text-[11px] font-bold truncate cursor-pointer hover:bg-red-200 flex items-center gap-1 group/ev" title={ev.title}>
-                          <span className="truncate flex-1 leading-tight" onClick={() => setActiveTraining(ev)}>
+                          <span className="truncate flex-1 leading-tight" onClick={() => handleEventClick(ev)}>
                             {ev.time}{ev.team ? ` - ${ev.team}` : ''}
                           </span>
                           <button
@@ -655,11 +686,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     key={ev.id}
                     className="w-full flex items-center gap-4 px-10 py-4 hover:bg-slate-50 transition text-left group"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex flex-col items-center justify-center flex-shrink-0 shadow cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex flex-col items-center justify-center flex-shrink-0 shadow cursor-pointer" onClick={() => handleEventClick(ev)}>
                       <span className="text-[10px] font-black uppercase leading-none">{monthNames[d.getMonth()].slice(0, 3)}</span>
                       <span className="text-lg font-black leading-none">{d.getDate()}</span>
                     </div>
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setActiveTraining(ev)}>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEventClick(ev)}>
                         <p className="font-black text-[var(--accent)] text-base md:text-lg truncate group-hover:underline leading-tight">
                           {ev.title || t('calendarView.sessionDefault')}
                           {ev.sessionNumber ? ` — ${t('calendarView.sessionNumber')} ${ev.sessionNumber}` : ''}
@@ -676,7 +707,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     >
                       <i className="fa-solid fa-trash-can text-sm"></i>
                     </button>
-                    <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-[var(--accent)] transition cursor-pointer" onClick={() => setActiveTraining(ev)}></i>
+                    <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-[var(--accent)] transition cursor-pointer" onClick={() => handleEventClick(ev)}></i>
                   </div>
                 );
               })}
@@ -685,7 +716,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         </div>
       )}
 
-      {showNewModal && <NewEventModal initialDate={new Date()} defaultType={defaultEventType} onClose={() => { setShowNewModal(false); setDefaultEventType(null); }} onSave={onSaveEvent} competitionTeams={competitionTeams} />}
+      {showNewModal && (
+        <NewEventModal
+          initialDate={selectedDate}
+          defaultType={defaultEventType}
+          onClose={() => { setShowNewModal(false); setDefaultEventType(null); }}
+          onSave={(newEvent) => {
+            onSaveEvent(newEvent);
+            if (newEvent.type === 'Partido') {
+              setActiveMatch(newEvent);
+            }
+          }}
+          competitionTeams={clubFilteredTeams}
+        />
+      )}
     </div>
   );
 };

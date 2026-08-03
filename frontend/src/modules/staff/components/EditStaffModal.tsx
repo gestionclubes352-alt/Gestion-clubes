@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { User } from '@modules/usuarios';
+import type { Personal } from '@shared/services/dataService';
 import { ROLES_TECNICOS } from '@modules/usuarios';
 import { uploadStaffPhoto } from '../../../shared/services/staffPhotoService';
 
 interface EditStaffModalProps {
-  staff: User;
+  staff: Personal;
   isNew?: boolean;
   clubId?: string;
+  equipos?: Array<{ id: string; nombre: string }>;
   onClose: () => void;
-  onSave: (staff: User) => Promise<void>;
+  onSave: (staff: Personal) => Promise<void>;
 }
 
 const getInitials = (name: string): string => {
@@ -19,12 +20,12 @@ const getInitials = (name: string): string => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
-const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, onClose, onSave }) => {
+const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, equipos = [], onClose, onSave }) => {
   const { t } = useTranslation();
-  const [formData, setFormData] = useState<User>({ ...staff });
+  const [formData, setFormData] = useState<Personal>({ ...staff });
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(staff.fotoUrl || null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(staff.foto_url || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,7 +39,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, o
   };
 
   const handleSave = async () => {
-    let fotoUrl = formData.fotoUrl;
+    let fotoUrl = formData.foto_url;
     if (photoFile && clubId) {
       try {
         const staffId = formData.id ? String(formData.id) : String(Date.now());
@@ -57,7 +58,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, o
 
     const dataToSave = {
       ...formData,
-      fotoUrl: fotoUrl || formData.fotoUrl,
+      foto_url: fotoUrl || formData.foto_url,
     };
     setIsSaving(true);
     try {
@@ -134,8 +135,8 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, o
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Cargo</label>
             <select
-              value={formData.rolTecnico || ''}
-              onChange={(e) => setFormData({...formData, rolTecnico: e.target.value})}
+              value={formData.cargo || ''}
+              onChange={(e) => setFormData({...formData, cargo: e.target.value})}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
             >
               <option value="">Seleccionar cargo...</option>
@@ -168,6 +169,35 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, o
               placeholder="Ej: 12345678X"
             />
           </div>
+
+          {/* Correo */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Correo</label>
+            <input
+              type="email"
+              value={(formData as any).email || ''}
+              onChange={(e) => setFormData({...(formData as any), email: e.target.value})}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              placeholder="Ej: ejemplo@correo.com"
+            />
+          </div>
+
+          {/* Equipo */}
+          {equipos.length > 0 && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Equipo</label>
+              <select
+                value={(formData as any).equipo_id || ''}
+                onChange={(e) => setFormData({...(formData as any), equipo_id: e.target.value || undefined})}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              >
+                <option value="">Sin equipo asignado</option>
+                {equipos.map(eq => (
+                  <option key={eq.id} value={eq.id}>{eq.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="p-4 sm:p-8 bg-slate-50 border-t border-slate-100 flex gap-3 sm:gap-4">

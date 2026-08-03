@@ -69,7 +69,7 @@ const ExerciseDesigner: React.FC = () => {
    * con un botón explícito para volver, en vez de redirigir automáticamente. */
   const [showReturnToSessionBanner, setShowReturnToSessionBanner] = useState(false);
   const [activeProject, setActiveProject] = useState('NUEVO EJERCICIO TÁCTICO');
-  const [tasks, setTasks] = useState<Array<{ id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] }>>([]);
+  const [tasks, setTasks] = useState<Array<{ id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[]; fieldStructure?: string }>>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const historyRef = useRef<Array<{ frames: DesignerItem[][]; index: number }>>([]);
   const pendingHistoryRef = useRef<{ frames: DesignerItem[][]; index: number } | null>(null);
@@ -84,7 +84,8 @@ const ExerciseDesigner: React.FC = () => {
           id: t.id,
           name: t.name,
           type: (['Juego', 'Posesión', 'Finalización'].includes(t.category) ? t.category : 'Juego') as 'Juego' | 'Posesión' | 'Finalización',
-          designerSnapshot: t.designerSnapshot || []
+          designerSnapshot: t.designerSnapshot || [],
+          fieldStructure: t.fieldStructure,
         }));
         setTasks(mapped);
       }
@@ -212,7 +213,7 @@ const ExerciseDesigner: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectedPanelOpen, setIsSelectedPanelOpen] = useState(false);
-  const [hideSelectionOnDrag, setHideSelectionOnDrag] = useState(false);
+  const [windowMoveEnabled, setWindowMoveEnabled] = useState(true);
   const [activeStructure, setActiveStructure] = useState('campo-total');
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
   const [textDraft, setTextDraft] = useState('Texto');
@@ -251,14 +252,29 @@ const ExerciseDesigner: React.FC = () => {
   const suppressBackgroundClicksUntilRef = useRef(0);
   const SUPPRESS_BACKGROUND_CLICK_MS = 400;
   const DRAG_THRESHOLD = 3;
+  const MIN_ZONE_SIZE = 4;
+
+  // Dibujo de una zona (rectángulo) siguiendo el arrastre del ratón, en vez de un tamaño fijo
+  const zoneCreationRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
+  const zoneCreationBoxRef = useRef<null | { left: number; top: number; right: number; bottom: number }>(null);
+  const [zoneCreationBox, setZoneCreationBox] = useState<null | { left: number; top: number; right: number; bottom: number }>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
 
       clearSelection();
+      setSelectedTool(null);
       setSelectionBox(null);
       selectionRef.current = null;
+      setZoneCreationBox(null);
+      zoneCreationRef.current = null;
+      zoneCreationBoxRef.current = null;
       setResizingId(null);
       setResizeHandle(null);
 
@@ -325,7 +341,7 @@ const ExerciseDesigner: React.FC = () => {
   };
 
   /** Persistir snapshot (y miniatura) de una tarea en la DB. */
-  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[], thumbnail?: string) => {
+  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[], thumbnail?: string, structure?: string) => {
     try {
       const { data } = await db.task_templates.get();
       if (!data) return;
@@ -334,6 +350,7 @@ const ExerciseDesigner: React.FC = () => {
         await db.task_templates.upsert({
           ...existing,
           designerSnapshot: snapshot,
+          fieldStructure: structure as TrainingTask['fieldStructure'],
           ...(thumbnail ? { thumbnail } : {}),
           updatedAt: new Date().toISOString(),
         });
@@ -347,13 +364,13 @@ const ExerciseDesigner: React.FC = () => {
   const autoSaveActiveTask = async () => {
     if (!activeTaskId) return;
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
-    const thumbnail = renderThumbnail(snapshot);
-    setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot } : t));
-    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail);
+    const thumbnail = renderThumbnail(snapshot, activeStructure);
+    setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
+    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
   };
 
   /** Seleccionar una tarea y cargar su snapshot en el canvas */
-  const handleSelectTask = (task: { id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] }) => {
+  const handleSelectTask = (task: { id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[]; fieldStructure?: string }) => {
     // Si ya estamos en esta tarea, auto-guardar y deseleccionar
     if (activeTaskId === task.id) {
       autoSaveActiveTask();
@@ -361,6 +378,7 @@ const ExerciseDesigner: React.FC = () => {
       pushHistoryNow();
       setFrames([[]]);
       setCurrentFrameIndex(0);
+      setActiveStructure('campo-total');
       setSaveStatus('TAREA GUARDADA');
       setTimeout(() => setSaveStatus(null), 2000);
       return;
@@ -375,6 +393,7 @@ const ExerciseDesigner: React.FC = () => {
     const snapshot = deepCloneItems(task.designerSnapshot || []);
     setFrames([snapshot]);
     setCurrentFrameIndex(0);
+    setActiveStructure(task.fieldStructure || 'campo-total');
   };
 
   /** Al llegar desde el Repositorio de Tareas tras crear una tarea, abrir ya el diseñador sobre esa tarea */
@@ -394,9 +413,9 @@ const ExerciseDesigner: React.FC = () => {
   const handleSaveActiveTask = async (options?: { showToast?: boolean }) => {
     if (!activeTaskId) return;
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
-    const thumbnail = renderThumbnail(snapshot);
-    setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot } : t));
-    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail);
+    const thumbnail = renderThumbnail(snapshot, activeStructure);
+    setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
+    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
     if (options?.showToast !== false) {
       setSaveStatus('TAREA GUARDADA');
       setTimeout(() => setSaveStatus(null), 2000);
@@ -436,15 +455,14 @@ const ExerciseDesigner: React.FC = () => {
   }, [activeTaskId, frames, currentFrameIndex]);
 
   /** Guardar: si hay una tarea activa se guarda su snapshot, si no se guarda el desarrollo libre.
-   * Si venimos de crear una tarea desde una sesión, al guardar mostramos un banner de
-   * confirmación con un botón para volver, en vez de redirigir automáticamente.
+   * Si venimos de crear una tarea desde una sesión, al guardar volvemos directamente a la sesión.
    */
   const handleSaveClick = async () => {
     if (activeTaskId) {
       if (fromSessionCreationRef.current) {
         await handleSaveActiveTask({ showToast: false });
-        setShowReturnToSessionBanner(true);
         console.log('Tarea guardada. ID:', activeTaskId);
+        handleReturnToSession();
       } else {
         await handleSaveActiveTask();
       }
@@ -534,9 +552,30 @@ const ExerciseDesigner: React.FC = () => {
   };
 
   const handlePitchPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying || selectedTool) return;
+    if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying) return;
+    if (selectedTool && selectedTool !== 'zone') return;
     const start = getPitchPercentPoint(e.clientX, e.clientY);
     if (!start) return;
+
+    if (selectedTool === 'zone') {
+      zoneCreationRef.current = {
+        active: true,
+        startX: start.x,
+        startY: start.y,
+        moved: false,
+      };
+      dragStartPos.current = { x: e.clientX, y: e.clientY };
+      const nextZoneBox = { left: start.x, top: start.y, right: start.x, bottom: start.y };
+      zoneCreationBoxRef.current = nextZoneBox;
+      setZoneCreationBox(nextZoneBox);
+
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'crosshair';
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    if (!windowMoveEnabled) return;
 
     selectionRef.current = {
       active: true,
@@ -623,6 +662,28 @@ const ExerciseDesigner: React.FC = () => {
   // Persistent pointer listeners for drag (no re-registration during drag)
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
+      if (zoneCreationRef.current?.active && pitchRef.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+        const dx = e.clientX - dragStartPos.current.x;
+        const dy = e.clientY - dragStartPos.current.y;
+
+        if (!zoneCreationRef.current.moved && (Math.abs(dx) >= DRAG_THRESHOLD || Math.abs(dy) >= DRAG_THRESHOLD)) {
+          zoneCreationRef.current.moved = true;
+        }
+
+        const nextZoneBox = {
+          left: Math.min(zoneCreationRef.current.startX, currentX),
+          top: Math.min(zoneCreationRef.current.startY, currentY),
+          right: Math.max(zoneCreationRef.current.startX, currentX),
+          bottom: Math.max(zoneCreationRef.current.startY, currentY),
+        };
+        zoneCreationBoxRef.current = nextZoneBox;
+        setZoneCreationBox(nextZoneBox);
+        return;
+      }
+
       if (selectionRef.current?.active && pitchRef.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((e.clientX - rect.left) / rect.width) * 100;
@@ -685,6 +746,40 @@ const ExerciseDesigner: React.FC = () => {
 
     const onPointerUp = () => {
       cancelAnimationFrame(rafId.current);
+      if (zoneCreationRef.current?.active) {
+        const box = zoneCreationBoxRef.current;
+        const moved = zoneCreationRef.current.moved;
+        const startX = zoneCreationRef.current.startX;
+        const startY = zoneCreationRef.current.startY;
+
+        zoneCreationRef.current = null;
+        zoneCreationBoxRef.current = null;
+        setZoneCreationBox(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
+
+        const width = moved && box ? Math.max(MIN_ZONE_SIZE, box.right - box.left) : RESIZABLE_DEFAULT_SIZES.zone.width;
+        const height = moved && box ? Math.max(MIN_ZONE_SIZE, box.bottom - box.top) : RESIZABLE_DEFAULT_SIZES.zone.height;
+        const x = moved && box ? box.left : startX;
+        const y = moved && box ? box.top : startY;
+
+        const zoneItems = itemsRef.current.filter(i => i.type === 'zone');
+        const nextZ = zoneItems.length > 0 ? Math.max(...zoneItems.map(i => i.zIndex)) + 1 : 1;
+
+        const newItem: DesignerItem = {
+          id: Math.random().toString(),
+          type: 'zone',
+          x, y, rotation: 0, scale: 1, locked: false,
+          zIndex: nextZ,
+          width, height,
+        };
+        pushHistoryNow();
+        updateFrames(prev => [...prev, newItem]);
+        selectItemOnly(newItem.id);
+        return;
+      }
+
       if (selectionRef.current?.active) {
         const box = selectionBoxRef.current;
         if (selectionRef.current.moved && box) {
@@ -729,7 +824,7 @@ const ExerciseDesigner: React.FC = () => {
       window.removeEventListener('pointercancel', onPointerUp);
       cancelAnimationFrame(rafId.current);
     };
-  }, [clearSelection, getItemBounds, rectIntersects, selectItemIds]);
+  }, [clearSelection, getItemBounds, rectIntersects, selectItemIds, selectItemOnly]);
 
   // Separate resize listeners (keep existing logic, only active when resizing)
   useEffect(() => {
@@ -877,6 +972,15 @@ const ExerciseDesigner: React.FC = () => {
     updateFrames(items.filter(i => i.id !== selectedId));
     clearSelection();
   };
+  const NUDGE_STEP = 2;
+  const nudgeSelectedItem = (dx: number, dy: number) => {
+    if (!selectedItem) return;
+    pushHistoryNow();
+    updateSelectedItem({
+      x: clamp(selectedItem.x + dx, 2, 98),
+      y: clamp(selectedItem.y + dy, 2, 98),
+    });
+  };
 
   return (
     <div className="relative flex min-h-[calc(100vh-60px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl animate-fade-in lg:h-[calc(100vh-60px)] lg:flex-row">
@@ -907,17 +1011,17 @@ const ExerciseDesigner: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setHideSelectionOnDrag(v => !v)}
+              onClick={() => setWindowMoveEnabled(v => !v)}
               className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${
-                hideSelectionOnDrag
+                windowMoveEnabled
                   ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
-              aria-pressed={hideSelectionOnDrag}
-              title="Al arrastrar un elemento, deja de mostrar su marca de selección"
+              aria-pressed={windowMoveEnabled}
+              title="Permite dibujar una ventana con el ratón sobre el campo para seleccionar y mover varios elementos a la vez"
             >
-              <i className={`fa-solid ${hideSelectionOnDrag ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-              {hideSelectionOnDrag ? 'Marca al arrastrar OFF' : 'Marca al arrastrar ON'}
+              <i className="fa-solid fa-vector-square"></i>
+              {windowMoveEnabled ? 'Mover con ventana ON' : 'Mover con ventana OFF'}
             </button>
           </div>
         </div>
@@ -967,7 +1071,7 @@ const ExerciseDesigner: React.FC = () => {
               {tools.jugadores.map(p => (
                 <button
                   key={p.id}
-                  onClick={() => setSelectedTool(p.id)}
+                  onClick={() => setSelectedTool(selectedTool === p.id ? null : p.id)}
                   style={{ backgroundColor: p.color }}
                   className={`h-9 w-9 rounded-full flex items-center justify-center text-white transition-all shadow-xl relative group font-black text-xs sm:h-10 sm:w-10 sm:text-sm ${selectedTool === p.id ? 'ring-2 ring-white ring-offset-2 ring-offset-[#f1f5f9] scale-110' : 'opacity-90 hover:opacity-100 hover:scale-105'}`}
                   aria-label={`Jugador ${p.number}`}
@@ -988,7 +1092,7 @@ const ExerciseDesigner: React.FC = () => {
           {showCones && (
             <div className="grid grid-cols-4 gap-2 px-1">
               {tools.conos.map((cone) => (
-                <button key={cone.id} onClick={() => setSelectedTool(cone.id)} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border bg-[#121212] ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#f1f5f9] scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
+                <button key={cone.id} onClick={() => setSelectedTool(selectedTool === cone.id ? null : cone.id)} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border bg-[#121212] ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#f1f5f9] scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
                   <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[20px]" style={{ borderBottomColor: cone.color }}></div>
                   <div className="w-6 h-1 bg-white/40 rounded-full mt-1"></div>
                 </button>
@@ -1073,7 +1177,7 @@ const ExerciseDesigner: React.FC = () => {
           {showMaterial && (
             <div className="grid grid-cols-2 gap-2 px-1">
               {tools.material.map((m) => (
-                <button key={m.id} onClick={() => setSelectedTool(m.id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
+                <button key={m.id} onClick={() => setSelectedTool(selectedTool === m.id ? null : m.id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
                   {m.id === 'slalom'
                     ? <SlalomPoleIcon size={28} />
                     : m.id === 'ball'
@@ -1118,26 +1222,13 @@ const ExerciseDesigner: React.FC = () => {
                     {saveStatus}
                 </div>
             )}
-            {showReturnToSessionBanner && (
-              <div className="absolute -top-16 right-0 flex items-center gap-3 rounded-2xl bg-white border border-slate-200 shadow-xl px-4 py-2.5 whitespace-nowrap animate-fade-in">
-                <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-emerald-600">
-                  <i className="fa-solid fa-circle-check"></i> TAREA GUARDADA
-                </span>
-                <button
-                  type="button"
-                  onClick={handleReturnToSession}
-                  className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-md transition-all hover:bg-[var(--accent-dark)]"
-                >
-                  <i className="fa-solid fa-arrow-left"></i> Volver a la sesión
-                </button>
-              </div>
-            )}
             <button
               type="button"
               onClick={handleSaveClick}
               className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-[var(--accent-dark)]"
             >
-              <i className="fa-solid fa-floppy-disk"></i> Guardar
+              <i className={`fa-solid ${fromSessionCreationRef.current ? 'fa-plus' : 'fa-floppy-disk'}`}></i>
+              {fromSessionCreationRef.current ? 'AÑADIR' : 'Guardar'}
             </button>
           </div>
         </header>
@@ -1297,14 +1388,25 @@ const ExerciseDesigner: React.FC = () => {
                   </div>
                 )}
 
+                {zoneCreationBox && zoneCreationRef.current?.moved && (
+                  <div
+                    className="absolute z-[8] pointer-events-none border-[3px] border-dashed border-white/80 bg-white/10 backdrop-blur-[1px]"
+                    style={{
+                      left: `${zoneCreationBox.left}%`,
+                      top: `${zoneCreationBox.top}%`,
+                      width: `${Math.max(MIN_ZONE_SIZE, zoneCreationBox.right - zoneCreationBox.left)}%`,
+                      height: `${Math.max(MIN_ZONE_SIZE, zoneCreationBox.bottom - zoneCreationBox.top)}%`,
+                    }}
+                  />
+                )}
+
                 {sortedItems.map((item) => (
                   (() => {
                     const size = getResizableDimensions(item);
                     const isResizable = canResizeItem(item);
                     const itemWidth = size.width ? `${size.width}%` : 'auto';
                     const itemHeight = size.height ? `${size.height}%` : 'auto';
-                    const isBeingDragged = draggingId === item.id;
-                    const isItemSelected = selectedIds.includes(item.id) && !(hideSelectionOnDrag && isBeingDragged);
+                    const isItemSelected = selectedIds.includes(item.id);
                     const showResizeHandles = selectedId === item.id && selectedIds.length === 1 && isResizable && !item.locked;
                     const animationClass = getDesignerItemAnimationClass(item.animation);
 
@@ -1312,20 +1414,21 @@ const ExerciseDesigner: React.FC = () => {
                   <div
                     key={item.id}
                     data-item-root={item.id}
-                    className={`absolute group cursor-grab touch-none ${draggingId === item.id ? 'cursor-grabbing z-[9999] scale-105 opacity-75' : isPlaying ? 'transition-all duration-[2000ms] ease-in-out' : ''} ${isItemSelected ? (item.type === 'zone' || item.type === 'goal' ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716]' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716] rounded-full') : ''}`}
+                    className={`absolute group cursor-grab touch-none ${(item.type === 'zone' && !isItemSelected) ? 'pointer-events-none' : ''} ${draggingId === item.id ? 'cursor-grabbing z-[9999] scale-105 opacity-75' : isPlaying ? 'transition-all duration-[2000ms] ease-in-out' : ''} ${isItemSelected ? (item.type === 'zone' || item.type === 'goal' ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716]' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716] rounded-full') : ''}`}
                     onPointerDown={(e) => {
                       const target = e.target as HTMLElement;
                       if (target.closest('[data-resize-handle="true"]')) return;
                       handleDragStart(e, item);
                     }}
                     onClick={(e) => { e.stopPropagation(); if (!hasDragged.current) { selectItemOnly(item.id); } }}
-                    style={{ 
-                      left: `${item.x}%`, 
+                    style={{
+                      left: `${item.x}%`,
                       top: `${item.y}%`,
                       zIndex: item.zIndex,
                       transform: `${item.type === 'zone' ? 'none' : 'translate(-50%, -50%)'} rotate(${item.rotation}deg) scale(${item.scale})`,
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
-                      height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto')
+                      height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
+                      pointerEvents: (item.type === 'zone' && !isItemSelected) ? 'none' : 'auto'
                     }}
                   >
                     {resizingId === item.id && (
@@ -1465,7 +1568,7 @@ const ExerciseDesigner: React.FC = () => {
                   </div>
                     );
                   })()
-                ))}                {selectedItem && selectedPanelStyle && isSelectedPanelOpen && !(hideSelectionOnDrag && draggingId === selectedItem.id) && (
+                ))}                {selectedItem && selectedPanelStyle && isSelectedPanelOpen && (
                   <div className="pointer-events-none absolute inset-0 z-30">
                     <div
                       data-selected-panel="true"
@@ -1525,6 +1628,34 @@ const ExerciseDesigner: React.FC = () => {
                           <i className="fa-regular fa-trash-can text-sm"></i>
                           Borrar
                         </button>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Posición</span>
+                          <span className="text-[10px] font-black text-red-400">{Math.round(selectedItem.x)}%, {Math.round(selectedItem.y)}%</span>
+                        </div>
+                        <div className="mx-auto grid w-fit grid-cols-3 gap-1.5">
+                          <span />
+                          <button onClick={() => nudgeSelectedItem(0, -NUDGE_STEP)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover arriba" aria-label="Mover arriba">
+                            <i className="fa-solid fa-arrow-up text-xs"></i>
+                          </button>
+                          <span />
+                          <button onClick={() => nudgeSelectedItem(-NUDGE_STEP, 0)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover a la izquierda" aria-label="Mover a la izquierda">
+                            <i className="fa-solid fa-arrow-left text-xs"></i>
+                          </button>
+                          <span className="flex h-9 w-9 items-center justify-center text-slate-600">
+                            <i className="fa-solid fa-up-down-left-right text-xs"></i>
+                          </span>
+                          <button onClick={() => nudgeSelectedItem(NUDGE_STEP, 0)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover a la derecha" aria-label="Mover a la derecha">
+                            <i className="fa-solid fa-arrow-right text-xs"></i>
+                          </button>
+                          <span />
+                          <button onClick={() => nudgeSelectedItem(0, NUDGE_STEP)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover abajo" aria-label="Mover abajo">
+                            <i className="fa-solid fa-arrow-down text-xs"></i>
+                          </button>
+                          <span />
+                        </div>
                       </div>
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">

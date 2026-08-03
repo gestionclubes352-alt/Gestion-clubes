@@ -15,6 +15,8 @@ interface TaskDetailModalProps {
   onSave: (task: TrainingTask) => void;
   /** Cuando es true, solo se editan Nombre y Categoría (el resto se completa al añadir la tarea a una sesión). */
   minimalFields?: boolean;
+  /** ID del evento/sesión de origen, para volver a él tras diseñar la tarea. */
+  returnEventId?: string;
 }
 
 const emptyTask = (): Omit<TrainingTask, 'id' | 'createdAt' | 'updatedAt'> => ({
@@ -23,7 +25,7 @@ const emptyTask = (): Omit<TrainingTask, 'id' | 'createdAt' | 'updatedAt'> => ({
   designerSnapshot: undefined,
 });
 
-const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, onSave, minimalFields = false }) => {
+const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, onSave, minimalFields = false, returnEventId }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isEditing = !!task;
@@ -99,7 +101,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
     } as TrainingTask;
 
     await onSave(taskToSave);
-    navigate('/disenador', { state: { selectTaskId: taskId } });
+    navigate('/disenador', {
+      state: returnEventId
+        ? { selectTaskId: taskId, fromSessionCreation: true, returnEventId }
+        : { selectTaskId: taskId },
+    });
   };
 
   /* -------- Sección reutilizable -------- */
@@ -177,14 +183,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
             {/* Selector de modo */}
             {imageMode === 'none' && (
               <div className="flex gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setImageMode('upload')}
-                  className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-xl text-xs font-bold uppercase tracking-wide text-slate-600 hover:border-blue-400 hover:bg-blue-50 transition-all"
-                >
-                  <i className="fa-solid fa-upload mr-2"></i>
-                  Subir imagen
-                </button>
                 <button
                   type="button"
                   onClick={() => setImageMode('design')}

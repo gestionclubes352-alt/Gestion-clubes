@@ -54,6 +54,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         durationMinutes: 15,
         thumbnail: task.thumbnail,
         designerSnapshot: task.designerSnapshot,
+        fieldStructure: task.fieldStructure,
       },
     ]);
     setPickerOpen(false);
@@ -146,10 +147,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         {tasks.length === 0 ? (
           <div className="py-12 text-center text-slate-400 font-bold text-sm">{t('calendarView.noSessionTasks')}</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {tasks.map((task, index) => (
-              <div key={task.id} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                <div className="flex items-center justify-between mb-3">
+              <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                {/* Header con número de ejercicio y duración */}
+                <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     {t('calendarView.exerciseLabel')} {index + 1}
                   </span>
@@ -161,12 +163,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         min={0}
                         value={task.durationMinutes ?? 0}
                         onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
-                        className="w-10 text-xs font-black text-slate-600 text-center focus:outline-none"
+                        className="w-10 text-xs font-black text-slate-600 text-center focus:outline-none bg-transparent"
                       />
                     </div>
                     <button
                       onClick={() => removeTask(task.id)}
-                      className="w-7 h-7 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
+                      className="w-6 h-6 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
                       title={t('common.delete')}
                     >
                       <i className="fa-solid fa-trash-can text-xs"></i>
@@ -174,43 +176,50 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   </div>
                 </div>
 
-                {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-                  <div className="mb-3">
-                    <DesignerPreview items={task.designerSnapshot} className="w-full" />
+                {/* Cuerpo: info a la izquierda, vista previa a la derecha */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldName')}</p>
+                      <p className="font-black text-slate-700 text-sm">{task.title}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
+                      <p className="font-black text-slate-600 text-sm">{task.category || t('calendarView.notDefined')}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldGamePhase')}</p>
+                      <p className="font-black text-slate-600 text-sm">{task.sessionPhase || t('calendarView.notDefined')}</p>
+                    </div>
                   </div>
-                ) : task.thumbnail ? (
-                  <div className="w-full h-40 rounded-xl mb-3 bg-[#2f5a30] overflow-hidden flex items-center justify-center">
-                    <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-                  <div className={`w-full h-40 rounded-xl flex items-center justify-center text-white mb-3 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-500'}`}>
-                    <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-3xl`}></i>
-                  </div>
-                )}
 
-                <div className="space-y-2.5">
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldName')}</p>
-                    <p className="font-black text-slate-700 text-sm">{task.title}</p>
+                    {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+                      <div className="rounded-xl overflow-hidden">
+                        <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
+                      </div>
+                    ) : task.thumbnail ? (
+                      <div className="w-full aspect-[105/68] rounded-xl bg-[#2f5a30] overflow-hidden flex items-center justify-center border border-slate-100">
+                        <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className={`w-full aspect-[105/68] rounded-xl flex items-center justify-center text-white border border-slate-100 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+                        <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-3xl`}></i>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldTaskType')}</p>
-                    <p className="font-black text-slate-700 text-sm">{task.category || t('calendarView.notDefined')}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldGamePhase')}</p>
-                    <p className="font-black text-slate-700 text-sm">{task.sessionPhase || t('calendarView.notDefined')}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldDescription')}</p>
-                    <textarea
-                      value={task.description || ''}
-                      onChange={e => updateTask(task.id, { description: e.target.value })}
-                      placeholder={t('calendarView.describeTaskPlaceholder')}
-                      rows={2}
-                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                    />
-                  </div>
+                </div>
+
+                {/* Descripción */}
+                <div className="mt-4">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
+                  <textarea
+                    value={task.description || ''}
+                    onChange={e => updateTask(task.id, { description: e.target.value })}
+                    placeholder={t('calendarView.describeTaskPlaceholder')}
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  />
                 </div>
               </div>
             ))}
@@ -276,6 +285,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         onClose={() => setNewTaskModalOpen(false)}
         onSave={handleCreateTaskAndDesign}
         minimalFields
+        returnEventId={eventId}
       />
     </div>
   );

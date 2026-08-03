@@ -14,11 +14,17 @@ const DEFAULT_EQUIPOS = [
   'Alevín B',
 ];
 
+/** Opción de equipo, opcionalmente asociada a un club (para diferenciar equipos homónimos de distintos clubes) */
+export interface EquipoOption {
+  value: string;
+  club?: string;
+}
+
 interface EquipoSelectProps {
   value: string;
   onChange: (value: string) => void;
   /** Equipos adicionales que existan en los datos (se mezclan con los defaults sin duplicados) */
-  extraTeams?: string[];
+  extraTeams?: (string | EquipoOption)[];
   /** Clases CSS del select */
   className?: string;
   /** Texto del placeholder / opción vacía */
@@ -35,15 +41,38 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
 
+  const normalizedTeams = useMemo(
+    () => extraTeams
+      .map((t): EquipoOption | null => {
+        if (!t) return null;
+        return typeof t === 'string' ? { value: t } : t;
+      })
+      .filter((t): t is EquipoOption => !!t && t.value.trim().length > 0),
+    [extraTeams]
+  );
+
+  const hasClubInfo = normalizedTeams.some(t => t.club);
+
   const options = useMemo(() => {
-    const set = new Set<string>();
-    extraTeams.forEach(t => { if (t) set.add(t); });
+    const seen = new Map<string, EquipoOption>();
+    normalizedTeams.forEach(t => { if (!seen.has(t.value)) seen.set(t.value, t); });
     // Sin equipos dados de alta todavía: ofrecer catálogo genérico como punto de partida
-    if (set.size === 0) DEFAULT_EQUIPOS.forEach(t => set.add(t));
+    if (seen.size === 0) DEFAULT_EQUIPOS.forEach(t => seen.set(t, { value: t }));
     // Si el valor actual no está en la lista, añadirlo
-    if (value && !set.has(value)) set.add(value);
-    return Array.from(set);
-  }, [extraTeams, value]);
+    if (value && !seen.has(value)) seen.set(value, { value });
+    return Array.from(seen.values());
+  }, [normalizedTeams, value]);
+
+  const groupedOptions = useMemo(() => {
+    if (!hasClubInfo) return null;
+    const groups = new Map<string, EquipoOption[]>();
+    options.forEach(opt => {
+      const key = opt.club || 'Otros equipos';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(opt);
+    });
+    return Array.from(groups.entries());
+  }, [options, hasClubInfo]);
 
   if (isAdding) {
     return (
@@ -103,9 +132,17 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
       className={className}
     >
       <option value="">{placeholder}</option>
-      {options.map(team => (
-        <option key={team} value={team}>{team}</option>
-      ))}
+      {groupedOptions
+        ? groupedOptions.map(([club, teams]) => (
+          <optgroup key={club} label={club}>
+            {teams.map(team => (
+              <option key={`${club}-${team.value}`} value={team.value}>{team.value}</option>
+            ))}
+          </optgroup>
+        ))
+        : options.map(team => (
+          <option key={team.value} value={team.value}>{team.value}</option>
+        ))}
       <option value="__ADD_NEW__">+ Añadir nuevo equipo...</option>
     </select>
   );

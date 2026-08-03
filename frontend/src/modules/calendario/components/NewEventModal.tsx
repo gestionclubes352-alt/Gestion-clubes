@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent, EventType, EventFormData } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
-import EquipoSelect from '../../../shared/components/EquipoSelect';
+import type { Club } from '@modules/clubes/types';
+import EquipoSelect, { type EquipoOption } from '../../../shared/components/EquipoSelect';
+import { clubesService } from '@shared/services';
 
 const eventTypeLabels: Record<EventType, { label: string; icon: string; color: string }> = {
   Partido: { label: 'Partido', icon: 'fa-futbol', color: 'from-[#FF5A5F] to-[#e54449]' },
@@ -36,6 +38,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const { t } = useTranslation();
   const currentEvent = editEvent ?? event ?? null;
   const [typeSelected, setTypeSelected] = useState<EventType | null>(currentEvent?.type || defaultType);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [selectedClub, setSelectedClub] = useState<string>(currentEvent?.clubId || '');
+
+  useEffect(() => {
+    const loadClubs = async () => {
+      try {
+        const data = await clubesService.list();
+        setClubs((data as Club[]) || []);
+      } catch (err) {
+        console.error('Error loading clubs:', err);
+      }
+    };
+    loadClubs();
+  }, []);
 
   const typeTranslations: Record<EventType, string> = {
     Partido: t('calendar.match'),
@@ -68,17 +84,16 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const teamOptions = Array.from(new Set(
-    competitionTeams
-      .map((team) => team.equipo || team.nombre || '')
-      .filter((teamName) => teamName.trim().length > 0)
-  ));
+  const clubNameById = new Map(clubs.map((club) => [String(club.id), club.nombre]));
 
-  const subTeamOptions = Array.from(new Set(
-    competitionTeams
-      .map((team) => team.equipo || team.nombre || '')
-      .filter((teamName) => teamName.trim().length > 0)
-  ));
+  const teamOptions: EquipoOption[] = competitionTeams
+    .map((team) => ({
+      value: team.equipo || team.nombre || '',
+      club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
+    }))
+    .filter((option) => option.value.trim().length > 0);
+
+  const subTeamOptions = teamOptions;
 
   const handleSubmit = () => {
     if (!typeSelected) return;
@@ -101,6 +116,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       localTeam: formData.localTeam || undefined,
       visitorTeam: formData.visitorTeam || undefined,
       score: formData.score || undefined,
+      clubId: selectedClub || undefined,
     };
 
     onSave(nextEvent);
@@ -239,17 +255,31 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
               </div>
 
               {typeSelected === 'Partido' && (
-                <select
-                  name="competition"
-                  value={formData.competition}
-                  onChange={handleChange}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
-                >
-                  <option value="">{t('newEvent.competition')}</option>
-                  <option value="Liga">{t('newEvent.league')}</option>
-                  <option value="Copa">{t('newEvent.cup')}</option>
-                  <option value="Amistoso">{t('newEvent.friendly')}</option>
-                </select>
+                <>
+                  <select
+                    value={selectedClub}
+                    onChange={(e) => setSelectedClub(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                  >
+                    <option value="">{t('newEvent.club') || 'Club'}</option>
+                    {clubs.map((club) => (
+                      <option key={club.id} value={club.id}>
+                        {club.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    name="competition"
+                    value={formData.competition}
+                    onChange={handleChange}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                  >
+                    <option value="">{t('newEvent.competition')}</option>
+                    <option value="Liga">{t('newEvent.league')}</option>
+                    <option value="Copa">{t('newEvent.cup')}</option>
+                    <option value="Amistoso">{t('newEvent.friendly')}</option>
+                  </select>
+                </>
               )}
 
               <input

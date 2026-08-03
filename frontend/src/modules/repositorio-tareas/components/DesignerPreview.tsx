@@ -1,10 +1,13 @@
 import React from 'react';
 import type { DesignerItem } from '@modules/entrenamientos/types';
+import type { FieldStructure } from '../types';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 
 interface DesignerPreviewProps {
   items: DesignerItem[];
+  /** Estructura de campo con la que se guardó la tarea (por defecto 'libre', sin líneas de campo) */
+  fieldStructure?: FieldStructure;
   className?: string;
 }
 
@@ -18,35 +21,82 @@ const FIELD_BACKGROUND = {
   backgroundBlendMode: 'soft-light, multiply, normal',
 } as const;
 
-const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, className = '' }) => {
+const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure = 'libre', className = '' }) => {
   const sortedItems = [...(items || [])].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+  const isHalfField = fieldStructure === 'ataque' || fieldStructure === 'defensa';
 
   return (
     <div
       className={`relative w-full bg-green-800 rounded-lg overflow-hidden border-4 border-white/10 ${className}`}
       style={{
         ...FIELD_BACKGROUND,
-        aspectRatio: '105 / 68',
+        aspectRatio: isHalfField ? '68 / 52.5' : '105 / 68',
       }}
     >
-      {/* Líneas del campo */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {/* Borde exterior */}
-        <rect x="2" y="2" width="96" height="96" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.3" />
-
-        {/* Línea central vertical */}
-        <line x1="50" y1="2" x2="50" y2="98" stroke="rgba(255,255,255,0.4)" strokeWidth="0.2" />
-
-        {/* Círculo central */}
-        <circle cx="50" cy="50" r="9" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.2" />
-
-        {/* Punto central */}
-        <circle cx="50" cy="50" r="0.5" fill="rgba(255,255,255,0.6)" />
-
-        {/* Áreas de portería */}
-        <rect x="5" y="30" width="10" height="40" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.2" />
-        <rect x="85" y="30" width="10" height="40" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.2" />
-      </svg>
+      {/* Líneas del campo (réplica exacta del trazado real del diseñador; 'libre' no dibuja líneas) */}
+      {fieldStructure !== 'libre' && (
+        <svg
+          className="absolute pointer-events-none"
+          style={{ top: '4%', left: '4%', width: '92%', height: '92%', overflow: 'visible' }}
+          viewBox={
+            fieldStructure === 'ataque' ? '0 0 68 52.5'
+            : fieldStructure === 'defensa' ? '0 52.5 68 52.5'
+            : '0 0 105 68'
+          }
+          preserveAspectRatio="none"
+        >
+          <g fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.45">
+            {fieldStructure === 'campo-total' ? (
+              <>
+                {/* Borde exterior */}
+                <rect x="0" y="0" width="105" height="68" />
+                {/* Línea central */}
+                <line x1="52.5" y1="0" x2="52.5" y2="68" />
+                {/* Círculo y punto central */}
+                <circle cx="52.5" cy="34" r="9.15" />
+                <circle cx="52.5" cy="34" r="0.3" fill="rgba(255,255,255,0.55)" stroke="none" />
+                {/* Área grande y pequeña, izquierda */}
+                <rect x="0" y="13.84" width="16.5" height="40.32" />
+                <rect x="0" y="24.84" width="5.5" height="18.32" />
+                <circle cx="11" cy="34" r="0.3" fill="rgba(255,255,255,0.55)" stroke="none" />
+                <path d="M 16.5 26.69 A 9.15 9.15 0 0 1 16.5 41.31" />
+                <rect x="-2" y="30.34" width="2" height="7.32" strokeWidth="0.6" />
+                {/* Área grande y pequeña, derecha */}
+                <rect x="88.5" y="13.84" width="16.5" height="40.32" />
+                <rect x="99.5" y="24.84" width="5.5" height="18.32" />
+                <circle cx="94" cy="34" r="0.3" fill="rgba(255,255,255,0.55)" stroke="none" />
+                <path d="M 88.5 26.69 A 9.15 9.15 0 0 0 88.5 41.31" />
+                <rect x="105" y="30.34" width="2" height="7.32" strokeWidth="0.6" />
+                {/* Arcos de córner */}
+                <path d="M 0 1 A 1 1 0 0 1 1 0" />
+                <path d="M 104 0 A 1 1 0 0 1 105 1" />
+                <path d="M 1 68 A 1 1 0 0 1 0 67" />
+                <path d="M 105 67 A 1 1 0 0 1 104 68" />
+              </>
+            ) : (
+              <>
+                <rect x="0" y="0" width="68" height="105" />
+                <line x1="0" y1="52.5" x2="68" y2="52.5" />
+                <circle cx="34" cy="52.5" r="1.1" fill="rgba(255,255,255,0.55)" stroke="none" />
+                <rect x="13.84" y="0" width="40.32" height="16.5" />
+                <rect x="24.84" y="0" width="18.32" height="5.5" />
+                <circle cx="34" cy="11" r="0.3" fill="rgba(255,255,255,0.55)" stroke="none" />
+                <path d="M 26.69 16.5 A 9.15 9.15 0 0 0 41.31 16.5" />
+                <rect x="30.34" y="-2" width="7.32" height="2" strokeWidth="0.6" />
+                <rect x="13.84" y="88.5" width="40.32" height="16.5" />
+                <rect x="24.84" y="99.5" width="18.32" height="5.5" />
+                <circle cx="34" cy="94" r="0.3" fill="rgba(255,255,255,0.55)" stroke="none" />
+                <path d="M 26.69 88.5 A 9.15 9.15 0 0 1 41.31 88.5" />
+                <rect x="30.34" y="105" width="7.32" height="2" strokeWidth="0.6" />
+                <path d="M 0 1 A 1 1 0 0 1 1 0" />
+                <path d="M 67 0 A 1 1 0 0 1 68 1" />
+                <path d="M 1 105 A 1 1 0 0 1 0 104" />
+                <path d="M 68 104 A 1 1 0 0 1 67 105" />
+              </>
+            )}
+          </g>
+        </svg>
+      )}
 
       {/* Elementos del ejercicio */}
       {sortedItems.map((item) => {
@@ -67,7 +117,6 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, className = ''
                 top: y,
                 width,
                 height,
-                transform: 'translate(-50%, -50%)',
               }}
             />
           );
@@ -91,26 +140,42 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, className = ''
           );
         }
 
-        if (isPlayer || isCone) {
-          const radius = isPlayer ? '6px' : '4px';
+        if (isPlayer) {
           return (
             <div
               key={item.id}
-              className="absolute rounded-full border border-white/90 flex items-center justify-center"
+              className="absolute rounded-full border-[1.5px] border-white flex items-center justify-center"
               style={{
                 left: x,
                 top: y,
-                width: radius,
-                height: radius,
+                width: '5%',
+                height: '5%',
                 backgroundColor: item.color || '#ffffff',
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) scale(${item.scale || 1})`,
+                aspectRatio: '1 / 1',
               }}
             >
-              {isPlayer && (
-                <span className="text-[8px] font-black text-black leading-none">
-                  {item.type.replace('player-', '')}
-                </span>
-              )}
+              <span className="text-[6px] font-black text-white leading-none">
+                {item.type.replace('player-', '')}
+              </span>
+            </div>
+          );
+        }
+
+        if (isCone) {
+          return (
+            <div
+              key={item.id}
+              className="absolute"
+              style={{
+                left: x,
+                top: y,
+                transform: `translate(-50%, -50%) scale(${item.scale || 1})`,
+                width: '4%',
+                height: 'auto',
+              }}
+            >
+              <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px]" style={{ borderBottomColor: item.color }}></div>
             </div>
           );
         }

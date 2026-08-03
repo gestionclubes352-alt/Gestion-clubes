@@ -2,56 +2,81 @@ import React, { useState, useMemo } from 'react';
 import type { TacticalPosition } from '../types';
 import type { Player } from '@modules/plantilla';
 
+const NOT_CONVOCADO_REASONS: Array<{ value: string; label: string }> = [
+  { value: 'decision_tecnica', label: 'Decisión técnica' },
+  { value: 'lesion', label: 'Lesión' },
+  { value: 'vacaciones', label: 'Vacaciones' },
+  { value: 'sancion_federativa', label: 'Sanción federativa' },
+  { value: 'sancion_interna', label: 'Sanción interna' },
+  { value: 'otro', label: 'Otro' },
+];
+
 interface TacticalBoardProps {
   formacion: string;
   positions: TacticalPosition[];
   squad: Player[];
+  notConvocadoIds: Array<string | number>;
+  notConvocadoReasons?: Record<string, string>;
   onAssignPlayer: (posId: string, playerId: string | number) => void;
   onRemovePlayer: (posId: string, playerId: string | number) => void;
   onChangeFormation: (newForm: string) => void;
+  onToggleConvocado: (playerId: string | number, convocado: boolean, reason?: string) => void;
   onPlayerSelect?: (player: Player) => void;
 }
 
-const TacticalBoard: React.FC<TacticalBoardProps> = ({ 
-  formacion, 
-  positions = [], 
+const TacticalBoard: React.FC<TacticalBoardProps> = ({
+  formacion,
+  positions = [],
   squad,
-  onAssignPlayer, 
+  notConvocadoIds,
+  notConvocadoReasons = {},
+  onAssignPlayer,
   onRemovePlayer,
   onChangeFormation,
+  onToggleConvocado,
   onPlayerSelect
 }) => {
   const [activePosId, setActivePosId] = useState<string | null>(null);
 
+  const isConvocado = (playerId: string | number) => !notConvocadoIds.some(id => String(id) === String(playerId));
+
+  const convocadoSquad = useMemo(() => squad.filter(p => isConvocado(p.id)), [squad, notConvocadoIds]);
+  const noConvocadoSquad = useMemo(() => squad.filter(p => !isConvocado(p.id)), [squad, notConvocadoIds]);
+
   const groupedPlayers = useMemo(() => {
     // Detectar si la plantilla usa demarcaciones específicas (modo Escuela/Huesca)
-    const hasSpecificDemarcations = squad.some(p =>
+    const hasSpecificDemarcations = convocadoSquad.some(p =>
       ['Lateral', 'Central', 'Pivote', 'Media punta', 'Interior', 'Extremo'].includes(p.posicion)
     );
 
     if (hasSpecificDemarcations) {
       // Orden de demarcaciones específicas
       const order = ['Portero', 'Lateral', 'Central', 'Pivote', 'Interior', 'Media punta', 'Extremo', 'Delantero'];
-      const groups: Record<string, typeof squad> = {};
+      const groups: Record<string, typeof convocadoSquad> = {};
       for (const dem of order) {
-        const players = squad.filter(p => p.posicion === dem);
+        const players = convocadoSquad.filter(p => p.posicion === dem);
         if (players.length > 0) groups[dem.toUpperCase()] = players;
       }
       // Agrupar posiciones no reconocidas en "OTROS"
       const known = new Set(order);
-      const otros = squad.filter(p => !known.has(p.posicion) && p.posicion && p.posicion !== '–');
+      const otros = convocadoSquad.filter(p => !known.has(p.posicion));
       if (otros.length > 0) groups['OTROS'] = otros;
       return groups;
     }
 
     // Modo genérico (4 grupos clásicos)
-    return {
-      PORTERO: squad.filter(p => p.posicion === 'Portero'),
-      DEFENSA: squad.filter(p => p.posicion === 'Defensa' || ['Lateral', 'Central'].includes(p.posicion)),
-      MEDIO: squad.filter(p => p.posicion === 'Medio' || ['Pivote', 'Media punta', 'Interior'].includes(p.posicion)),
-      DELANTERO: squad.filter(p => p.posicion === 'Delantero' || p.posicion === 'Extremo'),
+    const groups: Record<string, typeof convocadoSquad> = {
+      PORTERO: convocadoSquad.filter(p => p.posicion === 'Portero'),
+      DEFENSA: convocadoSquad.filter(p => p.posicion === 'Defensa' || ['Lateral', 'Central'].includes(p.posicion)),
+      MEDIO: convocadoSquad.filter(p => p.posicion === 'Medio' || ['Pivote', 'Media punta', 'Interior'].includes(p.posicion)),
+      DELANTERO: convocadoSquad.filter(p => p.posicion === 'Delantero' || p.posicion === 'Extremo'),
     };
-  }, [squad]);
+    // Nadie debe quedar oculto: cualquier jugador sin una posición reconocida cae en "OTROS"
+    const known = new Set(['Portero', 'Defensa', 'Lateral', 'Central', 'Medio', 'Pivote', 'Media punta', 'Interior', 'Delantero', 'Extremo']);
+    const otros = convocadoSquad.filter(p => !known.has(p.posicion));
+    if (otros.length > 0) groups['OTROS'] = otros;
+    return groups;
+  }, [convocadoSquad]);
 
   const handlePickPlayer = (playerId: string | number) => {
     if (activePosId) {
@@ -204,23 +229,27 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                   const inThisPos = selectedPos?.playerIds?.some(id => String(id) === String(player.id));
                   const isOnField = positions.some(p => p.playerIds?.some(id => String(id) === String(player.id)));
                   const isDisabled = isOnField && !inThisPos;
-                  
+                  const subtitle = [player.club, player.equipo].filter(Boolean).join(' · ') || player.posicion;
+
                   return (
-                    <button
+                    <div
                       key={player.id}
-                      disabled={isDisabled}
-                      onClick={() => {
-                          if (inThisPos) onRemovePlayer(selectedPos!.id, player.id);
-                          else if (activePosId && !isDisabled) handlePickPlayer(player.id);
-                      }}
                       className={`
                         w-full flex items-center justify-between gap-2 p-2 rounded-xl transition-all border
-                        ${inThisPos ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg' : 'bg-white border-slate-100 hover:bg-slate-50'}
-                        ${isDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}
-                        ${!activePosId && !inThisPos && !isDisabled ? 'opacity-50 grayscale' : ''}
+                        ${inThisPos ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg' : isOnField ? 'bg-blue-50 border-blue-200 hover:bg-blue-100' : 'bg-white border-slate-100 hover:bg-slate-50'}
+                        ${isDisabled && !isOnField ? 'opacity-40 grayscale' : ''}
+                        ${!activePosId && !inThisPos && !isDisabled && !isOnField ? 'opacity-50 grayscale' : ''}
                       `}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                            if (inThisPos) onRemovePlayer(selectedPos!.id, player.id);
+                            else if (activePosId && !isDisabled) handlePickPlayer(player.id);
+                        }}
+                        className="flex items-center gap-2 min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+                      >
                         <div className={`w-9 h-9 rounded-lg overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center flex-shrink-0`}>
                           {player.fotoUrl && player.fotoUrl.length > 1 ? (
                             <img src={player.fotoUrl} className="w-full h-full object-cover" />
@@ -230,25 +259,109 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex items-center gap-1.5">
-                            <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
-                              {player.dorsal}
-                            </span>
-                            <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : 'text-slate-600'}`}>
+                            <div className="flex items-center gap-1">
+                              <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
+                                {player.dorsal}
+                              </span>
+                              {isOnField && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-green-500 text-white'}`}>
+                                  T
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : isOnField ? 'text-blue-600' : 'text-slate-600'}`}>
                               {player.apodo || player.nombre}
                             </span>
                           </div>
-                          <div className={`text-[8px] font-bold uppercase tracking-widest truncate ${inThisPos ? 'text-white/70' : 'text-slate-400'}`}>
-                            {player.club} · {player.equipo}
-                          </div>
+                          {subtitle && (
+                            <div className={`text-[8px] font-bold uppercase tracking-widest truncate ${inThisPos ? 'text-white/70' : 'text-slate-400'}`}>
+                              {subtitle}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-[10px] flex-shrink-0`}></i>
-                    </button>
+                        <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-[10px] flex-shrink-0`}></i>
+                      </button>
+                      <select
+                        value="convocado"
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === 'convocado') onToggleConvocado(player.id, true);
+                          else onToggleConvocado(player.id, false, value);
+                        }}
+                        title="Convocatoria"
+                        className={`text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                      >
+                        <option value="convocado">Convocado</option>
+                        {NOT_CONVOCADO_REASONS.map(r => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   );
                 })}
               </div>
             </div>
           ))}
+
+          {noConvocadoSquad.length > 0 && (
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <h4 className="text-[7px] md:text-[7.5px] font-black text-red-400 px-2 py-0.5 bg-red-50 rounded-lg tracking-widest uppercase">
+                No convocados
+              </h4>
+              <div className="space-y-2">
+                {noConvocadoSquad.map((player) => {
+                  const subtitle = [player.club, player.equipo].filter(Boolean).join(' · ') || player.posicion;
+                  return (
+                    <div
+                      key={player.id}
+                      className="w-full flex items-center justify-between gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50 opacity-70"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center flex-shrink-0 grayscale">
+                          {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                            <img src={player.fotoUrl} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-[10px] font-black text-slate-500">{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-slate-300 text-white">
+                              {player.dorsal}
+                            </span>
+                            <span className="text-[11px] font-black uppercase truncate text-slate-500">
+                              {player.apodo || player.nombre}
+                            </span>
+                          </div>
+                          {subtitle && (
+                            <div className="text-[8px] font-bold uppercase tracking-widest truncate text-slate-400">
+                              {subtitle}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <select
+                        value={notConvocadoReasons[String(player.id)] || 'decision_tecnica'}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === 'convocado') onToggleConvocado(player.id, true);
+                          else onToggleConvocado(player.id, false, value);
+                        }}
+                        title="Convocatoria"
+                        className="text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none bg-white border-slate-200 text-slate-500"
+                      >
+                        <option value="convocado">Convocado</option>
+                        {NOT_CONVOCADO_REASONS.map(r => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

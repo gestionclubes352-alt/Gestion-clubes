@@ -595,7 +595,7 @@
     "newMatch": "Nuevo Partido",
     "home": "LOCAL",
     "away": "VISITANTE",
-    "editViaEvents": "Editar a través de Eventos",
+    "editViaEvents": "Editar Partido",
     "deleteEvent": "Eliminar Evento",
     "noMatches": "Sin partidos registrados. Pulsa \"Nuevo Partido\" para empezar."
   },
@@ -830,12 +830,23 @@
   },
   "matchReport": {
     "tabs": {
+      "generalData": "Datos Generales",
       "opponentReport": "Informe Rival",
       "referee": "Árbitro",
       "lineup": "Alineación",
       "matchPlan": "Plan de Partido",
       "abp": "ABP",
       "events": "Eventos"
+    },
+    "generalData": {
+      "deleteMatch": "Eliminar Partido",
+      "saveChanges": "Guardar Cambios",
+      "savedMessage": "Datos guardados"
+    },
+    "rivalSelector": {
+      "noClub": "Selecciona el club rival en la pestaña Datos Generales para ver su informe.",
+      "selectSubTeam": "Selecciona el equipo del club rival",
+      "noTeamsForClub": "No hay equipos dados de alta para el club rival seleccionado en Datos Generales."
     },
     "finalReports": "Informes Finales",
     "playerUrl": "URL del Jugador",

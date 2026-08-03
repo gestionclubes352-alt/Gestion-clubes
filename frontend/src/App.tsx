@@ -11,8 +11,8 @@ import { LoginPage } from '@modules/auth';
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { Header, BottomNav, HomeSectionsView } from '@shared/components';
-import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService } from '@shared/services/dataService';
-import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario } from '@shared/services/dataService';
+import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService } from '@shared/services/dataService';
+import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal } from '@shared/services/dataService';
 import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
 import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES } from '@shared/constants';
 
@@ -22,6 +22,7 @@ import type { Player } from '@modules/plantilla';
 
 // Modules - Staff
 import { StaffTable, EditStaffModal } from '@modules/staff';
+import type { StaffMember } from '@modules/staff';
 
 // Modules - Usuarios
 import { UserTable, EditUserModal } from '@modules/usuarios';
@@ -53,7 +54,7 @@ import type { Match } from '@modules/partidos';
 
 // Modules - Calendario
 import { CalendarView, NewEventModal, GestionCalendarView } from '@modules/calendario';
-import type { CalendarEvent } from '@modules/calendario';
+import type { CalendarEvent, EventType } from '@modules/calendario';
 
 // Modules - Videoteca
 import { Videoteca } from '@modules/videoteca';
@@ -301,6 +302,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     if (currentTeam) {
       setSquadList([]);
       setUsersList([]);
+      setPersonalList([]);
       setCompetitionTeams([]);
       setClubesList([]);
       setCampogramasList([]);
@@ -337,16 +339,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<User | null>(null);
+  const [editingStaff, setEditingStaff] = useState<Personal | null>(null);
   const [isNewStaff, setIsNewStaff] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [modalDefaultType, setModalDefaultType] = useState<string | undefined>(undefined);
+  const [modalDefaultType, setModalDefaultType] = useState<EventType | null>(null);
   const [showNewCampModal, setShowNewCampModal] = useState(false);
   const [activeCampograma, setActiveCampograma] = useState<Campograma | null>(null);
 
   const [squadList, setSquadList] = useState<Player[]>([]);
   const [usersList, setUsersList] = useState<User[]>([]);
+  const [personalList, setPersonalList] = useState<Personal[]>([]);
   const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>([]);
   const [clubesList, setClubesList] = useState<Club[]>([]);
   const [campogramasList, setCampogramasList] = useState<Campograma[]>([]);
@@ -503,13 +506,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     if (forceSync) setIsSyncing(true);
 
     try {
-      const [pRes, cRes, uRes, eRes, ctRes, sRes, clRes] = await Promise.all([
+      const [pRes, cRes, uRes, eRes, ctRes, persRes, clRes] = await Promise.all([
         plantillasService.list(),
         db.campogramas.get(),
         usuariosService.list(),
         eventosCalendarioService.list(),
         equiposService.list(),
-        db.staff.get(),
+        personalService.list(),
         clubesService.list(),
       ]);
 
@@ -576,51 +579,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
       setEventsList((eRes || []).map(eventRowToCalendarEvent));
 
-      // Migrar staff de Firestore a usuarios (una sola vez)
-      let users: User[] = (uRes || []).map((u: Usuario): User => ({
+      // Usuarios desde Supabase (acceso al sistema)
+      const users: User[] = (uRes || []).map((u: Usuario): User => ({
         id: u.id,
         nombre: u.nombre,
         email: u.email,
         rol: u.rol,
         estado: u.estado,
-        departamento: 'Personal', // no persistido en `usuarios` — ver tabla `personal`
+        departamento: u.rol === 'Tecnico' ? 'Personal' : 'Directiva',
         clubId: u.club_id ?? undefined,
       }));
-      const staffMembers = sRes.data || [];
-      if (staffMembers.length > 0) {
-        const userNames = new Set(users.map((u: User) => u.nombre.toUpperCase().trim()));
-        const newUsers: User[] = [];
-        for (const s of staffMembers) {
-          if (!userNames.has(String(s.nombre || '').toUpperCase().trim())) {
-            const newUser: User = {
-              id: crypto.randomUUID(),
-              nombre: s.nombre || '',
-              email: s.email || '',
-              rol: 'Tecnico',
-              estado: 'Activo',
-              departamento: 'Personal',
-              rolTecnico: String(s.rol || '').toUpperCase(),
-              telefono: s.telefono || '',
-              clubId: currentTeam?.id || '',
-            };
-            newUsers.push(newUser);
-          }
-        }
-        if (newUsers.length > 0) {
-          for (const u of newUsers) {
-            await db.users.upsert(u);
-          }
-          users = [...users, ...newUsers];
-          console.log(`[migration] Migrados ${newUsers.length} miembros de staff como usuarios`);
-        }
-        // Limpiar colección staff tras migrar para evitar re-migración al borrar usuarios
-        for (const s of staffMembers) {
-          await db.staff.delete(s.id);
-        }
-        console.log(`[migration] Limpiados ${staffMembers.length} registros de staff tras migración`);
-      }
 
       setUsersList(users);
+
+      // Cargar personal desde la tabla `personal`
+      setPersonalList((persRes as Personal[]) || []);
+
       // Equipos desde Supabase, con fallback para CD Derio
       const ctFallback = currentTeam?.id === 'cd-derio'
         ? [...INITIAL_COMPETITION_TEAMS]
@@ -693,9 +667,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     setTimeout(() => setShowStatus(null), 2000);
   };
 
+  const handleSaveEventAndViewReport = async (event: CalendarEvent) => {
+    await handleSaveEvent(event);
+    if (event.type === 'Partido') {
+      navigate(`/partidos/${event.id}`);
+    }
+  };
+
   const handleCalendarEventClick = (event: CalendarEvent) => {
     if (event.type === 'Entrenamiento' || event.type === 'Sesión') {
       navigate('/sesiones', { state: { openEventId: event.id } });
+    } else if (event.type === 'Partido') {
+      handleViewMatchReport(String(event.id));
     } else {
       setEditingEvent(event);
     }
@@ -813,7 +796,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const { matchId } = useParams<{ matchId: string }>();
     const match = filteredEventsList.find(e => String(e.id) === matchId);
     if (!match) return <div className="p-20 text-center">{t('app.matchNotFound')}</div>;
-    return <MatchReportView match={match} onBack={() => navigate('/partidos')} ownClubId={currentTeam?.id || ''} />;
+    return (
+      <MatchReportView
+        match={match}
+        onBack={() => navigate('/partidos')}
+        ownClubId={currentTeam?.id || ''}
+        competitionTeams={filteredCompetitionTeams}
+        onSave={handleSaveEvent}
+        onDelete={handleDeleteEvent}
+      />
+    );
   };
 
   // Componente de carga
@@ -900,10 +892,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/staff" element={
                 <StaffTable
-                  staff={filteredUsersList.filter(u => u.departamento === 'Personal')}
+                  staff={personalList}
                   onEdit={staff => { setIsNewStaff(false); setEditingStaff(staff); }}
-                  onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
-                  onCreate={() => { setIsNewStaff(true); setEditingStaff({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal', clubId: currentTeam?.id || '' } as User); }}
+                  onDelete={async id => { try { await personalService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                  onCreate={() => { const newStaff: Personal = { id: crypto.randomUUID(), nombre: '', cargo: '', club_id: currentTeam?.id || '', telefono: undefined, dni: undefined, foto_url: undefined }; setIsNewStaff(true); setEditingStaff(newStaff); }}
                   clubes={clubesList}
                   userClubId={perfil?.club_id || currentTeam?.id || ''}
                   userRole={userRole}
@@ -976,9 +968,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       formacion={activeCampograma.formacion}
                       positions={activeCampograma.positions || []}
                       squad={squadList}
+                      notConvocadoIds={[]}
                       onAssignPlayer={handleAssignPlayer}
                       onRemovePlayer={handleRemovePlayer}
                       onChangeFormation={handleChangeFormation}
+                      onToggleConvocado={() => {}}
                       onPlayerSelect={(player) => setEditingPlayer(player)}
                     />
                   </div>
@@ -995,7 +989,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/disenador" element={<ExerciseDesigner />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
-                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={filteredCompetitionTeams} />
+                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={filteredCompetitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
                 <GestionCalendarView events={filteredEventsList} squad={filteredSquadList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />
@@ -1005,7 +999,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   matches={filteredMatchesList}
                   onSave={async () => { }}
                   onDelete={handleDeleteEvent}
-                  onEdit={(m) => setEditingEvent(filteredEventsList.find(e => String(e.id) === String(m.id)) || null)}
+                  onEdit={(m) => handleViewMatchReport(String(m.id))}
                   onClickMatch={(m) => handleViewMatchReport(String(m.id))}
                   onCreate={() => {
                     setModalDefaultType('Partido');
@@ -1154,27 +1148,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
         }
       }} />}
-      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
+      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={filteredCompetitionTeams.map(t => ({ id: t.id, nombre: t.nombre }))} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
         try {
           if (isNewStaff) {
-            await usuariosService.create({
+            await personalService.create({
               nombre: s.nombre,
-              email: s.email || `staff-${crypto.randomUUID()}@club.local`,
-              rol: 'Tecnico' as Usuario['rol'],
-              estado: 'Activo' as Usuario['estado'],
-              departamento: 'Personal',
-              rol_tecnico: s.rolTecnico || undefined,
+              cargo: s.cargo || '',
               telefono: s.telefono || undefined,
-              foto_url: s.fotoUrl || undefined,
-              club_id: s.clubId || currentTeam?.id || null,
-            } as any);
+              dni: s.dni || undefined,
+              email: (s as any).email || undefined,
+              equipo_id: (s as any).equipo_id || undefined,
+              foto_url: s.foto_url || undefined,
+              club_id: s.club_id || currentTeam?.id || '',
+            });
           } else {
-            await usuariosService.update(s.id, {
+            await personalService.update(s.id, {
               nombre: s.nombre,
-              rol_tecnico: s.rolTecnico || undefined,
+              cargo: s.cargo || '',
               telefono: s.telefono || undefined,
-              foto_url: s.fotoUrl || undefined,
-            } as any);
+              dni: s.dni || undefined,
+              email: (s as any).email || undefined,
+              equipo_id: (s as any).equipo_id || undefined,
+              foto_url: s.foto_url || undefined,
+            });
           }
           await fetchData();
           setEditingStaff(null);
@@ -1183,8 +1179,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el personal');
         }
       }} />}
-      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEvent} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} />}
-      {showNewModal && <NewEventModal initialDate={new Date()} onClose={() => { setShowNewModal(false); setModalDefaultType(undefined); }} onSave={handleSaveEvent} competitionTeams={competitionTeams} />}
+      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} />}
+      {showNewModal && <NewEventModal initialDate={new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} />}
       {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
       {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
 

@@ -121,13 +121,15 @@ export interface Jugador { // tabla `plantillas`
 export interface Personal {
   id: string;
   club_id: string;
-  equipo_id?: string | null;
+  equipo_id?: string;
   nombre: string;
-  primer_apellido: string;
-  segundo_apellido?: string;
-  rol: string;
+  cargo: string;
   telefono?: string;
+  dni?: string;
   email?: string;
+  foto_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Usuario {
@@ -386,6 +388,214 @@ function createExercisesStore(): LegacyStore<any> {
   };
 }
 
+/** Tabla `match_reports`: análisis táctico y eventos de partidos. */
+interface StoredMatchReport {
+  id: string;
+  general_notes: string;
+  video_url: string;
+  doc_url: string;
+  con_balon_text: string;
+  con_balon_video: string;
+  con_balon_doc: string;
+  sin_balon_text: string;
+  sin_balon_video: string;
+  sin_balon_doc: string;
+  abp_text: string;
+  abp_video: string;
+  abp_doc: string;
+  abp_off_corner_text?: string;
+  abp_off_corner2_text?: string;
+  abp_off_corner3_text?: string;
+  abp_off_corner4_text?: string;
+  abp_off_lateral_text?: string;
+  abp_off_lateral2_text?: string;
+  abp_off_frontal_text?: string;
+  abp_def_corner1_text?: string;
+  abp_def_corner2_text?: string;
+  abp_def_lateral_text?: string;
+  abp_def_frontal_text?: string;
+  abp_off_corner_image?: string;
+  abp_off_corner2_image?: string;
+  abp_off_corner3_image?: string;
+  abp_off_corner4_image?: string;
+  abp_off_lateral_image?: string;
+  abp_off_lateral2_image?: string;
+  abp_off_frontal_image?: string;
+  abp_def_corner1_image?: string;
+  abp_def_corner2_image?: string;
+  abp_def_lateral_image?: string;
+  abp_def_frontal_image?: string;
+  abp_off_corner_video?: string;
+  abp_off_corner2_video?: string;
+  abp_off_corner3_video?: string;
+  abp_off_corner4_video?: string;
+  abp_off_lateral_video?: string;
+  abp_off_lateral2_video?: string;
+  abp_off_frontal_video?: string;
+  abp_def_corner1_video?: string;
+  abp_def_corner2_video?: string;
+  abp_def_lateral_video?: string;
+  abp_def_frontal_video?: string;
+  formation: string;
+  lineup_positions: unknown[];
+  substitute_ids: Array<string | number>;
+  not_convocado_ids: Array<string | number>;
+  not_convocado_reasons?: Record<string, string>;
+  video_events: unknown[];
+  first_half_start: string;
+  first_half_end: string;
+  second_half_start: string;
+  second_half_end: string;
+  referee_name?: string;
+  referee_description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function createMatchReportsStore(): LegacyStore<any> {
+  return {
+    async get() {
+      const { data, error } = await supabase.from('match_reports').select('*');
+      if (error) throw error;
+      return {
+        data: (data ?? []).map((row: StoredMatchReport) => ({
+          id: row.id,
+          generalNotes: row.general_notes,
+          videoUrl: row.video_url,
+          docUrl: row.doc_url,
+          conBalonText: row.con_balon_text,
+          conBalonVideo: row.con_balon_video,
+          conBalonDoc: row.con_balon_doc,
+          sinBalonText: row.sin_balon_text,
+          sinBalonVideo: row.sin_balon_video,
+          sinBalonDoc: row.sin_balon_doc,
+          abpText: row.abp_text,
+          abpVideo: row.abp_video,
+          abpDoc: row.abp_doc,
+          abpOffCornerText: row.abp_off_corner_text,
+          abpOffCorner2Text: row.abp_off_corner2_text,
+          abpOffCorner3Text: row.abp_off_corner3_text,
+          abpOffCorner4Text: row.abp_off_corner4_text,
+          abpOffLateralText: row.abp_off_lateral_text,
+          abpOffLateral2Text: row.abp_off_lateral2_text,
+          abpOffFrontalText: row.abp_off_frontal_text,
+          abpDefCorner1Text: row.abp_def_corner1_text,
+          abpDefCorner2Text: row.abp_def_corner2_text,
+          abpDefLateralText: row.abp_def_lateral_text,
+          abpDefFrontalText: row.abp_def_frontal_text,
+          abpOffCornerImage: row.abp_off_corner_image,
+          abpOffCorner2Image: row.abp_off_corner2_image,
+          abpOffCorner3Image: row.abp_off_corner3_image,
+          abpOffCorner4Image: row.abp_off_corner4_image,
+          abpOffLateralImage: row.abp_off_lateral_image,
+          abpOffLateral2Image: row.abp_off_lateral2_image,
+          abpOffFrontalImage: row.abp_off_frontal_image,
+          abpDefCorner1Image: row.abp_def_corner1_image,
+          abpDefCorner2Image: row.abp_def_corner2_image,
+          abpDefLateralImage: row.abp_def_lateral_image,
+          abpDefFrontalImage: row.abp_def_frontal_image,
+          abpOffCornerVideo: row.abp_off_corner_video,
+          abpOffCorner2Video: row.abp_off_corner2_video,
+          abpOffCorner3Video: row.abp_off_corner3_video,
+          abpOffCorner4Video: row.abp_off_corner4_video,
+          abpOffLateralVideo: row.abp_off_lateral_video,
+          abpOffLateral2Video: row.abp_off_lateral2_video,
+          abpOffFrontalVideo: row.abp_off_frontal_video,
+          abpDefCorner1Video: row.abp_def_corner1_video,
+          abpDefCorner2Video: row.abp_def_corner2_video,
+          abpDefLateralVideo: row.abp_def_lateral_video,
+          abpDefFrontalVideo: row.abp_def_frontal_video,
+          formation: row.formation,
+          lineupPositions: row.lineup_positions,
+          substituteIds: row.substitute_ids,
+          notConvocadoIds: row.not_convocado_ids,
+          notConvocadoReasons: row.not_convocado_reasons,
+          videoEvents: row.video_events,
+          firstHalfStart: row.first_half_start,
+          firstHalfEnd: row.first_half_end,
+          secondHalfStart: row.second_half_start,
+          secondHalfEnd: row.second_half_end,
+          refereeName: row.referee_name,
+          refereeDescription: row.referee_description,
+        })),
+      };
+    },
+    async upsert(item: any) {
+      const stored: StoredMatchReport = {
+        id: item.id,
+        general_notes: item.generalNotes || '',
+        video_url: item.videoUrl || '',
+        doc_url: item.docUrl || '',
+        con_balon_text: item.conBalonText || '',
+        con_balon_video: item.conBalonVideo || '',
+        con_balon_doc: item.conBalonDoc || '',
+        sin_balon_text: item.sinBalonText || '',
+        sin_balon_video: item.sinBalonVideo || '',
+        sin_balon_doc: item.sinBalonDoc || '',
+        abp_text: item.abpText || '',
+        abp_video: item.abpVideo || '',
+        abp_doc: item.abpDoc || '',
+        abp_off_corner_text: item.abpOffCornerText,
+        abp_off_corner2_text: item.abpOffCorner2Text,
+        abp_off_corner3_text: item.abpOffCorner3Text,
+        abp_off_corner4_text: item.abpOffCorner4Text,
+        abp_off_lateral_text: item.abpOffLateralText,
+        abp_off_lateral2_text: item.abpOffLateral2Text,
+        abp_off_frontal_text: item.abpOffFrontalText,
+        abp_def_corner1_text: item.abpDefCorner1Text,
+        abp_def_corner2_text: item.abpDefCorner2Text,
+        abp_def_lateral_text: item.abpDefLateralText,
+        abp_def_frontal_text: item.abpDefFrontalText,
+        abp_off_corner_image: item.abpOffCornerImage,
+        abp_off_corner2_image: item.abpOffCorner2Image,
+        abp_off_corner3_image: item.abpOffCorner3Image,
+        abp_off_corner4_image: item.abpOffCorner4Image,
+        abp_off_lateral_image: item.abpOffLateralImage,
+        abp_off_lateral2_image: item.abpOffLateral2Image,
+        abp_off_frontal_image: item.abpOffFrontalImage,
+        abp_def_corner1_image: item.abpDefCorner1Image,
+        abp_def_corner2_image: item.abpDefCorner2Image,
+        abp_def_lateral_image: item.abpDefLateralImage,
+        abp_def_frontal_image: item.abpDefFrontalImage,
+        abp_off_corner_video: item.abpOffCornerVideo,
+        abp_off_corner2_video: item.abpOffCorner2Video,
+        abp_off_corner3_video: item.abpOffCorner3Video,
+        abp_off_corner4_video: item.abpOffCorner4Video,
+        abp_off_lateral_video: item.abpOffLateralVideo,
+        abp_off_lateral2_video: item.abpOffLateral2Video,
+        abp_off_frontal_video: item.abpOffFrontalVideo,
+        abp_def_corner1_video: item.abpDefCorner1Video,
+        abp_def_corner2_video: item.abpDefCorner2Video,
+        abp_def_lateral_video: item.abpDefLateralVideo,
+        abp_def_frontal_video: item.abpDefFrontalVideo,
+        formation: item.formation || '4-3-3',
+        lineup_positions: item.lineupPositions || [],
+        substitute_ids: item.substituteIds || [],
+        not_convocado_ids: item.notConvocadoIds || [],
+        not_convocado_reasons: item.notConvocadoReasons || {},
+        video_events: item.videoEvents || [],
+        first_half_start: item.firstHalfStart || '',
+        first_half_end: item.firstHalfEnd || '',
+        second_half_start: item.secondHalfStart || '',
+        second_half_end: item.secondHalfEnd || '',
+        referee_name: item.refereeName,
+        referee_description: item.refereeDescription,
+      };
+      const { error } = await supabase.from('match_reports').upsert(stored);
+      if (error) throw error;
+      return item;
+    },
+    async delete(id: string | number) {
+      const { error } = await supabase.from('match_reports').delete().eq('id', id);
+      if (error) throw error;
+    },
+    async clearAll() {
+      const { error } = await supabase.from('match_reports').delete().neq('id', '');
+      if (error) throw error;
+    },
+  };
+}
+
 export const db = {
   players: createLegacyStub(),
   staff: createLegacyStub(),
@@ -395,7 +605,7 @@ export const db = {
   campogramas: createCampogramasStore(),
   task_templates: createJsonPayloadStore('task_templates'),
   exercises: createExercisesStore(),
-  match_reports: createLegacyStub(),
+  match_reports: createMatchReportsStore(),
   injuries: createLegacyStub(),
 };
 

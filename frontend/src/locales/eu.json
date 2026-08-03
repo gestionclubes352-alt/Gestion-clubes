@@ -595,7 +595,7 @@
     "newMatch": "Partida Berria",
     "home": "ETXEKOA",
     "away": "KANPOKOA",
-    "editViaEvents": "Gertaeren bidez editatu",
+    "editViaEvents": "Partidua editatu",
     "deleteEvent": "Gertaera Ezabatu",
     "noMatches": "Partidarik ez erregistratuta. Sakatu \"Partida Berria\" hasteko."
   },
@@ -820,12 +820,23 @@
   },
   "matchReport": {
     "tabs": {
+      "generalData": "Datu Orokorrak",
       "opponentReport": "Aurkariari Txostena",
       "referee": "Arbitroa",
       "lineup": "Alineazioa",
       "matchPlan": "Partidu Plana",
       "abp": "ABP",
       "events": "Gertaerak"
+    },
+    "generalData": {
+      "deleteMatch": "Partidua Ezabatu",
+      "saveChanges": "Aldaketak Gorde",
+      "savedMessage": "Datuak gordeta"
+    },
+    "rivalSelector": {
+      "noClub": "Aukeratu aurkariaren kluba Datu Orokorrak fitxan bere txostena ikusteko.",
+      "selectSubTeam": "Aukeratu aurkariaren klubeko taldea",
+      "noTeamsForClub": "Datu Orokorretan aukeratutako aurkariaren klubak ez du talderik erregistratuta."
     },
     "finalReports": "Azken Txostenak",
     "playerUrl": "Jokalariaren URLa",

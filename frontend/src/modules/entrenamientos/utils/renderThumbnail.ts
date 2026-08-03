@@ -5,7 +5,7 @@ import type { DesignerItem } from '../types';
  * sobre un <canvas> 2D, a partir de sus coordenadas/colores. Es síncrono y no depende del DOM
  * (evita fallos por CSS complejo, fuentes o CORS que sí podían darse capturando el pitch real).
  */
-export const renderThumbnail = (items: DesignerItem[]): string | undefined => {
+export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 'campo-total'): string | undefined => {
   try {
     const canvas = document.createElement('canvas');
     const width = 420;
@@ -19,17 +19,19 @@ export const renderThumbnail = (items: DesignerItem[]): string | undefined => {
     ctx.fillStyle = '#2f5a30';
     ctx.fillRect(0, 0, width, height);
 
-    // Líneas básicas del campo
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(4, 4, width - 8, height - 8);
-    ctx.beginPath();
-    ctx.moveTo(width / 2, 4);
-    ctx.lineTo(width / 2, height - 4);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(width / 2, height / 2, height * 0.18, 0, Math.PI * 2);
-    ctx.stroke();
+    // Líneas básicas del campo (no se dibujan si la tarea se guardó como estructura 'libre')
+    if (fieldStructure !== 'libre') {
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(4, 4, width - 8, height - 8);
+      ctx.beginPath();
+      ctx.moveTo(width / 2, 4);
+      ctx.lineTo(width / 2, height - 4);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(width / 2, height / 2, height * 0.18, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     // Elementos del ejercicio
     const sorted = [...items].sort((a, b) => a.zIndex - b.zIndex);
@@ -44,7 +46,8 @@ export const renderThumbnail = (items: DesignerItem[]): string | undefined => {
         const h = ((item.height || 15) / 100) * height;
         ctx.strokeStyle = 'rgba(255,255,255,0.7)';
         ctx.setLineDash([4, 3]);
-        ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+        // A diferencia del resto de elementos, en el diseñador la zona posiciona x/y como su esquina superior-izquierda, no su centro.
+        ctx.strokeRect(cx, cy, w, h);
         ctx.setLineDash([]);
       } else if (item.type === 'goal') {
         const w = ((item.width || 16) / 100) * width;

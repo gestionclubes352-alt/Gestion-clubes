@@ -19,6 +19,9 @@ export type TaskCategory =
 /** Nivel de intensidad */
 export type TaskIntensity = 'Baja' | 'Media' | 'Alta' | 'Muy Alta';
 
+/** Estructura de campo usada al diseñar la tarea (determina qué líneas de campo se dibujan) */
+export type FieldStructure = 'campo-total' | 'ataque' | 'defensa' | 'libre';
+
 /** Fase de la sesión donde encaja la tarea */
 export type SessionPhase = 'Calentamiento' | 'Parte Principal' | 'Vuelta a la Calma';
 
@@ -42,6 +45,8 @@ export interface TrainingTask {
   thumbnail?: string;
   /** Snapshot del diseño (si fue creada con el diseñador) */
   designerSnapshot?: any[];
+  /** Estructura de campo activa al guardar el snapshot (por defecto 'campo-total' si no se especifica) */
+  fieldStructure?: FieldStructure;
   /** Fecha de creación (ISO) */
   createdAt: string;
   /** Fecha de última edición (ISO) */

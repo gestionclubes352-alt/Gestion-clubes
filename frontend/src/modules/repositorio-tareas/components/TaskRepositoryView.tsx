@@ -100,6 +100,12 @@ const TaskRepositoryView: React.FC = () => {
     await fetchTasks();
   };
 
+  const confirmDelete = (task: TrainingTask) => {
+    if (window.confirm(t('taskRepository.deleteConfirm', { name: task.name, defaultValue: `¿Borrar "${task.name}"?` }))) {
+      handleDelete(task.id);
+    }
+  };
+
   const handleToggleFavorite = async (task: TrainingTask) => {
     await db.task_templates.upsert({ ...task, isFavorite: !task.isFavorite, updatedAt: new Date().toISOString() });
     await fetchTasks();
@@ -149,13 +155,29 @@ const TaskRepositoryView: React.FC = () => {
   const MiniTaskCard: React.FC<{ task: TrainingTask }> = ({ task }) => (
     <div
       onClick={() => setPreviewTask(task)}
-      className="group bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
+      className="group relative bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
     >
+      {/* Edit / delete actions */}
+      <div className="absolute top-1.5 right-1.5 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); openEdit(task); }}
+          className="w-6 h-6 rounded-full bg-black/50 hover:bg-[var(--accent)] text-white flex items-center justify-center transition-colors"
+          title={t('common.edit')}
+        >
+          <i className="fa-solid fa-pen text-[10px]"></i>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); confirmDelete(task); }}
+          className="w-6 h-6 rounded-full bg-black/50 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
+          title={t('common.delete')}
+        >
+          <i className="fa-solid fa-trash text-[10px]"></i>
+        </button>
+      </div>
+
       {/* Image preview */}
       {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-        <div className="h-16 overflow-hidden">
-          <DesignerPreview items={task.designerSnapshot} className="w-full" />
-        </div>
+        <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
       ) : task.thumbnail ? (
         <img src={task.thumbnail} alt={task.name} className="h-16 w-full object-cover" />
       ) : (
@@ -191,7 +213,7 @@ const TaskRepositoryView: React.FC = () => {
           {/* Designer preview or thumbnail */}
           {hasDesignerSnapshot ? (
             <div className="shrink-0 p-6 bg-slate-50">
-              <DesignerPreview items={task.designerSnapshot} className="max-w-full" />
+              <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="max-w-full" />
             </div>
           ) : task.thumbnail ? (
             <img src={task.thumbnail} alt={task.name} className="h-80 w-full object-cover shrink-0" />

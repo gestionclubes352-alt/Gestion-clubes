@@ -595,7 +595,7 @@
     "newMatch": "New Match",
     "home": "HOME",
     "away": "AWAY",
-    "editViaEvents": "Edit via Events",
+    "editViaEvents": "Edit Match",
     "deleteEvent": "Delete Event",
     "noMatches": "No matches recorded. Click \"New Match\" to start."
   },
@@ -820,12 +820,23 @@
   },
   "matchReport": {
     "tabs": {
+      "generalData": "General Data",
       "opponentReport": "Opponent Report",
       "referee": "Referee",
       "lineup": "Lineup",
       "matchPlan": "Match Plan",
       "abp": "Set Pieces",
       "events": "Events"
+    },
+    "generalData": {
+      "deleteMatch": "Delete Match",
+      "saveChanges": "Save Changes",
+      "savedMessage": "Data saved"
+    },
+    "rivalSelector": {
+      "noClub": "Select the opponent club in the General Data tab to see its report.",
+      "selectSubTeam": "Select the opponent club's team",
+      "noTeamsForClub": "No teams registered for the opponent club selected in General Data."
     },
     "finalReports": "Final Reports",
     "playerUrl": "Player URL",
