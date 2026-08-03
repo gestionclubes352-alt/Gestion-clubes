@@ -40,6 +40,8 @@ export interface TrainingTask {
   category: TaskCategory;
   /** URL/path de imagen o diagrama asociado */
   thumbnail?: string;
+  /** Snapshot del diseño (si fue creada con el diseñador) */
+  designerSnapshot?: any[];
   /** Fecha de creación (ISO) */
   createdAt: string;
   /** Fecha de última edición (ISO) */
