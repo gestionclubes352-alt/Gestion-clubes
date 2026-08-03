@@ -3,7 +3,8 @@ import type { Player } from '@modules/plantilla';
 import type { TacticalPosition } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
 import type { MatchReport, VideoEvent } from '../types';
-import { db } from '@shared/services/dataService';
+import { db, equiposRivalesService, jugadoresRivalesService } from '@shared/services/dataService';
+import type { EquipoRival, JugadorRival } from '@shared/services/dataService';
 import { SQUAD } from '@shared/constants';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
@@ -178,6 +179,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
 
   const [expandedMediaBlock, setExpandedMediaBlock] = useState<string | null>(null);
 
+  // Plantilla rival (scouting) para el Informe de Rival
+  const [rivalTeams, setRivalTeams] = useState<EquipoRival[]>([]);
+  const [selectedRivalTeamId, setSelectedRivalTeamId] = useState('');
+  const [rivalRoster, setRivalRoster] = useState<JugadorRival[]>([]);
+
   const samePlayerId = (a?: string | number, b?: string | number) => String(a) === String(b);
 
   // YouTube upload state
@@ -290,6 +296,37 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
     };
     loadData();
   }, [match.id]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await equiposRivalesService.list();
+        setRivalTeams(rows.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+      } catch (err) {
+        console.error('No se pudieron cargar los equipos rivales', err);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (selectedRivalTeamId || !match.opponent || rivalTeams.length === 0) return;
+    const normalize = (v: string) => v.trim().toLowerCase();
+    const match_ = rivalTeams.find(rt => normalize(rt.nombre) === normalize(match.opponent || ''));
+    if (match_) setSelectedRivalTeamId(match_.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rivalTeams, match.opponent]);
+
+  useEffect(() => {
+    if (!selectedRivalTeamId) { setRivalRoster([]); return; }
+    (async () => {
+      try {
+        const rows = await jugadoresRivalesService.list({ equipo_rival_id: selectedRivalTeamId });
+        setRivalRoster(rows.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
+      } catch (err) {
+        console.error('No se pudo cargar la plantilla rival', err);
+      }
+    })();
+  }, [selectedRivalTeamId]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -1570,6 +1607,21 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
 
   const renderInforme = () => (
     <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
+      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-4">
+        <div className="flex items-center gap-2 text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em]">
+          <i className="fa-solid fa-user-secret text-red-500"></i> {t('sidebar.rivalTeamsLabel')}
+        </div>
+        <select
+          value={selectedRivalTeamId}
+          onChange={e => setSelectedRivalTeamId(e.target.value)}
+          className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text)] focus:outline-none"
+        >
+          <option value="">{t('rivalTeams.noTeams')}</option>
+          {rivalTeams.map(team => (
+            <option key={team.id} value={team.id}>{team.nombre}</option>
+          ))}
+        </select>
+      </div>
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
           <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
               <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2"><i className="fa-solid fa-sliders text-red-500"></i> {t('matchReport.finalReports')}</div>
@@ -1687,6 +1739,35 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack }) => {
           </div>
         </div>
       </div>
+
+      {selectedRivalTeamId && (
+        <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+          <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+            <i className="fa-solid fa-users text-red-500"></i> {t('sidebar.rivalTeamsLabel')}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {rivalRoster.map(player => (
+              <div key={player.id} className="flex items-center gap-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl p-3">
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)] flex items-center justify-center text-[var(--text-muted)] font-black text-xs shrink-0">
+                  {player.foto_url ? (
+                    <img src={player.foto_url} className="w-full h-full object-cover object-top" />
+                  ) : (
+                    <span>{player.dorsal ?? '—'}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-[var(--text-strong)] truncate">{player.nombre}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">{player.posicion || '—'}</p>
+                </div>
+              </div>
+            ))}
+            {rivalRoster.length === 0 && (
+              <p className="col-span-full text-xs text-[var(--text-muted)]">{t('rivalTeams.noPlayers')}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50"><button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl flex items-center gap-3 transition-all"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveReport')}</button></div>
     </div>
   );
