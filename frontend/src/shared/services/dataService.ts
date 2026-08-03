@@ -42,6 +42,12 @@ function createTableService<T extends { id: string | number }>(tableName: string
       const { error } = await supabase.from(tableName).delete().eq('id', id);
       if (error) throw error;
     },
+
+    async upsert(item: Partial<T> & { id: string | number }) {
+      const { data, error } = await supabase.from(tableName).upsert(item).select().single();
+      if (error) throw error;
+      return data as T;
+    },
   };
 }
 
@@ -166,6 +172,31 @@ export interface Sesion {
   notas?: string;
 }
 
+/** Fila de la tabla `eventos_calendario` (persistencia real del módulo Calendario). */
+export interface EventoCalendario {
+  id: string;
+  club_id?: string | null;
+  title: string;
+  type: 'Entrenamiento' | 'Sesión' | 'Partido' | 'Otro' | 'Actividad';
+  date: string;
+  time?: string | null;
+  team?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  video_url?: string | null;
+  doc_url?: string | null;
+  staff_roles?: string | null;
+  competition?: string | null;
+  jornada?: string | null;
+  session_number?: number | null;
+  local_team?: string | null;
+  visitor_team?: string | null;
+  opponent?: string | null;
+  score?: string | null;
+  status?: string | null;
+  tasks?: unknown[] | null;
+}
+
 export interface PizarraTactica {
   id: string;
   equipo_id: string;
@@ -173,6 +204,26 @@ export interface PizarraTactica {
   formacion: string;
   posiciones: unknown[];
   partido_id?: string | null;
+}
+
+export interface EquipoRival {
+  id: string;
+  club_id?: string | null;
+  nombre: string;
+  escudo_url?: string;
+  competicion?: string;
+  temporada?: string;
+  notas?: string;
+}
+
+export interface JugadorRival {
+  id: string;
+  equipo_rival_id: string;
+  dorsal?: number;
+  nombre: string;
+  posicion?: string;
+  foto_url?: string;
+  anio_nacimiento?: number;
 }
 
 export interface Tarea {
@@ -196,8 +247,11 @@ export const usuariosService = createTableService<Usuario>('usuarios');
 export const competicionesService = createTableService<Competicion>('competiciones');
 export const partidosService = createTableService<Partido>('partidos');
 export const sesionesService = createTableService<Sesion>('sesiones');
+export const eventosCalendarioService = createTableService<EventoCalendario>('eventos_calendario');
 export const pizarrasService = createTableService<PizarraTactica>('pizarras_tacticas');
 export const tareasService = createTableService<Tarea>('tareas');
+export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
+export const jugadoresRivalesService = createTableService<JugadorRival>('jugadores_rivales');
 
 // Ejemplo de uso en un componente:
 //
@@ -214,7 +268,7 @@ export const tareasService = createTableService<Tarea>('tareas');
 // migración). Este shim evita que la app crashee al cargar; cada entidad se
 // sustituye por su servicio real en la Fase 2, módulo a módulo.
 interface LegacyStore<T = any> {
-  get(): Promise<T[]>;
+  get(): Promise<{ data: T[] }>;
   upsert(item: T): Promise<T>;
   delete(id: string | number): Promise<void>;
   clearAll(): Promise<void>;
@@ -222,7 +276,7 @@ interface LegacyStore<T = any> {
 
 function createLegacyStub<T = any>(): LegacyStore<T> {
   return {
-    async get() { return []; },
+    async get() { return { data: [] }; },
     async upsert(item: T) { return item; },
     async delete() { /* pendiente de migrar */ },
     async clearAll() { /* pendiente de migrar */ },
@@ -236,10 +290,10 @@ export const db = {
   competition_teams: createLegacyStub(),
   users: createLegacyStub(),
   campogramas: createLegacyStub(),
-  events: createLegacyStub(),
   task_templates: createLegacyStub(),
   exercises: createLegacyStub(),
   match_reports: createLegacyStub(),
+  injuries: createLegacyStub(),
 };
 
 export function setActiveTeamId(_teamId: string): void { /* pendiente de migrar */ }
