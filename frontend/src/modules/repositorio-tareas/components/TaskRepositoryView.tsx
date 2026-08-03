@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { db } from '@shared/services/dataService';
 import type { TrainingTask, TaskCategory, TaskIntensity, SessionPhase } from '../types';
 import {
@@ -20,6 +21,8 @@ import TaskDetailModal from './TaskDetailModal';
 
 const TaskRepositoryView: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // ─── State ───
   const [tasks, setTasks] = useState<TrainingTask[]>([]);
@@ -103,8 +106,13 @@ const TaskRepositoryView: React.FC = () => {
 
   // ─── Handlers ───
   const handleSave = async (task: TrainingTask) => {
+    const isNewTask = !editingTask;
     await db.task_templates.upsert(task);
     await fetchTasks();
+    // Al crear una tarea nueva, pasamos directamente al diseñador para dibujar el ejercicio
+    if (isNewTask) {
+      navigate('/disenador', { state: { selectTaskId: task.id } });
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -133,6 +141,16 @@ const TaskRepositoryView: React.FC = () => {
 
   const openNew = () => { setEditingTask(null); setModalOpen(true); };
   const openEdit = (task: TrainingTask) => { setEditingTask(task); setModalOpen(true); };
+
+  // Al volver desde el Diseñador Táctico con una tarea activa, reabrir su edición
+  useEffect(() => {
+    const targetId = (location.state as any)?.openTaskId;
+    if (!targetId || tasks.length === 0) return;
+    const target = tasks.find(t => t.id === targetId);
+    if (!target) return;
+    openEdit(target);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [tasks, location.state, navigate, location.pathname]);
 
   const toggleCategoryCollapse = (cat: string) => {
     setCollapsedCategories(prev => {
@@ -176,7 +194,7 @@ const TaskRepositoryView: React.FC = () => {
             </div>
           ) : item.type === 'goal' ? (
             <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
-              <div style={{ width: `${24 * itemScale}px`, height: `${12 * itemScale}px`, backgroundColor: '#000', border: '1px solid white', borderBottom: 'none', backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.15) 2px, rgba(255,255,255,0.15) 3px), repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.15) 2px, rgba(255,255,255,0.15) 3px)' }}></div>
+              <div style={{ width: `${24 * itemScale}px`, height: `${12 * itemScale}px`, border: '1px solid white', borderBottom: 'none' }}></div>
             </div>
           ) : item.type?.startsWith('player-') ? (
             <div className={getDesignerItemAnimationClass(item.animation)} style={{ lineHeight: 0 }}>
@@ -470,7 +488,7 @@ const TaskRepositoryView: React.FC = () => {
       {previewTask && <TaskPreviewModal task={previewTask} onClose={() => setPreviewTask(null)} />}
 
       {/* Edit modal */}
-      <TaskDetailModal task={editingTask} open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} />
+      <TaskDetailModal task={editingTask} open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} minimalFields />
     </div>
   );
 };

@@ -29,6 +29,7 @@ export interface DesignerItem {
   color?: string;
   icon?: string;
   text?: string;
+  fontSize?: number;
   animation?: DesignerItemAnimation;
 }
 
