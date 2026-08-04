@@ -31,6 +31,14 @@ export interface DesignerItem {
   text?: string;
   fontSize?: number;
   animation?: DesignerItemAnimation;
+  /** Id del jugador real de la plantilla, cuando el elemento representa un jugador de plantilla (no un dorsal genérico) */
+  playerId?: string | number;
+  /** Nombre a mostrar del jugador de plantilla (apodo si existe, si no nombre) */
+  playerName?: string;
+  /** Dorsal del jugador de plantilla */
+  playerDorsal?: number;
+  /** Foto del jugador de plantilla, copiada en el momento de colocarlo en el diseñador */
+  playerPhoto?: string;
 }
 
 export const DESIGNER_ITEM_ANIMATIONS: Array<{

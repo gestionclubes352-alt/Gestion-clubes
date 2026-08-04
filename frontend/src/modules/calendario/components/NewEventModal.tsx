@@ -23,6 +23,8 @@ interface NewEventModalProps {
   competitionTeams?: CompetitionTeam[];
   editEvent?: CalendarEvent | null;
   event?: CalendarEvent | null;
+  /** Club del usuario actual: restringe el selector de equipo de las sesiones a los equipos propios */
+  ownClubId?: string;
 }
 
 const NewEventModal: React.FC<NewEventModalProps> = ({
@@ -34,6 +36,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   competitionTeams = [],
   editEvent,
   event,
+  ownClubId,
 }) => {
   const { t } = useTranslation();
   const currentEvent = editEvent ?? event ?? null;
@@ -95,14 +98,22 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
   const clubNameById = new Map(clubs.map((club) => [String(club.id), club.nombre]));
 
+  const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
+    value: team.equipo || team.nombre || '',
+    club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
+  });
+
   const teamOptions: EquipoOption[] = competitionTeams
-    .map((team) => ({
-      value: team.equipo || team.nombre || '',
-      club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
-    }))
+    .map(toTeamOption)
     .filter((option) => option.value.trim().length > 0);
 
-  const subTeamOptions = teamOptions;
+  // Para sesiones (entrenamientos propios) solo tiene sentido elegir entre los equipos del propio club
+  const subTeamOptions: EquipoOption[] = ownClubId
+    ? competitionTeams
+        .filter((team) => String(team.clubId) === String(ownClubId))
+        .map(toTeamOption)
+        .filter((option) => option.value.trim().length > 0)
+    : teamOptions;
 
   const handleSubmit = () => {
     if (!typeSelected) return;

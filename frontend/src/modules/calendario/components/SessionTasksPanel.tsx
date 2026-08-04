@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal, DesignerPreview } from '@modules/repositorio-tareas';
@@ -89,10 +91,153 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     );
   }, [repositoryTasks, repoSearch]);
 
+  const exportToPDF = async () => {
+    try {
+      const element = document.getElementById('session-tasks-export');
+      if (!element) {
+        throw new Error('Elemento de exportación no encontrado');
+      }
+
+      // Mostrar el elemento temporalmente para que html2canvas pueda capturarlo
+      const originalDisplay = (element as HTMLElement).style.display;
+      const originalPosition = (element as HTMLElement).style.position;
+      const originalVisibility = (element as HTMLElement).style.visibility;
+
+      (element as HTMLElement).style.display = 'block';
+      (element as HTMLElement).style.position = 'static';
+      (element as HTMLElement).style.visibility = 'visible';
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        windowHeight: (element as HTMLElement).scrollHeight,
+        windowWidth: (element as HTMLElement).scrollWidth,
+      });
+
+      // Volver a ocultar el elemento
+      (element as HTMLElement).style.display = originalDisplay;
+      (element as HTMLElement).style.position = originalPosition;
+      (element as HTMLElement).style.visibility = originalVisibility;
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 10;
+      const imgWidth = pageWidth - 2 * margin;
+      const maxHeightPerPage = pageHeight - 2 * margin;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let pageNumber = 1;
+
+      while (heightLeft > 0) {
+        if (pageNumber > 1) {
+          pdf.addPage();
+        }
+
+        const heightToDraw = Math.min(heightLeft, maxHeightPerPage);
+        const srcY = imgHeight - heightLeft;
+
+        pdf.addImage(
+          imgData,
+          'PNG',
+          margin,
+          margin,
+          imgWidth,
+          heightToDraw,
+          undefined,
+          'FAST',
+          srcY / imgHeight
+        );
+
+        heightLeft -= maxHeightPerPage;
+        pageNumber++;
+      }
+
+      const fileName = `Tareas_sesion_${date ? date.toISOString().split('T')[0] : 'sin_fecha'}.pdf`;
+
+      // Obtener el Blob de manera compatible con jsPDF 4.x
+      let pdfBlob: Blob;
+      const pdfOutput = pdf.output('blob');
+      if (pdfOutput instanceof Blob) {
+        pdfBlob = pdfOutput;
+      } else if (pdfOutput instanceof Promise) {
+        pdfBlob = await pdfOutput;
+      } else {
+        pdfBlob = new Blob([pdf.output('arraybuffer')], { type: 'application/pdf' });
+      }
+
+      // Descargar localmente
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(pdfBlob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Error exporting to PDF:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`${t('calendarView.exportError') || 'Error al exportar PDF'}\n\n${errorMessage}`);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <>
+      <div id="session-tasks-export" className="hidden">
+        <div className="bg-white p-8">
+          <h1 className="text-2xl font-black text-slate-900 mb-2">{t('calendarView.sessionTasksTitle')}</h1>
+          <div className="space-y-4 mb-8 pb-4 border-b border-slate-200">
+            {date && (
+              <p className="text-sm font-bold text-slate-600">
+                <span className="font-black text-slate-900">{t('calendarView.colDate')}:</span> {date.toLocaleDateString(i18n.language)}
+              </p>
+            )}
+            {team && (
+              <p className="text-sm font-bold text-slate-600">
+                <span className="font-black text-slate-900">{t('calendarView.colTeam')}:</span> {team}
+              </p>
+            )}
+            {sessionNumber && (
+              <p className="text-sm font-bold text-slate-600">
+                <span className="font-black text-slate-900">{t('calendarView.sessionNumberLabel')}:</span> {sessionNumber}
+              </p>
+            )}
+            <p className="text-sm font-bold text-slate-600">
+              <span className="font-black text-slate-900">{t('calendarView.totalDuration')}:</span> {totalDuration} {t('calendarView.minutesAbbr')}
+            </p>
+          </div>
+          {tasks.map((task, index) => (
+            <div key={task.id} className="mb-6 p-4 border border-slate-200 rounded-lg bg-slate-50">
+              <h3 className="text-lg font-black text-slate-900 mb-3">
+                {t('calendarView.exerciseLabel')} {index + 1}: {task.title}
+              </h3>
+              <div className="space-y-2 text-sm text-slate-700">
+                <p><span className="font-black">Categoría:</span> {task.category}</p>
+                <p><span className="font-black">Fase:</span> {task.sessionPhase}</p>
+                <p><span className="font-black">Duración:</span> {task.durationMinutes} minutos</p>
+                {task.description && (
+                  <p><span className="font-black">Descripción:</span> {task.description}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-6">
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-col items-center justify-center gap-4 mb-4">
           <div className="flex items-center gap-3">
             <i className="fa-solid fa-list-check text-[var(--accent)]"></i>
             <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.sessionTasksTitle')}</h4>
@@ -102,7 +247,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
             <button
               type="button"
               onClick={openPicker}
@@ -110,6 +255,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             >
               <i className="fa-solid fa-book"></i> {t('calendarView.addFromRepository')}
             </button>
+            {tasks.length > 0 && (
+              <button
+                type="button"
+                onClick={exportToPDF}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
+              >
+                <i className="fa-solid fa-file-pdf"></i> SESION EN PDF
+              </button>
+            )}
             <button
               type="button"
               onClick={openExerciseDesigner}
@@ -158,13 +312,19 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
                       <i className="fa-solid fa-clock text-slate-400 text-xs"></i>
-                      <input
-                        type="number"
-                        min={0}
-                        value={task.durationMinutes ?? 0}
-                        onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
-                        className="w-10 text-xs font-black text-slate-600 text-center focus:outline-none bg-transparent"
-                      />
+                      {(task.numberOfSeries ?? 0) > 0 ? (
+                        <span className="w-10 text-xs font-black text-slate-600 text-center">
+                          {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
+                        </span>
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          value={task.durationMinutes ?? 0}
+                          onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
+                          className="w-10 text-xs font-black text-slate-600 text-center focus:outline-none bg-transparent"
+                        />
+                      )}
                     </div>
                     <button
                       onClick={() => removeTask(task.id)}
@@ -176,23 +336,20 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   </div>
                 </div>
 
-                {/* Cuerpo: info a la izquierda, vista previa a la derecha */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldName')}</p>
-                      <p className="font-black text-slate-700 text-sm">{task.title}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
-                      <p className="font-black text-slate-600 text-sm">{task.category || t('calendarView.notDefined')}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldGamePhase')}</p>
-                      <p className="font-black text-slate-600 text-sm">{task.sessionPhase || t('calendarView.notDefined')}</p>
-                    </div>
+                {/* Cuerpo: info arriba, vista previa y descripción abajo */}
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldName')}</p>
+                    <p className="font-black text-slate-700 text-sm">{task.title}</p>
                   </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
+                    <p className="font-black text-slate-600 text-sm">{task.category || t('calendarView.notDefined')}</p>
+                  </div>
+                </div>
 
+                {/* Vista previa y Descripción lado a lado */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
                       <div className="rounded-xl overflow-hidden">
@@ -208,15 +365,64 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       </div>
                     )}
                   </div>
+
+                  {/* Descripción */}
+                  <div className="flex flex-col">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
+                    <textarea
+                      value={task.description || ''}
+                      onChange={e => updateTask(task.id, { description: e.target.value })}
+                      placeholder={t('calendarView.describeTaskPlaceholder')}
+                      rows={4}
+                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
+                    />
+                  </div>
                 </div>
 
-                {/* Descripción */}
+                {/* Series y tiempos */}
+                <div className="mt-4 space-y-3">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col">
+                      <label className="text-[8px] font-bold text-slate-500 uppercase mb-1.5">Nº Series</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={task.numberOfSeries ?? 0}
+                        onChange={e => updateTask(task.id, { numberOfSeries: Number(e.target.value) })}
+                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="text-[8px] font-bold text-slate-500 uppercase mb-1.5">Tiempo/Serie (min)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={task.timePerSeries ?? 0}
+                        onChange={e => updateTask(task.id, { timePerSeries: Number(e.target.value) })}
+                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="text-[8px] font-bold text-slate-500 uppercase mb-1.5">Descanso (min)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={task.restBetweenSeries ?? 0}
+                        onChange={e => updateTask(task.id, { restBetweenSeries: Number(e.target.value) })}
+                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ROLES Técnicos */}
                 <div className="mt-4">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">ROLES Técnicos</p>
                   <textarea
-                    value={task.description || ''}
-                    onChange={e => updateTask(task.id, { description: e.target.value })}
-                    placeholder={t('calendarView.describeTaskPlaceholder')}
+                    value={task.technicalRoles || ''}
+                    onChange={e => updateTask(task.id, { technicalRoles: e.target.value })}
+                    placeholder="Especifica los roles técnicos..."
                     rows={2}
                     className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                   />
@@ -287,7 +493,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         minimalFields
         returnEventId={eventId}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

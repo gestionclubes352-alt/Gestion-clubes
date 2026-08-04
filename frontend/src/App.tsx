@@ -988,7 +988,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   </div>
                 )
               } />
-              <Route path="/disenador" element={<ExerciseDesigner />} />
+              <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
                 <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={filteredCompetitionTeams} ownClubId={currentTeam?.id} />
@@ -1181,8 +1181,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el personal');
         }
       }} />}
-      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} />}
-      {showNewModal && <NewEventModal initialDate={new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} />}
+      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
+      {showNewModal && <NewEventModal initialDate={new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
       {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
       {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
 

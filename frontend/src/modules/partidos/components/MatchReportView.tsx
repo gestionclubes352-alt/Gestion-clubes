@@ -154,7 +154,7 @@ const getEmbedUrl = (url: string, startSeconds?: number) => {
 
 const autoResizeTextarea = (element: HTMLTextAreaElement) => {
   element.style.height = 'auto';
-  element.style.height = Math.min(element.scrollHeight, 500) + 'px';
+  element.style.height = element.scrollHeight + 'px';
 };
 
 const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], onSave, onDelete }) => {
@@ -1671,7 +1671,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 autoResizeTextarea(e.currentTarget);
               }}
               onInput={(e) => autoResizeTextarea(e.currentTarget)}
-              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-none leading-relaxed min-h-[200px] overflow-hidden"
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-y leading-relaxed min-h-[200px]"
               placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
             ></textarea>
           </div>
@@ -1682,8 +1682,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   );
 
   const renderAbpCard = (label: string, imageField: keyof MatchReport, videoField: keyof MatchReport, textField: keyof MatchReport) => (
-    <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-xl p-6 space-y-4">
-      <div className="text-center text-[9px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">{label}</div>
+    <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-xl p-6 space-y-4 relative group">
+      <div className="flex items-center justify-between">
+        <div className="text-center flex-1 text-[9px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">{label}</div>
+        <button
+          onClick={() => setExpandedAbpCard({ label, imageField, videoField, textField })}
+          className="ml-2 w-8 h-8 rounded-lg bg-[var(--surface-1)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all opacity-0 group-hover:opacity-100"
+          title="Expandir"
+        >
+          <i className="fa-solid fa-expand text-xs"></i>
+        </button>
+      </div>
       <input
         type="file"
         accept="image/*"
@@ -1869,7 +1878,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 autoResizeTextarea(e.currentTarget);
               }}
               onInput={(e) => autoResizeTextarea(e.currentTarget)}
-              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-none leading-relaxed min-h-[200px] overflow-hidden"
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-y leading-relaxed min-h-[200px]"
               placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
             ></textarea>
           </div>
@@ -1964,6 +1973,100 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       </div>
     ) : null
   );
+
+  const renderExpandedAbpCard = () => {
+    if (!expandedAbpCard) return null;
+    const { label, imageField, videoField, textField } = expandedAbpCard;
+
+    return (
+      <div className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-soft)] bg-[var(--surface-1)] shrink-0">
+            <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">{label}</h2>
+            <button
+              onClick={() => setExpandedAbpCard(null)}
+              className="w-10 h-10 rounded-lg bg-[var(--surface-0)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all"
+            >
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-8 space-y-6">
+            {/* Image Section */}
+            <div className="space-y-3">
+              <label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">{t('matchReport.image')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  handleAbpImageUpload(imageField, e.target.files?.[0]);
+                  if (e.target.files?.[0]) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setExpandedAbpCard(prev => prev ? { ...prev } : null);
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                  }
+                }}
+                className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-3 text-xs text-[var(--text)] focus:outline-none cursor-pointer"
+              />
+              {(report as any)[imageField] && (
+                <div className="aspect-video rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
+                  <img
+                    src={(report as any)[imageField]}
+                    alt={label}
+                    className="w-full h-full object-cover cursor-zoom-in"
+                    onClick={() => setAbpPreviewImage((report as any)[imageField] || null)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Video Section */}
+            <div className="space-y-3">
+              <label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">{t('matchReport.video.matchUrl')}</label>
+              {renderAbpVideoControls(videoField)}
+            </div>
+
+            {/* Text Section */}
+            <div className="space-y-3">
+              <label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">{t('matchReport.abp.playDetail')}</label>
+              <textarea
+                value={(report as any)[textField] || ''}
+                onChange={(e) => {
+                  handleChange(textField, e.target.value);
+                  persistReport({ ...report, [textField]: e.target.value });
+                }}
+                className="w-full min-h-[300px] bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-4 text-sm text-[var(--text)] focus:outline-none resize-none leading-relaxed"
+                placeholder={t('matchReport.abp.playDetail')}
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-8 py-6 border-t border-[var(--border-soft)] bg-[var(--surface-1)] flex justify-end gap-3 shrink-0">
+            <button
+              onClick={() => setExpandedAbpCard(null)}
+              className="px-6 py-3 rounded-xl bg-[var(--surface-0)] hover:bg-[var(--surface-2)] text-[var(--text)] font-black text-[10px] uppercase tracking-widest transition-all"
+            >
+              {t('common.close')}
+            </button>
+            <button
+              onClick={() => {
+                handleSave();
+                setExpandedAbpCard(null);
+              }}
+              className="px-6 py-3 rounded-xl bg-sport-primary hover:bg-sport-primary-dark text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+            >
+              <i className="fa-solid fa-floppy-disk"></i> {t('common.save')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderPostPartido = () => (
     <div className="animate-fade-in max-w-5xl mx-auto pb-32">
@@ -2085,6 +2188,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   return (
     <div className="min-h-screen flex flex-col animate-fade-in bg-[var(--bg)]">
       {renderAbpImagePreview()}
+      {renderExpandedAbpCard()}
       <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-0)] shadow-sm sticky top-0 z-[100]">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="w-10 h-10 rounded-xl flex items-center justify-center transition-all text-[var(--text)] bg-[var(--surface-1)] hover:bg-[var(--surface-2)]"><i className="fa-solid fa-chevron-left text-xs"></i></button>

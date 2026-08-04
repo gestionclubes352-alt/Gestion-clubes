@@ -18,6 +18,10 @@ export interface SessionTask {
   designerSnapshot?: DesignerItem[];
   /** Estructura de campo activa al guardar el snapshot, copiada de la tarea del repositorio */
   fieldStructure?: FieldStructure;
+  numberOfSeries?: number;
+  timePerSeries?: number;
+  restBetweenSeries?: number;
+  technicalRoles?: string;
 }
 
 export interface CalendarEvent {

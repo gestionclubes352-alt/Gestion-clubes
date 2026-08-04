@@ -7,6 +7,7 @@ import type { TrainingTask } from '@modules/repositorio-tareas';
 import { db } from '@shared/services/dataService';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
+import type { Player } from '@modules/plantilla';
 
 const RESIZABLE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   zone: { width: 15, height: 15 },
@@ -52,7 +53,15 @@ const TEXT_COLORS = [
 
 const TEXT_SIZES: Record<'S' | 'M' | 'L' | 'XL', number> = { S: 16, M: 22, L: 30, XL: 42 };
 
-const ExerciseDesigner: React.FC = () => {
+/** Color de las fichas colocadas a partir de un jugador real de la plantilla (distinto de la paleta genérica). */
+const SQUAD_PLAYER_COLOR = '#1d4ed8';
+
+interface ExerciseDesignerProps {
+  /** Plantilla de jugadores reales del club activo (p.ej. Escuela Huesca), para poder colocarlos en el diseñador */
+  squad?: Player[];
+}
+
+const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const location = useLocation();
   const navigate = useNavigate();
   // Tarea a preseleccionar al llegar desde el Repositorio de Tareas (creación rápida de una tarea nueva)
@@ -216,6 +225,8 @@ const ExerciseDesigner: React.FC = () => {
   const [windowMoveEnabled, setWindowMoveEnabled] = useState(true);
   const [activeStructure, setActiveStructure] = useState('campo-total');
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
+  const [orientationModeEnabled, setOrientationModeEnabled] = useState(false);
+  const [playerSource, setPlayerSource] = useState<'generico' | 'plantilla'>('generico');
   const [textDraft, setTextDraft] = useState('Texto');
   const [textSize, setTextSize] = useState<'S' | 'M' | 'L' | 'XL'>('M');
   const [textColor, setTextColor] = useState('#ffffff');
@@ -229,6 +240,7 @@ const ExerciseDesigner: React.FC = () => {
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [initialResizeData, setInitialResizeData] = useState({ x: 0, y: 0, w: 0, h: 0, itemX: 0, itemY: 0 });
   
   const pitchRef = useRef<HTMLDivElement>(null);
@@ -473,7 +485,7 @@ const ExerciseDesigner: React.FC = () => {
 
   /** Volver a la sesión de origen tras confirmar el guardado desde el banner */
   const handleReturnToSession = () => {
-    navigate('/calendario', {
+    navigate('/sesiones', {
       state: { newTaskId: activeTaskId, openEventId: returnEventIdRef.current },
     });
   };
@@ -486,7 +498,7 @@ const ExerciseDesigner: React.FC = () => {
     }
     if (fromSessionCreationRef.current) {
       console.log('Volviendo a la sesión con newTaskId:', activeTaskId, 'openEventId:', returnEventIdRef.current);
-      navigate('/calendario', {
+      navigate('/sesiones', {
         state: activeTaskId
           ? { newTaskId: activeTaskId, openEventId: returnEventIdRef.current }
           : { openEventId: returnEventIdRef.current },
@@ -524,17 +536,25 @@ const ExerciseDesigner: React.FC = () => {
 
     const coneColor = tools.conos.find(c => c.id === selectedTool)?.color;
     const isText = selectedTool === 'text';
+    const isSquadPlayer = selectedTool.startsWith('player-real-');
+    const squadPlayer = isSquadPlayer
+      ? squad.find(p => String(p.id) === selectedTool.replace('player-real-', ''))
+      : undefined;
   const newItem: DesignerItem = {
       id: Math.random().toString(),
       type: isCone ? 'cone' : selectedTool,
       x, y, rotation: 0, scale: 1, locked: false,
       zIndex: nextZ,
-      color: coneColor || tools.jugadores.find(p => p.id === selectedTool)?.color || (isText ? textColor : undefined),
+      color: coneColor || tools.jugadores.find(p => p.id === selectedTool)?.color || (squadPlayer ? SQUAD_PLAYER_COLOR : undefined) || (isText ? textColor : undefined),
       icon: [...tools.anotacion, ...tools.material].find(t => t.id === selectedTool)?.icon,
       width: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 11 : undefined,
       height: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 6 : undefined,
       text: isText ? (textDraft.trim() || 'Texto') : undefined,
       fontSize: isText ? TEXT_SIZES[textSize] : undefined,
+      playerId: squadPlayer?.id,
+      playerName: squadPlayer ? (squadPlayer.apodo || squadPlayer.nombre) : undefined,
+      playerDorsal: squadPlayer?.dorsal,
+      playerPhoto: squadPlayer?.fotoUrl,
     };
     pushHistoryNow();
     updateFrames([...items, newItem]);
@@ -604,7 +624,7 @@ const ExerciseDesigner: React.FC = () => {
   const handleDragStart = useCallback((e: React.PointerEvent, item: DesignerItem) => {
     e.stopPropagation();
     e.preventDefault();
-    if (resizingId || isPlaying) return;
+    if (resizingId || rotatingId || isPlaying) return;
     if (item.locked) { selectItemOnly(item.id); return; }
     const rect = pitchRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -636,7 +656,17 @@ const ExerciseDesigner: React.FC = () => {
     } else {
       selectItemOnly(item.id);
     }
-  }, [resizingId, isPlaying, items, selectedIds, selectItemIds, selectItemOnly]);
+  }, [resizingId, rotatingId, isPlaying, items, selectedIds, selectItemIds, selectItemOnly]);
+
+  const handleRotateStart = useCallback((e: React.PointerEvent, item: DesignerItem) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (item.locked || isPlaying) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    beginHistorySnapshot();
+    setRotatingId(item.id);
+    selectItemOnly(item.id);
+  }, [isPlaying, selectItemOnly]);
 
   const updateSelectedItem = (updates: Partial<DesignerItem>) => {
     if (!selectedId) return;
@@ -877,6 +907,38 @@ const ExerciseDesigner: React.FC = () => {
     };
   }, [resizingId, initialResizeData, resizeHandle]);
 
+  // Rotate-by-dragging listeners for the "Orientaciones" arm handle (only active while rotating)
+  useEffect(() => {
+    if (!rotatingId) return;
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!pitchRef.current) return;
+      const item = itemsRef.current.find(i => i.id === rotatingId);
+      if (!item) return;
+      const rect = pitchRef.current.getBoundingClientRect();
+      const centerX = rect.left + (item.x / 100) * rect.width;
+      const centerY = rect.top + (item.y / 100) * rect.height;
+      const dx = e.clientX - centerX;
+      const dy = e.clientY - centerY;
+      const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+      const rawRotation = angleDeg + 90;
+      const nextRotation = Math.round(((rawRotation + 180) % 360 + 360) % 360 - 180);
+      updateFrames(prev => prev.map(it => it.id === rotatingId ? { ...it, rotation: nextRotation } : it));
+    };
+    const handlePointerUp = () => {
+      commitHistorySnapshot();
+      setRotatingId(null);
+      suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [rotatingId]);
+
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.zIndex - b.zIndex), [items]);
   useEffect(() => {
     itemsRef.current = items;
@@ -1046,27 +1108,61 @@ const ExerciseDesigner: React.FC = () => {
         <div className="h-px bg-slate-200 mx-2"></div>
 
         <div className="flex flex-col gap-4 px-2">
-          <div className="flex items-center justify-between gap-3 mb-1">
+          <div className="flex flex-col gap-2 mb-1">
             <button type="button" onClick={() => setShowPlayers(v => !v)} className="flex items-center gap-2">
               <h4 className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em]">JUGADORES</h4>
               <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showPlayers ? '' : '-rotate-90'}`}></i>
             </button>
-            <button
-              type="button"
-              onClick={() => setShowPlayerNumbers(v => !v)}
-              className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 shrink-0 ${
-                showPlayerNumbers
-                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-              aria-pressed={showPlayerNumbers}
-              title="Mostrar u ocultar dorsales de los jugadores"
-            >
-              <i className={`fa-solid ${showPlayerNumbers ? 'fa-hashtag' : 'fa-minus'}`}></i>
-              {showPlayerNumbers ? 'Dorsales ON' : 'Dorsales OFF'}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPlayerNumbers(v => !v)}
+                className={`px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 ${
+                  showPlayerNumbers
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                aria-pressed={showPlayerNumbers}
+                title="Mostrar u ocultar dorsales de los jugadores"
+              >
+                <i className={`fa-solid ${showPlayerNumbers ? 'fa-hashtag' : 'fa-minus'}`}></i>
+                Dorsales
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrientationModeEnabled(v => !v)}
+                className={`px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 ${
+                  orientationModeEnabled
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                aria-pressed={orientationModeEnabled}
+                title="Muestra una flecha de orientación en cada jugador; arrástrala con el ratón para girarla"
+              >
+                <i className="fa-solid fa-compass"></i>
+                Orientaciones
+              </button>
+            </div>
           </div>
-          {showPlayers && (
+          {showPlayers && squad.length > 0 && (
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPlayerSource('generico')}
+                className={`rounded-lg py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${playerSource === 'generico' ? 'bg-[var(--accent)] text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+              >
+                Genérico
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlayerSource('plantilla')}
+                className={`rounded-lg py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${playerSource === 'plantilla' ? 'bg-[var(--accent)] text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+              >
+                Plantilla
+              </button>
+            </div>
+          )}
+          {showPlayers && (playerSource === 'generico' || squad.length === 0) && (
             <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
               {tools.jugadores.map(p => (
                 <button
@@ -1080,6 +1176,35 @@ const ExerciseDesigner: React.FC = () => {
                   <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">{p.number}</span>
                 </button>
               ))}
+            </div>
+          )}
+          {showPlayers && playerSource === 'plantilla' && squad.length > 0 && (
+            <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto pr-1">
+              {squad.map(player => {
+                const toolId = `player-real-${player.id}`;
+                const isSelected = selectedTool === toolId;
+                return (
+                  <button
+                    key={player.id}
+                    type="button"
+                    onClick={() => setSelectedTool(isSelected ? null : toolId)}
+                    className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition-all ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    title={player.apodo || player.nombre}
+                  >
+                    <div className={`w-7 h-7 shrink-0 rounded-full overflow-hidden border-2 ${isSelected ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center`}>
+                      {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                        <img src={player.fotoUrl} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className={`text-[9px] font-black ${isSelected ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black ${isSelected ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
+                      {player.dorsal}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate text-left text-[10px] font-black uppercase">{player.apodo || player.nombre}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1417,7 +1542,7 @@ const ExerciseDesigner: React.FC = () => {
                     className={`absolute group cursor-grab touch-none ${(item.type === 'zone' && !isItemSelected) ? 'pointer-events-none' : ''} ${draggingId === item.id ? 'cursor-grabbing z-[9999] scale-105 opacity-75' : isPlaying ? 'transition-all duration-[2000ms] ease-in-out' : ''} ${isItemSelected ? (item.type === 'zone' || item.type === 'goal' ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716]' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716] rounded-full') : ''}`}
                     onPointerDown={(e) => {
                       const target = e.target as HTMLElement;
-                      if (target.closest('[data-resize-handle="true"]')) return;
+                      if (target.closest('[data-resize-handle="true"]') || target.closest('[data-orientation-handle="true"]')) return;
                       handleDragStart(e, item);
                     }}
                     onClick={(e) => { e.stopPropagation(); if (!hasDragged.current) { selectItemOnly(item.id); } }}
@@ -1533,17 +1658,60 @@ const ExerciseDesigner: React.FC = () => {
                       </div>
                     ) : item.type?.startsWith('player-') ? (
                       <div
-                        style={{ backgroundColor: item.color }}
-                        className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center font-black text-white ${animationClass}`}
+                        style={{ backgroundColor: item.color || SQUAD_PLAYER_COLOR }}
+                        className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
                       >
-                        {showPlayerNumbers && (
-                          <span className="text-[13px] leading-none">
-                            {Number(item.type.replace('player-', ''))}
-                          </span>
+                        {item.playerId !== undefined ? (
+                          item.playerPhoto && item.playerPhoto.length > 1 ? (
+                            <img src={item.playerPhoto} className="w-full h-full object-cover" />
+                          ) : showPlayerNumbers ? (
+                            <span className="text-[13px] leading-none">{item.playerDorsal ?? ''}</span>
+                          ) : (
+                            <span className="text-[10px] leading-none">{(item.playerName || '').slice(0, 2).toUpperCase()}</span>
+                          )
+                        ) : (
+                          showPlayerNumbers && (
+                            <span className="text-[13px] leading-none">
+                              {Number(item.type.replace('player-', ''))}
+                            </span>
+                          )
                         )}
                       </div>
                     ) : (
                       <i className={`fa-solid ${item.icon} text-3xl text-white drop-shadow-lg ${animationClass}`}></i>
+                    )}
+                    {item.type?.startsWith('player-') && orientationModeEnabled && (
+                      <>
+                        <svg
+                          width="80"
+                          height="80"
+                          viewBox="-40 -40 80 80"
+                          className="pointer-events-none absolute left-1/2 top-1/2 overflow-visible"
+                          style={{ transform: 'translate(-50%, -50%)' }}
+                        >
+                          <line x1="-9" y1="-16" x2="-32" y2="-30" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" />
+                          <line x1="9" y1="-16" x2="32" y2="-30" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" />
+                        </svg>
+                        <div
+                          data-orientation-handle="true"
+                          onPointerDown={(e) => handleRotateStart(e, item)}
+                          className="absolute left-1/2 top-1/2 h-5 w-5 cursor-grab rounded-full active:cursor-grabbing"
+                          style={{ transform: 'translate(calc(-50% - 32px), calc(-50% - 30px))' }}
+                          title="Arrastra para orientar al jugador"
+                        />
+                        <div
+                          data-orientation-handle="true"
+                          onPointerDown={(e) => handleRotateStart(e, item)}
+                          className="absolute left-1/2 top-1/2 h-5 w-5 cursor-grab rounded-full active:cursor-grabbing"
+                          style={{ transform: 'translate(calc(-50% + 32px), calc(-50% - 30px))' }}
+                          title="Arrastra para orientar al jugador"
+                        />
+                      </>
+                    )}
+                    {item.playerId !== undefined && item.playerName && (
+                      <div className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-black uppercase text-white shadow-lg">
+                        {item.playerName}
+                      </div>
                     )}
                     {selectedIds.includes(item.id) && item.locked && (
                       <div className="absolute -top-2 -left-2 bg-slate-900 text-white w-5 h-5 rounded-full flex items-center justify-center text-[8px] shadow-lg"><i className="fa-solid fa-lock"></i></div>
@@ -1685,6 +1853,27 @@ const ExerciseDesigner: React.FC = () => {
                           <input type="range" min="0.5" max="3" step="0.1" value={selectedItem.scale} onChange={(e) => updateSelectedItem({ scale: parseFloat(e.target.value) })} onMouseDown={beginHistorySnapshot} onMouseUp={commitHistorySnapshot} onTouchStart={beginHistorySnapshot} onTouchEnd={commitHistorySnapshot} className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer" />
                         </div>
                       </div>
+
+                      {selectedItem.type?.startsWith('player-') && (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+                          <span className="mb-2 block text-[8px] font-black uppercase tracking-widest text-slate-500">Color</span>
+                          <div className="grid grid-cols-6 gap-2">
+                            {PLAYER_TOOL_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                onClick={() => { pushHistoryNow(); updateSelectedItem({ color: c }); }}
+                                style={{ backgroundColor: c }}
+                                className={`h-7 w-7 rounded-full border-2 transition-all ${selectedItem.color === c ? 'border-red-500 scale-110' : 'border-white/30 hover:scale-105'}`}
+                                aria-label={`Color de jugador ${c}`}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                          {selectedItem.playerId !== undefined && selectedItem.playerPhoto && selectedItem.playerPhoto.length > 1 && (
+                            <p className="mt-2 text-[9px] font-semibold text-slate-500">El color queda oculto por la foto del jugador; quítasela para verlo.</p>
+                          )}
+                        </div>
+                      )}
 
                       {selectedItem.type === 'text' && (
                         <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
