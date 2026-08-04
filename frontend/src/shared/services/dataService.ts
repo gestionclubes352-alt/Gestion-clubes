@@ -388,28 +388,83 @@ function createExercisesStore(): LegacyStore<any> {
   };
 }
 
+interface StoredAbpItem {
+  id: string;
+  text?: string;
+  image?: string;
+  video?: string;
+}
+
+/** Reconstruye una lista de ABP a partir de las columnas fijas heredadas (fallback si aún no se ha aplicado el backfill de la migración 022). */
+function legacyAbpFallback(entries: Array<{ text?: string; image?: string; video?: string }>): StoredAbpItem[] {
+  return entries
+    .filter(e => (e.text || '').trim() || (e.image || '').trim() || (e.video || '').trim())
+    .map(e => ({ id: crypto.randomUUID(), text: e.text || '', image: e.image || '', video: e.video || '' }));
+}
+
 /** Tabla `match_reports`: análisis táctico y eventos de partidos. */
 interface StoredMatchReport {
   id: string;
   general_notes: string;
   video_url: string;
-  doc_url: string;
-  con_balon_text: string;
-  con_balon_video: string;
-  con_balon_doc: string;
-  sin_balon_text: string;
-  sin_balon_video: string;
-  sin_balon_doc: string;
-  abp_text: string;
-  abp_video: string;
-  abp_doc: string;
+
+  // Informe Rival
+  rival_video_url: string;
+  rival_doc_url: string;
+  rival_con_balon_text: string;
+  rival_con_balon_video: string;
+  rival_con_balon_doc: string;
+  rival_con_balon_images?: string[];
+  rival_sin_balon_text: string;
+  rival_sin_balon_video: string;
+  rival_sin_balon_doc: string;
+  rival_sin_balon_images?: string[];
+  rival_abp_text: string;
+  rival_abp_video: string;
+  rival_abp_doc: string;
+  rival_abp_images?: string[];
+  rival_abp_off_corners?: StoredAbpItem[];
+  rival_abp_off_lateral_fouls?: StoredAbpItem[];
+  rival_abp_def_corners?: StoredAbpItem[];
+  rival_abp_def_lateral_fouls?: StoredAbpItem[];
+  rival_abp_def_frontal_fouls?: StoredAbpItem[];
+
+  // Plan de Partido
+  plan_video_url: string;
+  plan_doc_url: string;
+  plan_con_balon_text: string;
+  plan_con_balon_video: string;
+  plan_con_balon_doc: string;
+  plan_con_balon_images?: string[];
+  plan_sin_balon_text: string;
+  plan_sin_balon_video: string;
+  plan_sin_balon_doc: string;
+  plan_sin_balon_images?: string[];
+  plan_abp_text: string;
+  plan_abp_video: string;
+  plan_abp_doc: string;
+  plan_abp_images?: string[];
+  plan_abp_off_corners?: StoredAbpItem[];
+  plan_abp_off_lateral_fouls?: StoredAbpItem[];
+  plan_abp_def_corners?: StoredAbpItem[];
+  plan_abp_def_lateral_fouls?: StoredAbpItem[];
+  plan_abp_def_frontal_fouls?: StoredAbpItem[];
+
+  // Pestaña ABP dedicada
+  abp_off_corners?: StoredAbpItem[];
+  abp_off_lateral_fouls?: StoredAbpItem[];
+  abp_def_corners?: StoredAbpItem[];
+  abp_def_lateral_fouls?: StoredAbpItem[];
+  abp_def_frontal_fouls?: StoredAbpItem[];
+  // Columnas heredadas (campos fijos de ABP, antes de la migración a listas
+  // extensibles). Se leen solo como fallback si las columnas JSONB de arriba
+  // todavía no se han rellenado en esta fila.
   abp_off_corner_text?: string;
   abp_off_corner2_text?: string;
   abp_off_corner3_text?: string;
   abp_off_corner4_text?: string;
   abp_off_lateral_text?: string;
   abp_off_lateral2_text?: string;
-  abp_off_frontal_text?: string;
   abp_def_corner1_text?: string;
   abp_def_corner2_text?: string;
   abp_def_lateral_text?: string;
@@ -420,7 +475,6 @@ interface StoredMatchReport {
   abp_off_corner4_image?: string;
   abp_off_lateral_image?: string;
   abp_off_lateral2_image?: string;
-  abp_off_frontal_image?: string;
   abp_def_corner1_image?: string;
   abp_def_corner2_image?: string;
   abp_def_lateral_image?: string;
@@ -431,7 +485,6 @@ interface StoredMatchReport {
   abp_off_corner4_video?: string;
   abp_off_lateral_video?: string;
   abp_off_lateral2_video?: string;
-  abp_off_frontal_video?: string;
   abp_def_corner1_video?: string;
   abp_def_corner2_video?: string;
   abp_def_lateral_video?: string;
@@ -442,6 +495,8 @@ interface StoredMatchReport {
   not_convocado_ids: Array<string | number>;
   not_convocado_reasons?: Record<string, string>;
   video_events: unknown[];
+  substitutions?: unknown[];
+  match_goals?: unknown[];
   first_half_start: string;
   first_half_end: string;
   second_half_start: string;
@@ -462,55 +517,85 @@ function createMatchReportsStore(): LegacyStore<any> {
           id: row.id,
           generalNotes: row.general_notes,
           videoUrl: row.video_url,
-          docUrl: row.doc_url,
-          conBalonText: row.con_balon_text,
-          conBalonVideo: row.con_balon_video,
-          conBalonDoc: row.con_balon_doc,
-          sinBalonText: row.sin_balon_text,
-          sinBalonVideo: row.sin_balon_video,
-          sinBalonDoc: row.sin_balon_doc,
-          abpText: row.abp_text,
-          abpVideo: row.abp_video,
-          abpDoc: row.abp_doc,
-          abpOffCornerText: row.abp_off_corner_text,
-          abpOffCorner2Text: row.abp_off_corner2_text,
-          abpOffCorner3Text: row.abp_off_corner3_text,
-          abpOffCorner4Text: row.abp_off_corner4_text,
-          abpOffLateralText: row.abp_off_lateral_text,
-          abpOffLateral2Text: row.abp_off_lateral2_text,
-          abpOffFrontalText: row.abp_off_frontal_text,
-          abpDefCorner1Text: row.abp_def_corner1_text,
-          abpDefCorner2Text: row.abp_def_corner2_text,
-          abpDefLateralText: row.abp_def_lateral_text,
-          abpDefFrontalText: row.abp_def_frontal_text,
-          abpOffCornerImage: row.abp_off_corner_image,
-          abpOffCorner2Image: row.abp_off_corner2_image,
-          abpOffCorner3Image: row.abp_off_corner3_image,
-          abpOffCorner4Image: row.abp_off_corner4_image,
-          abpOffLateralImage: row.abp_off_lateral_image,
-          abpOffLateral2Image: row.abp_off_lateral2_image,
-          abpOffFrontalImage: row.abp_off_frontal_image,
-          abpDefCorner1Image: row.abp_def_corner1_image,
-          abpDefCorner2Image: row.abp_def_corner2_image,
-          abpDefLateralImage: row.abp_def_lateral_image,
-          abpDefFrontalImage: row.abp_def_frontal_image,
-          abpOffCornerVideo: row.abp_off_corner_video,
-          abpOffCorner2Video: row.abp_off_corner2_video,
-          abpOffCorner3Video: row.abp_off_corner3_video,
-          abpOffCorner4Video: row.abp_off_corner4_video,
-          abpOffLateralVideo: row.abp_off_lateral_video,
-          abpOffLateral2Video: row.abp_off_lateral2_video,
-          abpOffFrontalVideo: row.abp_off_frontal_video,
-          abpDefCorner1Video: row.abp_def_corner1_video,
-          abpDefCorner2Video: row.abp_def_corner2_video,
-          abpDefLateralVideo: row.abp_def_lateral_video,
-          abpDefFrontalVideo: row.abp_def_frontal_video,
+
+          rivalVideoUrl: row.rival_video_url,
+          rivalDocUrl: row.rival_doc_url,
+          rivalConBalonText: row.rival_con_balon_text,
+          rivalConBalonVideo: row.rival_con_balon_video,
+          rivalConBalonDoc: row.rival_con_balon_doc,
+          rivalConBalonImages: row.rival_con_balon_images,
+          rivalSinBalonText: row.rival_sin_balon_text,
+          rivalSinBalonVideo: row.rival_sin_balon_video,
+          rivalSinBalonDoc: row.rival_sin_balon_doc,
+          rivalSinBalonImages: row.rival_sin_balon_images,
+          rivalAbpText: row.rival_abp_text,
+          rivalAbpVideo: row.rival_abp_video,
+          rivalAbpDoc: row.rival_abp_doc,
+          rivalAbpImages: row.rival_abp_images,
+          rivalAbpOffCorners: row.rival_abp_off_corners || [],
+          rivalAbpOffLateralFouls: row.rival_abp_off_lateral_fouls || [],
+          rivalAbpDefCorners: row.rival_abp_def_corners || [],
+          rivalAbpDefLateralFouls: row.rival_abp_def_lateral_fouls || [],
+          rivalAbpDefFrontalFouls: row.rival_abp_def_frontal_fouls || [],
+
+          planVideoUrl: row.plan_video_url,
+          planDocUrl: row.plan_doc_url,
+          planConBalonText: row.plan_con_balon_text,
+          planConBalonVideo: row.plan_con_balon_video,
+          planConBalonDoc: row.plan_con_balon_doc,
+          planConBalonImages: row.plan_con_balon_images,
+          planSinBalonText: row.plan_sin_balon_text,
+          planSinBalonVideo: row.plan_sin_balon_video,
+          planSinBalonDoc: row.plan_sin_balon_doc,
+          planSinBalonImages: row.plan_sin_balon_images,
+          planAbpText: row.plan_abp_text,
+          planAbpVideo: row.plan_abp_video,
+          planAbpDoc: row.plan_abp_doc,
+          planAbpImages: row.plan_abp_images,
+          planAbpOffCorners: row.plan_abp_off_corners || [],
+          planAbpOffLateralFouls: row.plan_abp_off_lateral_fouls || [],
+          planAbpDefCorners: row.plan_abp_def_corners || [],
+          planAbpDefLateralFouls: row.plan_abp_def_lateral_fouls || [],
+          planAbpDefFrontalFouls: row.plan_abp_def_frontal_fouls || [],
+
+          abpOffCorners: (row.abp_off_corners && row.abp_off_corners.length > 0)
+            ? row.abp_off_corners
+            : legacyAbpFallback([
+                { text: row.abp_off_corner_text, image: row.abp_off_corner_image, video: row.abp_off_corner_video },
+                { text: row.abp_off_corner2_text, image: row.abp_off_corner2_image, video: row.abp_off_corner2_video },
+                { text: row.abp_off_corner3_text, image: row.abp_off_corner3_image, video: row.abp_off_corner3_video },
+                { text: row.abp_off_corner4_text, image: row.abp_off_corner4_image, video: row.abp_off_corner4_video },
+              ]),
+          abpOffLateralFouls: (row.abp_off_lateral_fouls && row.abp_off_lateral_fouls.length > 0)
+            ? row.abp_off_lateral_fouls
+            : legacyAbpFallback([
+                { text: row.abp_off_lateral_text, image: row.abp_off_lateral_image, video: row.abp_off_lateral_video },
+                { text: row.abp_off_lateral2_text, image: row.abp_off_lateral2_image, video: row.abp_off_lateral2_video },
+              ]),
+          abpDefCorners: (row.abp_def_corners && row.abp_def_corners.length > 0)
+            ? row.abp_def_corners
+            : legacyAbpFallback([
+                { text: row.abp_def_corner1_text, image: row.abp_def_corner1_image, video: row.abp_def_corner1_video },
+                { text: row.abp_def_corner2_text, image: row.abp_def_corner2_image, video: row.abp_def_corner2_video },
+              ]),
+          abpDefLateralFouls: (row.abp_def_lateral_fouls && row.abp_def_lateral_fouls.length > 0)
+            ? row.abp_def_lateral_fouls
+            : legacyAbpFallback([
+                { text: row.abp_def_lateral_text, image: row.abp_def_lateral_image, video: row.abp_def_lateral_video },
+              ]),
+          abpDefFrontalFouls: (row.abp_def_frontal_fouls && row.abp_def_frontal_fouls.length > 0)
+            ? row.abp_def_frontal_fouls
+            : legacyAbpFallback([
+                { text: row.abp_def_frontal_text, image: row.abp_def_frontal_image, video: row.abp_def_frontal_video },
+              ]),
           formation: row.formation,
           lineupPositions: row.lineup_positions,
           substituteIds: row.substitute_ids,
           notConvocadoIds: row.not_convocado_ids,
           notConvocadoReasons: row.not_convocado_reasons,
           videoEvents: row.video_events,
+          substitutions: row.substitutions || [],
+          matchGoals: row.match_goals || [],
           firstHalfStart: row.first_half_start,
           firstHalfEnd: row.first_half_end,
           secondHalfStart: row.second_half_start,
@@ -525,55 +610,60 @@ function createMatchReportsStore(): LegacyStore<any> {
         id: item.id,
         general_notes: item.generalNotes || '',
         video_url: item.videoUrl || '',
-        doc_url: item.docUrl || '',
-        con_balon_text: item.conBalonText || '',
-        con_balon_video: item.conBalonVideo || '',
-        con_balon_doc: item.conBalonDoc || '',
-        sin_balon_text: item.sinBalonText || '',
-        sin_balon_video: item.sinBalonVideo || '',
-        sin_balon_doc: item.sinBalonDoc || '',
-        abp_text: item.abpText || '',
-        abp_video: item.abpVideo || '',
-        abp_doc: item.abpDoc || '',
-        abp_off_corner_text: item.abpOffCornerText,
-        abp_off_corner2_text: item.abpOffCorner2Text,
-        abp_off_corner3_text: item.abpOffCorner3Text,
-        abp_off_corner4_text: item.abpOffCorner4Text,
-        abp_off_lateral_text: item.abpOffLateralText,
-        abp_off_lateral2_text: item.abpOffLateral2Text,
-        abp_off_frontal_text: item.abpOffFrontalText,
-        abp_def_corner1_text: item.abpDefCorner1Text,
-        abp_def_corner2_text: item.abpDefCorner2Text,
-        abp_def_lateral_text: item.abpDefLateralText,
-        abp_def_frontal_text: item.abpDefFrontalText,
-        abp_off_corner_image: item.abpOffCornerImage,
-        abp_off_corner2_image: item.abpOffCorner2Image,
-        abp_off_corner3_image: item.abpOffCorner3Image,
-        abp_off_corner4_image: item.abpOffCorner4Image,
-        abp_off_lateral_image: item.abpOffLateralImage,
-        abp_off_lateral2_image: item.abpOffLateral2Image,
-        abp_off_frontal_image: item.abpOffFrontalImage,
-        abp_def_corner1_image: item.abpDefCorner1Image,
-        abp_def_corner2_image: item.abpDefCorner2Image,
-        abp_def_lateral_image: item.abpDefLateralImage,
-        abp_def_frontal_image: item.abpDefFrontalImage,
-        abp_off_corner_video: item.abpOffCornerVideo,
-        abp_off_corner2_video: item.abpOffCorner2Video,
-        abp_off_corner3_video: item.abpOffCorner3Video,
-        abp_off_corner4_video: item.abpOffCorner4Video,
-        abp_off_lateral_video: item.abpOffLateralVideo,
-        abp_off_lateral2_video: item.abpOffLateral2Video,
-        abp_off_frontal_video: item.abpOffFrontalVideo,
-        abp_def_corner1_video: item.abpDefCorner1Video,
-        abp_def_corner2_video: item.abpDefCorner2Video,
-        abp_def_lateral_video: item.abpDefLateralVideo,
-        abp_def_frontal_video: item.abpDefFrontalVideo,
+
+        rival_video_url: item.rivalVideoUrl || '',
+        rival_doc_url: item.rivalDocUrl || '',
+        rival_con_balon_text: item.rivalConBalonText || '',
+        rival_con_balon_video: item.rivalConBalonVideo || '',
+        rival_con_balon_doc: item.rivalConBalonDoc || '',
+        rival_con_balon_images: item.rivalConBalonImages || [],
+        rival_sin_balon_text: item.rivalSinBalonText || '',
+        rival_sin_balon_video: item.rivalSinBalonVideo || '',
+        rival_sin_balon_doc: item.rivalSinBalonDoc || '',
+        rival_sin_balon_images: item.rivalSinBalonImages || [],
+        rival_abp_text: item.rivalAbpText || '',
+        rival_abp_video: item.rivalAbpVideo || '',
+        rival_abp_doc: item.rivalAbpDoc || '',
+        rival_abp_images: item.rivalAbpImages || [],
+        rival_abp_off_corners: item.rivalAbpOffCorners || [],
+        rival_abp_off_lateral_fouls: item.rivalAbpOffLateralFouls || [],
+        rival_abp_def_corners: item.rivalAbpDefCorners || [],
+        rival_abp_def_lateral_fouls: item.rivalAbpDefLateralFouls || [],
+        rival_abp_def_frontal_fouls: item.rivalAbpDefFrontalFouls || [],
+
+        plan_video_url: item.planVideoUrl || '',
+        plan_doc_url: item.planDocUrl || '',
+        plan_con_balon_text: item.planConBalonText || '',
+        plan_con_balon_video: item.planConBalonVideo || '',
+        plan_con_balon_doc: item.planConBalonDoc || '',
+        plan_con_balon_images: item.planConBalonImages || [],
+        plan_sin_balon_text: item.planSinBalonText || '',
+        plan_sin_balon_video: item.planSinBalonVideo || '',
+        plan_sin_balon_doc: item.planSinBalonDoc || '',
+        plan_sin_balon_images: item.planSinBalonImages || [],
+        plan_abp_text: item.planAbpText || '',
+        plan_abp_video: item.planAbpVideo || '',
+        plan_abp_doc: item.planAbpDoc || '',
+        plan_abp_images: item.planAbpImages || [],
+        plan_abp_off_corners: item.planAbpOffCorners || [],
+        plan_abp_off_lateral_fouls: item.planAbpOffLateralFouls || [],
+        plan_abp_def_corners: item.planAbpDefCorners || [],
+        plan_abp_def_lateral_fouls: item.planAbpDefLateralFouls || [],
+        plan_abp_def_frontal_fouls: item.planAbpDefFrontalFouls || [],
+
+        abp_off_corners: item.abpOffCorners || [],
+        abp_off_lateral_fouls: item.abpOffLateralFouls || [],
+        abp_def_corners: item.abpDefCorners || [],
+        abp_def_lateral_fouls: item.abpDefLateralFouls || [],
+        abp_def_frontal_fouls: item.abpDefFrontalFouls || [],
         formation: item.formation || '4-3-3',
         lineup_positions: item.lineupPositions || [],
         substitute_ids: item.substituteIds || [],
         not_convocado_ids: item.notConvocadoIds || [],
         not_convocado_reasons: item.notConvocadoReasons || {},
         video_events: item.videoEvents || [],
+        substitutions: item.substitutions || [],
+        match_goals: item.matchGoals || [],
         first_half_start: item.firstHalfStart || '',
         first_half_end: item.firstHalfEnd || '',
         second_half_start: item.secondHalfStart || '',

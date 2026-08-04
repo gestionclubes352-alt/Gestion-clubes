@@ -326,9 +326,11 @@ function formatLocalDataCompact(context: AIContext): string {
     context.matchReports.forEach(mr => {
       const formation = mr["formation"] ? `Formación: ${mr["formation"]}` : '';
       const notes = mr["generalNotes"] ? `Notas: ${String(mr["generalNotes"]).substring(0, 150)}` : '';
-      const conBalon = mr["conBalonText"] ? `Con balón: ${String(mr["conBalonText"]).substring(0, 100)}` : '';
-      const sinBalon = mr["sinBalonText"] ? `Sin balón: ${String(mr["sinBalonText"]).substring(0, 100)}` : '';
-      parts.push(`- Partido ${mr["id"]}: ${[formation, notes, conBalon, sinBalon].filter(Boolean).join(' | ')}`);
+      const rivalConBalon = mr["rivalConBalonText"] ? `Rival con balón: ${String(mr["rivalConBalonText"]).substring(0, 100)}` : '';
+      const rivalSinBalon = mr["rivalSinBalonText"] ? `Rival sin balón: ${String(mr["rivalSinBalonText"]).substring(0, 100)}` : '';
+      const planConBalon = mr["planConBalonText"] ? `Plan con balón: ${String(mr["planConBalonText"]).substring(0, 100)}` : '';
+      const planSinBalon = mr["planSinBalonText"] ? `Plan sin balón: ${String(mr["planSinBalonText"]).substring(0, 100)}` : '';
+      parts.push(`- Partido ${mr["id"]}: ${[formation, notes, rivalConBalon, rivalSinBalon, planConBalon, planSinBalon].filter(Boolean).join(' | ')}`);
     });
   }
 

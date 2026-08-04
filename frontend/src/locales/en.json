@@ -31,6 +31,8 @@
     "import": "Import",
     "close": "Close",
     "confirm": "Confirm",
+    "previous": "Previous",
+    "next": "Next",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -584,6 +586,8 @@
     "competition": "Competition",
     "phone": "Phone",
     "email": "Email",
+    "club": "Club",
+    "viewDetail": "View detail",
     "addPersonal": "Add Staff",
     "searchPlaceholder": "Search staff...",
     "noStaffFound": "No staff members found",
@@ -660,6 +664,7 @@
     "colTime": "Time",
     "colSession": "Session",
     "colTeam": "Team",
+    "colSessionType": "Session type",
     "colLocation": "Location",
     "colActions": "Actions",
     "noSessionsFound": "No sessions recorded",
@@ -680,7 +685,9 @@
     "fieldTaskType": "Task type",
     "fieldGamePhase": "Game phase",
     "fieldDescription": "Description",
-    "describeTaskPlaceholder": "Describe the task..."
+    "describeTaskPlaceholder": "Describe the task...",
+    "viewFullscreen": "View fullscreen",
+    "closeFullscreen": "Close"
   },
   "userTable": {
     "user": "User",
@@ -828,12 +835,16 @@
       "lineup": "Lineup",
       "matchPlan": "Match Plan",
       "abp": "Set Pieces",
-      "events": "Events"
+      "matchEvents": "Events",
+      "events": "Videos"
     },
     "generalData": {
       "deleteMatch": "Delete Match",
       "saveChanges": "Save Changes",
-      "savedMessage": "Data saved"
+      "savedMessage": "Data saved",
+      "matchInfo": "Match Information",
+      "rivalClub": "Rival Club",
+      "selectClub": "Select a club"
     },
     "rivalSelector": {
       "noClub": "Select the opponent club in the General Data tab to see its report.",
@@ -852,12 +863,15 @@
     "pdfLinkPlaceholder": "Document link...",
     "document": "Document",
     "image": "Image",
+    "images": "Images",
     "match": "Match",
     "tacticalAnalysis": "Tactical Analysis",
     "finishAndSave": "Finish & Save",
     "saveLineup": "Save Lineup",
     "savePlan": "Save Plan",
     "saveReport": "Save Report",
+    "hideSection": "Hide section",
+    "showSection": "Show section",
     "video": {
       "providerBlocked": "This provider does not allow embedding",
       "openNewTab": "Open in new tab",
@@ -949,6 +963,29 @@
       "sessionExpired": "Session expired",
       "deleteEventConfirm": "Delete this event?"
     },
+    "matchEvents": {
+      "startingXI": "Starting XI",
+      "noStartingXI": "Set the lineup in the Lineup tab to see the starting XI.",
+      "substitutions": "Substitutions",
+      "addSubstitution": "Add Substitution",
+      "minute": "Minute",
+      "playerOut": "Player out",
+      "playerIn": "Player in",
+      "selectPlayer": "Select player",
+      "noSubstitutions": "No substitutions recorded",
+      "goals": "Goals",
+      "goalsFor": "Goals For",
+      "goalsAgainst": "Goals Against",
+      "addGoal": "Add Goal",
+      "goalSide": "For / Against",
+      "scorer": "Scorer",
+      "opponentGoal": "Opponent Goal",
+      "noGoals": "No goals recorded",
+      "confirmDeleteSubstitution": "Delete this substitution?",
+      "confirmDeleteGoal": "Delete this goal?",
+      "add": "Add",
+      "min": "min"
+    },
     "abp": {
       "title": "Set Pieces",
       "offensive": "Offensive",
@@ -958,7 +995,9 @@
       "lateralFouls": "Lateral Free Kicks",
       "lateralFoul": "Lateral Free Kick",
       "frontalFoul": "Frontal Free Kick",
-      "playDetail": "Play detail..."
+      "frontalFouls": "Frontal Free Kicks",
+      "playDetail": "Play detail...",
+      "addPlay": "Add play"
     },
     "refereeSection": {
       "title": "Referee",

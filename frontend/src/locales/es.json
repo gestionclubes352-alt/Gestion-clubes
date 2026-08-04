@@ -31,6 +31,8 @@
     "import": "Importar",
     "close": "Cerrar",
     "confirm": "Confirmar",
+    "previous": "Anterior",
+    "next": "Siguiente",
     "loading": "Cargando...",
     "error": "Error",
     "success": "Éxito",
@@ -584,6 +586,8 @@
     "competition": "Competición",
     "phone": "Teléfono",
     "email": "Correo",
+    "club": "Club",
+    "viewDetail": "Ver detalle",
     "addPersonal": "Añadir Personal",
     "searchPlaceholder": "Buscar personal...",
     "noStaffFound": "No se encontraron miembros del personal",
@@ -660,6 +664,7 @@
     "colTime": "Hora",
     "colSession": "Sesión",
     "colTeam": "Equipo",
+    "colSessionType": "Tipo de sesión",
     "colLocation": "Ubicación",
     "colActions": "Acciones",
     "noSessionsFound": "No hay sesiones registradas",
@@ -680,7 +685,9 @@
     "fieldTaskType": "Tipo de tarea",
     "fieldGamePhase": "Fase de juego",
     "fieldDescription": "Descripción",
-    "describeTaskPlaceholder": "Describe la tarea..."
+    "describeTaskPlaceholder": "Describe la tarea...",
+    "viewFullscreen": "Ver en pantalla grande",
+    "closeFullscreen": "Cerrar"
   },
   "userTable": {
     "user": "Usuario",
@@ -838,12 +845,16 @@
       "lineup": "Alineación",
       "matchPlan": "Plan de Partido",
       "abp": "ABP",
-      "events": "Eventos"
+      "matchEvents": "Eventos",
+      "events": "Videos"
     },
     "generalData": {
       "deleteMatch": "Eliminar Partido",
       "saveChanges": "Guardar Cambios",
-      "savedMessage": "Datos guardados"
+      "savedMessage": "Datos guardados",
+      "matchInfo": "Información del Partido",
+      "rivalClub": "Club Rival",
+      "selectClub": "Selecciona un club"
     },
     "rivalSelector": {
       "noClub": "Selecciona el club rival en la pestaña Datos Generales para ver su informe.",
@@ -862,12 +873,15 @@
     "pdfLinkPlaceholder": "Enlace del documento...",
     "document": "Documento",
     "image": "Imagen",
+    "images": "Imágenes",
     "match": "Partido",
     "tacticalAnalysis": "Análisis Táctico",
     "finishAndSave": "Finalizar y Guardar",
     "saveLineup": "Guardar Alineación",
     "savePlan": "Guardar Plan",
     "saveReport": "Guardar Informe",
+    "hideSection": "Ocultar sección",
+    "showSection": "Mostrar sección",
     "video": {
       "providerBlocked": "Este proveedor no permite embed",
       "openNewTab": "Abrir en nueva pestaña",
@@ -959,6 +973,29 @@
       "sessionExpired": "La sesión ha expirado",
       "deleteEventConfirm": "¿Eliminar este evento?"
     },
+    "matchEvents": {
+      "startingXI": "Once Inicial",
+      "noStartingXI": "Define la alineación en la pestaña Alineación para ver el once inicial.",
+      "substitutions": "Sustituciones",
+      "addSubstitution": "Añadir Cambio",
+      "minute": "Minuto",
+      "playerOut": "Jugador que sale",
+      "playerIn": "Jugador que entra",
+      "selectPlayer": "Selecciona jugador",
+      "noSubstitutions": "Sin cambios registrados",
+      "goals": "Goles",
+      "goalsFor": "Goles a Favor",
+      "goalsAgainst": "Goles en Contra",
+      "addGoal": "Añadir Gol",
+      "goalSide": "A favor / En contra",
+      "scorer": "Autor del gol",
+      "opponentGoal": "Gol Rival",
+      "noGoals": "Sin goles registrados",
+      "confirmDeleteSubstitution": "¿Eliminar este cambio?",
+      "confirmDeleteGoal": "¿Eliminar este gol?",
+      "add": "Añadir",
+      "min": "min"
+    },
     "abp": {
       "title": "ABP - Acciones a Balón Parado",
       "offensive": "Ofensivo",
@@ -968,7 +1005,9 @@
       "lateralFouls": "Faltas Laterales",
       "lateralFoul": "Falta Lateral",
       "frontalFoul": "Falta Frontal",
-      "playDetail": "Detalle de la jugada..."
+      "frontalFouls": "Faltas Frontales",
+      "playDetail": "Detalle de la jugada...",
+      "addPlay": "Añadir jugada"
     },
     "refereeSection": {
       "title": "Árbitro",

@@ -674,8 +674,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     <tr className="bg-slate-50/60 border-b border-slate-100">
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colDate')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colTime')}</th>
-                      <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSession')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colTeam')}</th>
+                      <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSessionType')}</th>
+                      <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSession')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colLocation')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">{t('calendarView.colActions')}</th>
                     </tr>
@@ -693,14 +694,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                           <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             {ev.time || t('calendarView.noTime')}
                           </td>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
+                            {ev.team || '—'}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
+                            {ev.type || '—'}
+                          </td>
                           <td className="px-6 py-4 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             <p className="font-black text-[var(--accent)] text-sm group-hover:underline">
                               {ev.title || t('calendarView.sessionDefault')}
                               {ev.sessionNumber ? ` — ${t('calendarView.sessionNumber')} ${ev.sessionNumber}` : ''}
                             </p>
-                          </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
-                            {ev.team || '—'}
                           </td>
                           <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             {ev.location || '—'}

@@ -276,6 +276,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const zoneCreationBoxRef = useRef<null | { left: number; top: number; right: number; bottom: number }>(null);
   const [zoneCreationBox, setZoneCreationBox] = useState<null | { left: number; top: number; right: number; bottom: number }>(null);
 
+  // Al activar una herramienta de colocación (jugador, cono, etc.) cerramos el panel de edición
+  // del elemento seleccionado: si no, su overlay (hasta 520px de ancho) queda flotando sobre el
+  // campo interceptando los clics y el usuario no puede colocar nada en esa zona sin saber por qué.
+  useEffect(() => {
+    if (selectedTool) {
+      setIsSelectedPanelOpen(false);
+    }
+  }, [selectedTool]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -506,6 +515,34 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     } else {
       navigate('/repositorio-tareas', { state: activeTaskId ? { openTaskId: activeTaskId } : undefined });
     }
+  };
+
+  /** Si hay un jugador de plantilla seleccionado en la lista, asigna sus datos (nombre, dorsal, foto)
+   * a una ficha de jugador ya colocada en el campo, en vez de crear una ficha nueva encima.
+   * Devuelve true si se realizó la asignación. */
+  const assignSelectedSquadPlayerToItem = (itemId: string): boolean => {
+    if (!selectedTool || !selectedTool.startsWith('player-real-')) return false;
+    const targetItem = items.find(i => i.id === itemId);
+    if (!targetItem || !targetItem.type.startsWith('player-')) return false;
+    const squadPlayer = squad.find(p => String(p.id) === selectedTool.replace('player-real-', ''));
+    if (!squadPlayer) return false;
+
+    pushHistoryNow();
+    updateFrames(prev => prev.map(it => (
+      it.id === itemId
+        ? {
+            ...it,
+            color: SQUAD_PLAYER_COLOR,
+            playerId: squadPlayer.id,
+            playerName: squadPlayer.apodo || squadPlayer.nombre,
+            playerDorsal: squadPlayer.dorsal,
+            playerPhoto: squadPlayer.fotoUrl,
+          }
+        : it
+    )));
+    setSelectedTool(null);
+    selectItemOnly(itemId);
+    return true;
   };
 
   const handlePitchClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1545,7 +1582,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       if (target.closest('[data-resize-handle="true"]') || target.closest('[data-orientation-handle="true"]')) return;
                       handleDragStart(e, item);
                     }}
-                    onClick={(e) => { e.stopPropagation(); if (!hasDragged.current) { selectItemOnly(item.id); } }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (hasDragged.current) return;
+                      if (assignSelectedSquadPlayerToItem(item.id)) return;
+                      selectItemOnly(item.id);
+                    }}
                     style={{
                       left: `${item.x}%`,
                       top: `${item.y}%`,
@@ -1689,21 +1731,20 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                           className="pointer-events-none absolute left-1/2 top-1/2 overflow-visible"
                           style={{ transform: 'translate(-50%, -50%)' }}
                         >
-                          <line x1="-9" y1="-16" x2="-32" y2="-30" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" />
-                          <line x1="9" y1="-16" x2="32" y2="-30" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" />
+                          <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
                         </svg>
                         <div
                           data-orientation-handle="true"
                           onPointerDown={(e) => handleRotateStart(e, item)}
                           className="absolute left-1/2 top-1/2 h-5 w-5 cursor-grab rounded-full active:cursor-grabbing"
-                          style={{ transform: 'translate(calc(-50% - 32px), calc(-50% - 30px))' }}
+                          style={{ transform: 'translate(calc(-50% - 19.8px), calc(-50% - 19.8px))' }}
                           title="Arrastra para orientar al jugador"
                         />
                         <div
                           data-orientation-handle="true"
                           onPointerDown={(e) => handleRotateStart(e, item)}
                           className="absolute left-1/2 top-1/2 h-5 w-5 cursor-grab rounded-full active:cursor-grabbing"
-                          style={{ transform: 'translate(calc(-50% + 32px), calc(-50% - 30px))' }}
+                          style={{ transform: 'translate(calc(-50% + 19.8px), calc(-50% - 19.8px))' }}
                           title="Arrastra para orientar al jugador"
                         />
                       </>

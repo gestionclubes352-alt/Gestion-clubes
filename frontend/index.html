@@ -230,9 +230,13 @@
 
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        to { opacity: 1; transform: none; }
       }
-      .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+      /* Sin "forwards": al terminar, el elemento deja de estar afectado por la animación
+         y su transform vuelve a "none" de verdad, en lugar de quedar fijado en una matriz
+         identidad que seguiría creando un containing block para descendientes "fixed"
+         (esto rompía el centrado de modales anidados, p. ej. la vista previa de tareas). */
+      .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 
       .bg-sport-primary { background-color: var(--sport-primary) !important; }
       .bg-sport-primary-dark { background-color: var(--sport-primary-dark) !important; }
@@ -328,9 +332,11 @@
       /* Animación slide-up para bottom nav */
       @keyframes slideUp {
         from { transform: translateY(100%); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+        to { transform: none; opacity: 1; }
       }
-      .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+      /* Sin "forwards", por el mismo motivo que .animate-fade-in: evita dejar un
+         transform "fantasma" que rompería el posicionamiento de elementos "fixed" anidados. */
+      .animate-slide-up { animation: slideUp 0.3s ease-out; }
     </style>
 
 </head>

@@ -104,6 +104,13 @@ export interface VideoEvent {
   timestamp: number; // Para ordenar
 }
 
+export interface AbpItem {
+  id: string;
+  text?: string;
+  image?: string;
+  video?: string;
+}
+
 export interface MatchReport {
   id: string; // matchId
   generalNotes: string;
@@ -118,39 +125,11 @@ export interface MatchReport {
   abpText: string;
   abpVideo: string;
   abpDoc: string;
-  abpOffCornerText?: string;
-  abpOffCorner2Text?: string;
-  abpOffCorner3Text?: string;
-  abpOffCorner4Text?: string;
-  abpOffLateralText?: string;
-  abpOffLateral2Text?: string;
-  abpOffFrontalText?: string;
-  abpDefCorner1Text?: string;
-  abpDefCorner2Text?: string;
-  abpDefLateralText?: string;
-  abpDefFrontalText?: string;
-  abpOffCornerImage?: string;
-  abpOffCorner2Image?: string;
-  abpOffCorner3Image?: string;
-  abpOffCorner4Image?: string;
-  abpOffLateralImage?: string;
-  abpOffLateral2Image?: string;
-  abpOffFrontalImage?: string;
-  abpDefCorner1Image?: string;
-  abpDefCorner2Image?: string;
-  abpDefLateralImage?: string;
-  abpDefFrontalImage?: string;
-  abpOffCornerVideo?: string;
-  abpOffCorner2Video?: string;
-  abpOffCorner3Video?: string;
-  abpOffCorner4Video?: string;
-  abpOffLateralVideo?: string;
-  abpOffLateral2Video?: string;
-  abpOffFrontalVideo?: string;
-  abpDefCorner1Video?: string;
-  abpDefCorner2Video?: string;
-  abpDefLateralVideo?: string;
-  abpDefFrontalVideo?: string;
+  abpOffCorners?: AbpItem[];
+  abpOffLateralFouls?: AbpItem[];
+  abpDefCorners?: AbpItem[];
+  abpDefLateralFouls?: AbpItem[];
+  abpDefFrontalFouls?: AbpItem[];
   // Nuevos campos para el sistema tÃ¡ctico del partido
   formation?: string;
   lineupPositions?: TacticalPosition[];

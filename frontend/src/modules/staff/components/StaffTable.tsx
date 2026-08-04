@@ -6,6 +6,7 @@ import type { DataTableAction } from '../../../shared/components/DataTable';
 import type { Club } from '@modules/clubes';
 import type { StaffMember } from '../types';
 import type { Personal } from '@shared/services/dataService';
+import StaffDetailModal from './StaffDetailModal';
 
 interface StaffTableProps {
   staff: Personal[];
@@ -35,6 +36,9 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
 
   // Filtro de club: por defecto muestra solo el club del usuario; admins pueden ver todos
   const [clubFilter, setClubFilter] = useState<string>(isAdmin ? 'all' : (userClubId || 'all'));
+
+  // Miembro seleccionado para la vista de detalle
+  const [viewingStaff, setViewingStaff] = useState<Personal | null>(null);
 
   const teamsById = useMemo(() => new Map(clubes.map(c => [String(c.id), c])), [clubes]);
 
@@ -88,6 +92,11 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
   ], []);
 
   const actions = useMemo<DataTableAction<User>[]>(() => [
+    {
+      icon: 'fa-regular fa-eye',
+      label: t('staffTable.viewDetail'),
+      onClick: (member) => setViewingStaff(member),
+    },
     {
       icon: 'fa-regular fa-pen-to-square',
       label: t('common.edit'),
@@ -155,6 +164,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         data={filteredStaff}
         columns={columns}
         actions={actions}
+        onRowClick={(member) => setViewingStaff(member)}
         searchable
         searchPlaceholder={t('staffTable.searchPlaceholder')}
         sortable
@@ -166,6 +176,21 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         emptyMessage={t('staffTable.noStaffFound')}
         emptyIcon="fa-solid fa-users"
       />
+
+      {viewingStaff && (
+        <StaffDetailModal
+          staff={viewingStaff}
+          clubName={teamsById.get(String(viewingStaff.club_id))?.nombre}
+          onClose={() => setViewingStaff(null)}
+          onEdit={(member) => { setViewingStaff(null); onEdit(member); }}
+          onDelete={onDelete ? (id) => {
+            if (window.confirm(t('staffTable.deleteConfirm', { name: viewingStaff.nombre }))) {
+              setViewingStaff(null);
+              onDelete(id);
+            }
+          } : undefined}
+        />
+      )}
     </div>
   );
 };

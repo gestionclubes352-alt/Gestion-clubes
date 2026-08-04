@@ -31,6 +31,8 @@
     "import": "Inportatu",
     "close": "Itxi",
     "confirm": "Berretsi",
+    "previous": "Aurrekoa",
+    "next": "Hurrengoa",
     "loading": "Kargatzen...",
     "error": "Errorea",
     "success": "Arrakasta",
@@ -584,6 +586,8 @@
     "competition": "Lehiaketa",
     "phone": "Telefonoa",
     "email": "Emaila",
+    "club": "Kluba",
+    "viewDetail": "Xehetasunak ikusi",
     "addPersonal": "Langilea Gehitu",
     "searchPlaceholder": "Langileak bilatu...",
     "noStaffFound": "Ez da langilerik aurkitu",
@@ -660,6 +664,7 @@
     "colTime": "Ordua",
     "colSession": "Saioa",
     "colTeam": "Taldea",
+    "colSessionType": "Saio mota",
     "colLocation": "Kokapena",
     "colActions": "Ekintzak",
     "noSessionsFound": "Ez dago saiorik erregistratuta",
@@ -680,7 +685,9 @@
     "fieldTaskType": "Zeregin mota",
     "fieldGamePhase": "Jokoaren fasea",
     "fieldDescription": "Deskribapena",
-    "describeTaskPlaceholder": "Deskribatu zeregina..."
+    "describeTaskPlaceholder": "Deskribatu zeregina...",
+    "viewFullscreen": "Ikusi pantaila handian",
+    "closeFullscreen": "Itxi"
   },
   "userTable": {
     "user": "Erabiltzailea",
@@ -828,7 +835,8 @@
       "lineup": "Alineazioa",
       "matchPlan": "Partidu Plana",
       "abp": "ABP",
-      "events": "Gertaerak"
+      "matchEvents": "Gertaerak",
+      "events": "Bideoak"
     },
     "generalData": {
       "deleteMatch": "Partidua Ezabatu",
@@ -852,12 +860,15 @@
     "pdfLinkPlaceholder": "Dokumentuaren esteka...",
     "document": "Dokumentua",
     "image": "Irudia",
+    "images": "Irudiak",
     "match": "Partida",
     "tacticalAnalysis": "Analisi Taktikoa",
     "finishAndSave": "Amaitu eta Gorde",
     "saveLineup": "Alineazioa Gorde",
     "savePlan": "Plana Gorde",
     "saveReport": "Txostena Gorde",
+    "hideSection": "Atala ezkutatu",
+    "showSection": "Atala erakutsi",
     "video": {
       "providerBlocked": "Hornitzaile honek ez du embed-a onartzen",
       "openNewTab": "Fitxa berrian ireki",
@@ -949,6 +960,29 @@
       "sessionExpired": "Saioa iraungi da",
       "deleteEventConfirm": "Gertaera hau ezabatu?"
     },
+    "matchEvents": {
+      "startingXI": "Hasierako Hamaikakoa",
+      "noStartingXI": "Definitu alineazioa Alineazioa fitxan hasierako hamaikakoa ikusteko.",
+      "substitutions": "Ordezkapenak",
+      "addSubstitution": "Ordezkapena Gehitu",
+      "minute": "Minutua",
+      "playerOut": "Irteten den jokalaria",
+      "playerIn": "Sartzen den jokalaria",
+      "selectPlayer": "Jokalaria hautatu",
+      "noSubstitutions": "Ez dago ordezkapenik erregistratuta",
+      "goals": "Golak",
+      "goalsFor": "Alde Golak",
+      "goalsAgainst": "Kontra Golak",
+      "addGoal": "Gola Gehitu",
+      "goalSide": "Alde / Kontra",
+      "scorer": "Golgilea",
+      "opponentGoal": "Aurkariaren Gola",
+      "noGoals": "Ez dago golik erregistratuta",
+      "confirmDeleteSubstitution": "Ordezkapen hau ezabatu?",
+      "confirmDeleteGoal": "Gol hau ezabatu?",
+      "add": "Gehitu",
+      "min": "min"
+    },
     "abp": {
       "title": "ABP - Baloi Geldiaren Ekintzak",
       "offensive": "Erasokorra",
@@ -958,7 +992,9 @@
       "lateralFouls": "Alboko Faltak",
       "lateralFoul": "Alboko Falta",
       "frontalFoul": "Aurreko Falta",
-      "playDetail": "Jokaldiaren xehetasuna..."
+      "frontalFouls": "Aurreko Faltak",
+      "playDetail": "Jokaldiaren xehetasuna...",
+      "addPlay": "Jokaldia gehitu"
     },
     "refereeSection": {
       "title": "Arbitroa",
