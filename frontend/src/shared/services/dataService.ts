@@ -193,6 +193,8 @@ export interface EventoCalendario {
   session_number?: number | null;
   local_team?: string | null;
   visitor_team?: string | null;
+  local_team_club_id?: string | null;
+  visitor_team_club_id?: string | null;
   opponent?: string | null;
   score?: string | null;
   status?: string | null;
@@ -497,6 +499,7 @@ interface StoredMatchReport {
   video_events: unknown[];
   substitutions?: unknown[];
   match_goals?: unknown[];
+  match_cards?: unknown[];
   first_half_start: string;
   first_half_end: string;
   second_half_start: string;
@@ -596,6 +599,7 @@ function createMatchReportsStore(): LegacyStore<any> {
           videoEvents: row.video_events,
           substitutions: row.substitutions || [],
           matchGoals: row.match_goals || [],
+          matchCards: row.match_cards || [],
           firstHalfStart: row.first_half_start,
           firstHalfEnd: row.first_half_end,
           secondHalfStart: row.second_half_start,
@@ -664,6 +668,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         video_events: item.videoEvents || [],
         substitutions: item.substitutions || [],
         match_goals: item.matchGoals || [],
+        match_cards: item.matchCards || [],
         first_half_start: item.firstHalfStart || '',
         first_half_end: item.firstHalfEnd || '',
         second_half_start: item.secondHalfStart || '',

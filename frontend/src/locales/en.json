@@ -836,6 +836,7 @@
       "matchPlan": "Match Plan",
       "abp": "Set Pieces",
       "matchEvents": "Events",
+      "summary": "Summary",
       "events": "Videos"
     },
     "generalData": {
@@ -844,7 +845,15 @@
       "savedMessage": "Data saved",
       "matchInfo": "Match Information",
       "rivalClub": "Rival Club",
-      "selectClub": "Select a club"
+      "selectClub": "Select a club",
+      "summary": "Summary",
+      "initialSystem": "My Initial System",
+      "playersSummary": "Minutes, Goals and Cards",
+      "startingXI": "Starting XI",
+      "calledUp": "Called Up",
+      "noPlayersYet": "Set the lineup in the Lineup tab to see the summary.",
+      "noBenchYet": "No substitutes called up.",
+      "minutes": "Min."
     },
     "rivalSelector": {
       "noClub": "Select the opponent club in the General Data tab to see its report.",
@@ -984,7 +993,14 @@
       "confirmDeleteSubstitution": "Delete this substitution?",
       "confirmDeleteGoal": "Delete this goal?",
       "add": "Add",
-      "min": "min"
+      "min": "min",
+      "cards": "Cards",
+      "addCard": "Add Card",
+      "cardType": "Card Type",
+      "yellowCard": "Yellow",
+      "redCard": "Red",
+      "noCards": "No cards recorded",
+      "confirmDeleteCard": "Delete this card?"
     },
     "abp": {
       "title": "Set Pieces",

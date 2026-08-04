@@ -846,6 +846,7 @@
       "matchPlan": "Plan de Partido",
       "abp": "ABP",
       "matchEvents": "Eventos",
+      "summary": "Resumen",
       "events": "Videos"
     },
     "generalData": {
@@ -854,7 +855,15 @@
       "savedMessage": "Datos guardados",
       "matchInfo": "Información del Partido",
       "rivalClub": "Club Rival",
-      "selectClub": "Selecciona un club"
+      "selectClub": "Selecciona un club",
+      "summary": "Resumen",
+      "initialSystem": "Mi Sistema Inicial",
+      "playersSummary": "Minutos, Goles y Tarjetas",
+      "startingXI": "Once Inicial",
+      "calledUp": "Convocados",
+      "noPlayersYet": "Define la alineación en la pestaña Alineación para ver el resumen.",
+      "noBenchYet": "No hay suplentes convocados.",
+      "minutes": "Min."
     },
     "rivalSelector": {
       "noClub": "Selecciona el club rival en la pestaña Datos Generales para ver su informe.",
@@ -994,7 +1003,14 @@
       "confirmDeleteSubstitution": "¿Eliminar este cambio?",
       "confirmDeleteGoal": "¿Eliminar este gol?",
       "add": "Añadir",
-      "min": "min"
+      "min": "min",
+      "cards": "Tarjetas",
+      "addCard": "Añadir Tarjeta",
+      "cardType": "Tipo de Tarjeta",
+      "yellowCard": "Amarilla",
+      "redCard": "Roja",
+      "noCards": "Sin tarjetas registradas",
+      "confirmDeleteCard": "¿Eliminar esta tarjeta?"
     },
     "abp": {
       "title": "ABP - Acciones a Balón Parado",

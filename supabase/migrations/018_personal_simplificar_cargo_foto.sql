@@ -16,10 +16,28 @@
 
 ALTER TABLE personal ADD COLUMN IF NOT EXISTS cargo VARCHAR(100);
 
-UPDATE personal SET cargo = rol WHERE cargo IS NULL;
+-- Las columnas legadas `rol` y `primer_apellido` (004_multiclub_schema.sql) ya
+-- no existen en algunos entornos porque la tabla se simplificó manualmente
+-- antes de que esta migración se registrara. Los bloques siguientes solo
+-- actúan si esas columnas siguen presentes, para que la migración sea segura
+-- de aplicar en cualquier entorno.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'personal' AND column_name = 'rol'
+    ) THEN
+        UPDATE personal SET cargo = rol WHERE cargo IS NULL;
+        ALTER TABLE personal ALTER COLUMN rol DROP NOT NULL;
+    END IF;
 
-ALTER TABLE personal ALTER COLUMN primer_apellido DROP NOT NULL;
-ALTER TABLE personal ALTER COLUMN rol DROP NOT NULL;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'personal' AND column_name = 'primer_apellido'
+    ) THEN
+        ALTER TABLE personal ALTER COLUMN primer_apellido DROP NOT NULL;
+    END IF;
+END $$;
 
 -- foto_url ya existe como TEXT DEFAULT '' (004_multiclub_schema.sql) y el
 -- bucket público `club-media` con sus políticas ya cubre las subidas de

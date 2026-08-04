@@ -127,7 +127,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="rounded-2xl border-2 border-slate-100 p-4 flex flex-col min-h-0 overflow-hidden">
+      <div key={task.id} className="rounded-2xl border-2 border-slate-100 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
             {t('calendarView.exerciseLabel')} {globalIndex + 1}
@@ -138,11 +138,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           </div>
         </div>
 
-        <p className="font-black text-slate-800 text-sm truncate mb-0.5 flex-shrink-0">{task.title}</p>
-        <p className="text-[10px] font-bold text-slate-500 mb-2 truncate flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+        <p className="font-black text-slate-800 text-sm break-words mb-0.5 flex-shrink-0">{task.title}</p>
+        <p className="text-[10px] font-bold text-slate-500 mb-2 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
 
-        <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-          <div className="min-h-0">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
               <div className="rounded-lg overflow-hidden">
                 <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
@@ -157,9 +157,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             )}
           </div>
-          <div className="flex flex-col min-h-0 overflow-hidden">
+          <div className="flex flex-col">
             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[10px] font-bold text-slate-600 leading-snug overflow-hidden" style={{ maxHeight: '90px' }}>
+            <p className="text-[10px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words">
               {task.description || '—'}
             </p>
           </div>
@@ -184,7 +184,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             )}
             {task.technicalRoles && (
-              <p className="text-[9px] font-bold text-slate-500 truncate">
+              <p className="text-[9px] font-bold text-slate-500 break-words">
                 <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
               </p>
             )}
@@ -221,11 +221,10 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         throw new Error('No hay tareas para exportar');
       }
 
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
+      const A4_WIDTH_MM = 210;
+      const A4_HEIGHT_MM = 297;
+
+      let pdf: jsPDF | null = null;
 
       for (let i = 0; i < pageEls.length; i++) {
         const canvas = await html2canvas(pageEls[i], {
@@ -236,8 +235,25 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           logging: false,
         });
 
-        if (i > 0) pdf.addPage();
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+        // Alto real de la página en mm, respetando el ancho A4; si el contenido
+        // no cabe en una hoja estándar, la hoja crece en vez de recortar/comprimir el contenido.
+        const pageHeightMm = Math.max(A4_HEIGHT_MM, (canvas.height / canvas.width) * A4_WIDTH_MM);
+
+        if (!pdf) {
+          pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [A4_WIDTH_MM, pageHeightMm],
+          });
+        } else {
+          pdf.addPage([A4_WIDTH_MM, pageHeightMm]);
+        }
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_WIDTH_MM, pageHeightMm);
+      }
+
+      if (!pdf) {
+        throw new Error('No hay tareas para exportar');
       }
 
       const fileName = `Tareas_sesion_${date ? date.toISOString().split('T')[0] : 'sin_fecha'}.pdf`;
@@ -282,7 +298,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             key={pageIndex}
             data-export-page="true"
             className="bg-white flex flex-col"
-            style={{ width: '1191px', height: '1684px', padding: '50px' }}
+            style={{ width: '1191px', minHeight: '1684px', padding: '50px' }}
           >
             <div className="flex items-center justify-between mb-5 pb-4 border-b-2 border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -306,7 +322,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             </div>
 
-            <div className="grid grid-cols-2 grid-rows-2 gap-5 flex-1 min-h-0">
+            <div className="grid grid-cols-2 gap-5 flex-1">
               {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
             </div>
           </div>

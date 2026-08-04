@@ -22,6 +22,8 @@ interface TacticalBoardProps {
   onChangeFormation: (newForm: string) => void;
   onToggleConvocado: (playerId: string | number, convocado: boolean, reason?: string) => void;
   onPlayerSelect?: (player: Player) => void;
+  showStarterBadge?: boolean;
+  showConvocadoControl?: boolean;
 }
 
 const TacticalBoard: React.FC<TacticalBoardProps> = ({
@@ -34,7 +36,9 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
   onRemovePlayer,
   onChangeFormation,
   onToggleConvocado,
-  onPlayerSelect
+  onPlayerSelect,
+  showStarterBadge = true,
+  showConvocadoControl = true
 }) => {
   const [activePosId, setActivePosId] = useState<string | null>(null);
 
@@ -65,12 +69,16 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
     }
 
     // Modo genérico (4 grupos clásicos)
-    const groups: Record<string, typeof convocadoSquad> = {
+    const genericGroups: Record<string, typeof convocadoSquad> = {
       PORTERO: convocadoSquad.filter(p => p.posicion === 'Portero'),
       DEFENSA: convocadoSquad.filter(p => p.posicion === 'Defensa' || ['Lateral', 'Central'].includes(p.posicion)),
       MEDIO: convocadoSquad.filter(p => p.posicion === 'Medio' || ['Pivote', 'Media punta', 'Interior'].includes(p.posicion)),
       DELANTERO: convocadoSquad.filter(p => p.posicion === 'Delantero' || p.posicion === 'Extremo'),
     };
+    const groups: Record<string, typeof convocadoSquad> = {};
+    for (const [category, players] of Object.entries(genericGroups)) {
+      if (players.length > 0) groups[category] = players;
+    }
     // Nadie debe quedar oculto: cualquier jugador sin una posición reconocida cae en "OTROS"
     const known = new Set(['Portero', 'Defensa', 'Lateral', 'Central', 'Medio', 'Pivote', 'Media punta', 'Interior', 'Delantero', 'Extremo']);
     const otros = convocadoSquad.filter(p => !known.has(p.posicion));
@@ -219,6 +227,11 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-3 scrollbar-hide">
+          {convocadoSquad.length === 0 && (
+            <p className="text-[10px] font-bold text-slate-400 p-2 leading-relaxed">
+              No se han encontrado jugadores de la plantilla para este equipo. Comprueba que el equipo del partido tenga jugadores dados de alta en el módulo Plantillas.
+            </p>
+          )}
           {(Object.keys(groupedPlayers) as Array<keyof typeof groupedPlayers>).map((category) => (
             <div key={category} className="space-y-1.5">
               <h4 className="text-[7px] md:text-[7.5px] font-black text-slate-400 px-2 py-0.5 bg-slate-50 rounded-lg tracking-widest uppercase">
@@ -263,7 +276,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                               <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
                                 {player.dorsal}
                               </span>
-                              {isOnField && (
+                              {isOnField && showStarterBadge && (
                                 <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-green-500 text-white'}`}>
                                   T
                                 </span>
@@ -281,22 +294,24 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         </div>
                         <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-[10px] flex-shrink-0`}></i>
                       </button>
-                      <select
-                        value="convocado"
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === 'convocado') onToggleConvocado(player.id, true);
-                          else onToggleConvocado(player.id, false, value);
-                        }}
-                        title="Convocatoria"
-                        className={`text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
-                      >
-                        <option value="convocado">Convocado</option>
-                        {NOT_CONVOCADO_REASONS.map(r => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                      </select>
+                      {showConvocadoControl && (
+                        <select
+                          value="convocado"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === 'convocado') onToggleConvocado(player.id, true);
+                            else onToggleConvocado(player.id, false, value);
+                          }}
+                          title="Convocatoria"
+                          className={`text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                        >
+                          <option value="convocado">Convocado</option>
+                          {NOT_CONVOCADO_REASONS.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   );
                 })}

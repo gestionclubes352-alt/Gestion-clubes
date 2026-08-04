@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
+import type { CompetitionTeam } from '@modules/competicion';
+import type { Club } from '@modules/clubes/types';
 import { getTeamConfig } from '@shared/services/dataService';
 
 const getMyTeamName = (): string => {
@@ -20,10 +22,31 @@ interface LatestMatchesProps {
   onEdit?: (match: Match) => void;
   onClickMatch?: (match: Match) => void;
   onCreate?: () => void;
+  competitionTeams?: CompetitionTeam[];
+  clubes?: Club[];
 }
 
-const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate }) => {
+const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [] }) => {
   const { t } = useTranslation();
+
+  const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
+
+  // Fallback por nombre para partidos antiguos guardados sin clubId por equipo: si dos
+  // clubes tienen un equipo homónimo (p.ej. "Juvenil A"), esto solo puede acertar uno de los dos.
+  const clubNameByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    competitionTeams.forEach((team) => {
+      const teamName = team.equipo || team.nombre;
+      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
+      if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
+    });
+    return map;
+  }, [competitionTeams, clubNameById]);
+
+  // Preferimos el clubId guardado con el propio partido (exacto, no ambiguo);
+  // solo caemos al emparejamiento por nombre para partidos guardados antes de este fix.
+  const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
+    (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
   return (
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
@@ -44,7 +67,9 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         {matches.map((match) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
-          
+          const localClubLabel = resolveClubLabel(local, match.localTeamClubId);
+          const visitorClubLabel = resolveClubLabel(visitor, match.visitorTeamClubId);
+
           return (
             <div 
               key={match.id} 
@@ -63,6 +88,11 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
 
                 <div className="flex items-center gap-6">
                   <div className="text-center min-w-[100px]">
+                    {localClubLabel && (
+                      <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[120px]">
+                        {localClubLabel}
+                      </p>
+                    )}
                     <p className={`font-black text-lg uppercase leading-none mb-1 truncate max-w-[120px] ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-600'}`}>
                       {local}
                     </p>
@@ -82,6 +112,11 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                   </div>
 
                   <div className="text-center min-w-[100px]">
+                    {visitorClubLabel && (
+                      <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[120px]">
+                        {visitorClubLabel}
+                      </p>
+                    )}
                     <p className={`font-black text-lg uppercase leading-none mb-1 truncate max-w-[120px] ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-600'}`}>
                       {visitor}
                     </p>

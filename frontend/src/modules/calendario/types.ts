@@ -43,6 +43,9 @@ export interface CalendarEvent {
   sessionNumber?: number;
   localTeam?: string;
   visitorTeam?: string;
+  /** Club al que pertenece localTeam/visitorTeam, para distinguir equipos homónimos de clubes distintos */
+  localTeamClubId?: string;
+  visitorTeamClubId?: string;
   opponent?: string;
   score?: string;
   status?: 'Finished' | 'Upcoming';
@@ -68,6 +71,8 @@ export interface EventFormData {
   sessionNumber: string;
   localTeam: string;
   visitorTeam: string;
+  localTeamClubId: string;
+  visitorTeamClubId: string;
   score: string;
   notes: string;
   videoUrl: string;

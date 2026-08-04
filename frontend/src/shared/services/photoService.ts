@@ -34,3 +34,8 @@ export async function uploadTaskThumbnail(file: File, taskId: string): Promise<s
   const ext = file.name.split('.').pop() || 'png';
   return uploadToStorage(`tasks/${taskId}/thumbnail.${ext}`, file);
 }
+
+export async function uploadMatchReportFile(file: File, matchId: string | number): Promise<string> {
+  const ext = file.name.split('.').pop() || 'bin';
+  return uploadToStorage(`matches/${matchId}/reports/${crypto.randomUUID()}.${ext}`, file);
+}

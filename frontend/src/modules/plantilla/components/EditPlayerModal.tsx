@@ -725,23 +725,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     <input type="url" value={formData.enlace || ''} onChange={(e) => handleChange('enlace' as keyof Player, e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
                   </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.season', 'Temporada')}</label>
-                    <input type="text" value={formData.temporada || ''} onChange={(e) => handleChange('temporada' as keyof Player, e.target.value)}
-                      placeholder="EJ: 2025-2026"
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.competition', 'Competición')}</label>
-                    <input type="text" value={formData.competicion || ''} onChange={(e) => handleChange('competicion' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.fullName', 'Nombre completo')}</label>
-                    <input type="text" readOnly disabled
-                      value={formData.nombreCompleto || `${formData.nombrePila || ''} ${formData.primerApellido || ''} ${formData.segundoApellido || ''}`.replace(/\s+/g, ' ').trim()}
-                      className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-500 disabled:cursor-not-allowed" />
-                  </div>
                 </div>
               </div>
 

@@ -408,6 +408,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         jornada: e.jornada,
         localTeam: e.localTeam,
         visitorTeam: e.visitorTeam,
+        localTeamClubId: e.localTeamClubId,
+        visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location
       } as Match));
@@ -441,6 +443,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     sessionNumber: row.session_number ?? undefined,
     localTeam: row.local_team || undefined,
     visitorTeam: row.visitor_team || undefined,
+    localTeamClubId: row.local_team_club_id || undefined,
+    visitorTeamClubId: row.visitor_team_club_id || undefined,
     opponent: row.opponent || undefined,
     score: row.score || undefined,
     status: row.status as CalendarEvent['status'] | undefined,
@@ -465,6 +469,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     session_number: event.sessionNumber ?? null,
     local_team: event.localTeam || null,
     visitor_team: event.visitorTeam || null,
+    local_team_club_id: event.localTeamClubId || null,
+    visitor_team_club_id: event.visitorTeamClubId || null,
     opponent: event.opponent || null,
     score: event.score || null,
     status: event.status || null,
@@ -765,6 +771,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [competitionTeams, selectedTeams]
   );
 
+  // Equipos del propio club (p.ej. para asignar personal): excluye equipos rivales de otros clubes.
+  const ownClubCompetitionTeams = useMemo(
+    () => competitionTeams
+      .filter(team => String(team.clubId ?? '') === String(currentTeam?.id ?? ''))
+      .map(team => ({ id: String(team.id), nombre: team.equipo ? `${team.nombre} - ${team.equipo}` : team.nombre })),
+    [competitionTeams, currentTeam?.id]
+  );
+
   const filteredCampogramasList = useMemo(
     () => campogramasList.filter(campograma => matchesSelectedTeams(campograma.equipo, selectedTeams)),
     [campogramasList, selectedTeams]
@@ -788,6 +802,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         jornada: e.jornada,
         localTeam: e.localTeam,
         visitorTeam: e.visitorTeam,
+        localTeamClubId: e.localTeamClubId,
+        visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location
       } as Match));
@@ -976,6 +992,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       onChangeFormation={handleChangeFormation}
                       onToggleConvocado={() => {}}
                       onPlayerSelect={(player) => setEditingPlayer(player)}
+                      showStarterBadge={false}
+                      showConvocadoControl={false}
                     />
                   </div>
                 ) : (
@@ -1007,6 +1025,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     setModalDefaultType('Partido');
                     setShowNewModal(true);
                   }}
+                  competitionTeams={competitionTeams}
+                  clubes={clubesList}
                 />
               } />
               <Route path="/partidos/:matchId" element={<MatchReportWrapper />} />
@@ -1150,7 +1170,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
         }
       }} />}
-      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={filteredCompetitionTeams.map(t => ({ id: t.id, nombre: t.nombre }))} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
+      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={ownClubCompetitionTeams} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
         try {
           if (isNewStaff) {
             await personalService.create({

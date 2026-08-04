@@ -12,6 +12,9 @@ export interface Match {
   jornada?: string;
   localTeam?: string;
   visitorTeam?: string;
+  /** Club al que pertenece localTeam/visitorTeam, para distinguir equipos homónimos de clubes distintos */
+  localTeamClubId?: string;
+  visitorTeamClubId?: string;
   time?: string;
   location?: string;
 }
@@ -45,6 +48,13 @@ export interface MatchGoal {
   id: string;
   minute: number;
   side: 'FAVOR' | 'CONTRA';
+  playerId?: string | number;
+}
+
+export interface MatchCard {
+  id: string;
+  minute: number;
+  type: 'AMARILLA' | 'ROJA';
   playerId?: string | number;
 }
 
@@ -113,6 +123,7 @@ export interface MatchReport {
   videoEvents?: VideoEvent[];
   substitutions?: MatchSubstitution[];
   matchGoals?: MatchGoal[];
+  matchCards?: MatchCard[];
   firstHalfStart?: string;
   firstHalfEnd?: string;
   secondHalfStart?: string;
