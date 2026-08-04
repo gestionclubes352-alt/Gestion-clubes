@@ -803,7 +803,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         match={match}
         onBack={() => navigate('/partidos')}
         ownClubId={currentTeam?.id || ''}
-        competitionTeams={filteredCompetitionTeams}
+        competitionTeams={competitionTeams}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
       />
@@ -991,7 +991,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
-                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={filteredCompetitionTeams} ownClubId={currentTeam?.id} />
+                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
                 <GestionCalendarView events={filteredEventsList} squad={filteredSquadList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />

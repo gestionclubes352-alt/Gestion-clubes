@@ -42,7 +42,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const currentEvent = editEvent ?? event ?? null;
   const [typeSelected, setTypeSelected] = useState<EventType | null>(currentEvent?.type || defaultType);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClub, setSelectedClub] = useState<string>(currentEvent?.clubId || '');
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -136,7 +135,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       localTeam: formData.localTeam || undefined,
       visitorTeam: formData.visitorTeam || undefined,
       score: formData.score || undefined,
-      clubId: selectedClub || undefined,
     };
 
     onSave(nextEvent);
@@ -276,18 +274,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
               {typeSelected === 'Partido' && (
                 <>
-                  <select
-                    value={selectedClub}
-                    onChange={(e) => setSelectedClub(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
-                  >
-                    <option value="">{t('newEvent.club') || 'Club'}</option>
-                    {clubs.map((club) => (
-                      <option key={club.id} value={club.id}>
-                        {club.nombre}
-                      </option>
-                    ))}
-                  </select>
                   <select
                     name="competition"
                     value={formData.competition}
