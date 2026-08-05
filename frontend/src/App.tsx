@@ -1036,6 +1036,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} />
               } />
+              <Route path="/competiciones" element={<CompetitionsConfigView />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
