@@ -178,61 +178,65 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
                 return (
                   <div
                     key={row.key}
-                    className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                    className="flex flex-wrap sm:flex-nowrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-2.5"
                   >
-                    <img src={row.previewUrl} className="w-11 h-11 rounded-lg object-cover object-top border border-slate-200" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-slate-400 truncate">{row.file.name}</p>
-                      <select
-                        value={row.playerId}
-                        disabled={row.status === 'uploading' || row.status === 'done'}
-                        onChange={e => setRowPlayer(row.key, e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700 disabled:opacity-60"
+                    <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
+                      <img src={row.previewUrl} className="w-11 h-11 rounded-lg object-cover object-top border border-slate-200 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] text-slate-400 truncate">{row.file.name}</p>
+                        <select
+                          value={row.playerId}
+                          disabled={row.status === 'uploading' || row.status === 'done'}
+                          onChange={e => setRowPlayer(row.key, e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700 disabled:opacity-60"
+                        >
+                          <option value="">{t('bulkPhotoUpload.noMatch')}</option>
+                          {sortedSquad.map(p => (
+                            <option key={String(p.id)} value={String(p.id)}>
+                              {p.dorsal ? `#${p.dorsal} ` : ''}
+                              {p.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 ml-auto sm:ml-0">
+                      <div className="shrink-0 w-24 text-center">
+                        {row.status === 'pending' && player && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase">
+                            <i className="fa-solid fa-check"></i>
+                            {t('bulkPhotoUpload.matched')}
+                          </span>
+                        )}
+                        {row.status === 'pending' && !player && (
+                          <span className="text-[10px] font-bold text-amber-500 uppercase">
+                            {t('bulkPhotoUpload.unmatched')}
+                          </span>
+                        )}
+                        {row.status === 'uploading' && (
+                          <i className="fa-solid fa-spinner animate-spin text-slate-400"></i>
+                        )}
+                        {row.status === 'done' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase">
+                            <i className="fa-solid fa-circle-check"></i>
+                            {t('bulkPhotoUpload.done')}
+                          </span>
+                        )}
+                        {row.status === 'error' && (
+                          <span className="text-[10px] font-bold text-red-500 uppercase" title={row.error}>
+                            {t('bulkPhotoUpload.error')}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => removeRow(row.key)}
+                        disabled={row.status === 'uploading'}
+                        className="shrink-0 text-slate-300 hover:text-red-500 transition-colors disabled:opacity-40"
+                        title={t('bulkPhotoUpload.remove')}
                       >
-                        <option value="">{t('bulkPhotoUpload.noMatch')}</option>
-                        {sortedSquad.map(p => (
-                          <option key={String(p.id)} value={String(p.id)}>
-                            {p.dorsal ? `#${p.dorsal} ` : ''}
-                            {p.nombre}
-                          </option>
-                        ))}
-                      </select>
+                        <i className="fa-regular fa-trash-can"></i>
+                      </button>
                     </div>
-                    <div className="shrink-0 w-24 text-center">
-                      {row.status === 'pending' && player && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase">
-                          <i className="fa-solid fa-check"></i>
-                          {t('bulkPhotoUpload.matched')}
-                        </span>
-                      )}
-                      {row.status === 'pending' && !player && (
-                        <span className="text-[10px] font-bold text-amber-500 uppercase">
-                          {t('bulkPhotoUpload.unmatched')}
-                        </span>
-                      )}
-                      {row.status === 'uploading' && (
-                        <i className="fa-solid fa-spinner animate-spin text-slate-400"></i>
-                      )}
-                      {row.status === 'done' && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase">
-                          <i className="fa-solid fa-circle-check"></i>
-                          {t('bulkPhotoUpload.done')}
-                        </span>
-                      )}
-                      {row.status === 'error' && (
-                        <span className="text-[10px] font-bold text-red-500 uppercase" title={row.error}>
-                          {t('bulkPhotoUpload.error')}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => removeRow(row.key)}
-                      disabled={row.status === 'uploading'}
-                      className="shrink-0 text-slate-300 hover:text-red-500 transition-colors disabled:opacity-40"
-                      title={t('bulkPhotoUpload.remove')}
-                    >
-                      <i className="fa-regular fa-trash-can"></i>
-                    </button>
                   </div>
                 );
               })}
@@ -240,7 +244,7 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
           )}
         </div>
 
-        <div className="p-5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 sticky bottom-0">
+        <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sticky bottom-0">
           <p className="text-xs text-slate-400 font-medium">
             {rows.length > 0 ? t('bulkPhotoUpload.summary', { done: doneCount, total: rows.length }) : ''}
             {hasErrors && !isUploading && (
@@ -254,14 +258,14 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
             <button
               onClick={onClose}
               disabled={isUploading}
-              className="py-3 px-5 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
+              className="flex-1 sm:flex-none py-3 px-5 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
             >
               {t('bulkPhotoUpload.close')}
             </button>
             <button
               onClick={handleUploadAll}
               disabled={isUploading || matchedCount === 0}
-              className="py-3 px-5 bg-[var(--accent)] text-white rounded-2xl font-black hover:bg-[var(--accent-dark)] transition-all shadow-xl shadow-[var(--accent)]/20 uppercase text-xs tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-none py-3 px-5 bg-[var(--accent)] text-white rounded-2xl font-black hover:bg-[var(--accent-dark)] transition-all shadow-xl shadow-[var(--accent)]/20 uppercase text-xs tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isUploading ? (
                 <>

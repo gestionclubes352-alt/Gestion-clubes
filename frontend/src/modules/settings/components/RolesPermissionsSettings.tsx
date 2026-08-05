@@ -111,14 +111,14 @@ const RolesPermissionsSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-2xl font-black text-slate-800 mb-2">Roles y Permisos</h3>
             <p className="text-slate-500">Configura qué puede ver cada rol del sistema</p>
           </div>
           <button
             onClick={handleReset}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 text-xs font-bold uppercase tracking-wider transition-all"
+            className="shrink-0 px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 text-xs font-bold uppercase tracking-wider transition-all"
           >
             <i className="fa-solid fa-rotate-right mr-2"></i>
             Restablecer
@@ -128,6 +128,8 @@ const RolesPermissionsSettings: React.FC = () => {
 
       {/* Cabecera de roles */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+       <div className="overflow-x-auto">
+        <div className="min-w-[520px]">
         <div className="grid grid-cols-[1fr_repeat(3,100px)] md:grid-cols-[1fr_repeat(3,140px)] items-center gap-0 px-6 py-4 bg-slate-50 border-b border-slate-200">
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             Sección / Permiso
@@ -221,7 +223,9 @@ const RolesPermissionsSettings: React.FC = () => {
             </div>
           );
         })}
-      </div>
+        </div>
+        </div>
+       </div>
 
       {/* Notas */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">

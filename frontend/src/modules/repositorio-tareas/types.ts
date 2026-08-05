@@ -108,14 +108,3 @@ export const INTENSITY_COLORS: Record<TaskIntensity, string> = {
   'Alta': 'bg-orange-100 text-orange-700 border-orange-200',
   'Muy Alta': 'bg-red-100 text-red-700 border-red-200',
 };
-
-export const getDesignerItemAnimationClass = (animation?: string) => {
-  switch (animation) {
-    case 'pulse':
-      return 'animate-pulse';
-    case 'bounce':
-      return 'animate-bounce';
-    default:
-      return '';
-  }
-};

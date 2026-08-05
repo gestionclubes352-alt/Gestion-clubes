@@ -1356,8 +1356,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       </aside>
 
       <main className="flex-1 flex flex-col bg-white relative overflow-hidden">
-        <header className="p-6 flex justify-between items-center bg-white border-b border-slate-100 shadow-sm z-10">
-          <div className="flex items-center gap-4">
+        <header className="p-4 md:p-6 flex flex-wrap justify-between items-center gap-3 bg-white border-b border-slate-100 shadow-sm z-10">
+          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
             <button
               type="button"
               onClick={handleBackClick}
@@ -1367,18 +1367,18 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             >
               <i className="fa-solid fa-arrow-left text-sm"></i>
             </button>
-            <div className="w-10 h-10 bg-[var(--accent)] rounded-xl flex items-center justify-center shadow-lg"><i className="fa-solid fa-chess-board text-white text-sm"></i></div>
-            <div>
+            <div className="w-10 h-10 shrink-0 bg-[var(--accent)] rounded-xl flex items-center justify-center shadow-lg"><i className="fa-solid fa-chess-board text-white text-sm"></i></div>
+            <div className="min-w-0 flex-1">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">DEMO - DISEÑO TÁCTICO</p>
               <input
                 type="text"
                 value={activeProject}
                 onChange={(e) => setActiveProject(e.target.value)}
-                className="text-xl font-black uppercase text-[var(--accent)] tracking-tighter leading-none bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-slate-100 rounded"
+                className="w-full text-base md:text-xl font-black uppercase text-[var(--accent)] tracking-tighter leading-none bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-slate-100 rounded"
               />
             </div>
           </div>
-          <div className="flex items-center gap-3 relative">
+          <div className="flex items-center gap-3 relative shrink-0">
             {saveStatus && (
                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[var(--accent)] text-white text-[9px] font-black px-4 py-1 rounded-full whitespace-nowrap animate-bounce">
                     {saveStatus}
@@ -1395,7 +1395,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           </div>
         </header>
 
-        <div className="flex h-[58px] items-center gap-2 border-b border-slate-200 px-3 md:px-4">
+        <div className="flex h-[58px] items-center gap-2 overflow-x-auto scrollbar-hide border-b border-slate-200 px-3 md:px-4">
           <button
             type="button"
             onClick={() => {
@@ -1404,13 +1404,13 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
               }
               setIsPlaying(v => !v);
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500 text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-500 text-white"
           >
             <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-[12px]`} />
           </button>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--sidebar-bg)] text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--sidebar-bg)] text-white"
             onClick={() => {
               pushHistoryNow();
               const newIndex = frames.length;
@@ -1420,10 +1420,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           >
             <i className="fa-solid fa-plus text-[12px]" />
           </button>
-          <div className="flex h-8 w-[170px] items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700">
+          <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px]">
             Normal
           </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[260px]">
+          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[140px] md:max-w-[260px]">
             {frames.map((_, i) => (
               <button
                 key={i}
@@ -1447,7 +1447,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
               setFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
               setCurrentFrameIndex(prev => Math.max(0, Math.min(prev, frames.length - 2)));
             }}
-            className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed' : 'bg-[#c92525] hover:opacity-90'}`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed' : 'bg-[#c92525] hover:opacity-90'}`}
             title="Eliminar fotograma actual"
             aria-label="Eliminar fotograma actual"
           >

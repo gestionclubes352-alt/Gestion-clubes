@@ -140,7 +140,7 @@ const InjuriesView: React.FC = () => {
 
     return (
       <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto flex justify-center p-4">
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg space-y-4 relative h-fit self-start mt-8">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-lg space-y-4 relative h-fit self-start mt-8">
           <button type="button" onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
             <i className="fa-solid fa-xmark text-xl"></i>
           </button>
@@ -364,7 +364,7 @@ const InjuriesView: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(['TODAS', 'ACTIVA', 'EN_REHABILITACIÓN', 'RECUPERADO'] as const).map(f => (
             <button
               key={f}

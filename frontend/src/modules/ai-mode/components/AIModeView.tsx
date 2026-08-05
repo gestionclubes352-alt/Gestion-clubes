@@ -785,17 +785,17 @@ const AIModeView: React.FC<AIModeViewProps> = ({ context }) => {
   }, []);
 
   return (
-    <div className="flex h-full bg-slate-50 dark:bg-[var(--surface-0)]">
+    <div className="relative flex h-full bg-slate-50 dark:bg-[var(--surface-0)]">
       {/* ============================================================ */}
       {/* CONVERSATION HISTORY SIDEBAR (left)                           */}
       {/* ============================================================ */}
       <div
         className={`border-r border-slate-200 dark:border-[var(--border-soft)] bg-white dark:bg-[var(--surface-0)] transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
-          showHistory ? 'w-64 xl:w-72' : 'w-0 border-r-0'
+          showHistory ? 'absolute md:static inset-y-0 left-0 z-40 w-72 md:w-64 xl:w-72 shadow-xl md:shadow-none' : 'w-0 border-r-0'
         }`}
       >
         {showHistory && (
-          <div className="flex flex-col h-full w-64 xl:w-72">
+          <div className="flex flex-col h-full w-72 md:w-64 xl:w-72">
             {/* Sidebar header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[var(--border-soft)]">
               <h3 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
@@ -1281,7 +1281,7 @@ const AIModeView: React.FC<AIModeViewProps> = ({ context }) => {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
               <div className="flex items-center gap-3">
                 <button
                   onClick={clearChat}
@@ -1291,7 +1291,7 @@ const AIModeView: React.FC<AIModeViewProps> = ({ context }) => {
                   Nueva conversación
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400">
+              <p className="hidden sm:block text-[10px] text-slate-400">
                 Enter para enviar · Shift+Enter para nueva línea
               </p>
             </div>
@@ -1304,7 +1304,7 @@ const AIModeView: React.FC<AIModeViewProps> = ({ context }) => {
       {/* ============================================================ */}
       <div
         className={`border-l border-slate-200 dark:border-[var(--border-soft)] transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
-          showPanel ? 'w-64 xl:w-72' : 'w-0 border-l-0'
+          showPanel ? 'absolute md:static inset-y-0 right-0 z-40 w-72 md:w-64 xl:w-72 shadow-xl md:shadow-none' : 'w-0 border-l-0'
         }`}
       >
         {showPanel && (

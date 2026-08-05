@@ -371,7 +371,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       </h2>
 
       {/* PESTAÑAS MIS PLANTILLAS / EQUIPOS RIVALES */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           onClick={() => switchTab('mis')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
@@ -643,9 +643,9 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       )}
 
       {/* FOOTER */}
-      <div className="bg-[var(--surface-0)] border border-[var(--border-soft)] p-4 rounded-2xl flex justify-between items-center">
+      <div className="bg-[var(--surface-0)] border border-[var(--border-soft)] p-4 rounded-2xl flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[var(--surface-1)] rounded-lg flex items-center justify-center border border-[var(--border-soft)]">
+          <div className="w-8 h-8 bg-[var(--surface-1)] rounded-lg flex items-center justify-center border border-[var(--border-soft)] shrink-0">
             <i className="fa-solid fa-database text-sm text-[var(--text-muted)]"></i>
           </div>
           <p className="text-xs text-[var(--text-muted)] font-medium">
@@ -654,7 +654,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         </div>
         <button
           onClick={openNewPlayerCard}
-          className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+          className="w-full sm:w-auto justify-center inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
         >
           <i className="fa-solid fa-plus text-[10px]"></i>
           {activeTab === 'rivales' ? 'Nuevo Jugador Rival' : t('playerTable.newPlayer')}

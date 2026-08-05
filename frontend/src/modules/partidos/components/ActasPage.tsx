@@ -30,13 +30,13 @@ const MatchCard: React.FC<{
     onClick={match.played ? onViewActa : undefined}
   >
     <div className="flex items-center gap-3">
-      <div className="flex-1 text-right">
-        <span className={`text-[12px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
+      <div className="flex-1 min-w-0 text-right">
+        <span className={`block truncate text-[12px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
           {match.home}
         </span>
       </div>
 
-      <div className="px-4 min-w-[70px] text-center">
+      <div className="px-4 min-w-[70px] shrink-0 text-center">
         {match.played && match.homeGoals !== null ? (
           <span className="text-lg font-black text-white tabular-nums">
             {match.homeGoals}
@@ -50,8 +50,8 @@ const MatchCard: React.FC<{
         )}
       </div>
 
-      <div className="flex-1 text-left">
-        <span className={`text-[12px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
+      <div className="flex-1 min-w-0 text-left">
+        <span className={`block truncate text-[12px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
           {match.away}
         </span>
       </div>
@@ -261,7 +261,7 @@ const ActasPage: React.FC = () => {
         </div>
 
         {/* Selectores */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={selectedSeason.label}
             onChange={(e) => changeSeason(e.target.value)}

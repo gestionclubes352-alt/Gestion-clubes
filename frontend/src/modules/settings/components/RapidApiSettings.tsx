@@ -7,21 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { TeamSetupWizard } from './TeamSetupWizard';
 import { rapidApiFootballService } from '@shared/services';
 import { getTeamConfig } from '@shared/services/dataService';
-
-// ============================================================================
-// TIPOS
-// ============================================================================
-
-interface SavedConfig {
-  leagueId: number;
-  leagueName: string;
-  teamId: number;
-  teamName: string;
-  teamShortName: string;
-  teamLogo: string;
-  setupComplete: boolean;
-  importedAt: string;
-}
+import type { LegacyTeamConfig } from '@shared/services/dataService';
 
 // ============================================================================
 // COMPONENTE PRINCIPAL
@@ -29,7 +15,7 @@ interface SavedConfig {
 
 export const RapidApiSettings: React.FC = () => {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [savedConfig, setSavedConfig] = useState<SavedConfig | null>(null);
+  const [savedConfig, setSavedConfig] = useState<LegacyTeamConfig | null>(null);
   const [showWizard, setShowWizard] = useState(false);
 
   // Verificar conexión y cargar configuración guardada
@@ -124,11 +110,11 @@ VITE_RAPIDAPI_HOST=free-api-live-football-data.p.rapidapi.com`}
     <div className="space-y-6">
       {/* Header with current config */}
       <div className="p-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl text-white">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           {savedConfig.teamLogo && (
             <img src={savedConfig.teamLogo} alt="" className="w-14 h-14 object-contain bg-white/20 rounded-2xl p-2" />
           )}
-          <div className="flex-1">
+          <div className="flex-1 min-w-[140px]">
             <h3 className="text-xl font-black">{savedConfig.teamName}</h3>
             <p className="text-white/80 text-sm">{savedConfig.leagueName}</p>
           </div>

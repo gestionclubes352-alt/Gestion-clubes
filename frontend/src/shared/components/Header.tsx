@@ -61,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
   const location = useLocation();
   const { t } = useTranslation();
   const { activeSource, sources, setActiveSource } = useDataSource();
-  const { user } = useAuth();
+  const { user, perfil } = useAuth();
   const { selectedTeam } = useTeam();
   const { selectedTeams, toggleTeam, clearSelectedTeams, setSelectedTeams } = useTeamFilter();
   const { isDark, toggle } = useTheme();
@@ -383,8 +383,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
               <i className="fa-solid fa-user text-white text-xs md:text-sm"></i>
             </div>
             <div className="hidden md:flex flex-col items-start">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{user?.nombre || 'Usuario'}</span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider">{selectedTeam?.shortName || user?.rol || 'Demo'}</span>
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{perfil?.nombre || 'Usuario'}</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider">{selectedTeam?.shortName || perfil?.rol || 'Demo'}</span>
             </div>
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform hidden sm:block ${isProfileMenuOpen ? 'rotate-180' : ''}`}></i>
           </button>
@@ -399,7 +399,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
                   <i className="fa-solid fa-user text-xl"></i>
                 </div>
                 <div>
-                  <p className="font-bold">{user?.nombre || 'Usuario Demo'}</p>
+                  <p className="font-bold">{perfil?.nombre || 'Usuario Demo'}</p>
                   <p className="text-xs opacity-80">{user?.email || 'demo@sportmanagement.app'}</p>
                 </div>
               </div>

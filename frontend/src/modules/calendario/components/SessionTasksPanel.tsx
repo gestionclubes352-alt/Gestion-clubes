@@ -127,24 +127,20 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="rounded-2xl border-2 border-slate-100 p-4 flex flex-col">
-        <div className="flex items-center justify-between mb-2 flex-shrink-0">
-          <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-            {t('calendarView.exerciseLabel')} {globalIndex + 1}
-          </span>
-          <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-0.5">
-            <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
-            <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
+      <div key={task.id} className="h-full rounded-2xl border-2 border-slate-100 p-4 flex gap-4">
+        <div className="w-[300px] flex-shrink-0 flex flex-col">
+          <div className="flex items-center justify-between mb-2 flex-shrink-0">
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+              {t('calendarView.exerciseLabel')} {globalIndex + 1}
+            </span>
+            <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-0.5">
+              <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
+              <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
+            </div>
           </div>
-        </div>
-
-        <p className="font-black text-slate-800 text-sm break-words mb-0.5 flex-shrink-0">{task.title}</p>
-        <p className="text-[10px] font-bold text-slate-500 mb-2 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+          <div className="flex-1 flex items-center justify-center min-h-0">
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="rounded-lg overflow-hidden">
+              <div className="w-full rounded-lg overflow-hidden">
                 <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
               </div>
             ) : task.thumbnail ? (
@@ -157,39 +153,45 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             )}
           </div>
-          <div className="flex flex-col">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[10px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words">
+        </div>
+
+        <div className="flex-1 min-w-0 flex flex-col">
+          <p className="font-black text-slate-800 text-base break-words mb-0.5 flex-shrink-0">{task.title}</p>
+          <p className="text-[11px] font-bold text-slate-500 mb-2 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+
+          <div className="flex-1 min-h-0 flex flex-col">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
+            <p className="text-[11px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
               {task.description || '—'}
             </p>
           </div>
-        </div>
 
-        {((task.numberOfSeries ?? 0) > 0 || task.technicalRoles) && (
-          <div className="mt-2 flex-shrink-0 space-y-1.5">
-            {(task.numberOfSeries ?? 0) > 0 && (
-              <div className="grid grid-cols-3 gap-1.5">
-                <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                  <p className="text-[6px] font-bold text-slate-400 uppercase">Series</p>
-                  <p className="text-[10px] font-black text-slate-700">{task.numberOfSeries}</p>
+          {((task.numberOfSeries ?? 0) > 0 || task.technicalRoles) && (
+            <div className="mt-2 flex-shrink-0 space-y-1.5">
+              {(task.numberOfSeries ?? 0) > 0 && (
+                <div className="grid grid-cols-3 gap-1.5 max-w-md">
+                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">Series</p>
+                    <p className="text-[11px] font-black text-slate-700">{task.numberOfSeries}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">T/Serie</p>
+                    <p className="text-[11px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">Descanso</p>
+                    <p className="text-[11px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+                  </div>
                 </div>
-                <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                  <p className="text-[6px] font-bold text-slate-400 uppercase">T/Serie</p>
-                  <p className="text-[10px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                  <p className="text-[6px] font-bold text-slate-400 uppercase">Descanso</p>
-                  <p className="text-[10px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
-                </div>
-              </div>
-            )}
-            {task.technicalRoles && (
-              <p className="text-[9px] font-bold text-slate-500 break-words">
-                <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
-              </p>
-            )}
-          </div>
-        )}
+              )}
+              {task.technicalRoles && (
+                <p className="text-[10px] font-bold text-slate-500 break-words">
+                  <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -260,7 +262,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
       // Obtener el Blob de manera compatible con jsPDF 4.x
       let pdfBlob: Blob;
-      const pdfOutput = pdf.output('blob');
+      // Cast defensivo: en runtime algunas versiones de jsPDF han devuelto una Promise<Blob>
+      const pdfOutput = pdf.output('blob') as Blob | Promise<Blob>;
       if (pdfOutput instanceof Blob) {
         pdfBlob = pdfOutput;
       } else if (pdfOutput instanceof Promise) {
@@ -322,7 +325,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-5 flex-1">
+            <div className="grid grid-cols-1 [grid-auto-rows:1fr] gap-5 flex-1">
               {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
             </div>
           </div>
@@ -450,7 +453,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 </div>
 
                 {/* Vista previa y Descripción lado a lado */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
                       <div className="rounded-xl overflow-hidden">
@@ -600,14 +603,14 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           className="fixed inset-0 z-[200] flex flex-col bg-slate-950"
           onClick={() => setFullscreenTaskId(null)}
         >
-          <div className="flex items-center justify-between px-8 py-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-4">
-              <span className="text-xs font-black text-white/40 uppercase tracking-widest">
+          <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <span className="text-xs font-black text-white/40 uppercase tracking-widest flex-shrink-0">
                 {t('calendarView.exerciseLabel')} {fullscreenIndex + 1} / {tasks.length}
               </span>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight">{fullscreenTask.title}</h3>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight truncate">{fullscreenTask.title}</h3>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {tasks.length > 1 && (
                 <>
                   <button

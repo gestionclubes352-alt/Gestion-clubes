@@ -245,7 +245,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return (
       <div className="animate-fade-in space-y-6 h-full flex flex-col relative pb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button onClick={() => setActiveTraining(null)} className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2">
               <i className="fa-solid fa-arrow-left"></i> {t('calendarView.back')}
             </button>
@@ -659,7 +659,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       {viewMode === 'table' && (
         <div className="w-full">
           <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
-            <div className="px-10 py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
               <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest flex items-center gap-2">
                 <i className="fa-solid fa-person-running"></i> {t('calendarView.sessionsTitle')}
               </h4>
@@ -741,24 +741,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       {viewMode === 'calendar' && (
       <div className="flex-1 w-full">
         <div className="bg-white rounded-4xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
-          <div className="px-10 py-8 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+          <div className="px-4 md:px-10 py-4 md:py-8 border-b border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
             <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest">{ t('calendarView.monthlyCalendar')}</h4>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[var(--accent)] font-black"><i className="fa-solid fa-chevron-left"></i></button>
               <span className="font-black text-[var(--accent)] text-lg">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
               <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[var(--accent)] font-black"><i className="fa-solid fa-chevron-right"></i></button>
             </div>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="grid grid-cols-7 gap-2 mb-2">
+          <div className="flex-1 p-3 md:p-6 overflow-y-auto">
+            <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
               {orderedDayNamesLong.map(day => (
-                <div key={day} className="text-xs font-black text-slate-400 uppercase text-center py-2">{day.slice(0,3)}</div>
+                <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0,3)}</div>
               ))}
             </div>
             {getMonthMatrix(currentMonth).map((week, i) => (
-              <div key={i} className="grid grid-cols-7 gap-2 mb-2">
+              <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
                 {week.map((date, j) => (
-                  <div key={j} className={`min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'}`}>
+                  <div key={j} className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'}`}>
                     {date && date.getMonth() === currentMonth.getMonth() && (
                       <button
                         className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
@@ -777,7 +777,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                           </span>
                           <button
                             onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
-                            className="hidden group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full text-red-400 hover:text-white hover:bg-red-500 flex-shrink-0 transition-all"
+                            className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full text-red-400 hover:text-white hover:bg-red-500 flex-shrink-0 transition-all"
                             title={t('common.delete')}
                           >
                             <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
@@ -798,7 +798,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       {viewMode === 'calendar' && filteredEvents.length > 0 && (
         <div className="w-full">
           <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
-            <div className="px-10 py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
               <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest flex items-center gap-2">
                 <i className="fa-solid fa-person-running"></i> {t('calendarView.sessionsTitle')}
               </h4>
@@ -810,7 +810,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 return (
                   <div
                     key={ev.id}
-                    className="w-full flex items-center gap-4 px-10 py-4 hover:bg-slate-50 transition text-left group"
+                    className="w-full flex items-center gap-4 px-4 md:px-10 py-3 md:py-4 hover:bg-slate-50 transition text-left group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex flex-col items-center justify-center flex-shrink-0 shadow cursor-pointer" onClick={() => handleEventClick(ev)}>
                       <span className="text-[10px] font-black uppercase leading-none">{monthNames[d.getMonth()].slice(0, 3)}</span>
@@ -828,7 +828,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     </div>
                     <button
                       onClick={() => onDeleteEvent(String(ev.id))}
-                      className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
+                      className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0"
                       title={t('common.delete')}
                     >
                       <i className="fa-solid fa-trash-can text-sm"></i>

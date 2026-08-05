@@ -182,11 +182,21 @@ const buildOfficialStandings = (teams: CompetitionTeam[], clubId: string): Stand
  * Genera datos de clasificación simulados a partir de los equipos reales.
  * Ordena por puntos descendente y asigna posición.
  */
+/** Convierte un id (numérico o string, p.ej. UUID de Supabase) en un número estable para usar como semilla. */
+const idToSeed = (id: number | string): number => {
+  if (typeof id === 'number') return id;
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+};
+
 const generateStandingsFromTeams = (teams: CompetitionTeam[], myTeamName: string): StandingTeam[] => {
   if (teams.length === 0) return [];
 
   const standings = teams.map(team => {
-    const seed = team.id * 7 + 3;
+    const seed = idToSeed(team.id) * 7 + 3;
     const isMyTeam = team.nombre.toLowerCase().includes(myTeamName.toLowerCase());
     
     const played = 18;

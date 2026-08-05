@@ -4,7 +4,7 @@ import { Campograma } from '../types';
 interface CampogramaGridProps {
   campogramas: Campograma[];
   onSelect: (camp: Campograma) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number | string) => void;
 }
 
 const CampogramaGrid: React.FC<CampogramaGridProps> = ({ campogramas, onSelect, onDelete }) => {

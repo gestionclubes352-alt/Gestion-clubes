@@ -27,13 +27,15 @@ function createTableService<T extends { id: string | number }>(tableName: string
     },
 
     async create(item: Partial<T>) {
-      const { data, error } = await supabase.from(tableName).insert(item).select().single();
+      // Cast a `any`: el cliente de Supabase no está tipado con el schema de la BD,
+      // por lo que `insert`/`update` no pueden validar T genérico contra sus overloads.
+      const { data, error } = await supabase.from(tableName).insert(item as any).select().single();
       if (error) throw error;
       return data as T;
     },
 
     async update(id: string | number, item: Partial<T>) {
-      const { data, error } = await supabase.from(tableName).update(item).eq('id', id).select().single();
+      const { data, error } = await supabase.from(tableName).update(item as any).eq('id', id).select().single();
       if (error) throw error;
       return data as T;
     },
@@ -702,14 +704,19 @@ export const db = {
   exercises: createExercisesStore(),
   match_reports: createMatchReportsStore(),
   injuries: createLegacyStub(),
+  fitness_profiles: createLegacyStub(),
+  medical_checkups: createLegacyStub(),
+  medical_records: createLegacyStub(),
+  rehab_programs: createLegacyStub(),
 };
 
 export function setActiveTeamId(_teamId: string): void { /* pendiente de migrar */ }
 export function getActiveTeamId(): string | null { return null; }
 
 export interface LegacyTeamConfig {
+  leagueId?: string | number;
   leagueName?: string;
-  teamId?: string;
+  teamId?: string | number;
   teamName?: string;
   teamShortName?: string;
   teamLogo?: string;

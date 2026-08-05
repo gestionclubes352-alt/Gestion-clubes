@@ -52,3 +52,8 @@ export * from './modules';
 // Re-export todo desde shared
 export * from './shared';
 
+// Nombres ambiguos entre módulos y shared: se re-exportan explícitamente
+// para que el componente (módulo) gane sobre el tipo de fila de BD homónimo.
+export type { PizarraTactica } from './modules';
+export type { UserRole } from './modules';
+

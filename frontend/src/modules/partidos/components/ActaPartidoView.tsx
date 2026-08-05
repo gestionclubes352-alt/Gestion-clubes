@@ -23,13 +23,13 @@ const MatchCard: React.FC<{
   <div className="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-2xl p-4 transition-all group">
     <div className="flex items-center gap-3">
       {/* Local */}
-      <div className="flex-1 text-right">
-        <span className="text-[11px] font-bold text-white/80 leading-tight">{match.localTeam}</span>
+      <div className="flex-1 min-w-0 text-right">
+        <span className="block truncate text-[11px] font-bold text-white/80 leading-tight">{match.localTeam}</span>
       </div>
-      {match.localLogo && <img src={match.localLogo} alt="" className="w-7 h-7 object-contain" />}
+      {match.localLogo && <img src={match.localLogo} alt="" className="w-7 h-7 object-contain shrink-0" />}
 
       {/* Score */}
-      <div className="px-3 min-w-[60px] text-center">
+      <div className="px-3 min-w-[60px] shrink-0 text-center">
         {match.score ? (
           <span className="text-sm font-black text-white">{match.score}</span>
         ) : (
@@ -38,9 +38,9 @@ const MatchCard: React.FC<{
       </div>
 
       {/* Visitor */}
-      {match.visitorLogo && <img src={match.visitorLogo} alt="" className="w-7 h-7 object-contain" />}
-      <div className="flex-1 text-left">
-        <span className="text-[11px] font-bold text-white/80 leading-tight">{match.visitorTeam}</span>
+      {match.visitorLogo && <img src={match.visitorLogo} alt="" className="w-7 h-7 object-contain shrink-0" />}
+      <div className="flex-1 min-w-0 text-left">
+        <span className="block truncate text-[11px] font-bold text-white/80 leading-tight">{match.visitorTeam}</span>
       </div>
     </div>
 
@@ -248,31 +248,31 @@ const ActaPartidoView: React.FC = () => {
   const renderJornada = () => (
     <div className="animate-fade-in max-w-3xl mx-auto">
       {/* Header con navegación */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         {/* Botón de ajustes de competición */}
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-white/60 bg-white/5 hover:bg-white/10 transition-all"
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-white/20 hover:text-white/60 bg-white/5 hover:bg-white/10 transition-all shrink-0"
           title="Cambiar competición"
         >
           <i className="fa-solid fa-gear text-[10px]"></i>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 order-last w-full justify-center sm:order-none sm:w-auto">
           <button
             onClick={() => navigateJornada(-1)}
             disabled={currentJornada <= 1 || loading}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all shrink-0"
           >
             <i className="fa-solid fa-chevron-left text-[10px]"></i>
           </button>
 
-          <div className="text-center min-w-[180px]">
+          <div className="text-center min-w-[120px] sm:min-w-[180px]">
             <h3 className="text-sm font-black text-white uppercase tracking-widest">
               Jornada {currentJornada}
             </h3>
             {jornadaData?.competitionName && (
-              <p className="text-[8px] text-white/20 font-medium tracking-wider mt-0.5">
+              <p className="text-[8px] text-white/20 font-medium tracking-wider mt-0.5 truncate">
                 {jornadaData.competitionName}
               </p>
             )}
@@ -281,7 +281,7 @@ const ActaPartidoView: React.FC = () => {
           <button
             onClick={() => navigateJornada(1)}
             disabled={currentJornada >= totalJornadas || loading}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all shrink-0"
           >
             <i className="fa-solid fa-chevron-right text-[10px]"></i>
           </button>
@@ -291,7 +291,7 @@ const ActaPartidoView: React.FC = () => {
         <select
           value={currentJornada}
           onChange={(e) => goToJornada(parseInt(e.target.value, 10))}
-          className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-white/60 outline-none cursor-pointer hover:bg-white/10 transition-all"
+          className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-white/60 outline-none cursor-pointer hover:bg-white/10 transition-all shrink-0"
         >
           {Array.from({ length: totalJornadas }, (_, i) => i + 1).map(j => (
             <option key={j} value={j} className="bg-[#1a1a1a]">J{j}</option>
@@ -385,29 +385,29 @@ const ActaPartidoView: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-6 py-4">
+          <div className="flex items-center justify-center gap-3 sm:gap-6 py-4">
             {/* Home */}
-            <div className="flex-1 text-right flex items-center justify-end gap-3">
-              <span className="text-sm font-black text-white">{actaData.homeTeam.name}</span>
-              {actaData.homeTeam.logoUrl && <img src={actaData.homeTeam.logoUrl} alt="" className="w-12 h-12 object-contain" />}
+            <div className="flex-1 min-w-0 text-right flex items-center justify-end gap-3">
+              <span className="truncate text-sm font-black text-white">{actaData.homeTeam.name}</span>
+              {actaData.homeTeam.logoUrl && <img src={actaData.homeTeam.logoUrl} alt="" className="w-12 h-12 object-contain shrink-0" />}
             </div>
 
             {/* Score */}
-            <div className="px-6">
+            <div className="px-3 sm:px-6 shrink-0">
               <div className="text-3xl font-black text-white tracking-wider">
                 {actaData.homeScore} <span className="text-white/20 mx-1">-</span> {actaData.awayScore}
               </div>
             </div>
 
             {/* Away */}
-            <div className="flex-1 text-left flex items-center gap-3">
-              {actaData.awayTeam.logoUrl && <img src={actaData.awayTeam.logoUrl} alt="" className="w-12 h-12 object-contain" />}
-              <span className="text-sm font-black text-white">{actaData.awayTeam.name}</span>
+            <div className="flex-1 min-w-0 text-left flex items-center gap-3">
+              {actaData.awayTeam.logoUrl && <img src={actaData.awayTeam.logoUrl} alt="" className="w-12 h-12 object-contain shrink-0" />}
+              <span className="truncate text-sm font-black text-white">{actaData.awayTeam.name}</span>
             </div>
           </div>
 
           {/* Match info */}
-          <div className="flex items-center justify-center gap-6 text-[9px] text-white/30">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[9px] text-white/30">
             <span><i className="fa-regular fa-calendar mr-1"></i>{actaData.date} {actaData.time}</span>
             {actaData.stadium && <span><i className="fa-solid fa-location-dot mr-1"></i>{actaData.stadium}</span>}
             {actaData.city && <span>{actaData.city}</span>}

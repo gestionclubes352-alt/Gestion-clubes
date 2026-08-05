@@ -75,7 +75,7 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
           </div>
 
           {/* Etapa y Equipo */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
                 Etapa

@@ -386,7 +386,7 @@ function DataTable<T extends Record<string, any>>({
 
   // Debounced search
   const [searchInput, setSearchInput] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);

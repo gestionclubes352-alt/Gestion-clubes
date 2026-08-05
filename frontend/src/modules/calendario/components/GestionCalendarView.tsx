@@ -252,7 +252,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     {inMonth && onCreateEvent && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onCreateEvent(); }}
-                        className="w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:!opacity-100 shadow-sm"
+                        className="w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:!opacity-100 shadow-sm"
                         title={t('calendarView.newEvent')}
                       >
                         <i className="fa-solid fa-plus text-[8px]"></i>
@@ -508,7 +508,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl animate-fade-in"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 p-6">

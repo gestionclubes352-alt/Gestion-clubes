@@ -50,11 +50,7 @@ const TaskRepositoryView: React.FC = () => {
     let result = [...tasks];
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(t =>
-        t.name.toLowerCase().includes(q) ||
-        t.description?.toLowerCase().includes(q) ||
-        t.tags?.some(tag => tag.includes(q))
-      );
+      result = result.filter(t => t.name.toLowerCase().includes(q));
     }
     return result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [tasks, search]);
@@ -106,18 +102,12 @@ const TaskRepositoryView: React.FC = () => {
     }
   };
 
-  const handleToggleFavorite = async (task: TrainingTask) => {
-    await db.task_templates.upsert({ ...task, isFavorite: !task.isFavorite, updatedAt: new Date().toISOString() });
-    await fetchTasks();
-  };
-
   const handleDuplicate = async (task: TrainingTask) => {
     const now = new Date().toISOString();
     const dup: TrainingTask = {
       ...task,
       id: crypto.randomUUID(),
       name: `${task.name} (copia)`,
-      isFavorite: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -234,7 +224,7 @@ const TaskRepositoryView: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
+            <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
               <button onClick={() => { openInDesigner(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-chess-board"></i> {t('taskRepository.openDesigner')}
               </button>

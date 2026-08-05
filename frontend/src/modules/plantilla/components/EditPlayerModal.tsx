@@ -767,29 +767,31 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           )}
         </div>
 
-        <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-center gap-3 sticky bottom-0">
-          <button 
-            disabled={isSaving}
-            onClick={onClose} 
-            className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
-            title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
-          >
-            <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
-          </button>
-          <button
-            type="button"
-            onClick={exportPlayerProfile}
-            className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
-          >
-            {t('editPlayer.exportPdf')}
-          </button>
+        <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-center gap-3 sticky bottom-0">
+          <div className="grid grid-cols-3 sm:contents gap-3">
+            <button
+              disabled={isSaving}
+              onClick={onClose}
+              className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+              title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
+            >
+              <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
+            </button>
+            <button
+              type="button"
+              onClick={exportPlayerProfile}
+              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+            >
+              {t('editPlayer.exportPdf')}
+            </button>
+          </div>
           <button
             disabled={isSaving || !formData.equipoId}
             onClick={handleSave}

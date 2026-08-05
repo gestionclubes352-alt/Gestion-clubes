@@ -1012,7 +1012,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                 <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} squad={filteredSquadList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />
+                <GestionCalendarView events={filteredEventsList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -1066,7 +1066,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         equipos={competitionTeams}
         onClose={() => setEditingPlayer(null)}
         onSave={async (p, originalId) => {
-          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || currentTeam?.competition || '' }, originalId);
+          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || '' }, originalId);
           if (!toSave.equipoId) { alert('Selecciona un equipo antes de guardar.'); return; }
           const payload = {
             equipo_id: String(toSave.equipoId),

@@ -81,6 +81,7 @@ export interface EventFormData {
 
 export const EVENT_COLORS: Record<EventType, string> = {
   Entrenamiento: 'bg-emerald-500',
+  Sesión: 'bg-emerald-500',
   Partido: 'bg-red-500',
   Otro: 'bg-gray-500',
   Actividad: 'bg-amber-500'
