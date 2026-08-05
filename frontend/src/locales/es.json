@@ -388,11 +388,13 @@
     "menus": "Menús",
     "appearance": "Apariencia",
     "notifications": "Notificaciones",
+    "competiciones": "Competiciones",
     "generalDesc": "Configuración general de la aplicación",
     "datasourcesDesc": "Gestiona las fuentes de datos",
     "menusDesc": "Elige qué secciones mostrar",
     "roles": "Roles y Permisos",
     "rolesDesc": "Gestiona permisos por rol",
+    "competitionsDesc": "Configura las competiciones y sus partes",
     "appearanceDesc": "Personaliza la interfaz",
     "notificationsDesc": "Configura las alertas"
   },

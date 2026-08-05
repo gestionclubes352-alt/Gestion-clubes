@@ -8,9 +8,10 @@ import { useTranslation } from 'react-i18next';
 import DataSourceSettings from './DataSourceSettings';
 import MenuVisibilitySettings from './MenuVisibilitySettings';
 import RolesPermissionsSettings from './RolesPermissionsSettings';
+import { CompetitionsConfigView } from '@modules/competicion';
 import { AVAILABLE_LANGUAGES, changeLanguage, type LanguageCode } from '../../../locales';
 
-type SettingsTab = 'general' | 'datasources' | 'menus' | 'roles' | 'appearance' | 'notifications';
+type SettingsTab = 'general' | 'datasources' | 'menus' | 'roles' | 'appearance' | 'notifications' | 'competiciones';
 
 interface TabConfig {
   id: SettingsTab;
@@ -24,6 +25,7 @@ const TABS: TabConfig[] = [
   { id: 'datasources', label: 'Data Sources', icon: 'fa-database', description: 'settingsTabs.datasourcesDesc' },
   { id: 'menus', label: 'Menus', icon: 'fa-bars', description: 'settingsTabs.menusDesc' },
   { id: 'roles', label: 'Roles y Permisos', icon: 'fa-shield-halved', description: 'settingsTabs.rolesDesc' },
+  { id: 'competiciones', label: 'Competiciones', icon: 'fa-trophy', description: 'settingsTabs.competitionsDesc' },
   { id: 'appearance', label: 'Appearance', icon: 'fa-palette', description: 'settingsTabs.appearanceDesc' },
   { id: 'notifications', label: 'Notifications', icon: 'fa-bell', description: 'settingsTabs.notificationsDesc' }
 ];
@@ -161,6 +163,8 @@ const SettingsPage: React.FC = () => {
               {activeTab === 'menus' && <MenuVisibilitySettings />}
 
               {activeTab === 'roles' && <RolesPermissionsSettings />}
+
+              {activeTab === 'competiciones' && <CompetitionsConfigView />}
 
               {activeTab === 'appearance' && (
                 <div className="space-y-6">

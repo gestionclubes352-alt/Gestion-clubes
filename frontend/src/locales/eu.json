@@ -388,11 +388,13 @@
     "menus": "Menuak",
     "appearance": "Itxura",
     "notifications": "Jakinarazpenak",
+    "competiciones": "Lehiaketak",
     "generalDesc": "Aplikazioaren ezarpen orokorrak",
     "datasourcesDesc": "Kudeatu datu iturriak",
     "menusDesc": "Aukeratu zein atal erakutsi",
     "roles": "Rolak eta Baimenak",
     "rolesDesc": "Kudeatu baimenak rolaren arabera",
+    "competitionsDesc": "Konfiguratu lehiaketak eta haien zatiak",
     "appearanceDesc": "Pertsonalizatu interfazea",
     "notificationsDesc": "Konfiguratu alertak"
   },
