@@ -238,6 +238,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [showArrows, setShowArrows] = useState(true);
   const [showMaterial, setShowMaterial] = useState(true);
   const [arrowColor, setArrowColor] = useState('#ffffff');
+  const [arrowStrokeWidth, setArrowStrokeWidth] = useState(0.3);
   
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
@@ -886,6 +887,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           locked: false,
           zIndex: nextZ,
           color: arrowColor,
+          strokeWidth: arrowStrokeWidth,
           arrowStart: { x: arrow.startX, y: arrow.startY },
           arrowEnd: { x: arrow.endX, y: arrow.endY },
         };
@@ -1429,19 +1431,36 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                 ))}
               </div>
               {selectedTool?.startsWith('arrow-') && (
-                <div className="grid grid-cols-6 gap-1.5">
-                  {TEXT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setArrowColor(c)}
-                      style={{ backgroundColor: c }}
-                      className={`h-6 w-6 rounded-full border-2 transition-all ${arrowColor === c ? 'border-[var(--accent)] scale-110' : 'border-slate-200 hover:scale-105'}`}
-                      aria-label={`Color de flecha ${c}`}
-                      title={c}
+                <>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {TEXT_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setArrowColor(c)}
+                        style={{ backgroundColor: c }}
+                        className={`h-6 w-6 rounded-full border-2 transition-all ${arrowColor === c ? 'border-[var(--accent)] scale-110' : 'border-slate-200 hover:scale-105'}`}
+                        aria-label={`Color de flecha ${c}`}
+                        title={c}
+                      />
+                    ))}
+                  </div>
+                  <div className="rounded-lg bg-white/5 border border-white/10 p-2.5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Grosor</span>
+                      <span className="text-[9px] font-black text-[var(--accent)]">{arrowStrokeWidth.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      value={arrowStrokeWidth}
+                      onChange={(e) => setArrowStrokeWidth(parseFloat(e.target.value))}
+                      className="w-full accent-[var(--accent)] bg-white/10 h-1 rounded-lg appearance-none cursor-pointer"
                     />
-                  ))}
-                </div>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -1666,29 +1685,88 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                   </div>
                 )}
 
-                {arrowCreationLine && (
-                  <svg
-                    className="absolute inset-0 w-full h-full pointer-events-none z-[9]"
-                    style={{ overflow: 'visible' }}
-                  >
-                    <line
-                      x1={`${arrowCreationLine.startX}%`}
-                      y1={`${arrowCreationLine.startY}%`}
-                      x2={`${arrowCreationLine.endX}%`}
-                      y2={`${arrowCreationLine.endY}%`}
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeDasharray={selectedTool?.includes('dashed') ? '5,5' : '0'}
-                      markerEnd="url(#arrowhead)"
-                      opacity="0.8"
-                    />
-                    <defs>
-                      <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                        <polygon points="0 0, 10 3, 0 6" fill="white" />
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none z-[9]"
+                  preserveAspectRatio="none"
+                  viewBox="0 0 100 100"
+                >
+                  <defs>
+                    {TEXT_COLORS.map((color, i) => (
+                      <marker key={`arrow-${i}`} id={`arrowhead-${i}`} markerWidth="8" markerHeight="8" refX="7" refY="2.5" orient="auto">
+                        <polygon points="0 0, 8 2.5, 0 5" fill={color} />
                       </marker>
-                    </defs>
-                  </svg>
-                )}
+                    ))}
+                  </defs>
+
+                  {arrowCreationLine && (
+                    <>
+                      {selectedTool?.includes('curve') ? (
+                        <path
+                          d={`M ${arrowCreationLine.startX} ${arrowCreationLine.startY} Q ${(arrowCreationLine.startX + arrowCreationLine.endX) / 2} ${Math.min(arrowCreationLine.startY, arrowCreationLine.endY) - 15} ${arrowCreationLine.endX} ${arrowCreationLine.endY}`}
+                          stroke="white"
+                          strokeWidth={arrowStrokeWidth}
+                          fill="none"
+                          strokeDasharray={selectedTool?.includes('dashed') ? '1.5,1.5' : '0'}
+                          markerEnd="url(#arrowhead-0)"
+                          strokeLinecap="round"
+                          opacity="0.8"
+                        />
+                      ) : (
+                        <line
+                          x1={arrowCreationLine.startX}
+                          y1={arrowCreationLine.startY}
+                          x2={arrowCreationLine.endX}
+                          y2={arrowCreationLine.endY}
+                          stroke="white"
+                          strokeWidth={arrowStrokeWidth}
+                          strokeDasharray={selectedTool?.includes('dashed') ? '1.5,1.5' : '0'}
+                          markerEnd="url(#arrowhead-0)"
+                          strokeLinecap="round"
+                          opacity="0.8"
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {sortedItems.map((item) => {
+                    if (!item.type?.startsWith('arrow-') || !item.arrowStart || !item.arrowEnd) return null;
+                    const colorIndex = TEXT_COLORS.indexOf(item.color || '#ffffff');
+                    const markerIndex = colorIndex >= 0 ? colorIndex : 0;
+                    const isCurved = item.type.includes('curve');
+                    const strokeW = item.strokeWidth ?? 0.3;
+                    return isCurved ? (
+                      <path
+                        key={item.id}
+                        d={`M ${item.arrowStart.x} ${item.arrowStart.y} Q ${(item.arrowStart.x + item.arrowEnd.x) / 2} ${Math.min(item.arrowStart.y, item.arrowEnd.y) - 15} ${item.arrowEnd.x} ${item.arrowEnd.y}`}
+                        stroke={item.color || '#ffffff'}
+                        strokeWidth={strokeW}
+                        fill="none"
+                        strokeDasharray={item.type.includes('dashed') ? '1.5,1.5' : '0'}
+                        markerEnd={`url(#arrowhead-${markerIndex})`}
+                        strokeLinecap="round"
+                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                        onClick={(e) => { e.stopPropagation(); selectItemOnly(item.id); }}
+                        opacity={selectedIds.includes(item.id) ? '1' : '0.85'}
+                      />
+                    ) : (
+                      <line
+                        key={item.id}
+                        x1={item.arrowStart.x}
+                        y1={item.arrowStart.y}
+                        x2={item.arrowEnd.x}
+                        y2={item.arrowEnd.y}
+                        stroke={item.color || '#ffffff'}
+                        strokeWidth={strokeW}
+                        strokeDasharray={item.type.includes('dashed') ? '1.5,1.5' : '0'}
+                        markerEnd={`url(#arrowhead-${markerIndex})`}
+                        strokeLinecap="round"
+                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                        onClick={(e) => { e.stopPropagation(); selectItemOnly(item.id); }}
+                        opacity={selectedIds.includes(item.id) ? '1' : '0.85'}
+                      />
+                    );
+                  })}
+                </svg>
 
                 {zoneCreationBox && zoneCreationRef.current?.moved && (
                   <div
@@ -1839,49 +1917,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         {item.text}
                       </div>
                     ) : item.type?.startsWith('arrow-') ? (
-                      <svg
-                        viewBox={`0 0 ${pitchRef.current?.clientWidth || 100} ${pitchRef.current?.clientHeight || 100}`}
-                        className="absolute inset-0 w-full h-full pointer-events-none"
-                        style={{ overflow: 'visible' }}
-                      >
-                        {item.arrowStart && item.arrowEnd && (() => {
-                          const rect = pitchRef.current?.getBoundingClientRect();
-                          if (!rect) return null;
-                          const x1 = (item.arrowStart.x / 100) * rect.width;
-                          const y1 = (item.arrowStart.y / 100) * rect.height;
-                          const x2 = (item.arrowEnd.x / 100) * rect.width;
-                          const y2 = (item.arrowEnd.y / 100) * rect.height;
-                          const isCurved = item.type?.includes('curve');
-                          return isCurved ? (
-                            <path
-                              d={`M ${x1} ${y1} Q ${(x1 + x2) / 2} ${Math.min(y1, y2) - 30} ${x2} ${y2}`}
-                              stroke={item.color || '#ffffff'}
-                              strokeWidth="3"
-                              fill="none"
-                              strokeDasharray={item.type?.includes('dashed') ? '5,5' : '0'}
-                              markerEnd="url(#arrowhead-filled)"
-                              strokeLinecap="round"
-                            />
-                          ) : (
-                            <line
-                              x1={x1}
-                              y1={y1}
-                              x2={x2}
-                              y2={y2}
-                              stroke={item.color || '#ffffff'}
-                              strokeWidth="3"
-                              strokeDasharray={item.type?.includes('dashed') ? '5,5' : '0'}
-                              markerEnd="url(#arrowhead-filled)"
-                              strokeLinecap="round"
-                            />
-                          );
-                        })()}
-                        <defs>
-                          <marker id="arrowhead-filled" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill={item.color || '#ffffff'} />
-                          </marker>
-                        </defs>
-                      </svg>
+                      <div className={`absolute pointer-events-none select-none ${animationClass}`} />
                     ) : item.type?.startsWith('player-') ? (
                       <div
                         style={{ backgroundColor: item.color || SQUAD_PLAYER_COLOR }}
@@ -2103,7 +2139,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       {selectedItem.type?.startsWith('arrow-') && (
                         <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
                           <span className="mb-2 block text-[8px] font-black uppercase tracking-widest text-slate-500">Color</span>
-                          <div className="grid grid-cols-6 gap-2">
+                          <div className="grid grid-cols-6 gap-2 mb-4">
                             {TEXT_COLORS.map((c) => (
                               <button
                                 key={c}
@@ -2114,6 +2150,25 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                                 title={c}
                               />
                             ))}
+                          </div>
+                          <div>
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Grosor</span>
+                              <span className="text-[10px] font-black text-red-400">{(selectedItem.strokeWidth ?? 0.3).toFixed(2)}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0.1"
+                              max="1"
+                              step="0.05"
+                              value={selectedItem.strokeWidth ?? 0.3}
+                              onChange={(e) => { pushHistoryNow(); updateSelectedItem({ strokeWidth: parseFloat(e.target.value) }); }}
+                              onMouseDown={beginHistorySnapshot}
+                              onMouseUp={commitHistorySnapshot}
+                              onTouchStart={beginHistorySnapshot}
+                              onTouchEnd={commitHistorySnapshot}
+                              className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer"
+                            />
                           </div>
                         </div>
                       )}

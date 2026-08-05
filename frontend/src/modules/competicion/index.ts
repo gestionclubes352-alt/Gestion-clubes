@@ -4,6 +4,7 @@
 export { default as CompetitionTable } from './components/CompetitionTable';
 export { default as EditTeamModal } from './components/EditTeamModal';
 export { default as LeagueTable } from './components/LeagueTable';
+export { default as CompetitionsConfigView } from './components/CompetitionsConfigView';
 
 // Hooks
 export { useGeminiStandings } from './hooks';

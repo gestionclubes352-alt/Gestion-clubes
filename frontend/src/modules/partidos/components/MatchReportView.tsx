@@ -17,8 +17,7 @@ import { useTranslation } from 'react-i18next';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
-  | 'rivalAbpOffCorners' | 'rivalAbpOffLateralFouls' | 'rivalAbpDefCorners' | 'rivalAbpDefLateralFouls' | 'rivalAbpDefFrontalFouls'
-  | 'planAbpOffCorners' | 'planAbpOffLateralFouls' | 'planAbpDefCorners' | 'planAbpDefLateralFouls' | 'planAbpDefFrontalFouls';
+  | 'rivalAbpOffCorners' | 'rivalAbpOffLateralFouls' | 'rivalAbpDefCorners' | 'rivalAbpDefLateralFouls' | 'rivalAbpDefFrontalFouls';
 
 const newAbpItem = (): AbpItem => ({ id: crypto.randomUUID(), text: '', image: '', video: '' });
 
@@ -333,15 +332,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     planSinBalonVideo: '',
     planSinBalonDoc: '',
     planSinBalonImages: [],
-    planAbpText: '',
-    planAbpVideo: '',
-    planAbpDoc: '',
-    planAbpImages: [],
-    planAbpOffCorners: [newAbpItem(), newAbpItem(), newAbpItem(), newAbpItem()],
-    planAbpOffLateralFouls: [newAbpItem(), newAbpItem()],
-    planAbpDefCorners: [newAbpItem()],
-    planAbpDefLateralFouls: [newAbpItem()],
-    planAbpDefFrontalFouls: [newAbpItem()],
 
     abpOffCorners: [newAbpItem(), newAbpItem(), newAbpItem(), newAbpItem()],
     abpOffLateralFouls: [newAbpItem(), newAbpItem()],
@@ -2255,52 +2245,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </div>
         ))}
       </div>
-
-      {/* BLOQUE ABP */}
-      <div className="space-y-10 mt-12">
-        <div className="flex items-center justify-center">
-          <div className="bg-[var(--surface-0)] border border-[var(--border-soft)] text-[var(--text-strong)] text-[10px] font-black uppercase tracking-[0.3em] px-6 py-2 rounded-full">{t('matchReport.abp.title')}</div>
-        </div>
-
-        {/* OFENSIVO */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-center">
-            <div className="bg-[var(--surface-0)] border border-[var(--border-soft)] text-[var(--text-strong)] text-[9px] font-black uppercase tracking-[0.3em] px-6 py-2 rounded-md">{t('matchReport.abp.offensive')}</div>
-          </div>
-          <div className="text-center text-[9px] font-black uppercase tracking-[0.25em] mt-4 text-[var(--text-muted)]">{t('matchReport.abp.corners')}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getAbpList('planAbpOffCorners').map((item, idx, arr) => renderAbpCard('planAbpOffCorners', item, abpLabel(t('matchReport.abp.corner'), idx, arr.length)))}
-            {renderAddAbpCard('planAbpOffCorners')}
-          </div>
-          <div className="text-center text-[9px] font-black uppercase tracking-[0.25em] mt-4 text-[var(--text-muted)]">{t('matchReport.abp.lateralFouls')}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getAbpList('planAbpOffLateralFouls').map((item, idx, arr) => renderAbpCard('planAbpOffLateralFouls', item, abpLabel(t('matchReport.abp.lateralFoul'), idx, arr.length)))}
-            {renderAddAbpCard('planAbpOffLateralFouls')}
-          </div>
-        </div>
-
-        {/* DEFENSIVO */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-center">
-            <div className="bg-[var(--surface-0)] border border-[var(--border-soft)] text-[var(--text-strong)] text-[9px] font-black uppercase tracking-[0.3em] px-6 py-2 rounded-md">{t('matchReport.abp.defensive')}</div>
-          </div>
-          <div className="text-center text-[9px] font-black uppercase tracking-[0.25em] mt-4 text-[var(--text-muted)]">{t('matchReport.abp.corners')}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getAbpList('planAbpDefCorners').map((item, idx, arr) => renderAbpCard('planAbpDefCorners', item, abpLabel(t('matchReport.abp.corner'), idx, arr.length)))}
-            {renderAddAbpCard('planAbpDefCorners')}
-          </div>
-          <div className="text-center text-[9px] font-black uppercase tracking-[0.25em] mt-4 text-[var(--text-muted)]">{t('matchReport.abp.lateralFouls')}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getAbpList('planAbpDefLateralFouls').map((item, idx, arr) => renderAbpCard('planAbpDefLateralFouls', item, abpLabel(t('matchReport.abp.lateralFoul'), idx, arr.length)))}
-            {renderAddAbpCard('planAbpDefLateralFouls')}
-          </div>
-          <div className="text-center text-[9px] font-black uppercase tracking-[0.25em] mt-4 text-[var(--text-muted)]">{t('matchReport.abp.frontalFouls')}</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getAbpList('planAbpDefFrontalFouls').map((item, idx, arr) => renderAbpCard('planAbpDefFrontalFouls', item, abpLabel(t('matchReport.abp.frontalFoul'), idx, arr.length)))}
-            {renderAddAbpCard('planAbpDefFrontalFouls')}
-          </div>
-        </div>
-      </div>
     </div>
   );
 
@@ -2996,12 +2940,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
               <i className="fa-solid fa-hashtag mr-2"></i>{t('newEvent.matchday')}
             </label>
-            <input
+            <select
               value={dgForm.jornada}
               onChange={(e) => setDgForm({ ...dgForm, jornada: e.target.value })}
-              placeholder={t('newEvent.matchdayPlaceholder')}
               className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
-            />
+            >
+              <option value="">{t('newEvent.matchday')}</option>
+              <option value="-">-</option>
+              {Array.from({ length: 38 }, (_, i) => (
+                <option key={i + 1} value={String(i + 1)}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -3027,18 +2978,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
-            <i className="fa-solid fa-futbol mr-2"></i>{t('matches.result')}
-          </label>
-          <input
-            value={dgForm.score}
-            onChange={(e) => setDgForm({ ...dgForm, score: e.target.value })}
-            placeholder={t('newEvent.resultPlaceholder')}
-            className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
-          />
         </div>
 
         <div className="flex items-center justify-between gap-4 pt-4 border-t border-[var(--border-soft)]">

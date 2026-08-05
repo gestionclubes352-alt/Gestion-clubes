@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
+
+interface CompetitionConfig {
+  id: string;
+  nombre: string;
+  partes: number;
+  minutosPorParte: number;
+}
 
 interface EditTeamModalProps {
   team: CompetitionTeam;
@@ -13,6 +20,18 @@ interface EditTeamModalProps {
 const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onClose, onSave }) => {
   const [formData, setFormData] = useState<CompetitionTeam>({ ...team });
   const [isSaving, setIsSaving] = useState(false);
+  const [competiciones, setCompeticiones] = useState<CompetitionConfig[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('competiciones-config');
+    if (saved) {
+      try {
+        setCompeticiones(JSON.parse(saved));
+      } catch {
+        setCompeticiones([]);
+      }
+    }
+  }, []);
 
   const handleClubChange = (selectedClubId: string) => {
     const club = clubes.find(c => String(c.id) === selectedClubId);
@@ -114,13 +133,23 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
               Competición
             </label>
-            <input
-              type="text"
-              value={formData.competicion || ''}
-              onChange={(e) => setFormData({ ...formData, competicion: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              placeholder="Ej: Liga nacional juvenil, División honor cadete"
-            />
+            {competiciones.length === 0 ? (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                <i className="fa-solid fa-circle-info"></i>
+                No hay competiciones creadas. Crea una en Configuración.
+              </div>
+            ) : (
+              <select
+                value={formData.competicion || ''}
+                onChange={(e) => setFormData({ ...formData, competicion: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              >
+                <option value="">-- Selecciona una competición --</option>
+                {competiciones.map(comp => (
+                  <option key={comp.id} value={comp.nombre}>{comp.nombre}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
