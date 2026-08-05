@@ -25,9 +25,10 @@ interface LatestMatchesProps {
   onCreate?: () => void;
   competitionTeams?: CompetitionTeam[];
   clubes?: Club[];
+  onSelectPlayer?: (playerId: string) => void;
 }
 
-const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [] }) => {
+const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [], onSelectPlayer }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'MATCHES' | 'STATS'>('MATCHES');
 
@@ -83,7 +84,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       </div>
 
       {activeTab === 'STATS' ? (
-        <PlayerStatsSummary matches={matches} />
+        <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {matches.map((match) => {

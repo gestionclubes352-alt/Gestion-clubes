@@ -11,7 +11,6 @@ import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
-import { authService } from '@shared/services/authService';
 import { uploadMatchReportFile } from '@shared/services/photoService';
 import { useTranslation } from 'react-i18next';
 
@@ -294,8 +293,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // YouTube upload state
   const [ytUploadProgress, setYtUploadProgress] = useState<YouTubeUploadProgress | null>(null);
   const [ytSelectedFile, setYtSelectedFile] = useState<File | null>(null);
+  const [ytTargetField, setYtTargetField] = useState<'videoUrl' | 'planVideoUrl'>('videoUrl');
   const ytAbortRef = useRef<AbortController | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
+  const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
 
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
@@ -1228,7 +1229,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   };
 
   // ── YouTube Upload Handlers ──────────────────────────────
-  const handleYtFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleYtFileSelect = (e: React.ChangeEvent<HTMLInputElement>, field: 'videoUrl' | 'planVideoUrl' = 'videoUrl') => {
     const file = e.target.files?.[0];
     if (!file) return;
     const validation = validateVideoFile(file);
@@ -1236,40 +1237,37 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       alert(validation.error);
       return;
     }
+    setYtTargetField(field);
     setYtSelectedFile(file);
     setYtUploadProgress(null);
   };
 
   const handleYtUpload = async () => {
     if (!ytSelectedFile) return;
-    const idToken = await authService.getIdToken();
-    if (!idToken) {
-      alert(t('matchReport.alerts.sessionExpired'));
-      return;
-    }
 
     const abort = new AbortController();
     ytAbortRef.current = abort;
 
+    const titlePrefix = ytTargetField === 'planVideoUrl' ? `${t('matchReport.playerUrl')} – ` : '';
     const title = match.localTeam && match.visitorTeam
-      ? `${match.localTeam} vs ${match.visitorTeam} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`
-      : `${t('matchReport.match')} ${match.id} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`;
+      ? `${titlePrefix}${match.localTeam} vs ${match.visitorTeam} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`
+      : `${titlePrefix}${t('matchReport.match')} ${match.id} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`;
 
     try {
-      const videoUrl = await uploadVideoToYouTube({
+      const uploadedUrl = await uploadVideoToYouTube({
         file: ytSelectedFile,
         title,
         description: `Subido desde IBL – ${match.competition || ''} ${match.jornada ? 'J' + match.jornada : ''}`.trim(),
         onProgress: setYtUploadProgress,
         signal: abort.signal,
-        idToken,
       });
 
       // Guardar la URL en el report
-      setReport(prev => ({ ...prev, videoUrl }));
-      persistReport({ ...report, videoUrl });
+      setReport(prev => ({ ...prev, [ytTargetField]: uploadedUrl }));
+      persistReport({ ...report, [ytTargetField]: uploadedUrl });
       setYtSelectedFile(null);
       if (ytFileInputRef.current) ytFileInputRef.current.value = '';
+      if (ytPlanFileInputRef.current) ytPlanFileInputRef.current.value = '';
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.error('[youtube-upload]', err);
@@ -1282,6 +1280,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     setYtUploadProgress(null);
     setYtSelectedFile(null);
     if (ytFileInputRef.current) ytFileInputRef.current.value = '';
+    if (ytPlanFileInputRef.current) ytPlanFileInputRef.current.value = '';
   };
 
   const renderEventos = () => (
@@ -2149,7 +2148,61 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div>
                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.playerUrl')}</label>
-                <input type="text" value={report.planVideoUrl} onChange={(e) => handleChange('planVideoUrl', e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                <div className="flex gap-2">
+                  <input type="text" value={report.planVideoUrl} onChange={(e) => handleChange('planVideoUrl', e.target.value)} className="flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                  <input
+                    ref={ytPlanFileInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => handleYtFileSelect(e, 'planVideoUrl')}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => ytPlanFileInputRef.current?.click()}
+                    title={t('matchReport.video.uploadToYoutubeTitle')}
+                    className="px-4 py-4 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-2xl text-red-400 transition-colors shrink-0"
+                  >
+                    <i className="fa-solid fa-cloud-arrow-up"></i>
+                  </button>
+                </div>
+                {ytTargetField === 'planVideoUrl' && ytSelectedFile && !ytUploadProgress && (
+                  <div className="mt-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <i className="fa-solid fa-film text-slate-400 dark:text-white/30"></i>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[var(--text-strong)] text-xs font-bold truncate">{ytSelectedFile.name}</p>
+                        <p className="text-slate-400 dark:text-white/30 text-[10px]">{formatFileSize(ytSelectedFile.size)}</p>
+                      </div>
+                      <button onClick={handleYtCancel} className="text-slate-300 dark:text-white/20 hover:text-slate-500 dark:hover:text-white/60 text-xs">
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleYtUpload}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
+                    >
+                      <i className="fa-brands fa-youtube mr-2"></i>{t('matchReport.video.uploadToYoutube')}
+                    </button>
+                  </div>
+                )}
+                {ytTargetField === 'planVideoUrl' && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
+                  <div className="mt-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-500 dark:text-white/50 uppercase tracking-widest">{ytUploadProgress.message}</span>
+                      <button onClick={handleYtCancel} className="text-slate-300 dark:text-white/20 hover:text-red-400 text-[10px] font-bold uppercase">{t('common.cancel')}</button>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-white/10 rounded-full h-2 overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full transition-all duration-300" style={{ width: `${ytUploadProgress.percent}%` }}></div>
+                    </div>
+                    <p className="text-slate-400 dark:text-white/30 text-[10px] text-center">{ytUploadProgress.percent}%</p>
+                  </div>
+                )}
+                {ytTargetField === 'planVideoUrl' && ytUploadProgress?.stage === 'error' && (
+                  <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-center space-y-2">
+                    <p className="text-red-400 text-xs font-bold"><i className="fa-solid fa-circle-exclamation mr-2"></i>{ytUploadProgress.error}</p>
+                    <button onClick={handleYtCancel} className="text-slate-400 dark:text-white/40 hover:text-slate-500 dark:hover:text-white/60 text-[10px] font-bold uppercase">{t('matchReport.video.retry')}</button>
+                  </div>
+                )}
                 {report.planVideoUrl && !isBlockedEmbed(report.planVideoUrl) && (
                   <div className="mt-4 aspect-video rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
                   <iframe title="reproductor-plan" src={getEmbedUrl(report.planVideoUrl, sharedStartSec ?? undefined)} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
@@ -3009,7 +3062,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
     { id: 'EVENTOS PARTIDO', label: t('matchReport.tabs.matchEvents'), icon: 'fa-list-check' },
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
-    { id: 'DATOS PARTIDOS', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
+    { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
     { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' }
   ];
 
@@ -3037,7 +3090,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDOS' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
     </div>
   );
 };

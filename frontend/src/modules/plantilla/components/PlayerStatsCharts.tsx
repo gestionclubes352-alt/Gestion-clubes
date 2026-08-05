@@ -6,12 +6,27 @@ interface PlayerStatsChartsProps {
   minutos?: number;
   titular?: number;
   goles?: number;
+  sesionesTotal?: number;
+  sesionesAsistidas?: number;
+  sesionesAusencias?: number;
 }
 
 const MINUTES_PER_MATCH = 90;
 
-const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ partidosJugados = 0, minutos = 0, titular = 0, goles = 0 }) => {
+const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
+  partidosJugados = 0,
+  minutos = 0,
+  titular = 0,
+  goles = 0,
+  sesionesTotal = 0,
+  sesionesAsistidas = 0,
+  sesionesAusencias = 0,
+}) => {
   const { t } = useTranslation();
+
+  const asistenciaPct = sesionesTotal > 0 ? Math.round((sesionesAsistidas / sesionesTotal) * 100) : 0;
+  const asistenciaBarPct = sesionesTotal > 0 ? (sesionesAsistidas / sesionesTotal) * 100 : 0;
+  const ausenciaBarPct = sesionesTotal > 0 ? (sesionesAusencias / sesionesTotal) * 100 : 0;
 
   const partidos = Math.max(0, partidosJugados || 0);
   const minutosJugados = Math.max(0, minutos || 0);
@@ -93,6 +108,53 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ partidosJugados =
             {goles > 20 && <span className="text-[10px] font-black text-slate-400">+{goles - 20}</span>}
           </span>
           <span className="text-xs font-black text-[var(--accent)]">{goles}</span>
+        </div>
+      )}
+
+      {sesionesTotal > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-200">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              {t('editPlayer.sessionsAttendance', 'Asistencia a sesiones')}
+            </span>
+            <span className="text-xs font-black">
+              <span className="text-emerald-600">{sesionesAsistidas}</span>
+              <span className="text-slate-300"> / </span>
+              <span className="text-red-500">{sesionesAusencias}</span>
+              <span className="text-slate-400 font-semibold"> ({sesionesTotal})</span>
+            </span>
+          </div>
+          <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden flex gap-0.5">
+            {asistenciaBarPct > 0 && (
+              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${asistenciaBarPct}%` }} />
+            )}
+            {ausenciaBarPct > 0 && (
+              <div className="h-full bg-red-400 rounded-full" style={{ width: `${ausenciaBarPct}%` }} />
+            )}
+          </div>
+          <div className="mt-1 flex items-center justify-between text-[10px] font-bold text-slate-400">
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                {t('editPlayer.attended', 'Asistidas')} ({sesionesAsistidas})
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+                {t('editPlayer.absent', 'Ausencias')} ({sesionesAusencias})
+              </span>
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
+                asistenciaPct >= 80
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : asistenciaPct >= 50
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-red-50 text-red-600 border border-red-200'
+              }`}
+            >
+              {asistenciaPct}%
+            </span>
+          </div>
         </div>
       )}
     </div>

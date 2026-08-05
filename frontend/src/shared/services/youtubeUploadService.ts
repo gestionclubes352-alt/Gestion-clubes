@@ -4,13 +4,16 @@
  * vídeos directamente desde el navegador al canal del club.
  *
  * Flujo:
- *   1. Pide un access_token al backend (getYouTubeUploadToken)
+ *   1. Pide un access_token a la Edge Function de Supabase
+ *      `get-youtube-upload-token` (canjea el refresh token OAuth del
+ *      canal del club, guardado como secreto de la función)
  *   2. Inicia un resumable upload a YouTube
  *   3. Sube el archivo en chunks mostrando progreso
  *   4. Devuelve la URL del vídeo subido
  */
 
-const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL || '';
+import { supabase } from './supabaseClient';
+
 const YT_UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos';
 
 export interface YouTubeUploadProgress {
@@ -40,44 +43,36 @@ export interface YouTubeUploadOptions {
 }
 
 /**
- * Obtiene un access token de YouTube llamando a la Cloud Function.
+ * Obtiene un access token de YouTube llamando a la Edge Function de Supabase.
+ * `supabase.functions.invoke` adjunta automáticamente el JWT de la sesión
+ * activa, así que no hace falta pasar ningún token manualmente.
  */
-async function getAccessToken(idToken: string): Promise<string> {
-  if (!FUNCTIONS_URL) {
-    throw new Error('VITE_FUNCTIONS_URL no está configurada. Revisa el archivo .env');
-  }
+async function getAccessToken(): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('get-youtube-upload-token', {
+    body: {},
+  });
 
-  let response: Response;
-  try {
-    response = await fetch(`${FUNCTIONS_URL}/getYouTubeUploadToken`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ data: {} }),
-    });
-  } catch (err) {
-    throw new Error('No se pudo conectar con el servidor. ¿Está desplegada la función getYouTubeUploadToken?');
-  }
-
-  if (!response.ok) {
+  if (error) {
+    const status = (error as any)?.context?.status;
+    if (status === 404) {
+      throw new Error('La función get-youtube-upload-token no existe. Despliega el backend primero.');
+    }
+    if (status === 401) {
+      throw new Error('Tu sesión ha expirado. Vuelve a iniciar sesión e inténtalo de nuevo.');
+    }
     let detail = '';
     try {
-      const errJson = await response.json();
-      detail = errJson?.error?.message || errJson?.result?.message || JSON.stringify(errJson);
-    } catch { detail = await response.text().catch(() => ''); }
-    
-    if (response.status === 404) {
-      throw new Error('La función getYouTubeUploadToken no existe. Despliega el backend primero.');
-    }
-    throw new Error(`Error del servidor (${response.status}): ${detail || 'No se pudo obtener el token de YouTube'}`);
+      const body = await (error as any)?.context?.json?.();
+      detail = body?.error;
+    } catch { /* respuesta sin cuerpo JSON */ }
+    throw new Error(detail || error.message || 'No se pudo obtener el token de YouTube');
   }
 
-  const json = await response.json();
-  // Cloud Functions callable envuelve en { result: ... }
-  const result = json.result || json;
-  return result.accessToken;
+  if (!data?.accessToken) {
+    throw new Error('La función get-youtube-upload-token no devolvió un token de acceso.');
+  }
+
+  return data.accessToken;
 }
 
 /**
@@ -202,9 +197,9 @@ async function uploadFileWithProgress(
  * ```
  */
 export async function uploadVideoToYouTube(
-  options: YouTubeUploadOptions & { idToken: string }
+  options: YouTubeUploadOptions
 ): Promise<string> {
-  const { file, title, description, onProgress, signal, idToken } = options;
+  const { file, title, description, onProgress, signal } = options;
 
   try {
     // 1. Obtener access token
@@ -214,7 +209,7 @@ export async function uploadVideoToYouTube(
       message: 'Autenticando con YouTube...',
     });
 
-    const accessToken = await getAccessToken(idToken);
+    const accessToken = await getAccessToken();
 
     // 2. Iniciar resumable upload
     onProgress({

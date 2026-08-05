@@ -70,6 +70,16 @@ export const FORMATIONS: Record<FormationName, TacticalPosition[]> = {
   ]
 };
 
+export interface TacticalArrow {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color?: string;
+  strokeWidth?: number;
+}
+
 // Funciones de utilidad para formaciones
 export const getInitialPositions = (formation: string): TacticalPosition[] => {
   return FORMATIONS[formation as FormationName] || FORMATIONS['4-3-3'];

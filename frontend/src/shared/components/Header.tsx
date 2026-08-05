@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useDataSource, DataSourceType } from '@context/index';
+import { useDataSource, DataSourceType, useUndoRedo } from '@context/index';
 import { useAuth } from '@context/AuthContext';
 import { useTeam } from '@context/TeamContext';
 import { useTeamFilter } from '@context/TeamFilterContext';
@@ -65,6 +65,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
   const { selectedTeam } = useTeam();
   const { selectedTeams, toggleTeam, clearSelectedTeams, setSelectedTeams } = useTeamFilter();
   const { isDark, toggle } = useTheme();
+  const { canUndo, canRedo, undo, redo } = useUndoRedo();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isDataSourceOpen, setIsDataSourceOpen] = useState(false);
   const [isTeamFilterOpen, setIsTeamFilterOpen] = useState(false);
@@ -330,6 +331,34 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             </div>
           </button>
         )}
+
+        {/* Botones Undo/Redo */}
+        <div className="hidden sm:flex items-center gap-1">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${
+              canUndo
+                ? 'bg-slate-50 dark:bg-[var(--surface-1)] border-slate-200 dark:border-[var(--border-soft)] text-slate-600 dark:text-slate-300 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 cursor-pointer'
+                : 'bg-slate-50 dark:bg-[var(--surface-1)] border-slate-200 dark:border-[var(--border-soft)] text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50'
+            }`}
+            title={t('header.undo', 'Deshacer')}
+          >
+            <i className="fa-solid fa-arrow-rotate-left text-sm"></i>
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${
+              canRedo
+                ? 'bg-slate-50 dark:bg-[var(--surface-1)] border-slate-200 dark:border-[var(--border-soft)] text-slate-600 dark:text-slate-300 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 cursor-pointer'
+                : 'bg-slate-50 dark:bg-[var(--surface-1)] border-slate-200 dark:border-[var(--border-soft)] text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50'
+            }`}
+            title={t('header.redo', 'Rehacer')}
+          >
+            <i className="fa-solid fa-arrow-rotate-right text-sm"></i>
+          </button>
+        </div>
 
         {/* Selector de idioma - oculto en móvil, visible en md+ */}
         <div className="hidden md:block">

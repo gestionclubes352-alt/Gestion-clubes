@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
 import type { Club, Equipo } from '@shared/services/dataService';
+import type { TacticalArrow } from '../types';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
@@ -111,6 +112,16 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const mode = 'Normal';
   const [myTeamColor, setMyTeamColor] = useState(MY_TEAM_COLOR);
   const [rivalTeamColor, setRivalTeamColor] = useState(RIVAL_TEAM_COLOR);
+  const [arrows, setArrows] = useState<TacticalArrow[]>([]);
+  const [isDrawingArrow, setIsDrawingArrow] = useState(false);
+  const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
+  const [arrowColor, setArrowColor] = useState('#ffffff');
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [draggingArrowId, setDraggingArrowId] = useState<string | null>(null);
+  const draggingArrowStart = useRef<{ x: number; y: number } | null>(null);
+  const arrowStartPosition = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+
   const pitchPlayers = frames[currentFrameIndex] ?? [];
   const updatePitchPlayers = (updater: PitchPlayer[] | ((prev: PitchPlayer[]) => PitchPlayer[])) => {
     setFrames(prev => {
@@ -256,6 +267,42 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     []
   );
 
+  const distanceFromPointToLine = useCallback((px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
+    const A = px - x1;
+    const B = py - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+
+    const dx = px - xx;
+    const dy = py - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  const getArrowAtPoint = useCallback((x: number, y: number): TacticalArrow | null => {
+    for (const arrow of arrows) {
+      const distance = distanceFromPointToLine(x, y, arrow.x1, arrow.y1, arrow.x2, arrow.y2);
+      if (distance < 3) return arrow;
+    }
+    return null;
+  }, [arrows, distanceFromPointToLine]);
+
   const getPitchPercentPoint = useCallback((clientX: number, clientY: number) => {
     const rect = pitchRef.current?.getBoundingClientRect();
     if (!rect) return null;
@@ -315,9 +362,42 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, [isPlaying, pitchPlayers, selectedPitchIds]);
 
   const handlePitchPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget || draggingId.current || isPlaying) return;
+    if (draggingId.current || isPlaying) return;
+
+    const isClickOnSvgElement = (e.target as any)?.tagName?.toLowerCase() === 'g' ||
+                                 (e.target as any)?.tagName?.toLowerCase() === 'line' ||
+                                 (e.target as any)?.tagName?.toLowerCase() === 'polygon';
+
     const start = getPitchPercentPoint(e.clientX, e.clientY);
     if (!start) return;
+
+    const clickedArrow = getArrowAtPoint(start.x, start.y);
+
+    if ((clickedArrow || isClickOnSvgElement) && !drawingMode) {
+      if (clickedArrow) {
+        setSelectedArrowId(clickedArrow.id);
+        setDraggingArrowId(clickedArrow.id);
+        draggingArrowStart.current = start;
+        arrowStartPosition.current = {
+          x1: clickedArrow.x1,
+          y1: clickedArrow.y1,
+          x2: clickedArrow.x2,
+          y2: clickedArrow.y2,
+        };
+        document.body.style.cursor = 'grab';
+      }
+      return;
+    }
+
+    if (drawingMode && e.target === e.currentTarget) {
+      setDrawStart(start);
+      setIsDrawingArrow(true);
+      document.body.style.cursor = 'crosshair';
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    if (e.target !== e.currentTarget) return;
 
     selectionRef.current = {
       active: true,
@@ -337,10 +417,39 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'crosshair';
     e.currentTarget.setPointerCapture(e.pointerId);
-  }, [getPitchPercentPoint, isPlaying]);
+  }, [getPitchPercentPoint, isPlaying, drawingMode, getArrowAtPoint]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
+      if (isDrawingArrow && drawStart && pitchRef.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
+        setDrawStart(prev => prev ? { ...prev, x2: currentX, y2: currentY } : null);
+        return;
+      }
+
+      if (draggingArrowId && pitchRef.current && draggingArrowStart.current && arrowStartPosition.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
+
+        const dx = currentX - draggingArrowStart.current.x;
+        const dy = currentY - draggingArrowStart.current.y;
+
+        setArrows(prev => prev.map(arrow => {
+          if (arrow.id !== draggingArrowId) return arrow;
+          return {
+            ...arrow,
+            x1: Math.min(97, Math.max(3, arrowStartPosition.current!.x1 + dx)),
+            y1: Math.min(97, Math.max(3, arrowStartPosition.current!.y1 + dy)),
+            x2: Math.min(97, Math.max(3, arrowStartPosition.current!.x2 + dx)),
+            y2: Math.min(97, Math.max(3, arrowStartPosition.current!.y2 + dy)),
+          };
+        }));
+        return;
+      }
+
       if (selectionRef.current?.active && pitchRef.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
@@ -400,6 +509,35 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     const onPointerUp = () => {
       cancelAnimationFrame(rafId.current);
+
+      if (isDrawingArrow && drawStart) {
+        const end = drawStart as any;
+        if (end.x2 !== undefined && end.y2 !== undefined) {
+          const newArrow: TacticalArrow = {
+            id: `arrow-${Date.now()}-${Math.random()}`,
+            x1: drawStart.x,
+            y1: drawStart.y,
+            x2: end.x2,
+            y2: end.y2,
+            color: arrowColor,
+            strokeWidth: 2,
+          };
+          setArrows(prev => [...prev, newArrow]);
+        }
+        setIsDrawingArrow(false);
+        setDrawStart(null);
+        document.body.style.cursor = '';
+        return;
+      }
+
+      if (draggingArrowId) {
+        setDraggingArrowId(null);
+        draggingArrowStart.current = null;
+        arrowStartPosition.current = null;
+        document.body.style.cursor = '';
+        return;
+      }
+
       if (selectionRef.current?.active) {
         const box = selectionBoxRef.current;
         if (selectionRef.current.moved && box) {
@@ -440,7 +578,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
     };
-  }, [clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds]);
+  }, [clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId]);
 
   const groupedSquad = useMemo(() => {
     const buckets: Record<string, SquadPlayer[]> = {
@@ -703,14 +841,49 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className="fa-solid fa-video mr-2 text-[11px]" />
                 VIDEO
               </button>
-              <button className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
-                <i className="fa-solid fa-rotate-left mr-2 text-[11px]" />
-                DESHACER
+              <button
+                onClick={() => setDrawingMode(!drawingMode)}
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  drawingMode
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+              >
+                <i className={`fa-solid ${drawingMode ? 'fa-pen' : 'fa-pen'} mr-2 text-[11px]`} />
+                {drawingMode ? 'MODO FLECHA ON' : 'MODO FLECHA'}
               </button>
-              <button className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
-                <i className="fa-solid fa-share-nodes mr-2 text-[11px]" />
-                COMPARTIR
+              <button
+                onClick={() => {
+                  if (selectedArrowId) {
+                    setArrows(prev => prev.filter(a => a.id !== selectedArrowId));
+                    setSelectedArrowId(null);
+                  }
+                }}
+                disabled={!selectedArrowId}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
+                BORRAR FLECHA
               </button>
+              <button
+                onClick={() => setArrows([])}
+                disabled={arrows.length === 0}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                <i className="fa-solid fa-broom mr-2 text-[11px]" />
+                BORRAR TODO
+              </button>
+              <div className="flex gap-2">
+                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Color flecha
+                </label>
+                <input
+                  type="color"
+                  value={arrowColor}
+                  onChange={e => setArrowColor(e.target.value)}
+                  className="h-8 w-12 rounded-md border border-slate-200 cursor-pointer dark:border-white/10"
+                />
+              </div>
               <button className="col-span-2 h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
                 <i className="fa-solid fa-user mr-2 text-[11px]" />
                 FOTOS JUGADORES
@@ -833,7 +1006,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 }}
               >
                 <svg
-                  className="absolute inset-0 h-full w-full opacity-95"
+                  className="absolute inset-0 h-full w-full opacity-95 pointer-events-none"
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
                   aria-hidden="true"
@@ -850,6 +1023,63 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     <rect x="37" y="85.9" width="26" height="11.5" />
                     <rect x="27" y="76.9" width="46" height="20.5" />
                   </g>
+                </svg>
+
+                <svg
+                  className="absolute inset-0 h-full w-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  {arrows.map(arrow => {
+                    const isSelected = arrow.id === selectedArrowId;
+                    const arrowHeadSize = 2;
+                    const angle = Math.atan2(arrow.y2 - arrow.y1, arrow.x2 - arrow.x1);
+                    const headX1 = arrow.x2 - arrowHeadSize * Math.cos(angle - Math.PI / 6);
+                    const headY1 = arrow.y2 - arrowHeadSize * Math.sin(angle - Math.PI / 6);
+                    const headX2 = arrow.x2 - arrowHeadSize * Math.cos(angle + Math.PI / 6);
+                    const headY2 = arrow.y2 - arrowHeadSize * Math.sin(angle + Math.PI / 6);
+
+                    return (
+                      <g key={arrow.id} onClick={e => { e.stopPropagation(); setSelectedArrowId(arrow.id); }} style={{ cursor: 'pointer' }}>
+                        <line
+                          x1={arrow.x1}
+                          y1={arrow.y1}
+                          x2={arrow.x2}
+                          y2={arrow.y2}
+                          stroke={arrow.color}
+                          strokeWidth={isSelected ? 0.8 : 0.4}
+                          strokeOpacity="0.9"
+                          style={{ pointerEvents: 'stroke' }}
+                        />
+                        <polygon
+                          points={`${arrow.x2},${arrow.y2} ${headX1},${headY1} ${headX2},${headY2}`}
+                          fill={arrow.color}
+                          fillOpacity="0.9"
+                          style={{ pointerEvents: 'auto' }}
+                        />
+                        {isSelected && (
+                          <circle cx={arrow.x1} cy={arrow.y1} r="2" fill={arrow.color} fillOpacity="0.6" style={{ pointerEvents: 'none' }} />
+                        )}
+                      </g>
+                    );
+                  })}
+
+                  {isDrawingArrow && drawStart && (drawStart as any).x2 !== undefined && (
+                    <g>
+                      <line
+                        x1={drawStart.x}
+                        y1={drawStart.y}
+                        x2={(drawStart as any).x2}
+                        y2={(drawStart as any).y2}
+                        stroke={arrowColor}
+                        strokeWidth="0.4"
+                        strokeOpacity="0.7"
+                        strokeDasharray="1,1"
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    </g>
+                  )}
                 </svg>
 
                 {draggingOrigin.current && selectedPitchId && draggingIds.current.length === 1 && (() => {
@@ -959,6 +1189,20 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           <i className="fa-solid fa-xmark" />
                         </button>
                       )}
+
+                      <div
+                        className="absolute rounded-full bg-red-500 shadow-lg cursor-grab active:cursor-grabbing"
+                        style={{
+                          width: '14px',
+                          height: '14px',
+                          top: `${displaySize / 2 - 2}px`,
+                          left: '50%',
+                          transform: 'translate(-50%, 50%)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                          zIndex: 100,
+                        }}
+                        title="Punto de rotación"
+                      />
                     </div>
                   );
                 })}

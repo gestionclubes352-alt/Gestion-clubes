@@ -304,13 +304,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
               {typeSelected === 'Partido' && (
                 <div className="space-y-3 pt-2 border-t border-slate-100">
                   <div className="grid grid-cols-2 gap-4">
-                    <input
+                    <select
                       name="jornada"
                       value={formData.jornada}
                       onChange={handleChange}
-                      placeholder={t('newEvent.matchdayPlaceholder')}
-                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#8b2b35]"
-                    />
+                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                    >
+                      <option value="">{t('newEvent.matchday')}</option>
+                      <option value="-">-</option>
+                      {Array.from({ length: 38 }, (_, i) => (
+                        <option key={i + 1} value={String(i + 1)}>
+                          {i + 1}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>
                   <div className="grid grid-cols-2 gap-4 mt-1">

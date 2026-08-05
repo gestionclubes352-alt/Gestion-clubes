@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { Player } from '../types';
 import type { CompetitionTeam } from '../../competicion/types';
+import type { CalendarEvent } from '../../calendario/types';
 import PlayerStatsCharts from './PlayerStatsCharts';
 
 interface EditPlayerModalProps {
@@ -12,6 +13,8 @@ interface EditPlayerModalProps {
   clubId: string;
   /** Equipos reales de Supabase a los que se puede asignar el jugador */
   equipos: CompetitionTeam[];
+  /** Eventos del calendario (para calcular la asistencia a sesiones) */
+  events?: CalendarEvent[];
   onClose: () => void;
   onSave: (player: Player, originalId?: Player['id']) => Promise<void>;
 }
@@ -66,7 +69,7 @@ const createCompressedPhotoDataUrl = (file: File): Promise<string> =>
     image.src = objectUrl;
   });
 
-const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, onClose, onSave }) => {
+const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, events, onClose, onSave }) => {
   const { t } = useTranslation();
   const isHuesca = clubId === 'escuela-huesca' || player.club?.toUpperCase().includes('HUESCA');
   const initialPhotoUrl = isPersistedImage(player.fotoUrl) ? player.fotoUrl : '';
@@ -78,6 +81,14 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+
+  const attendanceStats = useMemo(() => {
+    const pid = String(player.id);
+    const sessions = (events || []).filter(e => e.attendance && Object.keys(e.attendance).length > 0);
+    const total = sessions.length;
+    const attended = sessions.filter(e => (e.attendance?.[pid] || 'Si') === 'Si').length;
+    return { total, attended, absences: total - attended };
+  }, [events, player.id]);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
@@ -624,6 +635,9 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             minutos={formData.minutos}
             titular={formData.titular}
             goles={formData.goles}
+            sesionesTotal={attendanceStats.total}
+            sesionesAsistidas={attendanceStats.attended}
+            sesionesAusencias={attendanceStats.absences}
           />
 
           {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}

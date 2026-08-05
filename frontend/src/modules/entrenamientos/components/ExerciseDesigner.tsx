@@ -1998,7 +1998,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     );
                   })()
                 ))}                {selectedItem && selectedPanelStyle && isSelectedPanelOpen && (
-                  <div className="pointer-events-none absolute inset-0 z-30">
+                  <div className="pointer-events-none absolute inset-0 z-[10000]">
                     <div
                       data-selected-panel="true"
                       className="pointer-events-auto absolute w-[min(92vw,520px)] rounded-3xl border border-white/10 bg-[#121212]/95 p-4 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl animate-fade-in"

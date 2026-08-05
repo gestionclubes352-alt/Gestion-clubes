@@ -16,3 +16,7 @@ export type { default as TeamContext } from './TeamContext';
 // Contexto de filtro por equipo
 export { TeamFilterProvider, useTeamFilter } from './TeamFilterContext';
 export type { default as TeamFilterContext } from './TeamFilterContext';
+
+// Contexto de Undo/Redo
+export { UndoRedoProvider, useUndoRedo } from './UndoRedoContext';
+export type { AppState } from './UndoRedoContext';

@@ -1031,6 +1031,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   }}
                   competitionTeams={competitionTeams}
                   clubes={clubesList}
+                  onSelectPlayer={(playerId) => {
+                    const player = squadList.find(p => String(p.id) === playerId);
+                    if (player) setEditingPlayer(player);
+                  }}
                 />
               } />
               <Route path="/partidos/:matchId" element={<MatchReportWrapper />} />
@@ -1069,6 +1073,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         player={editingPlayer}
         clubId={currentTeam?.id || ''}
         equipos={competitionTeams}
+        events={filteredEventsList}
         onClose={() => setEditingPlayer(null)}
         onSave={async (p, originalId) => {
           const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || '' }, originalId);

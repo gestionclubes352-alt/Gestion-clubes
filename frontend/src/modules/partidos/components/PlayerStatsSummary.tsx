@@ -99,11 +99,12 @@ interface PlayerAggregate {
 
 interface PlayerStatsSummaryProps {
   matches: Match[];
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 const ALL = 'ALL';
 
-const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches }) => {
+const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSelectPlayer }) => {
   const { t } = useTranslation();
   const [reports, setReports] = useState<MatchReport[]>([]);
   const [squad, setSquad] = useState<Jugador[]>([]);
@@ -293,6 +294,8 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches }) => {
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.matchesPlayed')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.starter')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.minutesPlayed')}</th>
+                  <th className="px-3 py-3 text-center">{t('playerStatsSummary.minutesPercent')}</th>
+                  <th className="px-3 py-3 text-center">{t('playerStatsSummary.starterPercent')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.goals')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.yellowCards')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.redCards')}</th>
@@ -301,13 +304,21 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches }) => {
               <tbody className="divide-y divide-slate-100">
                 {rows.map(row => {
                   const player = squadById.get(row.playerId);
+                  const minutesPercent = row.matchesPlayed > 0 ? Math.round((row.minutes / (row.matchesPlayed * MATCH_DURATION_MINUTES)) * 100) : 0;
+                  const starterPercent = row.matchesPlayed > 0 ? Math.round((row.starterCount / row.matchesPlayed) * 100) : 0;
                   return (
-                    <tr key={row.playerId} className="text-slate-700">
+                    <tr
+                      key={row.playerId}
+                      className={`text-slate-700 ${onSelectPlayer ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                      onClick={() => onSelectPlayer && onSelectPlayer(row.playerId)}
+                    >
                       <td className="px-3 py-2 font-black">{player?.dorsal ?? '-'}</td>
                       <td className="px-3 py-2 font-bold truncate max-w-48">{player?.apodo || player?.nombre || row.playerId}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.matchesPlayed}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.starterCount}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.minutes}'</td>
+                      <td className="px-3 py-2 text-center font-bold">{minutesPercent}%</td>
+                      <td className="px-3 py-2 text-center font-bold">{starterPercent}%</td>
                       <td className="px-3 py-2 text-center font-bold">{row.goals}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.yellowCards}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.redCards}</td>
