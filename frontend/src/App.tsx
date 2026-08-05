@@ -1058,7 +1058,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   />
                 : <Navigate to="/" replace />
               } />
-              <Route path="/settings" element={userRole === 'Responsable' ? <SettingsPage /> : <Navigate to="/" replace />} />
+              <Route path="/settings" element={userRole === 'Responsable' || userRole === 'Administrador' ? <SettingsPage /> : <Navigate to="/" replace />} />
               <Route path="*" element={<div className="p-20 text-center uppercase font-black text-slate-300">{t('app.pageNotFound')}</div>} />
             </Routes>
           )}

@@ -319,7 +319,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {isSectionVisible('admin') && userRole !== 'Tecnico' && (
           <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['USUARIOS', 'CONFIGURACIÓN', 'FUENTE DE DATOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('USUARIOS') && <SidebarItem icon="fa-user-gear" label={t('sidebar.usersLabel')} active={activeSection === 'USUARIOS'} onClick={() => handleItemClick('USUARIOS')} collapsed={isCollapsed} />}
-            {isVisible('CONFIGURACIÓN') && userRole === 'Responsable' && <SidebarItem icon="fa-gear" label={t('sidebar.settingsLabel')} active={activeSection === 'CONFIGURACIÓN'} onClick={() => handleItemClick('CONFIGURACIÓN')} collapsed={isCollapsed} />}
+            {isVisible('CONFIGURACIÓN') && (userRole === 'Responsable' || userRole === 'Administrador') && <SidebarItem icon="fa-gear" label={t('sidebar.settingsLabel')} active={activeSection === 'CONFIGURACIÓN'} onClick={() => handleItemClick('CONFIGURACIÓN')} collapsed={isCollapsed} />}
             <SidebarItem icon="fa-database" label={t('header.dataSource')} active={activeSection === 'FUENTE DE DATOS'} onClick={() => handleItemClick('FUENTE DE DATOS')} collapsed={isCollapsed} />
           </SidebarSection>
           )}
