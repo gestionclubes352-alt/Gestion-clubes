@@ -123,7 +123,7 @@ export interface Jugador { // tabla `plantillas`
 export interface Personal {
   id: string;
   club_id: string;
-  equipo_id?: string;
+  equipo_ids?: string[];
   nombre: string;
   cargo: string;
   telefono?: string;

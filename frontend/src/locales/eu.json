@@ -710,6 +710,7 @@
     "sessionsWithAttendance": "bertaratzea erregistratutako saio",
     "colSessionsConvened": "Saioak",
     "colAttendancePct": "Bertaratze %",
+    "noAttendanceRecorded": "Oraindik ez da bertaratzerik erregistratu saio hauetan",
     "sessionTasksTitle": "Saioaren zereginak",
     "addFromRepository": "Biltegitik",
     "addCustomTask": "Zeregin librea",

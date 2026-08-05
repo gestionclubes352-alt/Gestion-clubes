@@ -235,7 +235,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [showPlayers, setShowPlayers] = useState(true);
   const [showCones, setShowCones] = useState(true);
   const [showText, setShowText] = useState(true);
+  const [showArrows, setShowArrows] = useState(true);
   const [showMaterial, setShowMaterial] = useState(true);
+  const [arrowColor, setArrowColor] = useState('#ffffff');
   
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
@@ -275,6 +277,16 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   } | null>(null);
   const zoneCreationBoxRef = useRef<null | { left: number; top: number; right: number; bottom: number }>(null);
   const [zoneCreationBox, setZoneCreationBox] = useState<null | { left: number; top: number; right: number; bottom: number }>(null);
+
+  // Dibujo de flechas (línea desde punto A a punto B)
+  const arrowCreationRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  } | null>(null);
+  const [arrowCreationLine, setArrowCreationLine] = useState<null | { startX: number; startY: number; endX: number; endY: number }>(null);
 
   // Al activar una herramienta de colocación (jugador, cono, etc.) cerramos el panel de edición
   // del elemento seleccionado: si no, su overlay (hasta 520px de ancho) queda flotando sobre el
@@ -343,7 +355,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     ],
     anotacion: [
       { id: 'text', label: 'TEXTO', icon: 'fa-t' },
-      { id: 'arrow', label: 'FLECHA', icon: 'fa-arrow-right' },
+    ],
+    flechas: [
+      { id: 'arrow-straight-solid', label: 'RECTA CONTINUA', icon: 'fa-arrow-right', style: 'solid', curve: false },
+      { id: 'arrow-straight-dashed', label: 'RECTA DISCONTINUA', icon: 'fa-arrow-right', style: 'dashed', curve: false },
+      { id: 'arrow-curve-solid', label: 'CURVA CONTINUA', icon: 'fa-arrow-up-right', style: 'solid', curve: true },
+      { id: 'arrow-curve-dashed', label: 'CURVA DISCONTINUA', icon: 'fa-arrow-up-right', style: 'dashed', curve: true },
     ],
     material: [
       { id: 'ball', label: 'BALÓN', icon: 'fa-futbol' },
@@ -610,9 +627,25 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
 
   const handlePitchPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying) return;
-    if (selectedTool && selectedTool !== 'zone') return;
+    if (selectedTool && selectedTool !== 'zone' && !selectedTool?.startsWith('arrow-')) return;
     const start = getPitchPercentPoint(e.clientX, e.clientY);
     if (!start) return;
+
+    if (selectedTool?.startsWith('arrow-')) {
+      arrowCreationRef.current = {
+        active: true,
+        startX: start.x,
+        startY: start.y,
+        endX: start.x,
+        endY: start.y,
+      };
+      dragStartPos.current = { x: e.clientX, y: e.clientY };
+      setArrowCreationLine({ startX: start.x, startY: start.y, endX: start.x, endY: start.y });
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'crosshair';
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
 
     if (selectedTool === 'zone') {
       zoneCreationRef.current = {
@@ -729,6 +762,21 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   // Persistent pointer listeners for drag (no re-registration during drag)
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
+      if (arrowCreationRef.current?.active && pitchRef.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+        arrowCreationRef.current.endX = currentX;
+        arrowCreationRef.current.endY = currentY;
+        setArrowCreationLine({
+          startX: arrowCreationRef.current.startX,
+          startY: arrowCreationRef.current.startY,
+          endX: currentX,
+          endY: currentY,
+        });
+        return;
+      }
+
       if (zoneCreationRef.current?.active && pitchRef.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((e.clientX - rect.left) / rect.width) * 100;
@@ -813,6 +861,40 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
 
     const onPointerUp = () => {
       cancelAnimationFrame(rafId.current);
+      if (arrowCreationRef.current?.active) {
+        const arrow = arrowCreationRef.current;
+        arrowCreationRef.current = null;
+        setArrowCreationLine(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
+
+        const distance = Math.sqrt(Math.pow(arrow.endX - arrow.startX, 2) + Math.pow(arrow.endY - arrow.startY, 2));
+        if (distance < 2) return;
+
+        const arrowItems = itemsRef.current.filter(i => i.type?.startsWith('arrow-'));
+        const nextZ = arrowItems.length > 0 ? Math.max(...arrowItems.map(i => i.zIndex)) + 1 : 100;
+
+        const toolArrow = tools.flechas.find(a => a.id === selectedTool);
+        const newItem: DesignerItem = {
+          id: Math.random().toString(),
+          type: selectedTool || 'arrow-straight-solid',
+          x: (arrow.startX + arrow.endX) / 2,
+          y: (arrow.startY + arrow.endY) / 2,
+          rotation: 0,
+          scale: 1,
+          locked: false,
+          zIndex: nextZ,
+          color: arrowColor,
+          arrowStart: { x: arrow.startX, y: arrow.startY },
+          arrowEnd: { x: arrow.endX, y: arrow.endY },
+        };
+        pushHistoryNow();
+        updateFrames(prev => [...prev, newItem]);
+        selectItemOnly(newItem.id);
+        return;
+      }
+
       if (zoneCreationRef.current?.active) {
         const box = zoneCreationBoxRef.current;
         const moved = zoneCreationRef.current.moved;
@@ -1331,6 +1413,40 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           )}
         </div>
 
+        <div className="flex flex-col gap-3 mt-2">
+          <button type="button" onClick={() => setShowArrows(v => !v)} className="flex justify-between items-center px-2 w-full">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">FLECHAS</h4>
+            <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showArrows ? '' : '-rotate-90'}`}></i>
+          </button>
+          {showArrows && (
+            <div className="flex flex-col gap-2 px-1">
+              <div className="grid grid-cols-2 gap-2">
+                {tools.flechas.map((arrow) => (
+                  <button key={arrow.id} onClick={() => setSelectedTool(selectedTool === arrow.id ? null : arrow.id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border ${selectedTool === arrow.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
+                    <i className={`fa-solid ${arrow.icon} text-lg`}></i>
+                    <span className="text-[8px] font-black uppercase tracking-tight text-center">{arrow.label}</span>
+                  </button>
+                ))}
+              </div>
+              {selectedTool?.startsWith('arrow-') && (
+                <div className="grid grid-cols-6 gap-1.5">
+                  {TEXT_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setArrowColor(c)}
+                      style={{ backgroundColor: c }}
+                      className={`h-6 w-6 rounded-full border-2 transition-all ${arrowColor === c ? 'border-[var(--accent)] scale-110' : 'border-slate-200 hover:scale-105'}`}
+                      aria-label={`Color de flecha ${c}`}
+                      title={c}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col gap-3 pb-8">
           <button type="button" onClick={() => setShowMaterial(v => !v)} className="flex justify-between items-center px-2 w-full">
             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">MATERIAL</h4>
@@ -1550,6 +1666,30 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                   </div>
                 )}
 
+                {arrowCreationLine && (
+                  <svg
+                    className="absolute inset-0 w-full h-full pointer-events-none z-[9]"
+                    style={{ overflow: 'visible' }}
+                  >
+                    <line
+                      x1={`${arrowCreationLine.startX}%`}
+                      y1={`${arrowCreationLine.startY}%`}
+                      x2={`${arrowCreationLine.endX}%`}
+                      y2={`${arrowCreationLine.endY}%`}
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeDasharray={selectedTool?.includes('dashed') ? '5,5' : '0'}
+                      markerEnd="url(#arrowhead)"
+                      opacity="0.8"
+                    />
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="white" />
+                      </marker>
+                    </defs>
+                  </svg>
+                )}
+
                 {zoneCreationBox && zoneCreationRef.current?.moved && (
                   <div
                     className="absolute z-[8] pointer-events-none border-[3px] border-dashed border-white/80 bg-white/10 backdrop-blur-[1px]"
@@ -1698,6 +1838,50 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       >
                         {item.text}
                       </div>
+                    ) : item.type?.startsWith('arrow-') ? (
+                      <svg
+                        viewBox={`0 0 ${pitchRef.current?.clientWidth || 100} ${pitchRef.current?.clientHeight || 100}`}
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        style={{ overflow: 'visible' }}
+                      >
+                        {item.arrowStart && item.arrowEnd && (() => {
+                          const rect = pitchRef.current?.getBoundingClientRect();
+                          if (!rect) return null;
+                          const x1 = (item.arrowStart.x / 100) * rect.width;
+                          const y1 = (item.arrowStart.y / 100) * rect.height;
+                          const x2 = (item.arrowEnd.x / 100) * rect.width;
+                          const y2 = (item.arrowEnd.y / 100) * rect.height;
+                          const isCurved = item.type?.includes('curve');
+                          return isCurved ? (
+                            <path
+                              d={`M ${x1} ${y1} Q ${(x1 + x2) / 2} ${Math.min(y1, y2) - 30} ${x2} ${y2}`}
+                              stroke={item.color || '#ffffff'}
+                              strokeWidth="3"
+                              fill="none"
+                              strokeDasharray={item.type?.includes('dashed') ? '5,5' : '0'}
+                              markerEnd="url(#arrowhead-filled)"
+                              strokeLinecap="round"
+                            />
+                          ) : (
+                            <line
+                              x1={x1}
+                              y1={y1}
+                              x2={x2}
+                              y2={y2}
+                              stroke={item.color || '#ffffff'}
+                              strokeWidth="3"
+                              strokeDasharray={item.type?.includes('dashed') ? '5,5' : '0'}
+                              markerEnd="url(#arrowhead-filled)"
+                              strokeLinecap="round"
+                            />
+                          );
+                        })()}
+                        <defs>
+                          <marker id="arrowhead-filled" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill={item.color || '#ffffff'} />
+                          </marker>
+                        </defs>
+                      </svg>
                     ) : item.type?.startsWith('player-') ? (
                       <div
                         style={{ backgroundColor: item.color || SQUAD_PLAYER_COLOR }}
@@ -1913,6 +2097,24 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                           {selectedItem.playerId !== undefined && selectedItem.playerPhoto && selectedItem.playerPhoto.length > 1 && (
                             <p className="mt-2 text-[9px] font-semibold text-slate-500">El color queda oculto por la foto del jugador; quítasela para verlo.</p>
                           )}
+                        </div>
+                      )}
+
+                      {selectedItem.type?.startsWith('arrow-') && (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+                          <span className="mb-2 block text-[8px] font-black uppercase tracking-widest text-slate-500">Color</span>
+                          <div className="grid grid-cols-6 gap-2">
+                            {TEXT_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                onClick={() => { pushHistoryNow(); updateSelectedItem({ color: c }); }}
+                                style={{ backgroundColor: c }}
+                                className={`h-7 w-7 rounded-full border-2 transition-all ${selectedItem.color === c ? 'border-red-500 scale-110' : 'border-white/30 hover:scale-105'}`}
+                                aria-label={`Color de flecha ${c}`}
+                                title={c}
+                              />
+                            ))}
+                          </div>
                         </div>
                       )}
 

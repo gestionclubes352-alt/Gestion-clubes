@@ -39,6 +39,10 @@ export interface DesignerItem {
   playerDorsal?: number;
   /** Foto del jugador de plantilla, copiada en el momento de colocarlo en el diseñador */
   playerPhoto?: string;
+  /** Punto de inicio de una flecha */
+  arrowStart?: { x: number; y: number };
+  /** Punto final de una flecha */
+  arrowEnd?: { x: number; y: number };
 }
 
 export const DESIGNER_ITEM_ANIMATIONS: Array<{

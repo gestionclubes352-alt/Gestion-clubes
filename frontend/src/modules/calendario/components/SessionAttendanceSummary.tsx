@@ -38,8 +38,6 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({ eve
     });
   }, [players, sessionsWithAttendance]);
 
-  if (sessionsWithAttendance.length === 0) return null;
-
   return (
     <div className="w-full">
       <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
@@ -53,6 +51,8 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({ eve
         </div>
         {players.length === 0 ? (
           <div className="py-16 text-center text-slate-400 font-bold text-sm">{t('calendarView.noPlayers')}</div>
+        ) : sessionsWithAttendance.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 font-bold text-sm">{t('calendarView.noAttendanceRecorded')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

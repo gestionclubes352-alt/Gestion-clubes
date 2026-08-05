@@ -710,6 +710,7 @@
     "sessionsWithAttendance": "sesiones con asistencia registrada",
     "colSessionsConvened": "Sesiones",
     "colAttendancePct": "% Asistencia",
+    "noAttendanceRecorded": "Aún no hay asistencia registrada en estas sesiones",
     "sessionTasksTitle": "Tareas de la sesión",
     "addFromRepository": "Del repositorio",
     "addCustomTask": "Tarea libre",

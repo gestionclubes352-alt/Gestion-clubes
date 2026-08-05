@@ -710,6 +710,7 @@
     "sessionsWithAttendance": "sessions with recorded attendance",
     "colSessionsConvened": "Sessions",
     "colAttendancePct": "Attendance %",
+    "noAttendanceRecorded": "No attendance has been recorded for these sessions yet",
     "sessionTasksTitle": "Session tasks",
     "addFromRepository": "From repository",
     "addCustomTask": "Custom task",

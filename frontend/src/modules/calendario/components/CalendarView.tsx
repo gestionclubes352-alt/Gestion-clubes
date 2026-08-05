@@ -42,6 +42,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [mainTab, setMainTab] = useState<'sesiones' | 'datosSesiones'>('sesiones');
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -312,7 +313,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         )}
 
         {detailTab === 'datos' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <h4 className="text-[var(--accent)] font-black text-lg mb-4">{t('calendarView.information')}</h4>
@@ -409,6 +410,190 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             </div>
           </div>
 
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <i className="fa-solid fa-user-group text-[var(--accent)]"></i>
+              <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.attendanceTitle')}</h4>
+            </div>
+            <div className="space-y-3 max-h-140 overflow-y-auto pr-2 min-h-140">
+              {(() => {
+                const positionColors: Record<string, { badge: string; bg: string; border: string; text: string; icon: string }> = {
+                  'POR': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
+                  'Portero': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
+                  'Defensa': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'Central': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'Lateral': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'Lateral izquierdo': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'Lateral derecho': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'DFC': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'DF': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
+                  'Centrocampista': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
+                  'MC': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
+                  'MF': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
+                  'Delantero': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
+                  'DC': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
+                  'ST': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
+                };
+
+                const getPositionColor = (player: Player) => {
+                  const pos = player.posicionJuego || player.posicion || '';
+                  for (const [key, value] of Object.entries(positionColors)) {
+                    if (pos.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(pos.toLowerCase())) {
+                      return value;
+                    }
+                  }
+                  return { badge: 'bg-slate-400', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700', icon: 'MS' };
+                };
+
+                const groupPlayersByDemarcation = (players: Player[]) => {
+                  const grouped = new Map<string, Player[]>();
+                  const demarcations = ['Portero', 'Defensa', 'Centrocampista', 'Delantero'];
+
+                  players.forEach(p => {
+                    const pos = (p.posicionJuego || p.posicion || '').toLowerCase();
+                    let demarcation = 'Otros';
+
+                    if (pos.includes('portero') || pos.includes('por') || pos === 'gk') {
+                      demarcation = 'Portero';
+                    } else if (pos.includes('defensa') || pos.includes('central') || pos.includes('lateral') || pos.includes('df') || pos === 'dfc') {
+                      demarcation = 'Defensa';
+                    } else if (pos.includes('centrocampista') || pos.includes('medio') || pos.includes('mf') || pos === 'mc' || pos.includes('mco') || pos.includes('mcd')) {
+                      demarcation = 'Centrocampista';
+                    } else if (pos.includes('delantero') || pos.includes('st') || pos === 'dc') {
+                      demarcation = 'Delantero';
+                    }
+
+                    if (!grouped.has(demarcation)) grouped.set(demarcation, []);
+                    grouped.get(demarcation)!.push(p);
+                  });
+
+                  const result: [string, Player[]][] = [];
+                  demarcations.forEach(d => {
+                    if (grouped.has(d)) result.push([d, grouped.get(d)!]);
+                  });
+                  if (grouped.has('Otros')) result.push(['Otros', grouped.get('Otros')!]);
+                  return result;
+                };
+
+                const attendingPlayers = squad.filter(p => (attendance[p.id] || 'Si') === 'Si');
+                const groupedAttending = groupPlayersByDemarcation(attendingPlayers);
+
+                return (
+                  <>
+                    {groupedAttending.length === 0 && squad.length > 0 && (
+                      <div className="text-center text-slate-400 text-sm font-bold py-4">{t('calendarView.allAbsent')}</div>
+                    )}
+                    {squad.length === 0 && (
+                      <div className="text-center text-slate-400 text-3xl font-black uppercase tracking-widest py-8">{t('calendarView.noPlayers')}</div>
+                    )}
+
+                    {groupedAttending.map(([positionGroup, players]) => (
+                      <div key={positionGroup} className="space-y-2">
+                        {players.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-2 mt-4 mb-2 pt-2">
+                              {(() => {
+                                const colors = getPositionColor(players[0]);
+                                return (
+                                  <>
+                                    <div className={`${colors.badge} text-white text-[10px] font-black px-2.5 py-1 rounded-lg`}>
+                                      {colors.icon}
+                                    </div>
+                                    <h5 className={`${colors.text} font-black text-[11px] uppercase tracking-widest`}>{positionGroup}</h5>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            {players.map((player) => {
+                              const colors = getPositionColor(player);
+                              return (
+                                <div key={player.id} className={`flex items-center justify-between ${colors.bg} rounded-xl p-3 border ${colors.border}`}>
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`${colors.badge} text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[11px]`}>
+                                      {player.dorsal || player.nombre.charAt(0)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-[12px] font-black text-black truncate">{player.nombre}</p>
+                                      <p className="text-[10px] text-slate-400 font-bold truncate">{player.posicionJuego || player.posicion}</p>
+                                    </div>
+                                  </div>
+                                  <select
+                                    value="Si"
+                                    onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as AttendanceStatus }))}
+                                    className={`px-3 py-2 rounded-xl border ${colors.border} ${colors.text} ${colors.bg} text-xs font-black`}
+                                  >
+                                    <option value="Si">{t('calendarView.attendYes')}</option>
+                                    <option value="Lesión">{t('calendarView.attendInjury')}</option>
+                                    <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
+                                    <option value="Descanso">{t('calendarView.attendRest')}</option>
+                                    <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
+                                    <option value="Otro">{t('calendarView.other')}</option>
+                                  </select>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    ))}
+
+                    {(() => {
+                      const absentPlayers = squad.filter(p => (attendance[p.id] || 'Si') !== 'Si');
+                      if (absentPlayers.length === 0) return null;
+
+                      const groupedAbsent = groupPlayersByDemarcation(absentPlayers);
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200">
+                            <i className="fa-solid fa-user-xmark text-red-500"></i>
+                            <h4 className="text-red-600 font-black text-sm uppercase tracking-widest">{t('calendarView.absences')}</h4>
+                            <span className="ml-auto text-[10px] font-black text-red-400">{absentPlayers.length}</span>
+                          </div>
+                          {groupedAbsent.map(([positionGroup, players]) => (
+                            <div key={`absent-${positionGroup}`} className="space-y-2">
+                              <div className="flex items-center gap-2 mt-2 mb-2">
+                                <div className="bg-red-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">DF</div>
+                                <h5 className="text-red-600 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
+                              </div>
+                              {players.map((player) => {
+                                const status = attendance[player.id] || 'Si';
+                                return (
+                                  <div key={player.id} className="flex items-center justify-between bg-red-50 rounded-xl p-3 border border-red-200">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-9 h-9 rounded-full bg-red-400 text-white flex items-center justify-center font-black text-[11px]">
+                                        {player.dorsal || player.nombre.charAt(0)}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-[12px] font-black text-red-700 truncate">{player.nombre}</p>
+                                        <p className="text-[10px] text-slate-400 font-bold truncate">{player.posicionJuego || player.posicion}</p>
+                                      </div>
+                                    </div>
+                                    <select
+                                      value={status}
+                                      onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as AttendanceStatus }))}
+                                      className="px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-xs font-black"
+                                    >
+                                      <option value="Si">{t('calendarView.attendYes')}</option>
+                                      <option value="Lesión">{t('calendarView.attendInjury')}</option>
+                                      <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
+                                      <option value="Descanso">{t('calendarView.attendRest')}</option>
+                                      <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
+                                      <option value="Otro">{t('calendarView.other')}</option>
+                                    </select>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -443,7 +628,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   return (
     <div className={`animate-fade-in space-y-8 flex flex-col relative pb-10 ${fullscreen ? 'fixed inset-0 z-50 bg-white h-screen w-screen p-6 overflow-auto' : 'h-full'}` }>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
@@ -454,43 +639,69 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <option key={team} value={team}>{team}</option>
             ))}
           </select>
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+          <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
             <button
               type="button"
-              onClick={() => setViewMode('table')}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                viewMode === 'table'
-                  ? 'bg-[var(--accent)] text-white shadow-md'
-                  : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+              onClick={() => setMainTab('sesiones')}
+              className={`px-4 py-2 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                mainTab === 'sesiones' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
               }`}
-              aria-label={t('calendarView.viewTable')}
-              title={t('calendarView.viewTable')}
             >
-              <i className="fa-solid fa-table"></i>
+              {t('calendarView.sessionsTitle')}
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('calendar')}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                viewMode === 'calendar'
-                  ? 'bg-[var(--accent)] text-white shadow-md'
-                  : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+              onClick={() => setMainTab('datosSesiones')}
+              className={`px-4 py-2 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                mainTab === 'datosSesiones' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
               }`}
-              aria-label={t('calendarView.viewCalendar')}
-              title={t('calendarView.viewCalendar')}
             >
-              <i className="fa-solid fa-calendar-days"></i>
+              {t('calendarView.sessionDataTitle')}
             </button>
           </div>
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {mainTab === 'sesiones' && (
+            <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                  viewMode === 'table'
+                    ? 'bg-[var(--accent)] text-white shadow-md'
+                    : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+                }`}
+                aria-label={t('calendarView.viewTable')}
+                title={t('calendarView.viewTable')}
+              >
+                <i className="fa-solid fa-table"></i>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('calendar')}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                  viewMode === 'calendar'
+                    ? 'bg-[var(--accent)] text-white shadow-md'
+                    : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+                }`}
+                aria-label={t('calendarView.viewCalendar')}
+                title={t('calendarView.viewCalendar')}
+              >
+                <i className="fa-solid fa-calendar-days"></i>
+              </button>
+            </div>
+          )}
           <button onClick={() => { setDefaultEventType('Sesión'); setSelectedDate(new Date()); setShowNewModal(true); }} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200">
             <i className="fa-solid fa-plus"></i> {t('calendarView.newSessionButton')}
           </button>
         </div>
       </div>
 
-      {viewMode === 'table' && (
+      {mainTab === 'datosSesiones' && (
+        <SessionAttendanceSummary events={filteredEvents} players={squad} />
+      )}
+
+      {mainTab === 'sesiones' && viewMode === 'table' && (
         <div className="w-full">
           <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
             <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
@@ -572,7 +783,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         </div>
       )}
 
-      {viewMode === 'calendar' && (
+      {mainTab === 'sesiones' && viewMode === 'calendar' && (
       <div className="flex-1 w-full">
         <div className="bg-white rounded-4xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
           <div className="px-4 md:px-10 py-4 md:py-8 border-b border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -629,7 +840,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       )}
 
       {/* LISTADO DE SESIONES */}
-      {viewMode === 'calendar' && filteredEvents.length > 0 && (
+      {mainTab === 'sesiones' && viewMode === 'calendar' && filteredEvents.length > 0 && (
         <div className="w-full">
           <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
             <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
@@ -675,8 +886,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
           </div>
         </div>
       )}
-
-      <SessionAttendanceSummary events={filteredEvents} players={squad} />
 
       {showNewModal && (
         <NewEventModal

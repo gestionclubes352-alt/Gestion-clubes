@@ -1181,7 +1181,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               telefono: s.telefono || undefined,
               dni: s.dni || undefined,
               email: (s as any).email || undefined,
-              equipo_id: (s as any).equipo_id || undefined,
+              equipo_ids: (s as any).equipo_ids || undefined,
               foto_url: s.foto_url || undefined,
               club_id: s.club_id || currentTeam?.id || '',
             });
@@ -1192,7 +1192,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               telefono: s.telefono || undefined,
               dni: s.dni || undefined,
               email: (s as any).email || undefined,
-              equipo_id: (s as any).equipo_id || undefined,
+              equipo_ids: (s as any).equipo_ids || undefined,
               foto_url: s.foto_url || undefined,
             });
           }
