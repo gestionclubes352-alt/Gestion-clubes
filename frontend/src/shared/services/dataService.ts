@@ -201,6 +201,7 @@ export interface EventoCalendario {
   score?: string | null;
   status?: string | null;
   tasks?: unknown[] | null;
+  attendance?: Record<string, string> | null;
 }
 
 export interface PizarraTactica {

@@ -24,6 +24,8 @@ export interface SessionTask {
   technicalRoles?: string;
 }
 
+export type AttendanceStatus = 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro';
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -50,6 +52,8 @@ export interface CalendarEvent {
   score?: string;
   status?: 'Finished' | 'Upcoming';
   tasks?: SessionTask[];
+  /** Asistencia de la plantilla a esta sesión, indexada por id de jugador */
+  attendance?: Record<string, AttendanceStatus>;
 }
 
 export type EventType = CalendarEvent['type'];

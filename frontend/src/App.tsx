@@ -449,6 +449,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     score: row.score || undefined,
     status: row.status as CalendarEvent['status'] | undefined,
     tasks: (row.tasks as CalendarEvent['tasks']) || [],
+    attendance: (row.attendance as CalendarEvent['attendance']) || {},
   });
 
   const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
@@ -475,6 +476,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     score: event.score || null,
     status: event.status || null,
     tasks: event.tasks || [],
+    attendance: event.attendance || {},
   });
 
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');

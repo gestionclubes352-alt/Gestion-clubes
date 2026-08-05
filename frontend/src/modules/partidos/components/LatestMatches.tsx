@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import { getTeamConfig } from '@shared/services/dataService';
+import PlayerStatsSummary from './PlayerStatsSummary';
 
 const getMyTeamName = (): string => {
   try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -28,6 +29,7 @@ interface LatestMatchesProps {
 
 const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [] }) => {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'MATCHES' | 'STATS'>('MATCHES');
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
 
@@ -54,7 +56,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <h3 className="text-[var(--accent)] font-black text-xl uppercase tracking-tighter">{t('matchesList.matchHistory')}</h3>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('matchesList.matchHistoryDesc')}</p>
         </div>
-        <button 
+        <button
           onClick={onCreate}
           className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl"
         >
@@ -63,6 +65,26 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         </button>
       </div>
 
+      <div className="flex gap-2 border-b border-slate-100">
+        <button
+          onClick={() => setActiveTab('MATCHES')}
+          className={`px-6 py-3 flex items-center gap-2 transition-all border-b-[3px] whitespace-nowrap ${activeTab === 'MATCHES' ? 'border-sport-primary text-sport-primary' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+        >
+          <i className="fa-solid fa-calendar-days text-[10px]"></i>
+          <span className="text-[10px] font-black uppercase tracking-widest">{t('matchesList.tabMatches')}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('STATS')}
+          className={`px-6 py-3 flex items-center gap-2 transition-all border-b-[3px] whitespace-nowrap ${activeTab === 'STATS' ? 'border-sport-primary text-sport-primary' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+        >
+          <i className="fa-solid fa-table text-[10px]"></i>
+          <span className="text-[10px] font-black uppercase tracking-widest">{t('matchesList.tabStats')}</span>
+        </button>
+      </div>
+
+      {activeTab === 'STATS' ? (
+        <PlayerStatsSummary matches={matches} />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {matches.map((match) => {
           const local = match.localTeam || 'DEMO';
@@ -169,6 +191,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

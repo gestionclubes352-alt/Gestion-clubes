@@ -128,7 +128,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
     return (
       <div key={task.id} className="h-full rounded-2xl border-2 border-slate-100 p-4 flex gap-4">
-        <div className="w-[300px] flex-shrink-0 flex flex-col">
+        <div className="w-[48%] flex-shrink-0 flex flex-col">
           <div className="flex items-center justify-between mb-2 flex-shrink-0">
             <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
               {t('calendarView.exerciseLabel')} {globalIndex + 1}
@@ -140,15 +140,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           </div>
           <div className="flex-1 flex items-center justify-center min-h-0">
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="w-full rounded-lg overflow-hidden">
+              <div className="w-full max-h-full rounded-lg overflow-hidden">
                 <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
               </div>
             ) : task.thumbnail ? (
-              <div className="w-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center">
+              <div className="w-full max-h-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center">
                 <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
             ) : (
-              <div className={`w-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+              <div className={`w-full max-h-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
                 <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-lg`}></i>
               </div>
             )}
@@ -156,12 +156,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col">
-          <p className="font-black text-slate-800 text-base break-words mb-0.5 flex-shrink-0">{task.title}</p>
-          <p className="text-[11px] font-bold text-slate-500 mb-2 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+          <p className="font-black text-slate-800 text-lg break-words mb-1 flex-shrink-0">{task.title}</p>
+          <p className="text-sm font-bold text-slate-500 mb-3 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
 
           <div className="flex-1 min-h-0 flex flex-col">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[11px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
+            <p className="text-sm font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
               {task.description || '—'}
             </p>
           </div>
@@ -303,25 +303,35 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             className="bg-white flex flex-col"
             style={{ width: '1191px', minHeight: '1684px', padding: '50px' }}
           >
-            <div className="flex items-center justify-between mb-5 pb-4 border-b-2 border-slate-100 flex-shrink-0">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <i className="fa-solid fa-list-check text-xl text-[var(--accent)]"></i>
                 <h1 className="text-xl font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
               </div>
-              <div className="flex items-center gap-7">
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
-                  <span className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</span>
+              <span className="text-xs font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
+            </div>
+
+            <div className="flex items-center gap-7 mb-5 pb-4 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+                  <p className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
-                  <span className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+                  <p className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
-                  <span className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+                  <p className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</p>
                 </div>
-                <span className="text-xs font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
               </div>
             </div>
 

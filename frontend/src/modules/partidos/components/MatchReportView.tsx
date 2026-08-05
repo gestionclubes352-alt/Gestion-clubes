@@ -396,6 +396,68 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     return ids.map(id => squad.find(p => samePlayerId(p.id, id))).filter(Boolean) as Player[];
   }, [activeLineupPlayers, report.substitutions, squad]);
 
+  const substitutionSnapshots = useMemo(() => {
+    const basePositions = report.lineupPositions && report.lineupPositions.length > 0
+      ? report.lineupPositions
+      : getInitialPositions(report.formation || '4-3-3');
+    let current = basePositions.map(pos => ({ ...pos, playerIds: [...(pos.playerIds || [])] }));
+    const subs = [...(report.substitutions || [])].sort((a, b) => a.minute - b.minute);
+    return subs.map(sub => {
+      current = current.map(pos => {
+        const ids = pos.playerIds || [];
+        if (sub.playerOutId !== undefined && ids.some(id => samePlayerId(id, sub.playerOutId))) {
+          return { ...pos, playerIds: ids.map(id => samePlayerId(id, sub.playerOutId) ? (sub.playerInId as string | number) : id) };
+        }
+        return pos;
+      });
+      return { sub, positions: current };
+    });
+  }, [report.lineupPositions, report.formation, report.substitutions]);
+
+  const renderPitchDiagram = (positionsList: TacticalPosition[], highlightInId?: string | number) => (
+    <div className="relative w-full max-w-56 mx-auto aspect-2/3 rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
+      <div className="absolute inset-0 pointer-events-none opacity-70">
+        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
+            <rect x="3" y="3" width="94" height="94" />
+            <line x1="3" y1="50" x2="97" y2="50" />
+            <circle cx="50" cy="50" r="10" />
+          </g>
+        </svg>
+      </div>
+      {positionsList.filter(pos => (pos.playerIds || []).length > 0).map(pos => {
+        const player = squad.find(p => samePlayerId(p.id, (pos.playerIds || [])[0]));
+        if (!player) return null;
+        const isIncoming = highlightInId !== undefined && samePlayerId(player.id, highlightInId);
+        const key = String(player.id);
+        const goals = goalsByPlayer.get(key) ?? 0;
+        const cards = cardsByPlayer.get(key);
+        return (
+          <div key={pos.id} className="absolute flex flex-col items-center gap-0.5" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}>
+            <div className="relative">
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow shrink-0 ${isIncoming ? 'bg-emerald-500 text-white ring-2 ring-white' : 'bg-white text-[#1e8449]'}`}>{player.dorsal ?? '-'}</span>
+              {(goals > 0 || cards?.amarillas || cards?.rojas) && (
+                <div className="absolute -top-1 -right-1 flex items-center gap-0.5">
+                  {goals > 0 && (
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goals')}>
+                      <i className="fa-solid fa-futbol text-white text-[6px]"></i>
+                    </span>
+                  )}
+                  {cards?.rojas ? (
+                    <span className="w-2.5 h-3.5 rounded-[2px] bg-red-600 shadow shrink-0"></span>
+                  ) : cards?.amarillas ? (
+                    <span className="w-2.5 h-3.5 rounded-[2px] bg-amber-500 shadow shrink-0"></span>
+                  ) : null}
+                </div>
+              )}
+            </div>
+            <span className="text-white text-[8px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const benchPlayers = useMemo(() => {
     const notConvocado = report.notConvocadoIds || [];
     const onPitchIds = onPitchPlayers.map(p => p.id);
@@ -1940,6 +2002,24 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
             <button onClick={addSubstitution} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"><i className="fa-solid fa-plus"></i>{t('matchReport.matchEvents.addSubstitution')}</button>
           </div>
+
+          {substitutionSnapshots.length > 0 && (
+            <div className="mt-8">
+              <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
+                <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {substitutionSnapshots.map(({ sub, positions }) => (
+                  <div key={sub.id}>
+                    <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
+                      {sub.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(sub.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(sub.playerOutId)}</span>
+                    </p>
+                    {renderPitchDiagram(positions, sub.playerInId)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -2667,7 +2747,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999));
 
     return (
-      <div className="animate-fade-in space-y-8 max-w-3xl mx-auto pb-32">
+      <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32">
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
           <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
@@ -2683,30 +2763,22 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <p className="flex-1 text-left text-sm font-black text-[var(--text-strong)] uppercase truncate">{dgForm.visitorTeam || t('newEvent.awayTeam')}</p>
         </div>
 
-        <div>
-          <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2">
-            <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '4-3-3'}
-          </h4>
-          <div className="relative w-full max-w-56 mx-auto aspect-2/3 rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
-            <div className="absolute inset-0 pointer-events-none opacity-70">
-              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
-                  <rect x="3" y="3" width="94" height="94" />
-                  <line x1="3" y1="50" x2="97" y2="50" />
-                  <circle cx="50" cy="50" r="10" />
-                </g>
-              </svg>
-            </div>
-            {positions.filter(pos => (pos.playerIds || []).length > 0).map(pos => {
-              const player = squad.find(p => samePlayerId(p.id, (pos.playerIds || [])[0]));
-              if (!player) return null;
-              return (
-                <div key={pos.id} className="absolute" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}>
-                  <span className="w-6 h-6 rounded-full bg-white text-[#1e8449] flex items-center justify-center text-[10px] font-black shadow">{player.dorsal ?? '-'}</span>
-                </div>
-              );
-            })}
+        <div className="flex flex-wrap justify-center gap-8">
+          <div className="w-56 shrink-0">
+            <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2 justify-center">
+              <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '4-3-3'}
+            </h4>
+            {renderPitchDiagram(positions)}
           </div>
+
+          {substitutionSnapshots.map(({ sub, positions: subPositions }) => (
+            <div key={sub.id} className="w-56 shrink-0">
+              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
+                {sub.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(sub.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(sub.playerOutId)}</span>
+              </p>
+              {renderPitchDiagram(subPositions, sub.playerInId)}
+            </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -2790,6 +2862,70 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </div>
         </div>
       </div>
+      </div>
+    );
+  };
+
+  const renderDatosPartidos = () => {
+    const startingIds = new Set(startingXIEntries.map(({ player }) => String(player.id)));
+    const rows = convocadoPlayers
+      .slice()
+      .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999))
+      .map(player => {
+        const key = String(player.id);
+        return {
+          player,
+          isStarter: startingIds.has(key),
+          minutes: playerMinutesMap.get(key) ?? 0,
+          goals: goalsByPlayer.get(key) ?? 0,
+          cards: cardsByPlayer.get(key)
+        };
+      });
+
+    return (
+      <div className="animate-fade-in space-y-8 max-w-4xl mx-auto pb-32">
+        <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+              <i className="fa-solid fa-table text-red-500"></i> {t('matchReport.playerStats.title')}
+            </div>
+          </div>
+
+          {rows.length === 0 ? (
+            <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.playerStats.noPlayers')}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                    <th className="px-3 py-3 text-left">#</th>
+                    <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
+                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.starter')}</th>
+                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
+                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.goals')}</th>
+                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.yellowCards')}</th>
+                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.redCards')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-soft)]">
+                  {rows.map(({ player, isStarter, minutes, goals, cards }) => (
+                    <tr key={player.id} className="text-[var(--text-strong)]">
+                      <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
+                      <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
+                      <td className="px-3 py-2 text-center font-bold">
+                        {isStarter ? t('matchReport.playerStats.yes') : t('matchReport.playerStats.no')}
+                      </td>
+                      <td className="px-3 py-2 text-center font-bold">{minutes}'</td>
+                      <td className="px-3 py-2 text-center font-bold">{goals}</td>
+                      <td className="px-3 py-2 text-center font-bold">{cards?.amarillas ?? 0}</td>
+                      <td className="px-3 py-2 text-center font-bold">{cards?.rojas ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -2934,6 +3070,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
     { id: 'EVENTOS PARTIDO', label: t('matchReport.tabs.matchEvents'), icon: 'fa-list-check' },
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
+    { id: 'DATOS PARTIDOS', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
     { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' }
   ];
 
@@ -2961,7 +3098,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDOS' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
     </div>
   );
 };
