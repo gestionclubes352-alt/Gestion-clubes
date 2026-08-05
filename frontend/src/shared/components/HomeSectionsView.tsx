@@ -74,6 +74,7 @@ const HOME_SECTIONS: HomeSection[] = [
     textColor: 'text-slate-100',
     items: [
       { labelKey: 'sidebar.usersLabel', icon: 'fa-user-gear', route: '/usuarios', menuId: 'USUARIOS' },
+      { labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', route: '/competiciones', menuId: 'COMPETICIONES' },
       { labelKey: 'sidebar.settingsLabel', icon: 'fa-gear', route: '/settings', menuId: 'CONFIGURACIÓN' },
     ],
   },

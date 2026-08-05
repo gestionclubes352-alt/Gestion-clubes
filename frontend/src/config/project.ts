@@ -71,6 +71,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'REPOSITORIO DE TAREAS',
     'VIDEOTECA',
     'USUARIOS',
+    'COMPETICIONES',
     'CONFIGURACIÓN',
   ],
   defaultVisibleSections: [

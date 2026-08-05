@@ -14,7 +14,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 8;
+const MENU_VERSION = 9;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -55,6 +55,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'VIDEOTECA', labelKey: 'sidebar.videoLibraryLabel', icon: 'fa-video', section: 'content' },
   // Admin
   { id: 'USUARIOS', labelKey: 'sidebar.usersLabel', icon: 'fa-user-gear', section: 'admin' },
+  { id: 'COMPETICIONES', labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', section: 'admin' },
   { id: 'CONFIGURACIÓN', labelKey: 'sidebar.settingsLabel', icon: 'fa-gear', section: 'admin', locked: true },
   { id: 'FUENTE DE DATOS', labelKey: 'header.dataSource', icon: 'fa-database', section: 'admin' },
 ];
