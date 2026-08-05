@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
@@ -16,6 +16,18 @@ const isMyTeam = (name: string): boolean => {
   return name.toLowerCase().includes(my.toLowerCase());
 };
 
+// El equipo "propio" de un partido es el que coincide con el club activo;
+// si no se puede determinar, se usa el local como mejor esfuerzo.
+const ownTeamNameOf = (match: Match): string => {
+  const local = match.localTeam || '';
+  const visitor = match.visitorTeam || '';
+  if (isMyTeam(local)) return local;
+  if (isMyTeam(visitor)) return visitor;
+  return local || visitor;
+};
+
+const ALL_FILTER = 'ALL';
+
 interface LatestMatchesProps {
   matches: Match[];
   onSave: (match: Match) => Promise<void>;
@@ -31,6 +43,51 @@ interface LatestMatchesProps {
 const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [], onSelectPlayer }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'MATCHES' | 'STATS'>('MATCHES');
+
+  const [teamFilter, setTeamFilter] = useState<string>(ALL_FILTER);
+  const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
+  const [jornadaFilter, setJornadaFilter] = useState<string>(ALL_FILTER);
+
+  const teamOptions = useMemo(() => {
+    const names = new Set<string>();
+    matches.forEach((m) => { const name = ownTeamNameOf(m); if (name) names.add(name); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matches]);
+
+  const matchesByTeam = useMemo(
+    () => (teamFilter === ALL_FILTER ? matches : matches.filter((m) => ownTeamNameOf(m) === teamFilter)),
+    [matches, teamFilter]
+  );
+
+  const competitionOptions = useMemo(() => {
+    const names = new Set<string>();
+    matchesByTeam.forEach((m) => { if (m.competition) names.add(m.competition); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matchesByTeam]);
+
+  const matchesByTeamAndCompetition = useMemo(
+    () => (competitionFilter === ALL_FILTER ? matchesByTeam : matchesByTeam.filter((m) => m.competition === competitionFilter)),
+    [matchesByTeam, competitionFilter]
+  );
+
+  const jornadaOptions = useMemo(() => {
+    const names = new Set<string>();
+    matchesByTeamAndCompetition.forEach((m) => { if (m.jornada) names.add(m.jornada); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  }, [matchesByTeamAndCompetition]);
+
+  const filteredMatches = useMemo(
+    () => (jornadaFilter === ALL_FILTER ? matchesByTeamAndCompetition : matchesByTeamAndCompetition.filter((m) => m.jornada === jornadaFilter)),
+    [matchesByTeamAndCompetition, jornadaFilter]
+  );
+
+  // Si cambia equipo/competición, la jornada elegida puede dejar de ser válida.
+  useEffect(() => {
+    if (jornadaFilter !== ALL_FILTER && !jornadaOptions.includes(jornadaFilter)) {
+      setJornadaFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jornadaOptions]);
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
 
@@ -86,8 +143,50 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       {activeTab === 'STATS' ? (
         <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
       ) : (
+      <>
+      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            {t('playerStatsSummary.filterTeam')}
+          </label>
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>{t('playerStatsSummary.allTeams')}</option>
+            {teamOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            {t('playerStatsSummary.filterCompetition')}
+          </label>
+          <select
+            value={competitionFilter}
+            onChange={(e) => setCompetitionFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>{t('playerStatsSummary.allCompetitions')}</option>
+            {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            {t('matchesList.filterJornada')}
+          </label>
+          <select
+            value={jornadaFilter}
+            onChange={(e) => setJornadaFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>{t('matchesList.allJornadas')}</option>
+            {jornadaOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {matches.map((match) => {
+        {filteredMatches.map((match) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
           const localClubLabel = resolveClubLabel(local, match.localTeamClubId);
@@ -185,13 +284,14 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           );
         })}
 
-        {matches.length === 0 && (
+        {filteredMatches.length === 0 && (
           <div className="col-span-full py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center opacity-40">
             <i className="fa-solid fa-calendar-xmark text-4xl mb-4 text-slate-300"></i>
             <p className="font-black text-sm uppercase tracking-widest text-slate-400">{t('matchesList.noMatches')}</p>
           </div>
         )}
       </div>
+      </>
       )}
     </div>
   );

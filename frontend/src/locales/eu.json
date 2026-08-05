@@ -606,7 +606,9 @@
     "deleteEvent": "Gertaera Ezabatu",
     "noMatches": "Partidarik ez erregistratuta. Sakatu \"Partida Berria\" hasteko.",
     "tabMatches": "Partidak",
-    "tabStats": "Partiduen Datuak"
+    "tabStats": "Partiduen Datuak",
+    "filterJornada": "Jardunaldia",
+    "allJornadas": "Jardunaldi guztiak"
   },
   "playerStatsSummary": {
     "title": "Partiduen Datuak",

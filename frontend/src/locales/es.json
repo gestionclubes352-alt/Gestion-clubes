@@ -606,7 +606,9 @@
     "deleteEvent": "Eliminar Evento",
     "noMatches": "Sin partidos registrados. Pulsa \"Nuevo Partido\" para empezar.",
     "tabMatches": "Partidos",
-    "tabStats": "Datos Partidos"
+    "tabStats": "Datos Partidos",
+    "filterJornada": "Jornada",
+    "allJornadas": "Todas las jornadas"
   },
   "playerStatsSummary": {
     "title": "Datos Partidos",

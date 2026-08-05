@@ -371,7 +371,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       </h2>
 
       {/* PESTAÑAS MIS PLANTILLAS / EQUIPOS RIVALES */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="hidden sm:flex flex-wrap items-center justify-center gap-2">
         <button
           onClick={() => switchTab('mis')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
@@ -400,6 +400,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       <div className="sticky top-0 z-30 bg-[var(--surface-0)]/90 backdrop-blur-xl border border-[var(--border-soft)] shadow-sm rounded-2xl p-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex flex-wrap items-center gap-2 flex-1">
+            <div className="hidden sm:contents">
             {['TODOS', ...positionOrder].map((pos) => (
               <button
                 key={pos}
@@ -459,6 +460,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             {availableTeams.length > 1 && (
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
             )}
+            </div>
 
             {/* Filtro de equipos */}
             {availableTeams.length > 1 && (
@@ -575,7 +577,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                 </button>
 
                 {!isCollapsed && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                     {group.players.map((player) => {
                       const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
                       const hasPhoto = isImageUrl(player.fotoUrl);
@@ -584,42 +586,33 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                       return (
                         <div
                           key={player.id}
-                          className="group relative bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:border-[var(--surface-3)] transition-all duration-300 cursor-pointer hover:scale-[1.04] h-36"
+                          className="group relative bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg overflow-hidden shadow-sm hover:shadow-lg hover:border-[var(--surface-3)] transition-all duration-300 cursor-pointer hover:scale-[1.05] h-56 flex flex-col"
                           onClick={() => onEdit(player)}
                         >
-                          {/* Imagen o iniciales */}
+                          {/* Imagen o iniciales - ocupa todo el espacio disponible */}
                           {hasPhoto ? (
                             <img
                               src={player.fotoUrl}
                               alt={player.nombre}
-                              className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                              className="flex-1 w-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="absolute inset-0 bg-[var(--surface-1)] flex items-center justify-center">
-                              <span className="text-[32px] font-black text-[var(--surface-3)] select-none">{getInitials(player.nombre)}</span>
+                            <div className="flex-1 bg-[var(--surface-1)] flex items-center justify-center">
+                              <span className="text-5xl font-black text-[var(--surface-3)] select-none">{getInitials(player.nombre)}</span>
                             </div>
                           )}
 
-                          {/* Gradiente inferior */}
-                          <div className="absolute inset-0 bg-linear-to-t from-[var(--surface-0)] via-[var(--surface-0)]/40 to-transparent"></div>
-
                           {/* Dorsal + estado */}
-                          <div className="absolute top-1.5 right-1.5 flex flex-col items-center gap-0.5">
-                            <div className="bg-slate-900 text-white w-6 h-6 rounded-md flex items-center justify-center font-black text-[11px] shadow tabular-nums leading-none">
+                          <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
+                            <div className="bg-slate-900 text-white w-8 h-8 rounded-md flex items-center justify-center font-black text-sm shadow-lg tabular-nums leading-none">
                               {player.dorsal}
                             </div>
-                            <div className={`w-1.5 h-1.5 rounded-full ${estadoColor} ring-1 ring-white/80`}></div>
+                            <div className={`w-2 h-2 rounded-full ${estadoColor} ring-2 ring-white/80`}></div>
                           </div>
 
-                          {/* Info inferior */}
-                          <div className="absolute bottom-0 left-0 right-0 p-1.5">
-                            {activeTab === 'rivales' && player.club ? (
-                              <p className="text-[6px] font-bold uppercase tracking-[0.1em] text-[#1976d2] mb-0.5 truncate">{player.club}</p>
-                            ) : player.posicionJuego && (
-                              <p className="text-[6px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-0.5 truncate">{player.posicionJuego}</p>
-                            )}
-                            <h3 className="text-[10px] font-black text-[var(--text-strong)] uppercase leading-tight tracking-tight truncate">{player.nombre}</h3>
-                            <div className={`h-px w-4 mt-1 group-hover:w-full transition-all duration-400 ${posStyle.text.replace('text-', 'bg-')}`}></div>
+                          {/* Info inferior - mínima y compacta */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent p-2">
+                            <h3 className="text-xs font-bold text-white uppercase leading-tight truncate">{player.nombre}</h3>
                           </div>
                         </div>
                       );

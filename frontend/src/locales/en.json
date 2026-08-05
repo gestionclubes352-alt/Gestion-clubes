@@ -606,7 +606,9 @@
     "deleteEvent": "Delete Event",
     "noMatches": "No matches recorded. Click \"New Match\" to start.",
     "tabMatches": "Matches",
-    "tabStats": "Match Data"
+    "tabStats": "Match Data",
+    "filterJornada": "Matchday",
+    "allJornadas": "All matchdays"
   },
   "playerStatsSummary": {
     "title": "Match Data",

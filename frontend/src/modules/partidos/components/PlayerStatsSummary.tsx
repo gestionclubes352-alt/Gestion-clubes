@@ -25,9 +25,9 @@ const ownTeamNameOf = (match: Match): string => {
   return local || visitor;
 };
 
-const MATCH_DURATION_MINUTES = 90;
+export const MATCH_DURATION_MINUTES = 90;
 
-const computeMatchStats = (report: MatchReport) => {
+export const computeMatchStats = (report: MatchReport) => {
   const starterIds = new Set(
     (report.lineupPositions || []).flatMap(pos => pos.playerIds || []).map(id => String(id))
   );

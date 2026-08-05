@@ -1074,6 +1074,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         clubId={currentTeam?.id || ''}
         equipos={competitionTeams}
         events={filteredEventsList}
+        matches={filteredMatchesList}
+        clubes={clubesList}
         onClose={() => setEditingPlayer(null)}
         onSave={async (p, originalId) => {
           const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || '' }, originalId);

@@ -6,7 +6,10 @@ import html2canvas from 'html2canvas-pro';
 import { Player } from '../types';
 import type { CompetitionTeam } from '../../competicion/types';
 import type { CalendarEvent } from '../../calendario/types';
+import type { Match } from '@modules/partidos/types';
+import type { Club } from '@modules/clubes/types';
 import PlayerStatsCharts from './PlayerStatsCharts';
+import PlayerMatchBreakdown from './PlayerMatchBreakdown';
 
 interface EditPlayerModalProps {
   player: Player;
@@ -15,6 +18,10 @@ interface EditPlayerModalProps {
   equipos: CompetitionTeam[];
   /** Eventos del calendario (para calcular la asistencia a sesiones) */
   events?: CalendarEvent[];
+  /** Partidos disponibles (para el desglose por competición y partido) */
+  matches?: Match[];
+  /** Clubes reales de Supabase (para mostrar el nombre de club en el desglose de partidos) */
+  clubes?: Club[];
   onClose: () => void;
   onSave: (player: Player, originalId?: Player['id']) => Promise<void>;
 }
@@ -69,7 +76,7 @@ const createCompressedPhotoDataUrl = (file: File): Promise<string> =>
     image.src = objectUrl;
   });
 
-const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, events, onClose, onSave }) => {
+const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, events, matches, clubes, onClose, onSave }) => {
   const { t } = useTranslation();
   const isHuesca = clubId === 'escuela-huesca' || player.club?.toUpperCase().includes('HUESCA');
   const initialPhotoUrl = isPersistedImage(player.fotoUrl) ? player.fotoUrl : '';
@@ -639,6 +646,11 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             sesionesAsistidas={attendanceStats.attended}
             sesionesAusencias={attendanceStats.absences}
           />
+
+          {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
+          {matches && matches.length > 0 && (
+            <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} />
+          )}
 
           {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}
           {!isHuesca && (
