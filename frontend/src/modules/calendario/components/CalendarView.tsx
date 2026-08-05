@@ -894,14 +894,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               </button>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('common.from', 'Desde')}:</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Desde:</label>
               <input
                 type="date"
                 value={filterDateFrom}
                 onChange={(e) => setFilterDateFrom(e.target.value)}
                 className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
               />
-              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('common.to', 'Hasta')}:</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Hasta:</label>
               <input
                 type="date"
                 value={filterDateTo}
@@ -916,7 +916,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                   }}
                   className="px-3 py-2 text-[10px] font-bold text-red-600 hover:text-red-700 uppercase"
                 >
-                  ✕ {t('common.clear', 'Limpiar')}
+                  ✕ Limpiar
                 </button>
               )}
             </div>

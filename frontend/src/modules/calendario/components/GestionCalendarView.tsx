@@ -225,7 +225,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       <div className="grid grid-cols-7 gap-1 md:gap-2 mb-3">
         {orderedDayNames.map(day => (
           <div key={day} className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase text-center py-2 tracking-widest">
-            {day}
+            {day.slice(0,3)}
           </div>
         ))}
       </div>
@@ -236,14 +236,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             const inMonth = date && date.getMonth() === currentMonth.getMonth();
             const dayKey = date ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` : '';
             const dayEvents = dayKey ? (eventsByDay[dayKey] || []) : [];
-            const isTodayDate = date && isToday(date);
 
             return (
               <div
                 key={j}
                 className={`
                   min-h-20 md:min-h-28 rounded-xl border p-1.5 md:p-2 flex flex-col transition-all group
-                  ${!inMonth ? 'opacity-20 border-transparent' : isTodayDate ? 'border-[var(--accent)]/40 bg-red-50/30 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'}
+                  ${!inMonth ? 'opacity-20 border-transparent' : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'}
                   ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}
                 `}
                 onDragOver={(e) => {
@@ -263,7 +262,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 }}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className={`text-[11px] md:text-[12px] font-black ${isTodayDate ? 'text-[var(--accent)]' : 'text-slate-500'}`}>
+                  <span className={`text-[11px] md:text-[12px] font-black text-slate-500`}>
                     {date ? date.getDate() : ''}
                   </span>
                   <div className="flex items-center gap-1">
@@ -291,7 +290,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                         rounded-lg px-1 py-0.5 text-[9px] font-bold cursor-move border transition-all hover:shadow-sm flex items-center gap-0.5 select-none
                         ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}
                       `}
-                      title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title} (arrastra para duplicar)`}
+                      title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                       onDragStart={(e) => {
                         e.dataTransfer!.effectAllowed = 'copy';
                         e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
@@ -316,12 +315,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setDuplicateEvent(ev);
+                          onDeleteEvent?.(ev.id);
                         }}
                         className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
-                        title="Duplicar evento"
+                        title={t('common.delete')}
                       >
-                        <i className="fa-solid fa-copy text-[8px] text-slate-400 hover:text-slate-600"></i>
+                        <i className="fa-solid fa-xmark text-[8px]" style={{
+                          color: ev.type === 'Partido' ? 'rgb(248, 113, 113)' : 'rgb(52, 211, 153)',
+                        }}></i>
                       </button>
                     </div>
                   ))}
