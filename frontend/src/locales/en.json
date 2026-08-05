@@ -736,7 +736,8 @@
     "fieldDescription": "Description",
     "describeTaskPlaceholder": "Describe the task...",
     "viewFullscreen": "View fullscreen",
-    "closeFullscreen": "Close"
+    "closeFullscreen": "Close",
+    "dragToDuplicate": "Drag to duplicate"
   },
   "userTable": {
     "user": "User",

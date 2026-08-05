@@ -736,7 +736,8 @@
     "fieldDescription": "Deskribapena",
     "describeTaskPlaceholder": "Deskribatu zeregina...",
     "viewFullscreen": "Ikusi pantaila handian",
-    "closeFullscreen": "Itxi"
+    "closeFullscreen": "Itxi",
+    "dragToDuplicate": "Arrastratu bikoitza egiteko"
   },
   "userTable": {
     "user": "Erabiltzailea",

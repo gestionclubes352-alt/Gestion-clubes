@@ -59,6 +59,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   // Evita que el tab vuelva a "Datos" cuando reabrimos la sesión tras crear una tarea en el diseñador
   const skipDatosResetRef = useRef(false);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
 
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNamesLong = t('calendarView.daysLong', { returnObjects: true }) as string[];
@@ -184,6 +186,46 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       setActiveMatch(event);
     } else {
       setActiveTraining(event);
+    }
+  };
+
+  const duplicateEvent = (event: CalendarEvent, newDate: Date): CalendarEvent => {
+    return {
+      ...event,
+      id: crypto.randomUUID(),
+      date: newDate
+    };
+  };
+
+  const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
+    e.preventDefault?.();
+    setDraggedEvent(event);
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', JSON.stringify(event));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedEvent(null);
+    setDragOverDate(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOverDate(date);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDate(null);
+  };
+
+  const handleDropEvent = (e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    if (draggedEvent) {
+      const newEvent = duplicateEvent(draggedEvent, date);
+      onSaveEvent(newEvent);
+      setDraggedEvent(null);
+      setDragOverDate(null);
     }
   };
 
@@ -803,7 +845,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             {getMonthMatrix(currentMonth).map((week, i) => (
               <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
                 {week.map((date, j) => (
-                  <div key={j} className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'}`}>
+                  <div
+                    key={j}
+                    className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
+                      date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'
+                    } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
+                    onDragOver={(e) => date && handleDragOver(e, date)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => date && handleDropEvent(e, date)}
+                  >
                     {date && date.getMonth() === currentMonth.getMonth() && (
                       <button
                         className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
@@ -816,13 +866,70 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
                     <div className="flex-1 flex flex-col gap-1">
                       {date && eventsByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`]?.map(ev => (
-                        <div key={ev.id} className="bg-red-100 text-red-800 rounded px-1.5 py-1 text-[11px] font-bold truncate cursor-pointer hover:bg-red-200 flex items-center gap-1 group/ev" title={ev.title}>
-                          <span className="truncate flex-1 leading-tight" onClick={() => handleEventClick(ev)}>
-                            {ev.time}{ev.team ? ` - ${ev.team}` : ''}
-                          </span>
+                        <div
+                          key={ev.id}
+                          className={`rounded px-1 py-1 text-[11px] font-bold cursor-pointer flex flex-col gap-0.5 group/ev transition-all opacity-100 hover:shadow-md border-2 ${
+                            ev.type === 'Partido' ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-400' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-400'
+                          }`}
+                        >
+                          {ev.type === 'Partido' ? (
+                            <>
+                              <div className="flex items-center gap-0.5">
+                                <div
+                                  draggable="true"
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.effectAllowed = 'copy';
+                                    e.dataTransfer.setData('text/plain', JSON.stringify(ev));
+                                    setDraggedEvent(ev);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedEvent(null);
+                                    setDragOverDate(null);
+                                  }}
+                                  className="cursor-grab active:cursor-grabbing flex-shrink-0"
+                                  title={t('calendarView.dragToDuplicate')}
+                                >
+                                  <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100"></i>
+                                </div>
+                                <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
+                                  {ev.time}
+                                </span>
+                              </div>
+                              <span className="text-[10px] leading-tight pl-3 font-semibold break-words" onClick={() => handleEventClick(ev)}>
+                                {ev.localTeam && ev.visitorTeam ? `${ev.localTeam} vs ${ev.visitorTeam}` : `${ev.title || ev.opponent || ''}`}
+                              </span>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-0.5">
+                              <div
+                                draggable="true"
+                                onDragStart={(e) => {
+                                  e.dataTransfer.effectAllowed = 'copy';
+                                  e.dataTransfer.setData('text/plain', JSON.stringify(ev));
+                                  setDraggedEvent(ev);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedEvent(null);
+                                  setDragOverDate(null);
+                                }}
+                                className="cursor-grab active:cursor-grabbing flex-shrink-0"
+                                title={t('calendarView.dragToDuplicate')}
+                              >
+                                <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100"></i>
+                              </div>
+                              <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
+                                {`${ev.time}${ev.team ? ` - ${ev.team}` : ''}`}
+                              </span>
+                            </div>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
-                            className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full text-red-400 hover:text-white hover:bg-red-500 flex-shrink-0 transition-all"
+                            className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
+                            style={{
+                              color: ev.type === 'Partido' ? 'rgb(248, 113, 113)' : 'rgb(52, 211, 153)',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = ev.type === 'Partido' ? 'rgb(239, 68, 68)' : 'rgb(16, 185, 129)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             title={t('common.delete')}
                           >
                             <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>

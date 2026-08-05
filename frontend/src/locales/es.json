@@ -736,7 +736,8 @@
     "fieldDescription": "Descripción",
     "describeTaskPlaceholder": "Describe la tarea...",
     "viewFullscreen": "Ver en pantalla grande",
-    "closeFullscreen": "Cerrar"
+    "closeFullscreen": "Cerrar",
+    "dragToDuplicate": "Arrastra para duplicar"
   },
   "userTable": {
     "user": "Usuario",

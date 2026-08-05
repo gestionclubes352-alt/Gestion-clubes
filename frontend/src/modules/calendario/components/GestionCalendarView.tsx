@@ -7,6 +7,7 @@ interface GestionCalendarViewProps {
   onCreateEvent?: () => void;
   onClickEvent?: (event: CalendarEvent) => void;
   onDeleteEvent?: (id: string | number) => void;
+  onSaveEvent?: (event: CalendarEvent) => void;
 }
 
 const EVENT_BADGE_COLORS: Record<string, string> = {
@@ -32,7 +33,7 @@ const formatEventLabel = (time?: string, team?: string, fallbackTime = '--:--') 
   return team ? `${hour} - ${team}` : hour;
 };
 
-const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent }) => {
+const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent }) => {
   const { t, i18n } = useTranslation();
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNames = t('calendarView.daysAbbr', { returnObjects: true }) as string[];
@@ -42,6 +43,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return new Date();
   });
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
+  const [duplicateEvent, setDuplicateEvent] = useState<CalendarEvent | null>(null);
+  const [duplicateTargetDate, setDuplicateTargetDate] = useState<Date | null>(null);
 
   const eventsByDay = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
@@ -239,7 +244,23 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 className={`
                   min-h-20 md:min-h-28 rounded-xl border p-1.5 md:p-2 flex flex-col transition-all group
                   ${!inMonth ? 'opacity-20 border-transparent' : isTodayDate ? 'border-[var(--accent)]/40 bg-red-50/30 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'}
+                  ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}
                 `}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                  if (date) setDragOverDate(date);
+                }}
+                onDragLeave={() => setDragOverDate(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (draggedEvent && date) {
+                    const newEvent = { ...draggedEvent, id: `${draggedEvent.id}-copy-${Date.now()}`, date };
+                    onSaveEvent?.(newEvent);
+                    setDraggedEvent(null);
+                    setDragOverDate(null);
+                  }
+                }}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-[11px] md:text-[12px] font-black ${isTodayDate ? 'text-[var(--accent)]' : 'text-slate-500'}`}>
@@ -265,17 +286,43 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   {dayEvents.slice(0, 3).map(ev => (
                     <div
                       key={ev.id}
-                      onClick={() => {
-                        setSelectedEvent(ev);
-                        onClickEvent?.(ev);
-                      }}
+                      draggable
                       className={`
-                        rounded-lg px-1.5 py-0.5 text-[9px] font-bold truncate cursor-pointer border transition-all hover:shadow-sm
+                        rounded-lg px-1 py-0.5 text-[9px] font-bold cursor-move border transition-all hover:shadow-sm flex items-center gap-0.5 select-none
                         ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}
                       `}
-                      title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                      title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title} (arrastra para duplicar)`}
+                      onDragStart={(e) => {
+                        e.dataTransfer!.effectAllowed = 'copy';
+                        e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
+                        setDraggedEvent(ev);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedEvent(null);
+                        setDragOverDate(null);
+                      }}
                     >
-                      <span className="hidden md:inline">{formatEventLabel(ev.time, ev.team)} </span>{ev.title}
+                      <i className="fa-solid fa-grip-vertical text-[8px] opacity-60 flex-shrink-0"></i>
+                      <span
+                        className="truncate flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEvent(ev);
+                          onClickEvent?.(ev);
+                        }}
+                      >
+                        <span className="hidden md:inline">{formatEventLabel(ev.time, ev.team)} </span>{ev.title}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDuplicateEvent(ev);
+                        }}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                        title="Duplicar evento"
+                      >
+                        <i className="fa-solid fa-copy text-[8px] text-slate-400 hover:text-slate-600"></i>
+                      </button>
                     </div>
                   ))}
                   {dayEvents.length > 3 && (
@@ -595,6 +642,52 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {duplicateEvent && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setDuplicateEvent(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white shadow-2xl animate-fade-in p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-6">
+              <h3 className="text-lg font-black text-slate-900">Duplicar evento</h3>
+              <p className="text-sm text-slate-500 mt-1">{duplicateEvent.title}</p>
+            </div>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {Array.from({ length: 30 }, (_, i) => {
+                const date = new Date(currentMonth);
+                date.setDate(date.getDate() + i);
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      const newEvent = { ...duplicateEvent, id: `${duplicateEvent.id}-copy-${Date.now()}`, date };
+                      onSaveEvent?.(newEvent);
+                      setDuplicateEvent(null);
+                    }}
+                    className="w-full text-left px-4 py-3 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all"
+                  >
+                    <p className="font-bold text-slate-700">
+                      {date.toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setDuplicateEvent(null)}
+              className="mt-6 w-full px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
