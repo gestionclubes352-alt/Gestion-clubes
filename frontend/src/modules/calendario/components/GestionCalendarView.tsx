@@ -19,6 +19,24 @@ const EVENT_BADGE_COLORS: Record<string, string> = {
   Actividad: 'bg-amber-100 text-amber-700 border-amber-200',
 };
 
+const EVENT_THICK_COLORS: Record<string, string> = {
+  Entrenamiento: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-400',
+  Partido: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-400',
+  Reunión: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-400',
+  Otro: 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-400',
+  Descanso: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-400',
+  Actividad: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-400',
+};
+
+const EVENT_DELETE_HOVER_COLORS: Record<string, { color: string; hoverBg: string }> = {
+  Entrenamiento: { color: 'rgb(52, 211, 153)', hoverBg: 'rgb(16, 185, 129)' },
+  Partido: { color: 'rgb(248, 113, 113)', hoverBg: 'rgb(239, 68, 68)' },
+  Reunión: { color: 'rgb(192, 132, 252)', hoverBg: 'rgb(147, 51, 234)' },
+  Otro: { color: 'rgb(156, 163, 175)', hoverBg: 'rgb(107, 114, 128)' },
+  Descanso: { color: 'rgb(74, 222, 128)', hoverBg: 'rgb(34, 197, 94)' },
+  Actividad: { color: 'rgb(251, 191, 36)', hoverBg: 'rgb(217, 119, 6)' },
+};
+
 const EVENT_DOT_COLORS: Record<string, string> = {
   Entrenamiento: 'bg-emerald-500',
   Partido: 'bg-red-500',
@@ -158,13 +176,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
             style={{ gridTemplateColumns: '72px repeat(7, minmax(0, 1fr))' }}
           >
-            <div className="bg-slate-900/95 px-3 py-3"></div>
+            <div className="bg-white px-3 py-3"></div>
             {scheduleEvents.map(({ date }) => (
-              <div key={date.toISOString()} className="bg-slate-900/95 px-3 py-3 text-center">
+              <div key={date.toISOString()} className="bg-white px-3 py-3 text-center">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                   {dayNames[date.getDay()]}
                 </p>
-                <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-white'}`}>
+                <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
                   {date.getDate()}
                 </p>
               </div>
@@ -172,7 +190,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
             {scheduleHours.map(hour => (
               <React.Fragment key={hour}>
-                <div className="bg-slate-900/95 px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <div className="bg-white px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
                   {String(hour).padStart(2, '0')}:00
                 </div>
                 {scheduleEvents.map(({ date, events: dayEvents }) => {
@@ -184,7 +202,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   return (
                     <div
                       key={`${date.toISOString()}-${hour}`}
-                      className={`min-h-14 bg-slate-950/70 p-1.5 ${isToday(date) ? 'bg-red-50/10' : ''}`}
+                      className={`min-h-14 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
                     >
                       <div className="space-y-1">
                         {hourEvents.map(ev => (
@@ -203,7 +221,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                         {hourEvents.length === 0 && onCreateEvent && hour === 9 && (
                           <button
                             onClick={() => onCreateEvent()}
-                            className="w-full rounded-lg border border-dashed border-slate-700 text-[10px] font-bold text-slate-500 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                            className="w-full rounded-lg border border-dashed border-slate-300 text-[10px] font-bold text-slate-500 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
                           >
                             + {t('calendarView.newEventButton')}
                           </button>
@@ -222,11 +240,9 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
   const renderMonthlyGrid = () => (
     <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-3">
+      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
         {orderedDayNames.map(day => (
-          <div key={day} className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase text-center py-2 tracking-widest">
-            {day.slice(0,3)}
-          </div>
+          <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0,3)}</div>
         ))}
       </div>
 
@@ -240,11 +256,9 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             return (
               <div
                 key={j}
-                className={`
-                  min-h-20 md:min-h-28 rounded-xl border p-1.5 md:p-2 flex flex-col transition-all group
-                  ${!inMonth ? 'opacity-20 border-transparent' : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'}
-                  ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}
-                `}
+                className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
+                  !inMonth ? 'opacity-30' : ''
+                } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'copy';
@@ -261,76 +275,63 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   }
                 }}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-[11px] md:text-[12px] font-black text-slate-500`}>
-                    {date ? date.getDate() : ''}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {dayEvents.length > 0 && (
-                      <span className="text-[9px] font-bold text-slate-300">{dayEvents.length}</span>
-                    )}
-                    {inMonth && onCreateEvent && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onCreateEvent(); }}
-                        className="w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:!opacity-100 shadow-sm"
-                        title={t('calendarView.newEvent')}
-                      >
-                        <i className="fa-solid fa-plus text-[8px]"></i>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex-1 flex flex-col gap-1 overflow-hidden">
-                  {dayEvents.slice(0, 3).map(ev => (
-                    <div
-                      key={ev.id}
-                      draggable
-                      className={`
-                        rounded-lg px-1 py-0.5 text-[9px] font-bold cursor-move border transition-all hover:shadow-sm flex items-center gap-0.5 select-none
-                        ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}
-                      `}
-                      title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                      onDragStart={(e) => {
-                        e.dataTransfer!.effectAllowed = 'copy';
-                        e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
-                        setDraggedEvent(ev);
-                      }}
-                      onDragEnd={() => {
-                        setDraggedEvent(null);
-                        setDragOverDate(null);
-                      }}
-                    >
-                      <i className="fa-solid fa-grip-vertical text-[8px] opacity-60 flex-shrink-0"></i>
-                      <span
-                        className="truncate flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedEvent(ev);
-                          onClickEvent?.(ev);
+                {inMonth && onCreateEvent && (
+                  <button
+                    className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
+                    style={{ fontSize: '16px' }}
+                    onClick={(e) => { e.stopPropagation(); onCreateEvent(); }}
+                    title={t('calendarView.newEvent')}
+                  >
+                    <i className="fa-solid fa-plus"></i>
+                  </button>
+                )}
+                <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
+                <div className="flex-1 flex flex-col gap-1">
+                  {dayEvents.map(ev => {
+                    const deleteColors = EVENT_DELETE_HOVER_COLORS[ev.type] || EVENT_DELETE_HOVER_COLORS.Otro;
+                    return (
+                      <div
+                        key={ev.id}
+                        draggable
+                        className={`rounded px-1 py-1 text-[11px] font-bold cursor-pointer flex items-center gap-0.5 group/ev transition-all opacity-100 hover:shadow-md border-2 ${EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
+                        title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                        onDragStart={(e) => {
+                          e.dataTransfer!.effectAllowed = 'copy';
+                          e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
+                          setDraggedEvent(ev);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedEvent(null);
+                          setDragOverDate(null);
                         }}
                       >
-                        <span className="hidden md:inline">{formatEventLabel(ev.time, ev.team)} </span>{ev.title}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteEvent?.(ev.id);
-                        }}
-                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
-                        title={t('common.delete')}
-                      >
-                        <i className="fa-solid fa-xmark text-[8px]" style={{
-                          color: ev.type === 'Partido' ? 'rgb(248, 113, 113)' : 'rgb(52, 211, 153)',
-                        }}></i>
-                      </button>
-                    </div>
-                  ))}
-                  {dayEvents.length > 3 && (
-                    <span className="text-[9px] font-bold text-slate-400 text-center">
-                      {t('calendarView.moreEvents', { count: dayEvents.length - 3 })}
-                    </span>
-                  )}
+                        <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100 flex-shrink-0"></i>
+                        <span
+                          className="truncate leading-tight flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEvent(ev);
+                            onClickEvent?.(ev);
+                          }}
+                        >
+                          {formatEventLabel(ev.time, ev.team)} {ev.title}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteEvent?.(ev.id);
+                          }}
+                          className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
+                          style={{ color: deleteColors.color }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = deleteColors.hoverBg}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          title={t('common.delete')}
+                        >
+                          <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
