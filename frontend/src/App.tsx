@@ -31,7 +31,7 @@ import type { User } from '@modules/usuarios';
 import { authService } from '@shared/services/authService';
 
 // Modules - Competicion
-import { CompetitionTable, LeagueTable } from '@modules/competicion';
+import { CompetitionTable, LeagueTable, CompetitionsConfigView } from '@modules/competicion';
 import type { CompetitionTeam } from '@modules/competicion';
 
 // Modules - Clubes
@@ -85,6 +85,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/partidos': 'PARTIDOS',
   '/videoteca': 'VIDEOTECA',
   '/competicion': 'COMPETICIÓN',
+  '/competiciones': 'COMPETICIONES',
   '/lesiones': 'LESIONES',
   '/historial-medico': 'HISTORIAL MÉDICO',
   '/reconocimientos': 'RECONOCIMIENTOS',
@@ -109,6 +110,7 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'PARTIDOS': '/partidos',
   'VIDEOTECA': '/videoteca',
   'COMPETICIÓN': '/competicion',
+  'COMPETICIONES': '/competiciones',
   'LESIONES': '/lesiones',
   'HISTORIAL MÉDICO': '/historial-medico',
   'RECONOCIMIENTOS': '/reconocimientos',
@@ -1036,6 +1038,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} />
               } />
+              <Route path="/competiciones" element={<CompetitionsConfigView />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />

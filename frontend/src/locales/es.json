@@ -89,6 +89,7 @@
     "calendarLabel": "Calendario",
     "matchesLabel": "Partidos",
     "competitionLabel": "Competición",
+    "competitionsLabel": "Competiciones",
     "rivalTeamsLabel": "Equipos Rivales",
     "tools": "Herramientas",
     "sportsAreaLabel": "Área Deportiva",
@@ -626,6 +627,7 @@
     "redCards": "T. Rojas",
     "viewTable": "Tabla",
     "viewCharts": "Gráficas",
+    "chartStarters": "Titularidades",
     "chartGoals": "Goleadores",
     "chartMinutes": "Minutos Jugados",
     "chartCards": "Tarjetas"

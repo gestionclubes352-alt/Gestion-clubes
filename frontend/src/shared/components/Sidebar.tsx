@@ -295,12 +295,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('planning') && (
-          <SidebarSection title={t('sidebar.sportsAreaLabel')} sectionKey="planning" collapsed={isCollapsed} hasActiveChild={['DISEÑADOR', 'PIZARRA TÁCTICA', 'SESIONES', 'COMPETICIÓN', 'PARTIDOS', 'VIDEOTECA', 'REPOSITORIO DE TAREAS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.sportsAreaLabel')} sectionKey="planning" collapsed={isCollapsed} hasActiveChild={['DISEÑADOR', 'PIZARRA TÁCTICA', 'SESIONES', 'COMPETICIÓN', 'COMPETICIONES', 'PARTIDOS', 'VIDEOTECA', 'REPOSITORIO DE TAREAS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('PIZARRA TÁCTICA') && <SidebarItem icon="fa-chalkboard-user" label={t('sidebar.tacticalBoardLabel')} active={activeSection === 'PIZARRA TÁCTICA'} onClick={() => handleItemClick('PIZARRA TÁCTICA')} collapsed={isCollapsed} />}
             {isVisible('DISEÑADOR') && <SidebarItem icon="fa-person-running" label={t('sidebar.designerLabel')} active={activeSection === 'DISEÑADOR'} onClick={() => handleItemClick('DISEÑADOR')} collapsed={isCollapsed} />}
             {isVisible('REPOSITORIO DE TAREAS') && <SidebarItem icon="fa-book-open" label={t('sidebar.taskRepositoryLabel')} active={activeSection === 'REPOSITORIO DE TAREAS'} onClick={() => handleItemClick('REPOSITORIO DE TAREAS')} collapsed={isCollapsed} />}
             {isVisible('SESIONES') && <SidebarItem icon="fa-calendar-days" label={t('sidebar.sessionsLabel')} active={activeSection === 'SESIONES'} onClick={() => handleItemClick('SESIONES')} collapsed={isCollapsed} />}
             {isVisible('COMPETICIÓN') && <SidebarItem icon="fa-ranking-star" label={t('sidebar.competitionLabel')} active={activeSection === 'COMPETICIÓN'} onClick={() => handleItemClick('COMPETICIÓN')} collapsed={isCollapsed} />}
+            {isVisible('COMPETICIONES') && <SidebarItem icon="fa-trophy" label={t('sidebar.competitionsLabel')} active={activeSection === 'COMPETICIONES'} onClick={() => handleItemClick('COMPETICIONES')} collapsed={isCollapsed} />}
             {isVisible('PARTIDOS') && <SidebarItem icon="fa-futbol" label={t('sidebar.matchesLabel')} active={activeSection === 'PARTIDOS'} onClick={() => handleItemClick('PARTIDOS')} collapsed={isCollapsed} />}
             {isVisible('VIDEOTECA') && <SidebarItem icon="fa-video" label={t('sidebar.videoLibraryLabel')} active={activeSection === 'VIDEOTECA'} onClick={() => handleItemClick('VIDEOTECA')} collapsed={isCollapsed} />}
           </SidebarSection>

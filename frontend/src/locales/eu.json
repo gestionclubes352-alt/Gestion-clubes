@@ -89,6 +89,7 @@
     "calendarLabel": "Egutegia",
     "matchesLabel": "Partidak",
     "competitionLabel": "Lehiaketa",
+    "competitionsLabel": "Lehiaketak",
     "rivalTeamsLabel": "Aurkariak",
     "tools": "Tresnak",
     "sportsAreaLabel": "Kirol Arloa",
@@ -626,6 +627,7 @@
     "redCards": "T. Gorriak",
     "viewTable": "Taula",
     "viewCharts": "Grafikoak",
+    "chartStarters": "Titulartasunak",
     "chartGoals": "Golegileak",
     "chartMinutes": "Min. Jokatuak",
     "chartCards": "Txartelak"

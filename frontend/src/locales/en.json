@@ -89,6 +89,7 @@
     "calendarLabel": "Calendar",
     "matchesLabel": "Matches",
     "competitionLabel": "Competition",
+    "competitionsLabel": "Competitions",
     "rivalTeamsLabel": "Rival Teams",
     "tools": "Tools",
     "sportsAreaLabel": "Sports Area",
@@ -626,6 +627,7 @@
     "redCards": "Red Cards",
     "viewTable": "Table",
     "viewCharts": "Charts",
+    "chartStarters": "Starts",
     "chartGoals": "Top Scorers",
     "chartMinutes": "Minutes Played",
     "chartCards": "Cards"

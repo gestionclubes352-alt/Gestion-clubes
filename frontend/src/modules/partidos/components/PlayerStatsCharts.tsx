@@ -48,6 +48,9 @@ const StackedCardsRow: React.FC<{ label: string; yellow: number; red: number; ma
 const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }) => {
   const { t } = useTranslation();
 
+  const topStarters = [...rows].filter(r => r.starterCount > 0).sort((a, b) => b.starterCount - a.starterCount).slice(0, TOP_N);
+  const maxStarters = Math.max(1, ...topStarters.map(r => r.starterCount));
+
   const topGoals = [...rows].filter(r => r.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, TOP_N);
   const maxGoals = Math.max(1, ...topGoals.map(r => r.goals));
 
@@ -66,6 +69,21 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          <i className="fa-solid fa-list-ol text-blue-500"></i> {t('playerStatsSummary.chartStarters')}
+        </h4>
+        {topStarters.length === 0 ? (
+          <p className="text-xs font-bold text-slate-400">{t('playerStatsSummary.noData')}</p>
+        ) : (
+          <div className="space-y-3">
+            {topStarters.map(row => (
+              <BarRow key={row.playerId} label={playerLabel(row, squadById)} value={row.starterCount} max={maxStarters} barClassName="bg-blue-500" />
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
           <i className="fa-solid fa-futbol text-emerald-500"></i> {t('playerStatsSummary.chartGoals')}

@@ -43,6 +43,8 @@ export interface DesignerItem {
   arrowStart?: { x: number; y: number };
   /** Punto final de una flecha */
   arrowEnd?: { x: number; y: number };
+  /** Grosor del trazo de la flecha */
+  strokeWidth?: number;
 }
 
 export const DESIGNER_ITEM_ANIMATIONS: Array<{
