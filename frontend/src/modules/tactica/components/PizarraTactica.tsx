@@ -420,15 +420,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, [getPitchPercentPoint, isPlaying, drawingMode, getArrowAtPoint]);
 
   useEffect(() => {
-    const onPointerMove = (event: PointerEvent) => {
-      if (isDrawingArrow && drawStart && pitchRef.current) {
-        const rect = pitchRef.current.getBoundingClientRect();
-        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
-        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
-        setDrawStart(prev => prev ? { ...prev, x2: currentX, y2: currentY } : null);
-        return;
-      }
-
+    const onMouseMove = (event: MouseEvent) => {
       if (draggingArrowId && pitchRef.current && draggingArrowStart.current && arrowStartPosition.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
@@ -447,6 +439,16 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             y2: Math.min(97, Math.max(3, arrowStartPosition.current!.y2 + dy)),
           };
         }));
+        return;
+      }
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (isDrawingArrow && drawStart && pitchRef.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
+        setDrawStart(prev => prev ? { ...prev, x2: currentX, y2: currentY } : null);
         return;
       }
 
@@ -569,14 +571,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       document.body.style.userSelect = '';
     };
 
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('mouseup', onPointerUp);
 
     return () => {
+      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('mouseup', onPointerUp);
     };
   }, [clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId]);
 
@@ -1041,7 +1047,31 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     const headY2 = arrow.y2 - arrowHeadSize * Math.sin(angle + Math.PI / 6);
 
                     return (
-                      <g key={arrow.id} onClick={e => { e.stopPropagation(); setSelectedArrowId(arrow.id); }} style={{ cursor: 'pointer' }}>
+                      <g
+                        key={arrow.id}
+                        onMouseDown={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          const svg = (e.currentTarget as any).ownerSVGElement;
+                          if (!svg) return;
+                          const rect = svg.getBoundingClientRect();
+                          const start = {
+                            x: ((e.clientX - rect.left) / rect.width) * 100,
+                            y: ((e.clientY - rect.top) / rect.height) * 100,
+                          };
+                          setSelectedArrowId(arrow.id);
+                          setDraggingArrowId(arrow.id);
+                          draggingArrowStart.current = start;
+                          arrowStartPosition.current = {
+                            x1: arrow.x1,
+                            y1: arrow.y1,
+                            x2: arrow.x2,
+                            y2: arrow.y2,
+                          };
+                          document.body.style.cursor = 'grabbing';
+                          document.body.style.userSelect = 'none';
+                        }}
+                        style={{ cursor: 'grab', pointerEvents: 'auto' }}
+                      >
                         <line
                           x1={arrow.x1}
                           y1={arrow.y1}
@@ -1050,7 +1080,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           stroke={arrow.color}
                           strokeWidth={isSelected ? 0.8 : 0.4}
                           strokeOpacity="0.9"
-                          style={{ pointerEvents: 'stroke' }}
+                          style={{ pointerEvents: 'auto' }}
                         />
                         <polygon
                           points={`${arrow.x2},${arrow.y2} ${headX1},${headY1} ${headX2},${headY2}`}
@@ -1189,20 +1219,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           <i className="fa-solid fa-xmark" />
                         </button>
                       )}
-
-                      <div
-                        className="absolute rounded-full bg-red-500 shadow-lg cursor-grab active:cursor-grabbing"
-                        style={{
-                          width: '14px',
-                          height: '14px',
-                          top: `${displaySize / 2 - 2}px`,
-                          left: '50%',
-                          transform: 'translate(-50%, 50%)',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                          zIndex: 100,
-                        }}
-                        title="Punto de rotación"
-                      />
                     </div>
                   );
                 })}

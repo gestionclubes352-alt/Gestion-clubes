@@ -1942,31 +1942,36 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     ) : (
                       <i className={`fa-solid ${item.icon} text-3xl text-white drop-shadow-lg ${animationClass}`}></i>
                     )}
-                    {item.type?.startsWith('player-') && orientationModeEnabled && (
+                    {item.type?.startsWith('player-') && orientationModeEnabled && isItemSelected && (
                       <>
                         <svg
                           width="80"
                           height="80"
                           viewBox="-40 -40 80 80"
-                          className="pointer-events-none absolute left-1/2 top-1/2 overflow-visible"
+                          className="absolute left-1/2 top-1/2 cursor-grab active:cursor-grabbing overflow-visible"
                           style={{ transform: 'translate(-50%, -50%)' }}
                         >
                           <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
+                          <path
+                            data-orientation-handle="true"
+                            onPointerDown={(e) => handleRotateStart(e, item)}
+                            d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8"
+                            fill="none"
+                            stroke="transparent"
+                            strokeWidth="20"
+                            strokeLinecap="round"
+                            style={{ pointerEvents: 'stroke' }}
+                          />
                         </svg>
                         <div
                           data-orientation-handle="true"
                           onPointerDown={(e) => handleRotateStart(e, item)}
-                          className="absolute left-1/2 top-1/2 h-5 w-5 cursor-grab rounded-full active:cursor-grabbing"
-                          style={{ transform: 'translate(calc(-50% - 19.8px), calc(-50% - 19.8px))' }}
+                          className="absolute left-1/2 top-1/2 z-20 flex h-8 w-8 cursor-grab items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg active:cursor-grabbing"
+                          style={{ transform: 'translate(-50%, calc(-50% - 28px))' }}
                           title="Arrastra para orientar al jugador"
-                        />
-                        <div
-                          data-orientation-handle="true"
-                          onPointerDown={(e) => handleRotateStart(e, item)}
-                          className="absolute left-1/2 top-1/2 h-5 w-5 cursor-grab rounded-full active:cursor-grabbing"
-                          style={{ transform: 'translate(calc(-50% + 19.8px), calc(-50% - 19.8px))' }}
-                          title="Arrastra para orientar al jugador"
-                        />
+                        >
+                          <i className="fa-solid fa-rotate text-sm"></i>
+                        </div>
                       </>
                     )}
                     {item.playerId !== undefined && item.playerName && (
@@ -1988,7 +1993,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         e.stopPropagation();
                         selectSingleItem(item.id);
                       }}
-                      className="absolute -top-2 -right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all opacity-0 group-hover:opacity-100 hover:bg-[var(--accent)] hover:text-white"
+                      className="absolute bottom-0 left-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all opacity-0 group-hover:opacity-100 hover:bg-[var(--accent)] hover:text-white"
+                      style={{ transform: 'translate(-60%, 60%)' }}
                       title="Editar elemento"
                       aria-label="Editar elemento"
                     >
