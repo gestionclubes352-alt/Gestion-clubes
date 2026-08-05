@@ -6,11 +6,22 @@ import type { AttendanceStatus, CalendarEvent } from '../types';
 interface SessionAttendanceSummaryProps {
   events: CalendarEvent[];
   players: Player[];
+  filterDateFrom?: string;
+  filterDateTo?: string;
+  onFilterDateFromChange?: (date: string) => void;
+  onFilterDateToChange?: (date: string) => void;
 }
 
 const REASONS: AttendanceStatus[] = ['Lesión', 'Vacaciones', 'Descanso', 'No justificada', 'Otro'];
 
-const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({ events, players }) => {
+const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
+  events,
+  players,
+  filterDateFrom = '',
+  filterDateTo = '',
+  onFilterDateFromChange,
+  onFilterDateToChange,
+}) => {
   const { t } = useTranslation();
 
   const sessionsWithAttendance = useMemo(
@@ -41,13 +52,42 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({ eve
   return (
     <div className="w-full">
       <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
-        <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between flex-wrap gap-2">
-          <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest flex items-center gap-2">
-            <i className="fa-solid fa-clipboard-user"></i> {t('calendarView.sessionDataTitle')}
-          </h4>
-          <span className="text-xs font-black text-slate-400">
-            {sessionsWithAttendance.length} {t('calendarView.sessionsWithAttendance')}
-          </span>
+        <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest flex items-center gap-2">
+              <i className="fa-solid fa-clipboard-user"></i> {t('calendarView.sessionDataTitle')}
+            </h4>
+            <span className="text-xs font-black text-slate-400">
+              {sessionsWithAttendance.length} {t('calendarView.sessionsWithAttendance')}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{t('common.from', 'Desde')}:</label>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => onFilterDateFromChange?.(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+            />
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{t('common.to', 'Hasta')}:</label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => onFilterDateToChange?.(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+            />
+            {(filterDateFrom || filterDateTo) && (
+              <button
+                onClick={() => {
+                  onFilterDateFromChange?.('');
+                  onFilterDateToChange?.('');
+                }}
+                className="px-3 py-2 text-[10px] font-bold text-red-600 hover:text-red-700 uppercase"
+              >
+                ✕ {t('common.clear', 'Limpiar')}
+              </button>
+            )}
+          </div>
         </div>
         {players.length === 0 ? (
           <div className="py-16 text-center text-slate-400 font-bold text-sm">{t('calendarView.noPlayers')}</div>

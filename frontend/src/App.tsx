@@ -690,7 +690,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     if (event.type === 'Entrenamiento' || event.type === 'Sesión') {
       navigate('/sesiones', { state: { openEventId: event.id } });
     } else if (event.type === 'Partido') {
-      handleViewMatchReport(String(event.id));
+      navigate(`/partidos/${event.id}`, { state: { from: '/calendario' } });
     } else {
       setEditingEvent(event);
     }
@@ -816,12 +816,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   // Componente wrapper para Match Report con params
   const MatchReportWrapper = () => {
     const { matchId } = useParams<{ matchId: string }>();
+    const locState = useLocation().state as { from?: string } | null;
     const match = filteredEventsList.find(e => String(e.id) === matchId);
     if (!match) return <div className="p-20 text-center">{t('app.matchNotFound')}</div>;
+    const backPath = locState?.from || '/partidos';
     return (
       <MatchReportView
         match={match}
-        onBack={() => navigate('/partidos')}
+        onBack={() => navigate(backPath)}
         ownClubId={currentTeam?.id || ''}
         competitionTeams={competitionTeams}
         onSave={handleSaveEvent}

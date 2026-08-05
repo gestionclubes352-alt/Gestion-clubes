@@ -61,6 +61,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const skipDatosResetRef = useRef(false);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
 
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNamesLong = t('calendarView.daysLong', { returnObjects: true }) as string[];
@@ -85,14 +87,51 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       if ((e.type === 'Entrenamiento' || e.type === 'Sesión') && e.team) {
         teams.add(e.team);
       }
+      if (e.type === 'Partido') {
+        if (e.localTeam) teams.add(e.localTeam);
+        if (e.visitorTeam) teams.add(e.visitorTeam);
+      }
     });
     return Array.from(teams).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
   const filteredEvents = useMemo(() => {
+    const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
+    const dateTo = filterDateTo ? new Date(filterDateTo) : null;
+
     return events
       .filter(e => e.type === 'Entrenamiento' || e.type === 'Sesión')
       .filter(e => teamFilter === 'all' || e.team === teamFilter)
+      .filter(e => {
+        if (!dateFrom && !dateTo) return true;
+        const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
+        if (dateFrom && eventDate < dateFrom) return false;
+        if (dateTo) {
+          const dateToEnd = new Date(dateTo);
+          dateToEnd.setHours(23, 59, 59, 999);
+          if (eventDate > dateToEnd) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const da = a.date instanceof Date ? a.date : new Date(a.date);
+        const db = b.date instanceof Date ? b.date : new Date(b.date);
+        return da.getTime() - db.getTime();
+      });
+  }, [events, teamFilter, filterDateFrom, filterDateTo]);
+
+  const allFilteredEvents = useMemo(() => {
+    return events
+      .filter(e => {
+        if (teamFilter === 'all') return true;
+        if (e.type === 'Entrenamiento' || e.type === 'Sesión') {
+          return e.team === teamFilter;
+        }
+        if (e.type === 'Partido') {
+          return e.localTeam === teamFilter || e.visitorTeam === teamFilter;
+        }
+        return false;
+      })
       .sort((a, b) => {
         const da = a.date instanceof Date ? a.date : new Date(a.date);
         const db = b.date instanceof Date ? b.date : new Date(b.date);
@@ -193,7 +232,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return {
       ...event,
       id: crypto.randomUUID(),
-      date: newDate
+      date: newDate,
+      tasks: [],
+      attendance: {}
     };
   };
 
@@ -262,14 +303,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
 
   const eventsByDay = useMemo(() => {
     const map = {} as Record<string, CalendarEvent[]>;
-    events.forEach(ev => {
+    allFilteredEvents.forEach(ev => {
       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (!map[key]) map[key] = [];
       map[key].push(ev);
     });
     return map;
-  }, [events]);
+  }, [allFilteredEvents]);
 
   // --- FIN CALENDARIO MENSUAL ---
 
@@ -740,7 +781,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       </div>
 
       {mainTab === 'datosSesiones' && (
-        <SessionAttendanceSummary events={filteredEvents} players={squad} />
+        <SessionAttendanceSummary
+          events={filteredEvents}
+          players={squad}
+          filterDateFrom={filterDateFrom}
+          filterDateTo={filterDateTo}
+          onFilterDateFromChange={setFilterDateFrom}
+          onFilterDateToChange={setFilterDateTo}
+        />
       )}
 
       {mainTab === 'sesiones' && viewMode === 'table' && (
@@ -827,118 +875,152 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
 
       {mainTab === 'sesiones' && viewMode === 'calendar' && (
       <div className="flex-1 w-full">
-        <div className="bg-white rounded-4xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
-          <div className="px-4 md:px-10 py-4 md:py-8 border-b border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-            <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest">{ t('calendarView.monthlyCalendar')}</h4>
-            <div className="flex gap-2 items-center">
-              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[var(--accent)] font-black"><i className="fa-solid fa-chevron-left"></i></button>
-              <span className="font-black text-[var(--accent)] text-lg">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
-              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[var(--accent)] font-black"><i className="fa-solid fa-chevron-right"></i></button>
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
+          <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm">
+                <i className="fa-solid fa-chevron-left text-sm"></i>
+              </button>
+              <div className="text-center">
+                <h4 className="text-[var(--accent)] font-black text-lg md:text-2xl uppercase tracking-wider">
+                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                </h4>
+                <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.25em] mt-1">
+                  {t('calendarView.monthlyCalendar')}
+                </p>
+              </div>
+              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm">
+                <i className="fa-solid fa-chevron-right text-sm"></i>
+              </button>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('common.from', 'Desde')}:</label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+              />
+              <label className="text-[10px] font-bold text-slate-500 uppercase">{t('common.to', 'Hasta')}:</label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+              />
+              {(filterDateFrom || filterDateTo) && (
+                <button
+                  onClick={() => {
+                    setFilterDateFrom('');
+                    setFilterDateTo('');
+                  }}
+                  className="px-3 py-2 text-[10px] font-bold text-red-600 hover:text-red-700 uppercase"
+                >
+                  ✕ {t('common.clear', 'Limpiar')}
+                </button>
+              )}
             </div>
           </div>
           <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-            <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
+            <div className="grid grid-cols-7 gap-1 md:gap-2 mb-3">
               {orderedDayNamesLong.map(day => (
-                <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0,3)}</div>
+                <div key={day} className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase text-center py-2 tracking-widest">
+                  {day.slice(0,3)}
+                </div>
               ))}
             </div>
             {getMonthMatrix(currentMonth).map((week, i) => (
               <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
-                {week.map((date, j) => (
-                  <div
-                    key={j}
-                    className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
-                      date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'
-                    } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
-                    onDragOver={(e) => date && handleDragOver(e, date)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => date && handleDropEvent(e, date)}
-                  >
-                    {date && date.getMonth() === currentMonth.getMonth() && (
-                      <button
-                        className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
-                        style={{ fontSize: '16px' }}
-                        onClick={() => { setDefaultEventType('Sesión'); setSelectedDate(date); setShowNewModal(true); }}
-                      >
-                        <i className="fa-solid fa-plus"></i>
-                      </button>
-                    )}
-                    <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
-                    <div className="flex-1 flex flex-col gap-1">
-                      {date && eventsByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`]?.map(ev => (
-                        <div
-                          key={ev.id}
-                          className={`rounded px-1 py-1 text-[11px] font-bold cursor-pointer flex flex-col gap-0.5 group/ev transition-all opacity-100 hover:shadow-md border-2 ${
-                            ev.type === 'Partido' ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-400' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-400'
-                          }`}
-                        >
-                          {ev.type === 'Partido' ? (
-                            <>
-                              <div className="flex items-center gap-0.5">
-                                <div
-                                  draggable="true"
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.effectAllowed = 'copy';
-                                    e.dataTransfer.setData('text/plain', JSON.stringify(ev));
-                                    setDraggedEvent(ev);
-                                  }}
-                                  onDragEnd={() => {
-                                    setDraggedEvent(null);
-                                    setDragOverDate(null);
-                                  }}
-                                  className="cursor-grab active:cursor-grabbing flex-shrink-0"
-                                  title={t('calendarView.dragToDuplicate')}
-                                >
-                                  <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100"></i>
-                                </div>
-                                <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
-                                  {ev.time}
-                                </span>
-                              </div>
-                              <span className="text-[10px] leading-tight pl-3 font-semibold break-words" onClick={() => handleEventClick(ev)}>
-                                {ev.localTeam && ev.visitorTeam ? `${ev.localTeam} vs ${ev.visitorTeam}` : `${ev.title || ev.opponent || ''}`}
-                              </span>
-                            </>
-                          ) : (
-                            <div className="flex items-center gap-0.5">
-                              <div
-                                draggable="true"
-                                onDragStart={(e) => {
-                                  e.dataTransfer.effectAllowed = 'copy';
-                                  e.dataTransfer.setData('text/plain', JSON.stringify(ev));
-                                  setDraggedEvent(ev);
-                                }}
-                                onDragEnd={() => {
-                                  setDraggedEvent(null);
-                                  setDragOverDate(null);
-                                }}
-                                className="cursor-grab active:cursor-grabbing flex-shrink-0"
-                                title={t('calendarView.dragToDuplicate')}
-                              >
-                                <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100"></i>
-                              </div>
-                              <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
-                                {`${ev.time}${ev.team ? ` - ${ev.team}` : ''}`}
-                              </span>
-                            </div>
+                {week.map((date, j) => {
+                  const inMonth = date && date.getMonth() === currentMonth.getMonth();
+                  const dayKey = date ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` : '';
+                  const dayEvents = dayKey ? (eventsByDay[dayKey] || []) : [];
+
+                  return (
+                    <div
+                      key={j}
+                      className={`
+                        min-h-20 md:min-h-28 rounded-xl border p-1.5 md:p-2 flex flex-col transition-all group
+                        ${!inMonth ? 'opacity-20 border-transparent' : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm'}
+                        ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}
+                      `}
+                      onDragOver={(e) => date && handleDragOver(e, date)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => date && handleDropEvent(e, date)}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[11px] md:text-[12px] font-black text-slate-500`}>
+                          {date ? date.getDate() : ''}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {dayEvents.length > 0 && (
+                            <span className="text-[9px] font-bold text-slate-300">{dayEvents.length}</span>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
-                            className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
-                            style={{
-                              color: ev.type === 'Partido' ? 'rgb(248, 113, 113)' : 'rgb(52, 211, 153)',
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = ev.type === 'Partido' ? 'rgb(239, 68, 68)' : 'rgb(16, 185, 129)'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            title={t('common.delete')}
-                          >
-                            <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
-                          </button>
+                          {inMonth && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDefaultEventType('Sesión'); setSelectedDate(date!); setShowNewModal(true); }}
+                              className="w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:!opacity-100 shadow-sm"
+                              title={t('calendarView.newEvent')}
+                            >
+                              <i className="fa-solid fa-plus text-[8px]"></i>
+                            </button>
+                          )}
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+                        {dayEvents.slice(0, 3).map(ev => (
+                          <div
+                            key={ev.id}
+                            draggable
+                            className={`
+                              rounded-lg px-1 py-0.5 text-[9px] font-bold cursor-move border transition-all hover:shadow-sm flex items-center gap-0.5 select-none
+                              ${ev.type === 'Partido' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}
+                            `}
+                            title={`${ev.time || '--:--'}${ev.team ? ` - ${ev.team}` : ''} - ${ev.title}`}
+                            onDragStart={(e) => {
+                              e.dataTransfer!.effectAllowed = 'copy';
+                              e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
+                              setDraggedEvent(ev);
+                            }}
+                            onDragEnd={() => {
+                              setDraggedEvent(null);
+                              setDragOverDate(null);
+                            }}
+                          >
+                            <i className="fa-solid fa-grip-vertical text-[8px] opacity-60 flex-shrink-0"></i>
+                            <span
+                              className="truncate flex-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEventClick(ev);
+                              }}
+                            >
+                              <span className="hidden md:inline">{ev.time || '--:--'} </span>{ev.title}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEvent(String(ev.id));
+                              }}
+                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                              title={t('common.delete')}
+                            >
+                              <i className="fa-solid fa-xmark text-[8px]" style={{
+                                color: ev.type === 'Partido' ? 'rgb(248, 113, 113)' : 'rgb(52, 211, 153)',
+                              }}></i>
+                            </button>
+                          </div>
+                        ))}
+                        {dayEvents.length > 3 && (
+                          <span className="text-[9px] font-bold text-slate-400 text-center">
+                            {t('calendarView.moreEvents', { count: dayEvents.length - 3 })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>
