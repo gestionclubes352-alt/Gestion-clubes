@@ -73,9 +73,11 @@ CREATE INDEX IF NOT EXISTS idx_match_reports_created ON match_reports(created_at
 -- RLS: lectura y escritura para autenticados
 ALTER TABLE match_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "match_reports: leer si autenticado" ON match_reports;
 CREATE POLICY "match_reports: leer si autenticado" ON match_reports
     FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "match_reports: escribir si autenticado" ON match_reports;
 CREATE POLICY "match_reports: escribir si autenticado" ON match_reports
     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 

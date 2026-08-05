@@ -182,20 +182,30 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, e
             />
           </div>
 
-          {/* Equipo */}
+          {/* Equipos */}
           {equipos.length > 0 && (
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Equipo</label>
-              <select
-                value={(formData as any).equipo_id || ''}
-                onChange={(e) => setFormData({...(formData as any), equipo_id: e.target.value || undefined})}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              >
-                <option value="">Sin equipo asignado</option>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">Equipos</label>
+              <div className="space-y-2">
                 {equipos.map(eq => (
-                  <option key={eq.id} value={eq.id}>{eq.nombre}</option>
+                  <label key={eq.id} className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={((formData as any).equipo_ids || []).includes(eq.id)}
+                      onChange={(e) => {
+                        const current = ((formData as any).equipo_ids || []) as string[];
+                        if (e.target.checked) {
+                          setFormData({...(formData as any), equipo_ids: [...current, eq.id]});
+                        } else {
+                          setFormData({...(formData as any), equipo_ids: current.filter(id => id !== eq.id)});
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-slate-300 text-[var(--accent)] cursor-pointer"
+                    />
+                    <span className="text-sm font-bold text-slate-700">{eq.nombre}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
           )}
         </div>

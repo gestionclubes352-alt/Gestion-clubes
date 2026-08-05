@@ -44,7 +44,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
 
   const filteredStaff = useMemo(() => {
     if (clubFilter === 'all') return staff;
-    return staff.filter(s => s.clubId === clubFilter);
+    return staff.filter(s => s.club_id === clubFilter);
   }, [staff, clubFilter]);
 
   const columns = useMemo(() => [
@@ -91,7 +91,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
     }),
   ], []);
 
-  const actions = useMemo<DataTableAction<User>[]>(() => [
+  const actions = useMemo<DataTableAction<Personal>[]>(() => [
     {
       icon: 'fa-regular fa-eye',
       label: t('staffTable.viewDetail'),
@@ -105,7 +105,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
     ...(onDelete ? [{
       icon: 'fa-regular fa-trash-can',
       label: t('common.delete'),
-      onClick: (member: User) => {
+      onClick: (member: Personal) => {
         if (window.confirm(t('staffTable.deleteConfirm', { name: member.nombre }))) {
           onDelete(member.id);
         }
@@ -160,7 +160,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         )}
       </div>
 
-      <DataTable<User>
+      <DataTable<Personal>
         data={filteredStaff}
         columns={columns}
         actions={actions}

@@ -42,7 +42,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const currentEvent = editEvent ?? event ?? null;
   const [typeSelected, setTypeSelected] = useState<EventType | null>(currentEvent?.type || defaultType);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [selectedClub, setSelectedClub] = useState<string>(currentEvent?.clubId || '');
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -77,6 +76,8 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     sessionNumber: currentEvent?.sessionNumber ? String(currentEvent.sessionNumber) : '',
     localTeam: currentEvent?.localTeam || '',
     visitorTeam: currentEvent?.visitorTeam || '',
+    localTeamClubId: currentEvent?.localTeamClubId || '',
+    visitorTeamClubId: currentEvent?.visitorTeamClubId || '',
     score: currentEvent?.score || '',
     notes: currentEvent?.notes || '',
     videoUrl: currentEvent?.videoUrl || '',
@@ -101,6 +102,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
     value: team.equipo || team.nombre || '',
     club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
+    clubId: team.clubId != null ? String(team.clubId) : undefined,
   });
 
   const teamOptions: EquipoOption[] = competitionTeams
@@ -135,8 +137,9 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       sessionNumber: formData.sessionNumber ? Number(formData.sessionNumber) : undefined,
       localTeam: formData.localTeam || undefined,
       visitorTeam: formData.visitorTeam || undefined,
+      localTeamClubId: formData.localTeamClubId || undefined,
+      visitorTeamClubId: formData.visitorTeamClubId || undefined,
       score: formData.score || undefined,
-      clubId: selectedClub || undefined,
     };
 
     onSave(nextEvent);
@@ -277,18 +280,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
               {typeSelected === 'Partido' && (
                 <>
                   <select
-                    value={selectedClub}
-                    onChange={(e) => setSelectedClub(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
-                  >
-                    <option value="">{t('newEvent.club') || 'Club'}</option>
-                    {clubs.map((club) => (
-                      <option key={club.id} value={club.id}>
-                        {club.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  <select
                     name="competition"
                     value={formData.competition}
                     onChange={handleChange}
@@ -325,26 +316,21 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                   <div className="grid grid-cols-2 gap-4 mt-1">
                     <EquipoSelect
                       value={formData.localTeam}
-                      onChange={(team) => setFormData({ ...formData, localTeam: team })}
+                      selectedClubId={formData.localTeamClubId}
+                      onChange={(team, clubId) => setFormData({ ...formData, localTeam: team, localTeamClubId: clubId || '' })}
                       extraTeams={teamOptions}
                       placeholder={t('newEvent.homeTeam')}
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                     <EquipoSelect
                       value={formData.visitorTeam}
-                      onChange={(team) => setFormData({ ...formData, visitorTeam: team })}
+                      selectedClubId={formData.visitorTeamClubId}
+                      onChange={(team, clubId) => setFormData({ ...formData, visitorTeam: team, visitorTeamClubId: clubId || '' })}
                       extraTeams={teamOptions}
                       placeholder={t('newEvent.awayTeam')}
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                   </div>
-                  <input
-                    name="score"
-                    value={formData.score}
-                    onChange={handleChange}
-                    placeholder={t('newEvent.resultPlaceholder')}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1"
-                  />
                 </div>
               )}
             </div>

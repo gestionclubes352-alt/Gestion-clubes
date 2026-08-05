@@ -113,10 +113,9 @@ export const CopilotPanel: React.FC<CopilotPanelProps> = ({ context }) => {
 
       {/* Panel del asistente */}
       <div
-        className={`fixed top-0 right-0 h-full z-[60] bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full z-[60] bg-white shadow-2xl transition-transform duration-300 ease-in-out w-full sm:w-[380px] ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
-        style={{ width: PANEL_WIDTH }}
       >
         <div className="flex flex-col h-full">
           {/* Header */}

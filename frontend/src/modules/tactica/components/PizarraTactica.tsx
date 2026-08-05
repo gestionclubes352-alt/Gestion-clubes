@@ -97,6 +97,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [selectedPitchIds, setSelectedPitchIds] = useState<string[]>([]);
   const [selectedSquadPlayerId, setSelectedSquadPlayerId] = useState<string | null>(null);
   const [selectedRivalPlayerId, setSelectedRivalPlayerId] = useState<string | null>(null);
+  const [mobileTeamPanelOpen, setMobileTeamPanelOpen] = useState(false);
+  const [mobileAssignPanelOpen, setMobileAssignPanelOpen] = useState(false);
   const [myFormation, setMyFormation] = useState('4-4-2');
   const [rivalFormation, setRivalFormation] = useState('4-4-2');
   const [showMyTeam, setShowMyTeam] = useState(true);
@@ -509,10 +511,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-white text-slate-800 dark:bg-[#121212] dark:text-slate-100">
-      <aside className="hidden md:flex w-[290px] shrink-0 flex-col border-r border-slate-200 bg-[#f8f9fa] dark:border-white/10 dark:bg-[#121212]">
+      <aside className={`${mobileTeamPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} md:flex md:static md:z-auto md:w-[290px] shrink-0 flex-col border-r border-slate-200 bg-[#f8f9fa] dark:border-white/10 dark:bg-[#121212]`}>
         <div className="flex h-[58px] items-center gap-3 border-b border-slate-200 px-5 text-[11px] font-black uppercase tracking-[0.15em] text-slate-500 dark:border-white/10 dark:text-slate-400">
           <i className="fa-solid fa-bars text-[18px]" />
           <span>PLANTILLA</span>
+          <button
+            type="button"
+            onClick={() => setMobileTeamPanelOpen(false)}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 md:hidden dark:hover:bg-white/10"
+            aria-label="Cerrar panel"
+          >
+            <i className="fa-solid fa-xmark text-[16px]" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -732,7 +742,23 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col bg-white dark:bg-[#121212]">
-        <div className="flex h-[58px] items-center gap-2 border-b border-slate-200 px-3 md:px-4 dark:border-white/10">
+        <div className="flex h-[58px] items-center gap-2 overflow-x-auto scrollbar-hide border-b border-slate-200 px-3 md:px-4 dark:border-white/10">
+          <button
+            type="button"
+            onClick={() => setMobileTeamPanelOpen(true)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 md:hidden dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300"
+            aria-label="Abrir panel de equipos"
+          >
+            <i className="fa-solid fa-bars text-[14px]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileAssignPanelOpen(true)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 xl:hidden dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300"
+            aria-label="Abrir panel de asignación de jugadores"
+          >
+            <i className="fa-solid fa-user-group text-[14px]" />
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -741,13 +767,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               }
               setIsPlaying(v => !v);
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500 text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-500 text-white"
           >
             <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'} text-[12px]`} />
           </button>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--sidebar-bg)] text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--sidebar-bg)] text-white"
             onClick={() => {
               const newIndex = frames.length;
               setFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(p => ({ ...p }))]);
@@ -756,10 +782,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           >
             <i className="fa-solid fa-plus text-[12px]" />
           </button>
-          <div className="flex h-8 w-[170px] items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+          <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             {mode}
           </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[260px]">
+          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[140px] md:max-w-[260px]">
             {frames.map((_, i) => (
               <button
                 key={i}
@@ -782,7 +808,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               setFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
               setCurrentFrameIndex(prev => Math.max(0, Math.min(prev, frames.length - 2)));
             }}
-            className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed dark:bg-white/10' : 'bg-[#c92525] hover:opacity-90'}`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed dark:bg-white/10' : 'bg-[#c92525] hover:opacity-90'}`}
             title="Eliminar fotograma actual"
             aria-label="Eliminar fotograma actual"
           >
@@ -795,7 +821,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <section className="min-h-0">
               <div
                 ref={pitchRef}
-                className="relative h-full min-h-[620px] overflow-hidden rounded-[14px] border border-slate-200 shadow-sm dark:border-white/10"
+                className="relative h-full min-h-[420px] md:min-h-[620px] overflow-hidden rounded-[14px] border border-slate-200 shadow-sm dark:border-white/10"
                 style={FIELD_BACKGROUND}
                 onPointerDown={handlePitchPointerDown}
                 onClick={() => {
@@ -951,11 +977,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </div>
             </section>
 
-            <aside className="hidden min-h-0 xl:flex xl:flex-col xl:border-l xl:border-slate-200 bg-[#f8f9fa] dark:xl:border-white/10 dark:bg-[#121212]">
+            <aside className={`${mobileAssignPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} min-h-0 xl:flex xl:static xl:z-auto xl:flex-col xl:border-l xl:border-slate-200 bg-[#f8f9fa] dark:xl:border-white/10 dark:bg-[#121212]`}>
               <div className="border-b border-slate-200 px-5 py-5 dark:border-white/10">
-                <h3 className="text-[16px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                  ASIGNAR JUGADORES A PIZARRA
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-[16px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                    ASIGNAR JUGADORES A PIZARRA
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setMobileAssignPanelOpen(false)}
+                    className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 xl:hidden dark:hover:bg-white/10"
+                    aria-label="Cerrar panel"
+                  >
+                    <i className="fa-solid fa-xmark text-[16px]" />
+                  </button>
+                </div>
                 <div className="mt-4 rounded-md border border-slate-200 bg-white px-4 py-4 text-center text-[14px] leading-tight text-slate-500 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-400">
                   Pulsa un circulo y luego un jugador, o al revés
                 </div>

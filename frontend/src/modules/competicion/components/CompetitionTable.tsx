@@ -134,10 +134,10 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
       )}
 
       {/* PESTAÑAS MIS EQUIPOS / RIVALES */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => { setActiveTab('todos'); setClubFilter('Todos'); }}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
             activeTab === 'todos'
               ? 'bg-slate-800 text-white shadow'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -147,7 +147,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         </button>
         <button
           onClick={() => { setActiveTab('equipos'); setClubFilter('Todos'); }}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
             activeTab === 'equipos'
               ? 'bg-[var(--accent)] text-white shadow'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -158,7 +158,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         </button>
         <button
           onClick={() => { setActiveTab('rivales'); setClubFilter('Todos'); }}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
             activeTab === 'rivales'
               ? 'bg-[#1976d2] text-white shadow'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -228,6 +228,8 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
 
       {/* TABLA AGRUPADA */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+       <div className="overflow-x-auto">
+        <div className="min-w-[900px]">
         {/* Cabecera */}
         <div className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
           style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
@@ -350,6 +352,8 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
             </div>
           );
         })}
+        </div>
+       </div>
       </div>
 
       {/* Modales */}

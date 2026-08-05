@@ -338,7 +338,7 @@ export const FederationUrlWizard: React.FC = () => {
         <div className="space-y-4">
           {/* Info del equipo */}
           <div className="p-6 bg-white rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-4">
                 <img
                   src={data.team.logoUrl}
@@ -361,7 +361,7 @@ export const FederationUrlWizard: React.FC = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
               <div className="bg-slate-50 rounded-xl p-3 text-center">
                 <div className="text-2xl font-black text-blue-600">{data.totalPlayers}</div>
                 <div className="text-[10px] text-slate-500 uppercase tracking-wider">Jugadores</div>
@@ -450,7 +450,7 @@ export const FederationUrlWizard: React.FC = () => {
             Fuente: {data.team.competitionName} · RFEF / BeSoccer
           </p>
 
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={handleRestart}
               className="px-6 py-2 border-2 border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 font-medium"

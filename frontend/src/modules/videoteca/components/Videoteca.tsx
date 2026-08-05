@@ -197,21 +197,21 @@ const Videoteca: React.FC = () => {
     setNewVideoUrl('');
   };
 
-  const handleDeleteVideo = (id: number) => {
+  const handleDeleteVideo = (id: number | string) => {
     if (!window.confirm(t('videos.deleteConfirm'))) return;
     setVideos(prev => prev.filter(v => v.id !== id));
   };
 
   return (
     <div className="animate-fade-in space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h3 className="text-sport-primary font-black text-2xl uppercase tracking-tighter">{t('videos.officialTitle')}</h3>
           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">{t('videos.subtitle')}</p>
         </div>
         <button
           onClick={handleAddVideo}
-          className="bg-sport-primary text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-sport-primary-dark transition-all shadow-lg shadow-red-900/10"
+          className="w-full sm:w-auto bg-sport-primary text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-sport-primary-dark transition-all shadow-lg shadow-red-900/10"
         >
           <i className="fa-solid fa-cloud-arrow-up"></i>
           {t('videos.uploadVideo')}
@@ -339,7 +339,7 @@ const Videoteca: React.FC = () => {
                     : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
                     event.type === 'GOL'
                       ? 'bg-red-600 text-white'

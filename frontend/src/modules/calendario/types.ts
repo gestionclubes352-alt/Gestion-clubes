@@ -24,6 +24,8 @@ export interface SessionTask {
   technicalRoles?: string;
 }
 
+export type AttendanceStatus = 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro';
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -43,10 +45,15 @@ export interface CalendarEvent {
   sessionNumber?: number;
   localTeam?: string;
   visitorTeam?: string;
+  /** Club al que pertenece localTeam/visitorTeam, para distinguir equipos homónimos de clubes distintos */
+  localTeamClubId?: string;
+  visitorTeamClubId?: string;
   opponent?: string;
   score?: string;
   status?: 'Finished' | 'Upcoming';
   tasks?: SessionTask[];
+  /** Asistencia de la plantilla a esta sesión, indexada por id de jugador */
+  attendance?: Record<string, AttendanceStatus>;
 }
 
 export type EventType = CalendarEvent['type'];
@@ -68,6 +75,8 @@ export interface EventFormData {
   sessionNumber: string;
   localTeam: string;
   visitorTeam: string;
+  localTeamClubId: string;
+  visitorTeamClubId: string;
   score: string;
   notes: string;
   videoUrl: string;
@@ -76,6 +85,7 @@ export interface EventFormData {
 
 export const EVENT_COLORS: Record<EventType, string> = {
   Entrenamiento: 'bg-emerald-500',
+  Sesión: 'bg-emerald-500',
   Partido: 'bg-red-500',
   Otro: 'bg-gray-500',
   Actividad: 'bg-amber-500'

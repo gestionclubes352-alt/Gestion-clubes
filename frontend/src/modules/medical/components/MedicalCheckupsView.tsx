@@ -68,7 +68,7 @@ const MedicalCheckupsView: React.FC = () => {
       )}
 
       {/* Filters */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['TODOS', 'PENDIENTE', 'COMPLETADO', 'VENCIDO'] as const).map(f => (
           <button
             key={f}

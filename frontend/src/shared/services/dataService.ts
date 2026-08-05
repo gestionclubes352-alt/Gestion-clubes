@@ -27,13 +27,15 @@ function createTableService<T extends { id: string | number }>(tableName: string
     },
 
     async create(item: Partial<T>) {
-      const { data, error } = await supabase.from(tableName).insert(item).select().single();
+      // Cast a `any`: el cliente de Supabase no está tipado con el schema de la BD,
+      // por lo que `insert`/`update` no pueden validar T genérico contra sus overloads.
+      const { data, error } = await supabase.from(tableName).insert(item as any).select().single();
       if (error) throw error;
       return data as T;
     },
 
     async update(id: string | number, item: Partial<T>) {
-      const { data, error } = await supabase.from(tableName).update(item).eq('id', id).select().single();
+      const { data, error } = await supabase.from(tableName).update(item as any).eq('id', id).select().single();
       if (error) throw error;
       return data as T;
     },
@@ -121,7 +123,7 @@ export interface Jugador { // tabla `plantillas`
 export interface Personal {
   id: string;
   club_id: string;
-  equipo_id?: string;
+  equipo_ids?: string[];
   nombre: string;
   cargo: string;
   telefono?: string;
@@ -193,10 +195,13 @@ export interface EventoCalendario {
   session_number?: number | null;
   local_team?: string | null;
   visitor_team?: string | null;
+  local_team_club_id?: string | null;
+  visitor_team_club_id?: string | null;
   opponent?: string | null;
   score?: string | null;
   status?: string | null;
   tasks?: unknown[] | null;
+  attendance?: Record<string, string> | null;
 }
 
 export interface PizarraTactica {
@@ -497,6 +502,7 @@ interface StoredMatchReport {
   video_events: unknown[];
   substitutions?: unknown[];
   match_goals?: unknown[];
+  match_cards?: unknown[];
   first_half_start: string;
   first_half_end: string;
   second_half_start: string;
@@ -596,6 +602,7 @@ function createMatchReportsStore(): LegacyStore<any> {
           videoEvents: row.video_events,
           substitutions: row.substitutions || [],
           matchGoals: row.match_goals || [],
+          matchCards: row.match_cards || [],
           firstHalfStart: row.first_half_start,
           firstHalfEnd: row.first_half_end,
           secondHalfStart: row.second_half_start,
@@ -664,6 +671,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         video_events: item.videoEvents || [],
         substitutions: item.substitutions || [],
         match_goals: item.matchGoals || [],
+        match_cards: item.matchCards || [],
         first_half_start: item.firstHalfStart || '',
         first_half_end: item.firstHalfEnd || '',
         second_half_start: item.secondHalfStart || '',
@@ -697,14 +705,19 @@ export const db = {
   exercises: createExercisesStore(),
   match_reports: createMatchReportsStore(),
   injuries: createLegacyStub(),
+  fitness_profiles: createLegacyStub(),
+  medical_checkups: createLegacyStub(),
+  medical_records: createLegacyStub(),
+  rehab_programs: createLegacyStub(),
 };
 
 export function setActiveTeamId(_teamId: string): void { /* pendiente de migrar */ }
 export function getActiveTeamId(): string | null { return null; }
 
 export interface LegacyTeamConfig {
+  leagueId?: string | number;
   leagueName?: string;
-  teamId?: string;
+  teamId?: string | number;
   teamName?: string;
   teamShortName?: string;
   teamLogo?: string;

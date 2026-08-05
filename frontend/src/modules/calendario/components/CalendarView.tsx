@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { CalendarEvent, SessionTask } from '../types';
+import type { AttendanceStatus, CalendarEvent, SessionTask } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Player } from '@modules/plantilla';
 import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import NewEventModal from './NewEventModal';
 import SessionTasksPanel from './SessionTasksPanel';
+import SessionAttendancePanel from './SessionAttendancePanel';
+import SessionAttendanceSummary from './SessionAttendanceSummary';
 import MatchReportView from '@modules/partidos/components/MatchReportView';
 
 interface CalendarViewProps {
@@ -40,6 +42,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [mainTab, setMainTab] = useState<'sesiones' | 'datosSesiones'>('sesiones');
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -47,13 +50,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   });
   const [activeTraining, setActiveTraining] = useState<CalendarEvent | null>(null);
   const [activeMatch, setActiveMatch] = useState<CalendarEvent | null>(null);
-  const [detailTab, setDetailTab] = useState<'datos' | 'sesion'>('datos');
+  const [detailTab, setDetailTab] = useState<'datos' | 'sesion' | 'asistencias'>('datos');
   const [rolesText, setRolesText] = useState('');
   const [notesText, setNotesText] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [docUrl, setDocUrl] = useState('');
   const [sessionTasks, setSessionTasks] = useState<SessionTask[]>([]);
-  const [attendance, setAttendance] = useState<Record<number, 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro'>>({});
+  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   // Evita que el tab vuelva a "Datos" cuando reabrimos la sesión tras crear una tarea en el diseñador
   const skipDatosResetRef = useRef(false);
 
@@ -156,7 +159,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     setVideoUrl(activeTraining.videoUrl || '');
     setDocUrl(activeTraining.docUrl || '');
     setSessionTasks(activeTraining.tasks || []);
-    setAttendance({});
+    setAttendance(activeTraining.attendance || {});
   }, [activeTraining]);
 
   const handleSaveSession = () => {
@@ -167,7 +170,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       videoUrl,
       docUrl,
       staffRoles: rolesText,
-      tasks: sessionTasks
+      tasks: sessionTasks,
+      attendance
     });
   };
 
@@ -245,7 +249,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return (
       <div className="animate-fade-in space-y-6 h-full flex flex-col relative pb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button onClick={() => setActiveTraining(null)} className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2">
               <i className="fa-solid fa-arrow-left"></i> {t('calendarView.back')}
             </button>
@@ -269,6 +273,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 >
                   {t('calendarView.tabSession')}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setDetailTab('asistencias')}
+                  className={`px-4 py-1.5 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                    detailTab === 'asistencias' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  {t('calendarView.tabAttendance')}
+                </button>
               </div>
               <p className="text-slate-400 text-sm font-bold">{formatLongDate(sessionDate)} • {activeTraining.time}</p>
             </div>
@@ -288,6 +301,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             date={sessionDate}
             team={activeTraining.team}
             sessionNumber={activeTraining.sessionNumber}
+          />
+        )}
+
+        {detailTab === 'asistencias' && (
+          <SessionAttendancePanel
+            players={squad}
+            attendance={attendance}
+            onChange={setAttendance}
           />
         )}
 
@@ -395,7 +416,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.attendanceTitle')}</h4>
             </div>
             <div className="space-y-3 max-h-140 overflow-y-auto pr-2 min-h-140">
-              {/* Funciones auxiliares para posiciones */}
               {(() => {
                 const positionColors: Record<string, { badge: string; bg: string; border: string; text: string; icon: string }> = {
                   'POR': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
@@ -499,7 +519,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                                   </div>
                                   <select
                                     value="Si"
-                                    onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro' }))}
+                                    onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as AttendanceStatus }))}
                                     className={`px-3 py-2 rounded-xl border ${colors.border} ${colors.text} ${colors.bg} text-xs font-black`}
                                   >
                                     <option value="Si">{t('calendarView.attendYes')}</option>
@@ -517,7 +537,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       </div>
                     ))}
 
-                    {/* AUSENCIAS */}
                     {(() => {
                       const absentPlayers = squad.filter(p => (attendance[p.id] || 'Si') !== 'Si');
                       if (absentPlayers.length === 0) return null;
@@ -551,7 +570,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                                     </div>
                                     <select
                                       value={status}
-                                      onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro' }))}
+                                      onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as AttendanceStatus }))}
                                       className="px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-xs font-black"
                                     >
                                       <option value="Si">{t('calendarView.attendYes')}</option>
@@ -609,7 +628,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   return (
     <div className={`animate-fade-in space-y-8 flex flex-col relative pb-10 ${fullscreen ? 'fixed inset-0 z-50 bg-white h-screen w-screen p-6 overflow-auto' : 'h-full'}` }>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
@@ -620,46 +639,72 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <option key={team} value={team}>{team}</option>
             ))}
           </select>
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+          <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
             <button
               type="button"
-              onClick={() => setViewMode('table')}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                viewMode === 'table'
-                  ? 'bg-[var(--accent)] text-white shadow-md'
-                  : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+              onClick={() => setMainTab('sesiones')}
+              className={`px-4 py-2 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                mainTab === 'sesiones' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
               }`}
-              aria-label={t('calendarView.viewTable')}
-              title={t('calendarView.viewTable')}
             >
-              <i className="fa-solid fa-table"></i>
+              {t('calendarView.sessionsTitle')}
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('calendar')}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                viewMode === 'calendar'
-                  ? 'bg-[var(--accent)] text-white shadow-md'
-                  : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+              onClick={() => setMainTab('datosSesiones')}
+              className={`px-4 py-2 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                mainTab === 'datosSesiones' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
               }`}
-              aria-label={t('calendarView.viewCalendar')}
-              title={t('calendarView.viewCalendar')}
             >
-              <i className="fa-solid fa-calendar-days"></i>
+              {t('calendarView.sessionDataTitle')}
             </button>
           </div>
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {mainTab === 'sesiones' && (
+            <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                  viewMode === 'table'
+                    ? 'bg-[var(--accent)] text-white shadow-md'
+                    : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+                }`}
+                aria-label={t('calendarView.viewTable')}
+                title={t('calendarView.viewTable')}
+              >
+                <i className="fa-solid fa-table"></i>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('calendar')}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                  viewMode === 'calendar'
+                    ? 'bg-[var(--accent)] text-white shadow-md'
+                    : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
+                }`}
+                aria-label={t('calendarView.viewCalendar')}
+                title={t('calendarView.viewCalendar')}
+              >
+                <i className="fa-solid fa-calendar-days"></i>
+              </button>
+            </div>
+          )}
           <button onClick={() => { setDefaultEventType('Sesión'); setSelectedDate(new Date()); setShowNewModal(true); }} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200">
             <i className="fa-solid fa-plus"></i> {t('calendarView.newSessionButton')}
           </button>
         </div>
       </div>
 
-      {viewMode === 'table' && (
+      {mainTab === 'datosSesiones' && (
+        <SessionAttendanceSummary events={filteredEvents} players={squad} />
+      )}
+
+      {mainTab === 'sesiones' && viewMode === 'table' && (
         <div className="w-full">
           <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
-            <div className="px-10 py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
               <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest flex items-center gap-2">
                 <i className="fa-solid fa-person-running"></i> {t('calendarView.sessionsTitle')}
               </h4>
@@ -738,27 +783,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         </div>
       )}
 
-      {viewMode === 'calendar' && (
+      {mainTab === 'sesiones' && viewMode === 'calendar' && (
       <div className="flex-1 w-full">
         <div className="bg-white rounded-4xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
-          <div className="px-10 py-8 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+          <div className="px-4 md:px-10 py-4 md:py-8 border-b border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
             <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest">{ t('calendarView.monthlyCalendar')}</h4>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[var(--accent)] font-black"><i className="fa-solid fa-chevron-left"></i></button>
               <span className="font-black text-[var(--accent)] text-lg">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
               <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[var(--accent)] font-black"><i className="fa-solid fa-chevron-right"></i></button>
             </div>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="grid grid-cols-7 gap-2 mb-2">
+          <div className="flex-1 p-3 md:p-6 overflow-y-auto">
+            <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
               {orderedDayNamesLong.map(day => (
-                <div key={day} className="text-xs font-black text-slate-400 uppercase text-center py-2">{day.slice(0,3)}</div>
+                <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0,3)}</div>
               ))}
             </div>
             {getMonthMatrix(currentMonth).map((week, i) => (
-              <div key={i} className="grid grid-cols-7 gap-2 mb-2">
+              <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
                 {week.map((date, j) => (
-                  <div key={j} className={`min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'}`}>
+                  <div key={j} className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'}`}>
                     {date && date.getMonth() === currentMonth.getMonth() && (
                       <button
                         className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
@@ -777,7 +822,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                           </span>
                           <button
                             onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
-                            className="hidden group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full text-red-400 hover:text-white hover:bg-red-500 flex-shrink-0 transition-all"
+                            className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full text-red-400 hover:text-white hover:bg-red-500 flex-shrink-0 transition-all"
                             title={t('common.delete')}
                           >
                             <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
@@ -795,10 +840,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       )}
 
       {/* LISTADO DE SESIONES */}
-      {viewMode === 'calendar' && filteredEvents.length > 0 && (
+      {mainTab === 'sesiones' && viewMode === 'calendar' && filteredEvents.length > 0 && (
         <div className="w-full">
           <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
-            <div className="px-10 py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <div className="px-4 md:px-10 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
               <h4 className="text-[var(--accent)] font-black text-sm uppercase tracking-widest flex items-center gap-2">
                 <i className="fa-solid fa-person-running"></i> {t('calendarView.sessionsTitle')}
               </h4>
@@ -810,7 +855,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 return (
                   <div
                     key={ev.id}
-                    className="w-full flex items-center gap-4 px-10 py-4 hover:bg-slate-50 transition text-left group"
+                    className="w-full flex items-center gap-4 px-4 md:px-10 py-3 md:py-4 hover:bg-slate-50 transition text-left group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex flex-col items-center justify-center flex-shrink-0 shadow cursor-pointer" onClick={() => handleEventClick(ev)}>
                       <span className="text-[10px] font-black uppercase leading-none">{monthNames[d.getMonth()].slice(0, 3)}</span>
@@ -828,7 +873,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     </div>
                     <button
                       onClick={() => onDeleteEvent(String(ev.id))}
-                      className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
+                      className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0"
                       title={t('common.delete')}
                     >
                       <i className="fa-solid fa-trash-can text-sm"></i>

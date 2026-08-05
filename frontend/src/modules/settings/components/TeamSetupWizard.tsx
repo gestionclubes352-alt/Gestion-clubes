@@ -615,7 +615,7 @@ export const TeamSetupWizard: React.FC = () => {
       {/* PASO 2: Seleccionar Equipo */}
       {step === 'team' && !isLoading && (
         <div className="p-6 bg-white rounded-2xl border border-slate-200">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h4 className="font-bold text-slate-700">
               <i className="fa-solid fa-shield mr-2 text-blue-500"></i>
               Selecciona tu Equipo
@@ -711,7 +711,7 @@ export const TeamSetupWizard: React.FC = () => {
         <div className="space-y-4">
           {/* Info del equipo */}
           <div className="p-6 bg-white rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-4">
                 {(selectedFeatured?.logoUrl || selectedTeam?.logo) && (
                   <img src={selectedFeatured?.logoUrl || selectedTeam?.logo} alt="" className="w-16 h-16 object-contain" />
@@ -853,7 +853,7 @@ export const TeamSetupWizard: React.FC = () => {
             Se han importado {importProgress.players} jugadores, {importProgress.staff} staff y {importProgress.teams} equipos.
           </p>
           
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={handleRestart}
               className="px-6 py-2 border-2 border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 font-medium"

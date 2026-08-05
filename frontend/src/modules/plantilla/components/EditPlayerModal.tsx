@@ -725,23 +725,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     <input type="url" value={formData.enlace || ''} onChange={(e) => handleChange('enlace' as keyof Player, e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
                   </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.season', 'Temporada')}</label>
-                    <input type="text" value={formData.temporada || ''} onChange={(e) => handleChange('temporada' as keyof Player, e.target.value)}
-                      placeholder="EJ: 2025-2026"
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.competition', 'Competición')}</label>
-                    <input type="text" value={formData.competicion || ''} onChange={(e) => handleChange('competicion' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.fullName', 'Nombre completo')}</label>
-                    <input type="text" readOnly disabled
-                      value={formData.nombreCompleto || `${formData.nombrePila || ''} ${formData.primerApellido || ''} ${formData.segundoApellido || ''}`.replace(/\s+/g, ' ').trim()}
-                      className="w-full bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-500 disabled:cursor-not-allowed" />
-                  </div>
                 </div>
               </div>
 
@@ -784,29 +767,31 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           )}
         </div>
 
-        <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-center gap-3 sticky bottom-0">
-          <button 
-            disabled={isSaving}
-            onClick={onClose} 
-            className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
-            title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
-          >
-            <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
-          </button>
-          <button
-            type="button"
-            onClick={exportPlayerProfile}
-            className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
-          >
-            {t('editPlayer.exportPdf')}
-          </button>
+        <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-center gap-3 sticky bottom-0">
+          <div className="grid grid-cols-3 sm:contents gap-3">
+            <button
+              disabled={isSaving}
+              onClick={onClose}
+              className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+              title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
+            >
+              <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
+            </button>
+            <button
+              type="button"
+              onClick={exportPlayerProfile}
+              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+            >
+              {t('editPlayer.exportPdf')}
+            </button>
+          </div>
           <button
             disabled={isSaving || !formData.equipoId}
             onClick={handleSave}

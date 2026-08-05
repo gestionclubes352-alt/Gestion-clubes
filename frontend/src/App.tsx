@@ -408,6 +408,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         jornada: e.jornada,
         localTeam: e.localTeam,
         visitorTeam: e.visitorTeam,
+        localTeamClubId: e.localTeamClubId,
+        visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location
       } as Match));
@@ -441,10 +443,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     sessionNumber: row.session_number ?? undefined,
     localTeam: row.local_team || undefined,
     visitorTeam: row.visitor_team || undefined,
+    localTeamClubId: row.local_team_club_id || undefined,
+    visitorTeamClubId: row.visitor_team_club_id || undefined,
     opponent: row.opponent || undefined,
     score: row.score || undefined,
     status: row.status as CalendarEvent['status'] | undefined,
     tasks: (row.tasks as CalendarEvent['tasks']) || [],
+    attendance: (row.attendance as CalendarEvent['attendance']) || {},
   });
 
   const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
@@ -465,10 +470,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     session_number: event.sessionNumber ?? null,
     local_team: event.localTeam || null,
     visitor_team: event.visitorTeam || null,
+    local_team_club_id: event.localTeamClubId || null,
+    visitor_team_club_id: event.visitorTeamClubId || null,
     opponent: event.opponent || null,
     score: event.score || null,
     status: event.status || null,
     tasks: event.tasks || [],
+    attendance: event.attendance || {},
   });
 
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
@@ -765,6 +773,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [competitionTeams, selectedTeams]
   );
 
+  // Equipos del propio club (p.ej. para asignar personal): excluye equipos rivales de otros clubes.
+  const ownClubCompetitionTeams = useMemo(
+    () => competitionTeams
+      .filter(team => String(team.clubId ?? '') === String(currentTeam?.id ?? ''))
+      .map(team => ({ id: String(team.id), nombre: team.equipo ? `${team.nombre} - ${team.equipo}` : team.nombre })),
+    [competitionTeams, currentTeam?.id]
+  );
+
   const filteredCampogramasList = useMemo(
     () => campogramasList.filter(campograma => matchesSelectedTeams(campograma.equipo, selectedTeams)),
     [campogramasList, selectedTeams]
@@ -788,6 +804,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         jornada: e.jornada,
         localTeam: e.localTeam,
         visitorTeam: e.visitorTeam,
+        localTeamClubId: e.localTeamClubId,
+        visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location
       } as Match));
@@ -803,7 +821,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         match={match}
         onBack={() => navigate('/partidos')}
         ownClubId={currentTeam?.id || ''}
-        competitionTeams={filteredCompetitionTeams}
+        competitionTeams={competitionTeams}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
       />
@@ -976,6 +994,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       onChangeFormation={handleChangeFormation}
                       onToggleConvocado={() => {}}
                       onPlayerSelect={(player) => setEditingPlayer(player)}
+                      showStarterBadge={false}
+                      showConvocadoControl={false}
                     />
                   </div>
                 ) : (
@@ -991,10 +1011,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
-                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={filteredCompetitionTeams} ownClubId={currentTeam?.id} />
+                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} squad={filteredSquadList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />
+                <GestionCalendarView events={filteredEventsList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -1007,6 +1027,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     setModalDefaultType('Partido');
                     setShowNewModal(true);
                   }}
+                  competitionTeams={competitionTeams}
+                  clubes={clubesList}
                 />
               } />
               <Route path="/partidos/:matchId" element={<MatchReportWrapper />} />
@@ -1046,7 +1068,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         equipos={competitionTeams}
         onClose={() => setEditingPlayer(null)}
         onSave={async (p, originalId) => {
-          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || currentTeam?.competition || '' }, originalId);
+          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || '' }, originalId);
           if (!toSave.equipoId) { alert('Selecciona un equipo antes de guardar.'); return; }
           const payload = {
             equipo_id: String(toSave.equipoId),
@@ -1150,7 +1172,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
         }
       }} />}
-      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={filteredCompetitionTeams.map(t => ({ id: t.id, nombre: t.nombre }))} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
+      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={ownClubCompetitionTeams} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
         try {
           if (isNewStaff) {
             await personalService.create({
@@ -1159,7 +1181,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               telefono: s.telefono || undefined,
               dni: s.dni || undefined,
               email: (s as any).email || undefined,
-              equipo_id: (s as any).equipo_id || undefined,
+              equipo_ids: (s as any).equipo_ids || undefined,
               foto_url: s.foto_url || undefined,
               club_id: s.club_id || currentTeam?.id || '',
             });
@@ -1170,7 +1192,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               telefono: s.telefono || undefined,
               dni: s.dni || undefined,
               email: (s as any).email || undefined,
-              equipo_id: (s as any).equipo_id || undefined,
+              equipo_ids: (s as any).equipo_ids || undefined,
               foto_url: s.foto_url || undefined,
             });
           }

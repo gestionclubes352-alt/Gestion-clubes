@@ -234,18 +234,18 @@ const DataSourceSettings: React.FC = () => {
             </div>
 
             {/* URL input */}
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="url"
                 value={sheetUrl}
                 onChange={(e) => { setSheetUrl(e.target.value); setSheetError(null); }}
                 placeholder="https://docs.google.com/spreadsheets/d/.../edit"
-                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                className="flex-1 min-w-0 px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
               />
               <button
                 onClick={handleSheetPreview}
                 disabled={sheetLoading || !sheetUrl.trim()}
-                className="px-6 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="shrink-0 px-6 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {sheetLoading ? (
                   <i className="fa-solid fa-spinner fa-spin"></i>
@@ -306,7 +306,7 @@ const DataSourceSettings: React.FC = () => {
                 </div>
 
                 {/* Selector de tipo */}
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <label className="text-sm font-semibold text-slate-600">Importar como:</label>
                   <select
                     value={sheetTableOverride}
@@ -571,11 +571,11 @@ const MigrateToFirestoreSection: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <button
           onClick={handleMigrate}
           disabled={migrating}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg"
         >
           {migrating ? (
             <><i className="fa-solid fa-spinner fa-spin"></i> Migrando...</>
@@ -585,7 +585,7 @@ const MigrateToFirestoreSection: React.FC = () => {
         </button>
         <button
           onClick={handleCheckCounts}
-          className="flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all"
+          className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all"
         >
           <i className="fa-solid fa-magnifying-glass"></i> Ver datos en Firestore
         </button>

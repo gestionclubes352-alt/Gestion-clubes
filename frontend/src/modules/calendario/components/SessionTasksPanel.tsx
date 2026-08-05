@@ -127,69 +127,71 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="rounded-2xl border-2 border-slate-100 p-4 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex items-center justify-between mb-2 flex-shrink-0">
-          <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-            {t('calendarView.exerciseLabel')} {globalIndex + 1}
-          </span>
-          <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-0.5">
-            <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
-            <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
+      <div key={task.id} className="h-full rounded-2xl border-2 border-slate-100 p-4 flex gap-4">
+        <div className="w-[48%] flex-shrink-0 flex flex-col">
+          <div className="flex items-center justify-between mb-2 flex-shrink-0">
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+              {t('calendarView.exerciseLabel')} {globalIndex + 1}
+            </span>
+            <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-0.5">
+              <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
+              <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
+            </div>
           </div>
-        </div>
-
-        <p className="font-black text-slate-800 text-sm truncate mb-0.5 flex-shrink-0">{task.title}</p>
-        <p className="text-[10px] font-bold text-slate-500 mb-2 truncate flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
-
-        <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-          <div className="min-h-0">
+          <div className="flex-1 flex items-center justify-center min-h-0">
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="rounded-lg overflow-hidden">
+              <div className="w-full max-h-full rounded-lg overflow-hidden">
                 <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
               </div>
             ) : task.thumbnail ? (
-              <div className="w-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center">
+              <div className="w-full max-h-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center">
                 <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
             ) : (
-              <div className={`w-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+              <div className={`w-full max-h-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
                 <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-lg`}></i>
               </div>
             )}
           </div>
-          <div className="flex flex-col min-h-0 overflow-hidden">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[10px] font-bold text-slate-600 leading-snug overflow-hidden" style={{ maxHeight: '90px' }}>
+        </div>
+
+        <div className="flex-1 min-w-0 flex flex-col">
+          <p className="font-black text-slate-800 text-lg break-words mb-1 flex-shrink-0">{task.title}</p>
+          <p className="text-sm font-bold text-slate-500 mb-3 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+
+          <div className="flex-1 min-h-0 flex flex-col">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
+            <p className="text-sm font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
               {task.description || '—'}
             </p>
           </div>
-        </div>
 
-        {((task.numberOfSeries ?? 0) > 0 || task.technicalRoles) && (
-          <div className="mt-2 flex-shrink-0 space-y-1.5">
-            {(task.numberOfSeries ?? 0) > 0 && (
-              <div className="grid grid-cols-3 gap-1.5">
-                <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                  <p className="text-[6px] font-bold text-slate-400 uppercase">Series</p>
-                  <p className="text-[10px] font-black text-slate-700">{task.numberOfSeries}</p>
+          {((task.numberOfSeries ?? 0) > 0 || task.technicalRoles) && (
+            <div className="mt-2 flex-shrink-0 space-y-1.5">
+              {(task.numberOfSeries ?? 0) > 0 && (
+                <div className="grid grid-cols-3 gap-1.5 max-w-md">
+                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">Series</p>
+                    <p className="text-[11px] font-black text-slate-700">{task.numberOfSeries}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">T/Serie</p>
+                    <p className="text-[11px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">Descanso</p>
+                    <p className="text-[11px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+                  </div>
                 </div>
-                <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                  <p className="text-[6px] font-bold text-slate-400 uppercase">T/Serie</p>
-                  <p className="text-[10px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                  <p className="text-[6px] font-bold text-slate-400 uppercase">Descanso</p>
-                  <p className="text-[10px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
-                </div>
-              </div>
-            )}
-            {task.technicalRoles && (
-              <p className="text-[9px] font-bold text-slate-500 truncate">
-                <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
-              </p>
-            )}
-          </div>
-        )}
+              )}
+              {task.technicalRoles && (
+                <p className="text-[10px] font-bold text-slate-500 break-words">
+                  <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -221,11 +223,10 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         throw new Error('No hay tareas para exportar');
       }
 
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
+      const A4_WIDTH_MM = 210;
+      const A4_HEIGHT_MM = 297;
+
+      let pdf: jsPDF | null = null;
 
       for (let i = 0; i < pageEls.length; i++) {
         const canvas = await html2canvas(pageEls[i], {
@@ -236,15 +237,33 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           logging: false,
         });
 
-        if (i > 0) pdf.addPage();
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+        // Alto real de la página en mm, respetando el ancho A4; si el contenido
+        // no cabe en una hoja estándar, la hoja crece en vez de recortar/comprimir el contenido.
+        const pageHeightMm = Math.max(A4_HEIGHT_MM, (canvas.height / canvas.width) * A4_WIDTH_MM);
+
+        if (!pdf) {
+          pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [A4_WIDTH_MM, pageHeightMm],
+          });
+        } else {
+          pdf.addPage([A4_WIDTH_MM, pageHeightMm]);
+        }
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_WIDTH_MM, pageHeightMm);
+      }
+
+      if (!pdf) {
+        throw new Error('No hay tareas para exportar');
       }
 
       const fileName = `Tareas_sesion_${date ? date.toISOString().split('T')[0] : 'sin_fecha'}.pdf`;
 
       // Obtener el Blob de manera compatible con jsPDF 4.x
       let pdfBlob: Blob;
-      const pdfOutput = pdf.output('blob');
+      // Cast defensivo: en runtime algunas versiones de jsPDF han devuelto una Promise<Blob>
+      const pdfOutput = pdf.output('blob') as Blob | Promise<Blob>;
       if (pdfOutput instanceof Blob) {
         pdfBlob = pdfOutput;
       } else if (pdfOutput instanceof Promise) {
@@ -282,31 +301,41 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             key={pageIndex}
             data-export-page="true"
             className="bg-white flex flex-col"
-            style={{ width: '1191px', height: '1684px', padding: '50px' }}
+            style={{ width: '1191px', minHeight: '1684px', padding: '50px' }}
           >
-            <div className="flex items-center justify-between mb-5 pb-4 border-b-2 border-slate-100 flex-shrink-0">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <i className="fa-solid fa-list-check text-xl text-[var(--accent)]"></i>
                 <h1 className="text-xl font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
               </div>
-              <div className="flex items-center gap-7">
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
-                  <span className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</span>
+              <span className="text-xs font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
+            </div>
+
+            <div className="flex items-center gap-7 mb-5 pb-4 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+                  <p className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
-                  <span className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+                  <p className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
-                  <span className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+                  <p className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</p>
                 </div>
-                <span className="text-xs font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 grid-rows-2 gap-5 flex-1 min-h-0">
+            <div className="grid grid-cols-1 [grid-auto-rows:1fr] gap-5 flex-1">
               {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
             </div>
           </div>
@@ -434,7 +463,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 </div>
 
                 {/* Vista previa y Descripción lado a lado */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
                       <div className="rounded-xl overflow-hidden">
@@ -584,14 +613,14 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           className="fixed inset-0 z-[200] flex flex-col bg-slate-950"
           onClick={() => setFullscreenTaskId(null)}
         >
-          <div className="flex items-center justify-between px-8 py-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-4">
-              <span className="text-xs font-black text-white/40 uppercase tracking-widest">
+          <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <span className="text-xs font-black text-white/40 uppercase tracking-widest flex-shrink-0">
                 {t('calendarView.exerciseLabel')} {fullscreenIndex + 1} / {tasks.length}
               </span>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight">{fullscreenTask.title}</h3>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight truncate">{fullscreenTask.title}</h3>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {tasks.length > 1 && (
                 <>
                   <button
