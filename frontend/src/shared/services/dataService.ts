@@ -149,6 +149,11 @@ export interface Competicion {
   tipo: 'Liga' | 'Copa' | 'Amistoso' | 'Torneo';
   categoria?: string;
   temporada: string;
+  numero_partes: number;
+  minutos_por_parte: number;
+  total_minutos: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Partido {
@@ -682,7 +687,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         referee_name: item.refereeName,
         referee_description: item.refereeDescription,
       };
-      const { error } = await supabase.from('match_reports').upsert(stored);
+      const { error } = await supabase.from('match_reports').upsert(stored).select();
       if (error) throw error;
       return item;
     },

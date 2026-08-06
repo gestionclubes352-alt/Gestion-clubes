@@ -205,67 +205,73 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
               onClick={() => onClickMatch && onClickMatch(match)}
               className="bg-white p-3 md:p-4 rounded-2xl shadow-sm hover:shadow-lg transition-all border border-slate-100 flex flex-col gap-2.5 group relative overflow-hidden cursor-pointer hover:border-red-200"
             >
-              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <div className="flex items-center gap-1.5 flex-wrap text-xs justify-between">
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] font-black uppercase tracking-wider">
                   {match.jornada || match.competition}
                 </span>
-                <span className="text-slate-400 text-[8px] font-bold">
-                  {new Date(match.date).toLocaleDateString()} {match.time ? `• ${match.time}h` : ''}
-                </span>
-                <span className={`ml-auto px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider ${
+                <span className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider ${
                   match.status === 'Finished' ? 'bg-slate-100 text-slate-400' : 'bg-red-100 text-red-600 animate-pulse'
                 }`}>
                   {match.status}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between gap-2 min-h-20">
+              <div className="flex items-center justify-between gap-3 min-h-28">
                 <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">LOCAL</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">LOCAL</p>
                   {localLogo && (
-                    <img src={localLogo} alt={localClubLabel} className="h-8 w-8 object-contain mb-1" />
+                    <img src={localLogo} alt={localClubLabel} className="h-10 w-10 object-contain mb-2" />
                   )}
                   {localClubLabel && (
-                    <p className="text-[7px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1 leading-tight truncate w-full">
                       {localClubLabel}
                     </p>
                   )}
-                  <p className={`font-black text-[11px] md:text-xs uppercase leading-tight truncate w-full ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  <p className={`font-black text-sm md:text-base uppercase leading-tight truncate w-full ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
                     {local}
                   </p>
                 </div>
 
-                <div className="flex flex-col items-center shrink-0 gap-1.5">
+                <div className="flex flex-col items-center shrink-0 gap-2">
+                  <p className="text-red-600 font-black text-2xl md:text-3xl">
+                    {match.time || '—'}
+                  </p>
                   {match.status === 'Finished' ? (
-                    <div className="bg-[var(--accent)] text-white font-black text-sm px-2.5 md:px-3 py-1 rounded-xl shadow-lg shadow-[var(--accent)]/20">
+                    <div className="bg-[var(--accent)] text-white font-black text-lg px-3 md:px-4 py-1.5 rounded-xl shadow-lg shadow-[var(--accent)]/20">
                       {match.score}
                     </div>
                   ) : (
-                    <div className="bg-slate-50 text-slate-400 font-black text-[10px] px-2.5 md:px-3 py-1 rounded-xl border border-slate-200">
+                    <div className="bg-red-50 text-red-600 font-black text-sm px-3 md:px-4 py-1.5 rounded-xl border border-red-200">
                       VS
                     </div>
                   )}
                   {match.location && (
-                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-16 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-20 text-center">
                       {match.location}
                     </p>
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">VISITANTES</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">VISITANTES</p>
                   {visitorLogo && (
-                    <img src={visitorLogo} alt={visitorClubLabel} className="h-8 w-8 object-contain mb-1" />
+                    <img src={visitorLogo} alt={visitorClubLabel} className="h-10 w-10 object-contain mb-2" />
                   )}
                   {visitorClubLabel && (
-                    <p className="text-[7px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1 leading-tight truncate w-full">
                       {visitorClubLabel}
                     </p>
                   )}
-                  <p className={`font-black text-[11px] md:text-xs uppercase leading-tight truncate w-full ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  <p className={`font-black text-sm md:text-base uppercase leading-tight truncate w-full ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
                     {visitor}
                   </p>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-400 text-[8px] font-bold">
+                  {new Date(match.date).toLocaleDateString()}
+                </span>
               </div>
 
               <div className="flex items-center justify-end gap-1.5 border-t border-slate-100 pt-2">

@@ -155,6 +155,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('DATOS GENERALES');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [squad, setSquad] = useState<Player[]>([]);
 
   // Formulario "Añadir cambio" en la pestaña Eventos
@@ -891,7 +892,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   };
 
   const persistReport = async (updatedReport: MatchReport) => {
-    try { await db.match_reports.upsert(updatedReport); } catch (err) { console.error('[match-report-autosave]', err); }
+    try {
+      await db.match_reports.upsert(updatedReport);
+      setSaveError(null);
+    } catch (err) {
+      console.error('[match-report-autosave]', err);
+      setSaveError(err instanceof Error ? err.message : 'Error saving lineup');
+    }
   };
 
   // ── Eventos de partido: sustituciones y goles ───────────

@@ -34,8 +34,14 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
   const { t } = useTranslation();
   const isAdmin = userRole === 'Administrador' || userRole === 'Responsable';
 
-  // Filtro de club: por defecto muestra solo el club del usuario; admins pueden ver todos
-  const [clubFilter, setClubFilter] = useState<string>(isAdmin ? 'all' : (userClubId || 'all'));
+  // Filtro de equipo: muestra solo EF HUESCA
+  const [clubFilter, setClubFilter] = useState<string>(userClubId || '');
+
+  // Detectar el ID de EF HUESCA
+  const efHuescaId = useMemo(() => {
+    const club = clubes.find(c => c.nombre?.includes('HUESCA'));
+    return club ? String(club.id) : '';
+  }, [clubes]);
 
   // Miembro seleccionado para la vista de detalle
   const [viewingStaff, setViewingStaff] = useState<Personal | null>(null);
@@ -121,11 +127,11 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         {t('sidebar.technicalStaffLabel', 'Personal')}
       </h2>
 
-      {/* Filtro de club + Botón crear */}
+      {/* Filtro de equipo + Botón crear */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Selector de club */}
+        {/* Selector de equipo */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Club:</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Equipo:</span>
           <div className="relative">
             <select
               value={clubFilter}
@@ -133,7 +139,6 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
               disabled={!isAdmin}
               className="bg-white border border-slate-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 appearance-none cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isAdmin && <option value="all">Todos los clubs</option>}
               {clubes.map(club => (
                 <option key={club.id} value={String(club.id)}>{club.nombre}</option>
               ))}

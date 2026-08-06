@@ -49,6 +49,18 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
     });
   }, [players, sessionsWithAttendance]);
 
+  const rowsByPosition = useMemo(() => {
+    const grouped: Record<string, typeof rows> = {};
+    rows.forEach(row => {
+      const position = row.player.posicionJuego || row.player.posicion || 'Sin posición';
+      if (!grouped[position]) {
+        grouped[position] = [];
+      }
+      grouped[position].push(row);
+    });
+    return grouped;
+  }, [rows]);
+
   return (
     <div className="w-full">
       <div className="bg-white rounded-4xl border border-slate-100 shadow-xl overflow-hidden">
@@ -94,52 +106,61 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
         ) : sessionsWithAttendance.length === 0 ? (
           <div className="py-16 text-center text-slate-400 font-bold text-sm">{t('calendarView.noAttendanceRecorded')}</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/60 border-b border-slate-100">
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colNumber')}</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colPlayer')}</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSessionsConvened')}</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colAttendance')}</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colAttendancePct')}</th>
-                  <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colReason')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {rows.map(({ player, total, attended, absences, attendancePct, reasonCounts }) => (
-                  <tr key={player.id} className="hover:bg-slate-50 transition">
-                    <td className="px-6 py-4 text-sm font-black text-slate-500">{player.dorsal ?? '—'}</td>
-                    <td className="px-6 py-4">
-                      <p className="font-black text-black text-sm">{player.nombre}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{player.posicionJuego || player.posicion}</p>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-500">{total}</td>
-                    <td className="px-6 py-4 text-sm font-black">
-                      <span className="text-emerald-600">{attended}</span>
-                      <span className="text-slate-300"> / </span>
-                      <span className="text-red-500">{absences}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black ${attendancePct >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : attendancePct >= 50 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-                        {attendancePct}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-bold text-slate-500">
-                      {absences === 0 ? (
-                        <span className="text-slate-300">—</span>
-                      ) : (
-                        REASONS.filter(r => reasonCounts[r]).map(r => (
-                          <span key={r} className="inline-block mr-3">
-                            {t(`calendarView.attend${r === 'Lesión' ? 'Injury' : r === 'Vacaciones' ? 'Vacation' : r === 'Descanso' ? 'Rest' : r === 'No justificada' ? 'Unjustified' : 'Other'}`)}: {reasonCounts[r]}
-                          </span>
-                        ))
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-6 pb-6">
+            {Object.entries(rowsByPosition).map(([position, positionRows]) => (
+              <div key={position}>
+                <div className="px-6 py-3 bg-gradient-to-r from-[var(--accent)]/10 to-transparent border-l-4 border-[var(--accent)] mb-3">
+                  <h5 className="text-sm font-black text-slate-700 uppercase tracking-widest">{position}</h5>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/60 border-b border-slate-100">
+                        <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colNumber')}</th>
+                        <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colPlayer')}</th>
+                        <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSessionsConvened')}</th>
+                        <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colAttendance')}</th>
+                        <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colAttendancePct')}</th>
+                        <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colReason')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {positionRows.map(({ player, total, attended, absences, attendancePct, reasonCounts }) => (
+                        <tr key={player.id} className="hover:bg-slate-50 transition">
+                          <td className="px-6 py-4 text-sm font-black text-slate-500">{player.dorsal ?? '—'}</td>
+                          <td className="px-6 py-4">
+                            <p className="font-black text-black text-sm">{player.nombre}</p>
+                            <p className="text-[10px] text-slate-400 font-bold">{player.posicionJuego || player.posicion}</p>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-500">{total}</td>
+                          <td className="px-6 py-4 text-sm font-black">
+                            <span className="text-emerald-600">{attended}</span>
+                            <span className="text-slate-300"> / </span>
+                            <span className="text-red-500">{absences}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black ${attendancePct >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : attendancePct >= 50 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                              {attendancePct}%
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500">
+                            {absences === 0 ? (
+                              <span className="text-slate-300">—</span>
+                            ) : (
+                              REASONS.filter(r => reasonCounts[r]).map(r => (
+                                <span key={r} className="inline-block mr-3">
+                                  {t(`calendarView.attend${r === 'Lesión' ? 'Injury' : r === 'Vacaciones' ? 'Vacation' : r === 'Descanso' ? 'Rest' : r === 'No justificada' ? 'Unjustified' : 'Other'}`)}: {reasonCounts[r]}
+                                </span>
+                              ))
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

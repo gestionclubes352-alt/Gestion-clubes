@@ -130,12 +130,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       <div key={task.id} className="h-full rounded-2xl border-2 border-slate-100 p-4 flex gap-4">
         <div className="w-[48%] flex-shrink-0 flex flex-col">
           <div className="flex items-center justify-between mb-2 flex-shrink-0">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+            <span className="text-[20px] font-black text-slate-400 uppercase tracking-widest">
               {t('calendarView.exerciseLabel')} {globalIndex + 1}
             </span>
             <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-0.5">
-              <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
-              <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
+              <i className="fa-solid fa-clock text-slate-400 text-[14px]"></i>
+              <span className="text-[20px] font-black text-slate-600">{seriesTotal} min</span>
             </div>
           </div>
           <div className="flex-1 flex items-center justify-center min-h-0">
@@ -149,19 +149,19 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             ) : (
               <div className={`w-full max-h-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-lg`}></i>
+                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[20px]`}></i>
               </div>
             )}
           </div>
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col">
-          <p className="font-black text-slate-800 text-lg break-words mb-1 flex-shrink-0">{task.title}</p>
-          <p className="text-sm font-bold text-slate-500 mb-3 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+          <p className="font-black text-slate-800 text-[28px] break-words mb-1 flex-shrink-0">{task.title}</p>
+          <p className="text-[28px] font-bold text-slate-500 mb-3 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
 
           <div className="flex-1 min-h-0 flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-sm font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
+            <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
+            <p className="text-[28px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
               {task.description || '—'}
             </p>
           </div>
@@ -171,21 +171,21 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               {(task.numberOfSeries ?? 0) > 0 && (
                 <div className="grid grid-cols-3 gap-1.5 max-w-md">
                   <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                    <p className="text-[7px] font-bold text-slate-400 uppercase">Series</p>
-                    <p className="text-[11px] font-black text-slate-700">{task.numberOfSeries}</p>
+                    <p className="text-[14px] font-bold text-slate-400 uppercase">Series</p>
+                    <p className="text-[20px] font-black text-slate-700">{task.numberOfSeries}</p>
                   </div>
                   <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                    <p className="text-[7px] font-bold text-slate-400 uppercase">T/Serie</p>
-                    <p className="text-[11px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+                    <p className="text-[14px] font-bold text-slate-400 uppercase">T/Serie</p>
+                    <p className="text-[20px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
                   </div>
                   <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                    <p className="text-[7px] font-bold text-slate-400 uppercase">Descanso</p>
-                    <p className="text-[11px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+                    <p className="text-[14px] font-bold text-slate-400 uppercase">Descanso</p>
+                    <p className="text-[20px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
                   </div>
                 </div>
               )}
               {task.technicalRoles && (
-                <p className="text-[10px] font-bold text-slate-500 break-words">
+                <p className="text-[20px] font-bold text-slate-500 break-words">
                   <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
                 </p>
               )}
@@ -305,32 +305,32 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           >
             <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <i className="fa-solid fa-list-check text-xl text-[var(--accent)]"></i>
-                <h1 className="text-xl font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
+                <i className="fa-solid fa-list-check text-[20px] text-[var(--accent)]"></i>
+                <h1 className="text-[20px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
               </div>
-              <span className="text-xs font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
+              <span className="text-[20px] font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
             </div>
 
             <div className="flex items-center gap-7 mb-5 pb-4 border-b border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-                  <p className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+                  <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+                  <p className="font-black text-slate-700 text-[28px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-                  <p className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</p>
+                  <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+                  <p className="font-black text-slate-700 text-[28px]">{team || t('calendarView.notDefined')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-                  <p className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</p>
+                  <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+                  <p className="font-black text-slate-700 text-[28px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
                 </div>
               </div>
             </div>
@@ -346,9 +346,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         <div className="flex flex-col items-center justify-center gap-4 mb-4">
           <div className="flex items-center gap-3">
             <i className="fa-solid fa-list-check text-[var(--accent)]"></i>
-            <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.sessionTasksTitle')}</h4>
+            <h4 className="text-[var(--accent)] font-black text-[18px]">{t('calendarView.sessionTasksTitle')}</h4>
             {tasks.length > 0 && (
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
                 {t('calendarView.totalDuration')}: {totalDuration} {t('calendarView.minutesAbbr')}
               </span>
             )}
@@ -358,7 +358,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <button
                 type="button"
                 onClick={exportToPDF}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[13px] uppercase tracking-widest flex items-center gap-2 transition-all"
               >
                 <i className="fa-solid fa-file-pdf"></i> SESION EN PDF
               </button>
@@ -366,14 +366,14 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             <button
               type="button"
               onClick={openExerciseDesigner}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
+              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[13px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
             >
               <i className="fa-solid fa-plus"></i> {t('calendarView.addCustomTask')}
             </button>
             <button
               type="button"
               onClick={openPicker}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[13px] uppercase tracking-widest flex items-center gap-2 transition-all"
             >
               <i className="fa-solid fa-book"></i> {t('calendarView.addFromRepository')}
             </button>
@@ -384,42 +384,42 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           <div className="flex items-center gap-2">
             <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-              <p className="font-black text-slate-700 text-sm">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+              <p className="font-black text-slate-700 text-[18px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-              <p className="font-black text-slate-700 text-sm">{team || t('calendarView.notDefined')}</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+              <p className="font-black text-slate-700 text-[18px]">{team || t('calendarView.notDefined')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-              <p className="font-black text-slate-700 text-sm">{sessionNumber ?? t('calendarView.notDefined')}</p>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+              <p className="font-black text-slate-700 text-[18px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
             </div>
           </div>
         </div>
 
         {tasks.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 font-bold text-sm">{t('calendarView.noSessionTasks')}</div>
+          <div className="py-12 text-center text-slate-400 font-bold text-[20px]">{t('calendarView.noSessionTasks')}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {tasks.map((task, index) => (
               <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                 {/* Header con número de ejercicio y duración */}
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
                     {t('calendarView.exerciseLabel')} {index + 1}
                   </span>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                      <i className="fa-solid fa-clock text-slate-400 text-xs"></i>
+                      <i className="fa-solid fa-clock text-slate-400 text-[14px]"></i>
                       {(task.numberOfSeries ?? 0) > 0 ? (
-                        <span className="w-10 text-xs font-black text-slate-600 text-center">
+                        <span className="w-10 text-[14px] font-black text-slate-600 text-center">
                           {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
                         </span>
                       ) : (
@@ -428,7 +428,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                           min={0}
                           value={task.durationMinutes ?? 0}
                           onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
-                          className="w-10 text-xs font-black text-slate-600 text-center focus:outline-none bg-transparent"
+                          className="w-10 text-[14px] font-black text-slate-600 text-center focus:outline-none bg-transparent"
                         />
                       )}
                     </div>
@@ -438,14 +438,14 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
                       title={t('calendarView.viewFullscreen')}
                     >
-                      <i className="fa-solid fa-expand text-xs"></i>
+                      <i className="fa-solid fa-expand text-[14px]"></i>
                     </button>
                     <button
                       onClick={() => removeTask(task.id)}
                       className="w-6 h-6 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
                       title={t('common.delete')}
                     >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
+                      <i className="fa-solid fa-trash-can text-[14px]"></i>
                     </button>
                   </div>
                 </div>
@@ -453,12 +453,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 {/* Cuerpo: info arriba, vista previa y descripción abajo */}
                 <div className="space-y-3 mb-4">
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldName')}</p>
-                    <p className="font-black text-slate-700 text-sm">{task.title}</p>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldName')}</p>
+                    <p className="font-black text-slate-700 text-[18px]">{task.title}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
-                    <p className="font-black text-slate-600 text-sm">{task.category || t('calendarView.notDefined')}</p>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
+                    <p className="font-black text-slate-600 text-[18px]">{task.category || t('calendarView.notDefined')}</p>
                   </div>
                 </div>
 
@@ -475,56 +475,56 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       </div>
                     ) : (
                       <div className={`w-full aspect-[105/68] rounded-xl flex items-center justify-center text-white border border-slate-100 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                        <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-3xl`}></i>
+                        <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[28px]`}></i>
                       </div>
                     )}
                   </div>
 
                   {/* Descripción */}
                   <div className="flex flex-col">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
                     <textarea
                       value={task.description || ''}
                       onChange={e => updateTask(task.id, { description: e.target.value })}
                       placeholder={t('calendarView.describeTaskPlaceholder')}
                       rows={4}
-                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
+                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
                     />
                   </div>
                 </div>
 
                 {/* Series y tiempos */}
                 <div className="mt-4 space-y-3">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex flex-col">
-                      <label className="text-[8px] font-bold text-slate-500 uppercase mb-1.5">Nº Series</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nº Series</label>
                       <input
                         type="number"
                         min={0}
                         value={task.numberOfSeries ?? 0}
                         onChange={e => updateTask(task.id, { numberOfSeries: Number(e.target.value) })}
-                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[14px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                       />
                     </div>
                     <div className="flex flex-col">
-                      <label className="text-[8px] font-bold text-slate-500 uppercase mb-1.5">Tiempo/Serie (min)</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Tiempo/Serie (min)</label>
                       <input
                         type="number"
                         min={0}
                         value={task.timePerSeries ?? 0}
                         onChange={e => updateTask(task.id, { timePerSeries: Number(e.target.value) })}
-                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[14px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                       />
                     </div>
                     <div className="flex flex-col">
-                      <label className="text-[8px] font-bold text-slate-500 uppercase mb-1.5">Descanso (min)</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Descanso (min)</label>
                       <input
                         type="number"
                         min={0}
                         value={task.restBetweenSeries ?? 0}
                         onChange={e => updateTask(task.id, { restBetweenSeries: Number(e.target.value) })}
-                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[14px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                       />
                     </div>
                   </div>
@@ -532,13 +532,13 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
                 {/* ROLES Técnicos */}
                 <div className="mt-4">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">ROLES Técnicos</p>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">ROLES Técnicos</p>
                   <textarea
                     value={task.technicalRoles || ''}
                     onChange={e => updateTask(task.id, { technicalRoles: e.target.value })}
                     placeholder="Especifica los roles técnicos..."
                     rows={2}
-                    className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                    className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                   />
                 </div>
               </div>
@@ -551,9 +551,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={() => setPickerOpen(false)}>
           <div className="w-full max-w-lg max-h-[80vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 p-5">
-              <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.repositoryPickerTitle')}</h4>
+              <h4 className="text-[var(--accent)] font-black text-[28px]">{t('calendarView.repositoryPickerTitle')}</h4>
               <button onClick={() => setPickerOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <i className="fa-solid fa-xmark text-lg"></i>
+                <i className="fa-solid fa-xmark text-[28px]"></i>
               </button>
             </div>
             <div className="p-5 border-b border-slate-50">
@@ -561,16 +561,16 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 value={repoSearch}
                 onChange={e => setRepoSearch(e.target.value)}
                 placeholder={t('calendarView.searchTasks')}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-[28px] font-bold text-slate-600"
               />
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-2">
               {repositoryLoading ? (
-                <div className="text-center text-slate-400 text-sm font-bold py-8">
+                <div className="text-center text-slate-400 text-[20px] font-bold py-8">
                   <i className="fa-solid fa-spinner fa-spin"></i>
                 </div>
               ) : filteredRepository.length === 0 ? (
-                <div className="text-center text-slate-400 text-sm font-bold py-8">{t('calendarView.repositoryEmpty')}</div>
+                <div className="text-center text-slate-400 text-[20px] font-bold py-8">{t('calendarView.repositoryEmpty')}</div>
               ) : (
                 filteredRepository.map(task => (
                   <button
@@ -587,8 +587,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-black text-slate-700 text-sm truncate">{task.name}</p>
-                      <p className="text-[11px] text-slate-400 font-bold truncate">{task.category}</p>
+                      <p className="font-black text-slate-700 text-[28px] truncate">{task.name}</p>
+                      <p className="text-[20px] text-slate-400 font-bold truncate">{task.category}</p>
                     </div>
                     <i className="fa-solid fa-plus text-[var(--accent)]"></i>
                   </button>
@@ -615,10 +615,10 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         >
           <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 flex-shrink-0" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-4 min-w-0 flex-1">
-              <span className="text-xs font-black text-white/40 uppercase tracking-widest flex-shrink-0">
+              <span className="text-[20px] font-black text-white/40 uppercase tracking-widest flex-shrink-0">
                 {t('calendarView.exerciseLabel')} {fullscreenIndex + 1} / {tasks.length}
               </span>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight truncate">{fullscreenTask.title}</h3>
+              <h3 className="text-[28px] font-black text-white uppercase tracking-tight truncate">{fullscreenTask.title}</h3>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {tasks.length > 1 && (
@@ -647,7 +647,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 className="w-10 h-10 rounded-xl bg-white/10 hover:bg-red-500 flex items-center justify-center text-white transition-all ml-2"
                 title={t('calendarView.closeFullscreen')}
               >
-                <i className="fa-solid fa-xmark text-lg"></i>
+                <i className="fa-solid fa-xmark text-[20px]"></i>
               </button>
             </div>
           </div>
@@ -671,32 +671,32 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 <div
                   className={`w-full aspect-[105/68] rounded-xl flex items-center justify-center text-white shadow-2xl ${fullscreenTask.category ? CATEGORY_COLORS[fullscreenTask.category] : 'bg-slate-400'}`}
                 >
-                  <i className={`fa-solid ${fullscreenTask.category ? CATEGORY_ICONS[fullscreenTask.category] : 'fa-ellipsis'} text-6xl`}></i>
+                  <i className={`fa-solid ${fullscreenTask.category ? CATEGORY_ICONS[fullscreenTask.category] : 'fa-ellipsis'} text-[20px]`}></i>
                 </div>
               )}
             </div>
 
             <div className="space-y-6 text-white">
               <div>
-                <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
-                <p className="text-lg font-black">{fullscreenTask.category || t('calendarView.notDefined')}</p>
+                <p className="text-[20px] font-black text-white/40 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
+                <p className="text-[20px] font-black">{fullscreenTask.category || t('calendarView.notDefined')}</p>
               </div>
 
               {(fullscreenTask.numberOfSeries ?? 0) > 0 && (
                 <div>
-                  <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-2">Series y Tiempos</p>
+                  <p className="text-[20px] font-black text-white/40 uppercase tracking-widest mb-2">Series y Tiempos</p>
                   <div className="grid grid-cols-3 gap-3 max-w-md">
                     <div className="rounded-xl border border-white/15 px-3 py-2 text-center">
-                      <p className="text-[9px] font-bold text-white/40 uppercase mb-1">Nº Series</p>
-                      <p className="text-lg font-black">{fullscreenTask.numberOfSeries}</p>
+                      <p className="text-[14px] font-bold text-white/40 uppercase mb-1">Nº Series</p>
+                      <p className="text-[20px] font-black">{fullscreenTask.numberOfSeries}</p>
                     </div>
                     <div className="rounded-xl border border-white/15 px-3 py-2 text-center">
-                      <p className="text-[9px] font-bold text-white/40 uppercase mb-1">Tiempo/Serie</p>
-                      <p className="text-lg font-black">{fullscreenTask.timePerSeries ?? 0} min</p>
+                      <p className="text-[14px] font-bold text-white/40 uppercase mb-1">Tiempo/Serie</p>
+                      <p className="text-[20px] font-black">{fullscreenTask.timePerSeries ?? 0} min</p>
                     </div>
                     <div className="rounded-xl border border-white/15 px-3 py-2 text-center">
-                      <p className="text-[9px] font-bold text-white/40 uppercase mb-1">Descanso</p>
-                      <p className="text-lg font-black">{fullscreenTask.restBetweenSeries ?? 0} min</p>
+                      <p className="text-[14px] font-bold text-white/40 uppercase mb-1">Descanso</p>
+                      <p className="text-[20px] font-black">{fullscreenTask.restBetweenSeries ?? 0} min</p>
                     </div>
                   </div>
                 </div>
@@ -704,15 +704,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
               {fullscreenTask.description && (
                 <div>
-                  <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
-                  <p className="text-lg font-bold whitespace-pre-wrap leading-relaxed">{fullscreenTask.description}</p>
+                  <p className="text-[20px] font-black text-white/40 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
+                  <p className="text-[28px] font-bold whitespace-pre-wrap leading-relaxed">{fullscreenTask.description}</p>
                 </div>
               )}
 
               {fullscreenTask.technicalRoles && (
                 <div>
-                  <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-2">Roles Técnicos</p>
-                  <p className="text-lg font-bold whitespace-pre-wrap leading-relaxed">{fullscreenTask.technicalRoles}</p>
+                  <p className="text-[20px] font-black text-white/40 uppercase tracking-widest mb-2">Roles Técnicos</p>
+                  <p className="text-[28px] font-bold whitespace-pre-wrap leading-relaxed">{fullscreenTask.technicalRoles}</p>
                 </div>
               )}
             </div>

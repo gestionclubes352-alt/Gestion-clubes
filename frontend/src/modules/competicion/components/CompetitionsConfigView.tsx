@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Competicion } from '@/shared/services/dataService';
+import { competicionService } from '../services/competicionService';
 
 interface CompetitionConfig {
   id: string;
@@ -10,7 +12,7 @@ interface CompetitionConfig {
 
 const CompetitionsConfigView: React.FC = () => {
   const { t } = useTranslation();
-  const [competiciones, setCompeticiones] = useState<CompetitionConfig[]>([]);
+  const [competiciones, setCompeticiones] = useState<Competicion[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<CompetitionConfig>({
     id: '',
@@ -19,23 +21,27 @@ const CompetitionsConfigView: React.FC = () => {
     minutosPorParte: 45,
   });
   const [isAdding, setIsAdding] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Cargar configuraciones desde localStorage
+  // Cargar configuraciones desde Supabase
   useEffect(() => {
-    const saved = localStorage.getItem('competiciones-config');
-    if (saved) {
-      try {
-        setCompeticiones(JSON.parse(saved));
-      } catch {
-        setCompeticiones([]);
-      }
-    }
+    loadCompeticiones();
   }, []);
 
-  // Guardar en localStorage
-  const saveCompeticiones = (data: CompetitionConfig[]) => {
-    localStorage.setItem('competiciones-config', JSON.stringify(data));
-    setCompeticiones(data);
+  const loadCompeticiones = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await competicionService.listCompeticiones();
+      setCompeticiones(data);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al cargar competiciones';
+      setError(errorMsg);
+      console.error('Error loading competiciones:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddNew = () => {
@@ -55,12 +61,11 @@ const CompetitionsConfigView: React.FC = () => {
     setIsAdding(false);
   };
 
-  const handleSave = (e?: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSave = async (e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    console.log('handleSave called with formData:', formData);
 
     if (!formData.nombre.trim()) {
       alert(t('common.error') + ': ' + 'El nombre de la competición es obligatorio');
@@ -72,26 +77,35 @@ const CompetitionsConfigView: React.FC = () => {
     }
 
     try {
+      setLoading(true);
+      const competicionData = {
+        nombre: formData.nombre,
+        tipo: 'Liga' as const,
+        temporada: '25/26',
+        numero_partes: formData.partes,
+        minutos_por_parte: formData.minutosPorParte,
+        total_minutos: formData.partes * formData.minutosPorParte,
+      };
+
       if (editingId) {
-        // Actualizar
-        const updated = competiciones.map(c => c.id === editingId ? formData : c);
-        saveCompeticiones(updated);
+        await competicionService.updateCompeticion(editingId, competicionData);
       } else {
-        // Agregar nuevo
-        const newData = [...competiciones, formData];
-        console.log('Saving new competición. Current:', competiciones, 'New:', newData);
-        saveCompeticiones(newData);
+        await competicionService.createCompeticion(competicionData);
       }
 
       setEditingId(null);
       setIsAdding(false);
       setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
 
-      // Mostrar confirmación
+      await loadCompeticiones();
       alert(editingId ? 'Competición actualizada correctamente' : 'Competición guardada correctamente');
     } catch (error) {
       console.error('Error al guardar competición:', error);
-      alert('Error al guardar la competición: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMsg);
+      alert('Error al guardar la competición: ' + errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,9 +119,20 @@ const CompetitionsConfigView: React.FC = () => {
     setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar esta competición?')) {
-      saveCompeticiones(competiciones.filter(c => c.id !== id));
+      try {
+        setLoading(true);
+        await competicionService.deleteCompeticion(id);
+        await loadCompeticiones();
+      } catch (error) {
+        console.error('Error al eliminar competición:', error);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        setError(errorMsg);
+        alert('Error al eliminar la competición: ' + errorMsg);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -215,6 +240,14 @@ const CompetitionsConfigView: React.FC = () => {
         </div>
       )}
 
+      {/* ERROR MESSAGE */}
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+          <i className="fa-solid fa-circle-exclamation mr-2"></i>
+          {error}
+        </div>
+      )}
+
       {/* TABLA DE COMPETICIONES */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -232,7 +265,12 @@ const CompetitionsConfigView: React.FC = () => {
             </div>
 
             {/* Filas */}
-            {competiciones.length === 0 ? (
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                <i className="fa-solid fa-spinner text-4xl mb-3 animate-spin"></i>
+                <span className="text-sm font-bold uppercase tracking-widest">Cargando competiciones...</span>
+              </div>
+            ) : competiciones.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                 <i className="fa-solid fa-trophy text-4xl mb-3"></i>
                 <span className="text-sm font-bold uppercase tracking-widest">Sin competiciones</span>
@@ -249,23 +287,24 @@ const CompetitionsConfigView: React.FC = () => {
                   </div>
                   <div className="px-6 py-4 text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-bold text-sm">
-                      {comp.partes}
+                      {comp.numero_partes}
                     </span>
                   </div>
                   <div className="px-6 py-4 text-center">
-                    <span className="text-sm font-semibold text-slate-700">{comp.minutosPorParte}'</span>
+                    <span className="text-sm font-semibold text-slate-700">{comp.minutos_por_parte}'</span>
                   </div>
                   <div className="px-6 py-4 text-center">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-bold">
                       <i className="fa-solid fa-clock text-[10px]"></i>
-                      {calculateTotalMinutes(comp.partes, comp.minutosPorParte)} min
+                      {comp.total_minutos} min
                     </span>
                   </div>
                   <div className="px-6 py-4 flex items-center justify-end gap-2">
                     <button
-                      onClick={() => handleEdit(comp)}
+                      onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte })}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
                       title="Editar"
+                      disabled={loading}
                     >
                       <i className="fa-regular fa-pen-to-square text-[11px]"></i>
                     </button>
@@ -273,6 +312,7 @@ const CompetitionsConfigView: React.FC = () => {
                       onClick={() => handleDelete(comp.id)}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
                       title="Eliminar"
+                      disabled={loading}
                     >
                       <i className="fa-regular fa-trash-can text-[11px]"></i>
                     </button>
@@ -285,7 +325,7 @@ const CompetitionsConfigView: React.FC = () => {
       </div>
 
       {/* INFO BOX */}
-      {competiciones.length > 0 && (
+      {!loading && competiciones.length > 0 && (
         <div className="mt-6 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
           <i className="fa-solid fa-circle-info mr-2"></i>
           Total de {competiciones.length} competición{competiciones.length !== 1 ? 'es' : ''} configurada{competiciones.length !== 1 ? 's' : ''}
