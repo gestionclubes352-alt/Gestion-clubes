@@ -153,15 +153,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="h-full min-h-0 overflow-hidden rounded-xl border-2 border-slate-100 p-2.5 flex gap-3">
-        <div className="w-[40%] flex-shrink-0 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1 flex-shrink-0">
-            <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">
+      <div key={task.id} className="h-full min-h-0 overflow-hidden rounded-xl border-2 border-slate-100 p-3 flex gap-4">
+        <div className="w-[42%] flex-shrink-0 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
+            <span className="text-[15px] font-black text-slate-400 uppercase tracking-widest">
               {t('calendarView.exerciseLabel')} {globalIndex + 1}
             </span>
-            <div className="flex items-center gap-1 border border-slate-200 rounded-md px-1.5 py-0.5">
-              <i className="fa-solid fa-clock text-slate-400 text-[9px]"></i>
-              <span className="text-[12px] font-black text-slate-600">{seriesTotal} min</span>
+            <div className="flex items-center gap-1.5 border border-slate-200 rounded-md px-2 py-1">
+              <i className="fa-solid fa-clock text-slate-400 text-[12px]"></i>
+              <span className="text-[15px] font-black text-slate-600">{seriesTotal} min</span>
             </div>
           </div>
           <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
@@ -175,48 +175,42 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             ) : (
               <div className={`w-full max-h-full aspect-[105/68] rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[14px]`}></i>
+                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[18px]`}></i>
               </div>
             )}
           </div>
         </div>
 
         <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-          <p className="font-black text-slate-800 text-[15px] break-words mb-0.5 flex-shrink-0 line-clamp-1">{task.title}</p>
-          <p className="text-[12px] font-bold text-slate-500 mb-1.5 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+          <p className="font-black text-slate-800 text-[20px] break-words mb-1 flex-shrink-0 line-clamp-1">{task.title}</p>
+          <p className="text-[16px] font-bold text-slate-500 mb-2 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
 
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[11px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-hidden">
+            <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
+            <p className="text-[15px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-hidden">
               {task.description || '—'}
             </p>
           </div>
 
-          {((task.numberOfSeries ?? 0) > 0 || task.technicalRoles) && (
-            <div className="mt-1 flex-shrink-0 space-y-1">
-              {(task.numberOfSeries ?? 0) > 0 && (
-                <div className="grid grid-cols-3 gap-1 max-w-md">
-                  <div className="rounded-md border border-slate-200 px-1 py-0.5 text-center">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Series</p>
-                    <p className="text-[12px] font-black text-slate-700">{task.numberOfSeries}</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 px-1 py-0.5 text-center">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">T/Serie</p>
-                    <p className="text-[12px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 px-1 py-0.5 text-center">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Descanso</p>
-                    <p className="text-[12px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
-                  </div>
-                </div>
-              )}
-              {task.technicalRoles && (
-                <p className="text-[11px] font-bold text-slate-500 break-words line-clamp-1">
-                  <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
-                </p>
-              )}
+          <div className="mt-1.5 flex-shrink-0 space-y-1.5">
+            <div className="grid grid-cols-3 gap-1.5 max-w-md">
+              <div className="rounded-md border border-slate-200 px-1.5 py-1 text-center">
+                <p className="text-[11px] font-bold text-slate-400 uppercase">Series</p>
+                <p className="text-[16px] font-black text-slate-700">{task.numberOfSeries ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 px-1.5 py-1 text-center">
+                <p className="text-[11px] font-bold text-slate-400 uppercase">T/Serie</p>
+                <p className="text-[16px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+              </div>
+              <div className="rounded-md border border-slate-200 px-1.5 py-1 text-center">
+                <p className="text-[11px] font-bold text-slate-400 uppercase">Descanso</p>
+                <p className="text-[16px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+              </div>
             </div>
-          )}
+            <p className="text-[15px] font-bold text-slate-500 break-words line-clamp-1">
+              <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles || '—'}
+            </p>
+          </div>
         </div>
       </div>
     );

@@ -62,6 +62,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   const [filterPosition, setFilterPosition] = useState('TODOS');
   const [filterClub, setFilterClub] = useState('TODOS');
   const [filterTeam, setFilterTeam] = useState('TODOS');
+  const [filterStatus, setFilterStatus] = useState('TODOS');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -107,9 +108,10 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       const posMatch = filterPosition === 'TODOS' || p.posicion === filterPosition;
       const clubMatch = filterClub === 'TODOS' || normalizeTeamLabel(p.club || '') === normalizeTeamLabel(filterClub);
       const teamMatch = filterTeam === 'TODOS' || normalizeTeamLabel(p.equipo || '') === normalizeTeamLabel(filterTeam);
-      return posMatch && clubMatch && teamMatch;
+      const statusMatch = filterStatus === 'TODOS' || (filterStatus === 'APTO' ? p.estado === 'APTO' : p.estado !== 'APTO');
+      return posMatch && clubMatch && teamMatch && statusMatch;
     }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [baseSquad, filterPosition, filterClub, filterTeam]);
+  }, [baseSquad, filterPosition, filterClub, filterTeam, filterStatus]);
 
   const groupedPlayers = useMemo(() => {
     const groups = positionOrder.reduce((acc, pos) => {
@@ -136,6 +138,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     setActiveTab(tab);
     setFilterClub('TODOS');
     setFilterTeam('TODOS');
+    setFilterStatus('TODOS');
   };
 
   const isLoading = baseSquad.length === 0 && filterPosition === 'TODOS';
@@ -424,6 +427,32 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             )}
 
             {/* Separador */}
+            <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
+
+            {/* Filtro de estado (APTO/NO APTO) */}
+            {['TODOS', 'APTO', 'NO APTO'].map((status) => (
+              <button
+                key={`status-${status}`}
+                onClick={() => setFilterStatus(status)}
+                className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
+                  filterStatus === status
+                    ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
+                    : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
+                }`}
+              >
+                {status === 'TODOS' ? t('playerTable.all') : status}
+              </button>
+            ))}
+            {filterStatus !== 'TODOS' && (
+              <button
+                onClick={() => setFilterStatus('TODOS')}
+                className="px-3 py-2 rounded-xl text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {t('playerTable.clear')}
+              </button>
+            )}
+
+            {/* Separador */}
             {availableClubs.length > 1 && (
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
             )}
@@ -642,7 +671,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             <i className="fa-solid fa-database text-sm text-[var(--text-muted)]"></i>
           </div>
           <p className="text-xs text-[var(--text-muted)] font-medium">
-            {filteredSquad.length} {t('playerTable.playersCount')}{filterPosition !== 'TODOS' ? ` · ${filterPosition}` : ''}{filterClub !== 'TODOS' ? ` · ${filterClub}` : ''}{filterTeam !== 'TODOS' ? ` · ${filterTeam}` : ''}
+            {filteredSquad.length} {t('playerTable.playersCount')}{filterPosition !== 'TODOS' ? ` · ${filterPosition}` : ''}{filterClub !== 'TODOS' ? ` · ${filterClub}` : ''}{filterTeam !== 'TODOS' ? ` · ${filterTeam}` : ''}{filterStatus !== 'TODOS' ? ` · ${filterStatus}` : ''}
           </p>
         </div>
         <button

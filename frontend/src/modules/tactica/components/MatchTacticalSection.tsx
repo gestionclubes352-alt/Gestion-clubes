@@ -83,8 +83,8 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
     };
   }, [selectedChange, changes, initialFormation, initialLineup]);
 
-  // Players currently on field (titulares)
-  const playersOnField = useMemo(() => {
+  // 11 inicial - INMUTABLE, no cambia nunca
+  const initialEleven = useMemo(() => {
     return squad
       .filter((p) => !substituteIds.includes(p.id))
       .slice(0, 11)
@@ -94,6 +94,9 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
         dorsal: p.dorsal,
       }));
   }, [squad, substituteIds]);
+
+  // Alias para mantener compatibilidad
+  const playersOnField = initialEleven;
 
   // Substitute players
   const substitutePlayers = useMemo(() => {

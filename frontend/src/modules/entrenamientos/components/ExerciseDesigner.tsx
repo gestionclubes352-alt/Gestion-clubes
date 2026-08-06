@@ -80,6 +80,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [activeProject, setActiveProject] = useState('NUEVO EJERCICIO TÁCTICO');
   const [tasks, setTasks] = useState<Array<{ id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[]; fieldStructure?: string }>>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [editingDimensionItemId, setEditingDimensionItemId] = useState<string | null>(null);
+  const [editingDimensionType, setEditingDimensionType] = useState<'width' | 'height' | null>(null);
   const historyRef = useRef<Array<{ frames: DesignerItem[][]; index: number }>>([]);
   const pendingHistoryRef = useRef<{ frames: DesignerItem[][]; index: number } | null>(null);
   const [historyCount, setHistoryCount] = useState(0);
@@ -851,11 +853,25 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
         updateFrames(prev => prev.map(item => {
           const startPosition = dragStartPositionsRef.current[item.id];
           if (!startPosition || !idsToMove.includes(item.id)) return item;
-          return {
+          const newX = Math.min(98, Math.max(2, startPosition.x + deltaX));
+          const newY = Math.min(98, Math.max(2, startPosition.y + deltaY));
+          const updated: DesignerItem = {
             ...item,
-            x: Math.min(98, Math.max(2, startPosition.x + deltaX)),
-            y: Math.min(98, Math.max(2, startPosition.y + deltaY)),
+            x: newX,
+            y: newY,
           };
+          // Para flechas, también actualizar arrowStart y arrowEnd
+          if (item.type?.startsWith('arrow-') && item.arrowStart && item.arrowEnd) {
+            updated.arrowStart = {
+              x: item.arrowStart.x + deltaX,
+              y: item.arrowStart.y + deltaY,
+            };
+            updated.arrowEnd = {
+              x: item.arrowEnd.x + deltaX,
+              y: item.arrowEnd.y + deltaY,
+            };
+          }
+          return updated;
         }));
       });
     };
@@ -1599,7 +1615,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             <div className="relative w-full flex-1 min-h-0 flex items-start justify-start p-0">
               <div
                 ref={pitchRef}
-                className="max-w-full max-h-full rounded-3xl relative border-[12px] border-[#ffffff22] cursor-crosshair overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.3)] transition-all duration-500 origin-center ml-0"
+                className="max-w-full max-h-full rounded-3xl relative border-[12px] border-[#ffffff22] cursor-crosshair overflow-visible shadow-[0_40px_100px_rgba(0,0,0,0.3)] transition-all duration-500 origin-center ml-0"
                 onPointerDown={handlePitchPointerDown}
                 onClick={handlePitchBackgroundClick}
                 style={{
@@ -1738,6 +1754,37 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     const markerIndex = colorIndex >= 0 ? colorIndex : 0;
                     const isCurved = item.type.includes('curve');
                     const strokeW = item.strokeWidth ?? 0.3;
+                    const handleArrowPointerDown = (e: React.PointerEvent) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      beginHistorySnapshot();
+                      draggingRef.current = item.id;
+                      draggingIdsRef.current = selectedIds.includes(item.id) && selectedIds.length > 1 ? selectedIds : [item.id];
+                      hasDragged.current = false;
+                      dragStartPos.current = { x: e.clientX, y: e.clientY };
+                      const rect = pitchRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        dragStartPercentRef.current = {
+                          x: ((e.clientX - rect.left) / rect.width) * 100,
+                          y: ((e.clientY - rect.top) / rect.height) * 100
+                        };
+                      }
+                      dragStartPositionsRef.current = Object.fromEntries(
+                        draggingIdsRef.current.map(id => {
+                          const currentItem = items.find(entry => entry.id === id);
+                          return [id, { x: currentItem?.x ?? item.x, y: currentItem?.y ?? item.y }];
+                        })
+                      );
+                      document.body.style.cursor = 'grabbing';
+                      document.body.style.userSelect = 'none';
+                      setDraggingId(item.id);
+                      if (draggingIdsRef.current.length > 1) {
+                        selectItemIds(draggingIdsRef.current);
+                      } else {
+                        selectItemOnly(item.id);
+                      }
+                      (e.target as any).setPointerCapture(e.pointerId);
+                    };
                     return isCurved ? (
                       <path
                         key={item.id}
@@ -1748,8 +1795,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         strokeDasharray={item.type.includes('dashed') ? '1.5,1.5' : '0'}
                         markerEnd={`url(#arrowhead-${markerIndex})`}
                         strokeLinecap="round"
-                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                        onClick={(e) => { e.stopPropagation(); selectItemOnly(item.id); }}
+                        style={{ cursor: draggingId === item.id ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
+                        onPointerDown={handleArrowPointerDown}
+                        onClick={(e) => { e.stopPropagation(); if (!hasDragged.current) selectItemOnly(item.id); }}
                         opacity={selectedIds.includes(item.id) ? '1' : '0.85'}
                       />
                     ) : (
@@ -1764,8 +1812,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         strokeDasharray={item.type.includes('dashed') ? '1.5,1.5' : '0'}
                         markerEnd={`url(#arrowhead-${markerIndex})`}
                         strokeLinecap="round"
-                        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                        onClick={(e) => { e.stopPropagation(); selectItemOnly(item.id); }}
+                        style={{ cursor: draggingId === item.id ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
+                        onPointerDown={handleArrowPointerDown}
+                        onClick={(e) => { e.stopPropagation(); if (!hasDragged.current) selectItemOnly(item.id); }}
                         opacity={selectedIds.includes(item.id) ? '1' : '0.85'}
                       />
                     );
@@ -1834,16 +1883,109 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       const pitchMeters = getPitchMeters();
                       const widthMeters = ((size.width ?? 0) / 100) * pitchMeters.width;
                       const heightMeters = ((size.height ?? 0) / 100) * pitchMeters.height;
+
+                      const handleWidthChange = (newValue: number) => {
+                        const newWidthPercent = (newValue / pitchMeters.width) * 100;
+                        updateFrames(prev => prev.map(i => i.id === item.id ? { ...i, width: newWidthPercent } : i));
+                      };
+
+                      const handleHeightChange = (newValue: number) => {
+                        const newHeightPercent = (newValue / pitchMeters.height) * 100;
+                        updateFrames(prev => prev.map(i => i.id === item.id ? { ...i, height: newHeightPercent } : i));
+                      };
+
                       return (
                         <>
-                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-black text-white shadow-lg pointer-events-none z-20">
-                            {widthMeters.toFixed(1)} m
+                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-black text-white shadow-lg z-20 cursor-text pointer-events-auto">
+                            {editingDimensionItemId === item.id && editingDimensionType === 'width' ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                autoFocus
+                                defaultValue={Math.round(widthMeters)}
+                                onBlur={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val) && val >= 0) {
+                                    handleWidthChange(val);
+                                  }
+                                  setEditingDimensionItemId(null);
+                                  setEditingDimensionType(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation();
+                                  if (e.key === 'Enter') {
+                                    const val = parseFloat(e.currentTarget.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      handleWidthChange(val);
+                                    }
+                                    setEditingDimensionItemId(null);
+                                    setEditingDimensionType(null);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingDimensionItemId(null);
+                                    setEditingDimensionType(null);
+                                  }
+                                }}
+                                className="w-12 bg-[var(--accent)] text-white text-[10px] font-black text-center border-0 outline-none"
+                              />
+                            ) : (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingDimensionItemId(item.id);
+                                  setEditingDimensionType('width');
+                                }}
+                              >
+                                {Math.round(widthMeters)} m
+                              </span>
+                            )}
                           </div>
                           <div
-                            className="absolute top-1/2 -left-6 -translate-y-1/2 whitespace-nowrap rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-black text-white shadow-lg pointer-events-none z-20"
+                            className="absolute top-1/2 -left-6 -translate-y-1/2 whitespace-nowrap rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-black text-white shadow-lg z-20 cursor-text pointer-events-auto"
                             style={{ transform: 'translate(-50%, -50%) rotate(-90deg)' }}
                           >
-                            {heightMeters.toFixed(1)} m
+                            {editingDimensionItemId === item.id && editingDimensionType === 'height' ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                autoFocus
+                                defaultValue={Math.round(heightMeters)}
+                                onBlur={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val) && val >= 0) {
+                                    handleHeightChange(val);
+                                  }
+                                  setEditingDimensionItemId(null);
+                                  setEditingDimensionType(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation();
+                                  if (e.key === 'Enter') {
+                                    const val = parseFloat(e.currentTarget.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      handleHeightChange(val);
+                                    }
+                                    setEditingDimensionItemId(null);
+                                    setEditingDimensionType(null);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingDimensionItemId(null);
+                                    setEditingDimensionType(null);
+                                  }
+                                }}
+                                className="w-12 bg-[var(--accent)] text-white text-[10px] font-black text-center border-0 outline-none"
+                              />
+                            ) : (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingDimensionItemId(item.id);
+                                  setEditingDimensionType('height');
+                                }}
+                              >
+                                {Math.round(heightMeters)} m
+                              </span>
+                            )}
                           </div>
                         </>
                       );

@@ -290,6 +290,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [expandedMediaBlock, setExpandedMediaBlock] = useState<string | null>(null);
   const [closedMediaBlocks, setClosedMediaBlocks] = useState<Set<string>>(new Set());
   const [collapsedPlanBlocks, setCollapsedPlanBlocks] = useState<Set<string>>(new Set());
+  const [collapsedRivalBlocks, setCollapsedRivalBlocks] = useState<Set<string>>(new Set());
   const [expandedAbpCard, setExpandedAbpCard] = useState<{ section: AbpSection; id: string; label: string } | null>(null);
 
   // Ficha del jugador (modal embebido)
@@ -2076,15 +2077,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   };
 
   const handleChangeFormation = async (newForm: string) => {
-    const oldPositions = report.lineupPositions && report.lineupPositions.length > 0
-      ? report.lineupPositions
-      : getInitialPositions(report.formation || '4-3-3');
-
+    // Obtener posiciones actuales del campo (después de sustituciones)
+    const currentPositions = currentLineupPositions || getInitialPositions(report.formation || '4-3-3');
     const newPositions = getInitialPositions(newForm);
 
-    // Agrupar jugadores por tipo de posición
-    const playersByType = new Map<string, string[]>();
-    oldPositions.forEach(pos => {
+    // Reasignar jugadores actuales a la nueva formación
+    const playersByType = new Map<string, (string | number)[]>();
+    currentPositions.forEach(pos => {
       if (pos.playerIds && pos.playerIds.length > 0) {
         const type = getPositionType(pos.label);
         if (!playersByType.has(type)) playersByType.set(type, []);
@@ -2092,14 +2091,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       }
     });
 
-    // Contar cuántos de cada tipo en la nueva formación
-    const posCountByType = new Map<string, number>();
-    newPositions.forEach(pos => {
-      const type = getPositionType(pos.label);
-      posCountByType.set(type, (posCountByType.get(type) || 0) + 1);
-    });
-
-    // Asignar jugadores a nuevas posiciones por tipo
     const usedPlayers = new Set<string>();
     const positionsWithPlayers = newPositions.map(pos => {
       const type = getPositionType(pos.label);
@@ -2115,6 +2106,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     });
 
     setTempLineupPositions(positionsWithPlayers);
+
+    // Guardar solo el cambio de formación, SIN modificar lineupPositions (es inmutable)
     const next = { ...report, formation: newForm };
     setReport(next);
   };
@@ -2945,13 +2938,47 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.matchEvents.noSubstitutions')}</p>
             ) : (
               [...(report.substitutions || [])].sort((a, b) => a.minute - b.minute).map(sub => (
-                <div key={sub.id} className="flex items-center justify-between bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-3">
-                  <div className="flex items-center gap-3 text-xs font-bold text-[var(--text-strong)]">
-                    <span className="px-2 py-1 rounded-lg bg-sport-primary text-white text-[10px] font-black">{sub.minute}'</span>
-                    <span className="flex items-center gap-2"><i className="fa-solid fa-arrow-down text-red-500"></i>{getPlayerLabel(sub.playerOutId)}</span>
-                    <span className="flex items-center gap-2"><i className="fa-solid fa-arrow-up text-emerald-500"></i>{getPlayerLabel(sub.playerInId)}</span>
-                  </div>
-                  <button onClick={() => removeSubstitution(sub.id)} className="text-[var(--text-muted)] hover:text-red-500 transition-all"><i className="fa-solid fa-trash-can text-xs"></i></button>
+                <div key={sub.id} className={`rounded-2xl ${editingSubstitutionId === sub.id ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-[var(--surface-1)] border border-[var(--border-soft)]'} px-4 py-3`}>
+                  {editingSubstitutionId === sub.id ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div>
+                          <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
+                          <input type="number" min={0} max={130} value={substitutionEditForm.minute} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, minute: e.target.value })} className="w-20 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerOut')}</label>
+                          <select value={substitutionEditForm.playerOutId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerOutId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
+                            <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
+                            {playerOutOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
+                          <select value={substitutionEditForm.playerInId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerInId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
+                            <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
+                            {playerInOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={saveEditSubstitution} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"><i className="fa-solid fa-check"></i>{t('common.save')}</button>
+                        <button onClick={cancelEditSubstitution} className="bg-[var(--surface-0)] hover:bg-[var(--surface-1)] text-[var(--text-strong)] px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all">{t('common.cancel')}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs font-bold text-[var(--text-strong)]">
+                        <span className="px-2 py-1 rounded-lg bg-sport-primary text-white text-[10px] font-black">{sub.minute}'</span>
+                        <span className="flex items-center gap-2"><i className="fa-solid fa-arrow-down text-red-500"></i>{getPlayerLabel(sub.playerOutId)}</span>
+                        <span className="flex items-center gap-2"><i className="fa-solid fa-arrow-up text-emerald-500"></i>{getPlayerLabel(sub.playerInId)}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => startEditSubstitution(sub)} title={t('matchReport.events.editTimeNote')} className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-all"><i className="fa-solid fa-pencil text-xs"></i></button>
+                        <button onClick={() => removeSubstitution(sub.id)} title={t('common.delete')} className="text-[var(--text-muted)] hover:text-red-500 transition-all"><i className="fa-solid fa-trash-can text-xs"></i></button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -3051,6 +3078,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const togglePlanBlockCollapsed = (id: string) => {
     setCollapsedPlanBlocks(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleRivalBlockCollapsed = (id: string) => {
+    setCollapsedRivalBlocks(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -3434,8 +3469,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <div key={block.id} className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-xl space-y-5 flex flex-col relative group hover:border-[var(--surface-3)] transition-all">
             <div className="flex justify-between items-center">
                 <div className={`text-[11px] font-black ${block.color} uppercase tracking-[0.2em] flex items-center gap-2`}><i className={`fa-solid ${block.icon}`}></i> {block.label}</div>
-                <button onClick={() => toggleMediaBlock(block.id)} className="w-8 h-8 rounded-full bg-[var(--surface-1)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all"><i className={`fa-solid ${isMediaBlockOpen(block.id) ? 'fa-xmark' : 'fa-paperclip'} text-xs`}></i></button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleMediaBlock(block.id)} className="w-8 h-8 rounded-full bg-[var(--surface-1)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all"><i className={`fa-solid ${isMediaBlockOpen(block.id) ? 'fa-xmark' : 'fa-paperclip'} text-xs`}></i></button>
+                  <button
+                    onClick={() => toggleRivalBlockCollapsed(block.id)}
+                    title={collapsedRivalBlocks.has(block.id) ? t('matchReport.showSection') : t('matchReport.hideSection')}
+                    className="w-8 h-8 rounded-full bg-[var(--surface-1)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all"
+                  >
+                    <i className={`fa-solid ${collapsedRivalBlocks.has(block.id) ? 'fa-chevron-down' : 'fa-chevron-up'} text-xs`}></i>
+                  </button>
+                </div>
             </div>
+            {collapsedRivalBlocks.has(block.id) ? null : (
+            <>
             {isMediaBlockOpen(block.id) && (
                 <div className="bg-[var(--surface-1)] p-4 rounded-2xl space-y-3 animate-fade-in border border-[var(--border-soft)]">
                     <div>
@@ -3479,6 +3525,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-y leading-relaxed min-h-[200px]"
               placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
             ></textarea>
+            </>
+            )}
           </div>
         ))}
       </div>
@@ -3752,11 +3800,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0"></i> : null}
                         {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0"></i> : null}
                         {subOutMinute !== undefined && (
-                          <span className="inline-flex items-center gap-1 text-red-500 font-black shrink-0" title={t('matchReport.matchEvents.substitutions')}>
-                            <i className="fa-solid fa-arrow-right-from-bracket"></i>{subOutMinute}'
+                          <span className="inline-flex items-center gap-1 text-red-500 font-black shrink-0" title={`${t('matchReport.matchEvents.substitutions')} ${subOutMinute}'`}>
+                            <i className="fa-solid fa-arrow-right-from-bracket text-[10px]"></i><span className="text-[11px]">{subOutMinute}'</span>
                           </span>
                         )}
-                        <span className="text-[var(--text-muted)] font-bold w-8 text-right shrink-0">{minutes}'</span>
+                        {subOutMinute === undefined && (
+                          <span className="text-[var(--text-muted)] font-bold w-8 text-right shrink-0">{minutes}'</span>
+                        )}
                       </div>
                     );
                   })}
@@ -3881,7 +3931,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     );
 
     return (
-      <div className="animate-fade-in space-y-8 max-w-4xl mx-auto pb-32">
+      <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32">
         <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
           <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
             <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
@@ -3938,6 +3988,59 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
           </div>
         )}
+
+        <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+              <i className="fa-solid fa-users text-blue-500"></i> Minutos por Equipo y Sistema
+            </div>
+          </div>
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                {match.localTeam}
+              </h3>
+              {systemRows.length > 0 ? (
+                <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                        <th className="px-3 py-3 text-left">#</th>
+                        <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
+                        {systemRows.map(({ formation }) => (
+                          <th key={formation} className="px-3 py-3 text-center">{formation}</th>
+                        ))}
+                        <th className="px-3 py-3 text-center">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-soft)]">
+                      {convocadoPlayers.map(player => {
+                        const key = String(player.id);
+                        return (
+                          <tr key={player.id} className="text-[var(--text-strong)]">
+                            <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
+                            <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
+                            {systemRows.map(({ formation }) => {
+                              const playerSystemMinutes = systemMinutesStats.individual.get(formation)?.get(key) ?? 0;
+                              return (
+                                <td key={formation} className="px-3 py-2 text-center font-bold">
+                                  {playerSystemMinutes > 0 ? `${playerSystemMinutes}'` : '-'}
+                                </td>
+                              );
+                            })}
+                            <td className="px-3 py-2 text-center font-bold">{playerMinutesMap.get(key) ?? 0}'</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-xs font-bold text-[var(--text-muted)] px-3">No hay sistemas registrados</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
