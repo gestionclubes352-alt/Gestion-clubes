@@ -1067,6 +1067,7 @@
       "opponentGoal": "Opponent Goal",
       "noGoals": "No goals recorded",
       "confirmDeleteSubstitution": "Delete this substitution?",
+      "confirmDeleteWindow": "Delete all changes from this moment?",
       "confirmDeleteGoal": "Delete this goal?",
       "add": "Add",
       "min": "min",

@@ -1077,6 +1077,7 @@
       "opponentGoal": "Gol Rival",
       "noGoals": "Sin goles registrados",
       "confirmDeleteSubstitution": "¿Eliminar este cambio?",
+      "confirmDeleteWindow": "¿Eliminar todos los cambios de este momento?",
       "confirmDeleteGoal": "¿Eliminar este gol?",
       "add": "Añadir",
       "min": "min",

@@ -480,6 +480,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </p>
   );
 
+  const handleDeleteWindow = (win: (typeof windowSnapshots)[number]) => {
+    if (!confirm(t('matchReport.matchEvents.confirmDeleteWindow'))) return;
+    const next = {
+      ...report,
+      substitutions: (report.substitutions || []).filter(s => s.minute !== win.minute),
+      formationChanges: (report.formationChanges || []).filter(c => c.minute !== win.minute),
+    };
+    setReport(next);
+    persistReport(next);
+  };
+
   const renderPitchDiagram = (positionsList: TacticalPosition[], highlightInIds?: Array<string | number> | string | number) => (
     <div className="relative mx-auto rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
       <div className="absolute inset-0 pointer-events-none opacity-70">
@@ -1331,13 +1342,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
         {/* 11 Inicial - Izquierda */}
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          <h4 className="text-[9px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">{t('matchReport.matchEvents.startingXI')}</h4>
+          <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">{t('matchReport.matchEvents.startingXI')}</h4>
           <div className="space-y-0.5">
             {activeLineupPlayers.map(player => (
-              <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1 transition-all">
-                <span className="w-5 h-5 rounded-full bg-sport-primary text-white flex items-center justify-center text-[8px] font-black shrink-0">{player.dorsal ?? '-'}</span>
+              <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 transition-all">
+                <span className="w-6 h-6 rounded-full bg-sport-primary text-white flex items-center justify-center text-[11px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+                  <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
                 </div>
               </div>
             ))}
@@ -1392,7 +1403,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 <div className="relative">
                   <button
                     onClick={() => handlePlayerClickForEvent(player)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shadow-lg transition-all ${
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-black shadow-lg transition-all ${
                       isSelected
                         ? 'bg-yellow-400 text-[#1e8449] ring-2 ring-white scale-125'
                         : 'bg-white text-[#1e8449] hover:scale-110 group-hover:shadow-xl'
@@ -1415,7 +1426,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     </div>
                   )}
                 </div>
-                <span className="text-white text-[8px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
+                <span className="text-white text-[11px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
               </div>
             );
           })}
@@ -1589,16 +1600,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
         {/* Suplentes - Derecha */}
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          <h4 className="text-[9px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">Suplentes</h4>
+          <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">Suplentes</h4>
           <div className="space-y-0.5">
             {benchPlayers.length === 0 ? (
-              <p className="text-[9px] font-bold text-[var(--text-muted)] text-center py-2">{t('matchReport.generalData.noBenchYet')}</p>
+              <p className="text-[13px] font-bold text-[var(--text-muted)] text-center py-2">{t('matchReport.generalData.noBenchYet')}</p>
             ) : (
               benchPlayers.map(player => (
-                <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1 transition-all">
-                  <span className="w-5 h-5 rounded-full bg-slate-400 text-white flex items-center justify-center text-[8px] font-black shrink-0">{player.dorsal ?? '-'}</span>
+                <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 transition-all">
+                  <span className="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+                    <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
                   </div>
                 </div>
               ))
@@ -2778,10 +2789,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       <div className="animate-fade-in max-w-7xl mx-auto space-y-10">
         {/* Nueva sección: Campo interactivo para registrar eventos */}
         <div>
-          <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
+          <h3 className="text-base font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
             <i className="fa-solid fa-hand-pointer text-[var(--accent)]"></i>{t('matchReport.matchEvents.quickRegister')}
           </h3>
-          <p className="text-xs font-bold text-[var(--text-muted)] mb-4">{t('matchReport.matchEvents.clickPlayerInstruction')}</p>
+          <p className="text-sm font-bold text-[var(--text-muted)] mb-4">{t('matchReport.matchEvents.clickPlayerInstruction')}</p>
           {renderInteractiveFieldForEvents()}
         </div>
 
@@ -2798,7 +2809,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
             </div>
             {windowSnapshots.map(win => (
-              <div key={win.id}>
+              <div key={win.id} className="relative group">
+                <button
+                  onClick={() => handleDeleteWindow(win)}
+                  title={t('common.delete')}
+                  className="absolute top-0 right-1/2 translate-x-[110px] z-10 w-6 h-6 rounded-full bg-white dark:bg-[#1a1a1a] border border-[var(--border-soft)] text-[var(--text-muted)] hover:text-red-500 hover:border-red-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow"
+                >
+                  <i className="fa-solid fa-trash-can text-[10px]"></i>
+                </button>
                 {renderWindowSummary(win)}
                 {renderPitchDiagram(win.positions, win.incomingIds)}
               </div>
