@@ -896,8 +896,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       await db.match_reports.upsert(updatedReport);
       setSaveError(null);
     } catch (err) {
-      console.error('[match-report-autosave]', err);
-      setSaveError(err instanceof Error ? err.message : 'Error saving lineup');
+      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error('[match-report-autosave]', errorMsg, err);
+      setSaveError(errorMsg);
     }
   };
 
