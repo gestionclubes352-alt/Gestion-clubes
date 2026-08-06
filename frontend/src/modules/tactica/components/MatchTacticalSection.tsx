@@ -223,32 +223,42 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
                   : `${change.minute}' - FORMACIÓN ${change.newFormation}`;
 
               return (
-                <div key={change.id} className="group relative">
-                  <button
-                    onClick={() => setSelectedChangeId(change.id)}
-                    className={`text-left rounded-lg border-2 transition-all overflow-hidden w-full ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10'
-                        : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#1a1a1a] dark:hover:border-white/20'
-                    }`}
-                  >
-                    <MatchFormationViewer
-                      formation={selectedFormation.formation}
-                      players={playersOnField}
-                      highlightPlayerId={change.playerInId || change.playerOutId}
-                      title={changeLabel}
-                      compact={true}
-                      className="p-0"
-                    />
-                  </button>
+                <div
+                  key={change.id}
+                  className="relative rounded-lg border-2 cursor-pointer transition-all group"
+                  style={{
+                    borderColor: isSelected ? '#3b82f6' : '#e2e8f0',
+                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.05)' : '',
+                  }}
+                >
+                  <div className="rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setSelectedChangeId(change.id)}
+                      className="w-full text-left"
+                      type="button"
+                    >
+                      <MatchFormationViewer
+                        formation={selectedFormation.formation}
+                        players={playersOnField}
+                        highlightPlayerId={change.playerInId || change.playerOutId}
+                        title={changeLabel}
+                        compact={true}
+                        className="p-0"
+                      />
+                    </button>
+                  </div>
 
-                  {/* Expand button overlay */}
+                  {/* Expand button - positioned outside overflow */}
                   <button
-                    onClick={() => setModalChangeId(change.id)}
-                    className="absolute right-2 top-2 rounded-lg bg-white dark:bg-slate-800 p-2 shadow-md opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModalChangeId(change.id);
+                    }}
+                    className="absolute -top-3 -right-3 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-all hover:scale-110"
                     title="Ver en grande"
+                    type="button"
                   >
-                    <i className="fa-solid fa-expand text-slate-700 dark:text-slate-300" />
+                    <i className="fa-solid fa-expand text-base" />
                   </button>
                 </div>
               );
