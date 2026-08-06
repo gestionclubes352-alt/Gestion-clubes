@@ -684,8 +684,8 @@ function createMatchReportsStore(): LegacyStore<any> {
         first_half_end: item.firstHalfEnd || '',
         second_half_start: item.secondHalfStart || '',
         second_half_end: item.secondHalfEnd || '',
-        referee_name: item.refereeName,
-        referee_description: item.refereeDescription,
+        referee_name: item.refereeName || '',
+        referee_description: item.refereeDescription || '',
       };
       const { error } = await supabase.from('match_reports').upsert(stored).select();
       if (error) throw error;
