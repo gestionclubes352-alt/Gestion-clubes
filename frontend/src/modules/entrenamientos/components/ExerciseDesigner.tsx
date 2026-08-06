@@ -1073,6 +1073,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     };
   };
   const canResizeItem = (item: DesignerItem) => item.type === 'zone' || item.type === 'goal';
+  const getPitchMeters = () =>
+    (activeStructure === 'ataque' || activeStructure === 'defensa')
+      ? { width: 68, height: 52.5 }
+      : { width: 105, height: 68 };
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const resizeHandles = [
     { id: 'nw', shape: 'corner' as const, className: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize' },
@@ -1826,6 +1830,24 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         </div>
                       </div>
                     )}
+                    {isResizable && (isItemSelected || resizingId === item.id) && (() => {
+                      const pitchMeters = getPitchMeters();
+                      const widthMeters = ((size.width ?? 0) / 100) * pitchMeters.width;
+                      const heightMeters = ((size.height ?? 0) / 100) * pitchMeters.height;
+                      return (
+                        <>
+                          <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-black text-white shadow-lg pointer-events-none z-20">
+                            {widthMeters.toFixed(1)} m
+                          </div>
+                          <div
+                            className="absolute top-1/2 -left-6 -translate-y-1/2 whitespace-nowrap rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-black text-white shadow-lg pointer-events-none z-20"
+                            style={{ transform: 'translate(-50%, -50%) rotate(-90deg)' }}
+                          >
+                            {heightMeters.toFixed(1)} m
+                          </div>
+                        </>
+                      );
+                    })()}
                     {item.type === 'zone' ? (
                       <div className={`relative w-full h-full border-[3px] border-dashed border-white/60 bg-white/5 shadow-inner group-hover:border-white transition-colors ${animationClass}`}>
                         {showResizeHandles && (

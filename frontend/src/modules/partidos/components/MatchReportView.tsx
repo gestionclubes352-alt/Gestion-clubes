@@ -4,12 +4,13 @@ import type { TacticalPosition } from '@modules/tactica';
 import { getInitialPositions } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
 import type { CompetitionTeam } from '@modules/competicion';
-import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchGoal, MatchCard } from '../types';
+import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
 import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
 import type { Equipo, Jugador, Club } from '@shared/services/dataService';
-import { TacticalBoard } from '@modules/tactica';
+import { TacticalBoard, MatchTacticalSection } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
+import PlayerStatsCharts from './PlayerStatsCharts';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { uploadMatchReportFile } from '@shared/services/photoService';
 import { useTranslation } from 'react-i18next';
@@ -158,6 +159,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   // Formulario "Añadir cambio" en la pestaña Eventos
   const [subForm, setSubForm] = useState({ minute: '', playerOutId: '', playerInId: '' });
+  // Edición inline de una sustitución existente (tarjetas "Sistema tras cada cambio")
+  const [editingSubstitutionId, setEditingSubstitutionId] = useState<string | null>(null);
+  const [substitutionEditForm, setSubstitutionEditForm] = useState({ minute: '', playerOutId: '', playerInId: '' });
   // Formulario "Añadir gol" en la pestaña Eventos
   const [goalForm, setGoalForm] = useState<{ minute: string; side: 'FAVOR' | 'CONTRA'; playerId: string }>({ minute: '', side: 'FAVOR', playerId: '' });
   // Formulario "Añadir tarjeta" en la pestaña Eventos
@@ -274,10 +278,20 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
 
+  // Estado para el flujo interactivo de eventos
+  const [selectedPlayerForEvent, setSelectedPlayerForEvent] = useState<Player | null>(null);
+  const [eventActionMenu, setEventActionMenu] = useState<{ type: 'GOL' | 'CAMBIO' | 'TARJETA_AMARILLA' | 'TARJETA_ROJA' | null; minute: string; playerInId?: string }>({ type: null, minute: '' });
+  const [isWindowPanelOpen, setIsWindowPanelOpen] = useState(false);
+  const [windowPanelMinute, setWindowPanelMinute] = useState('');
+  const [windowPanelOriginalFormation, setWindowPanelOriginalFormation] = useState('');
+
   const [expandedMediaBlock, setExpandedMediaBlock] = useState<string | null>(null);
   const [closedMediaBlocks, setClosedMediaBlocks] = useState<Set<string>>(new Set());
   const [collapsedPlanBlocks, setCollapsedPlanBlocks] = useState<Set<string>>(new Set());
   const [expandedAbpCard, setExpandedAbpCard] = useState<{ section: AbpSection; id: string; label: string } | null>(null);
+
+  // Ficha del jugador (modal embebido)
+  const [selectedPlayerForModal, setSelectedPlayerForModal] = useState<Player | null>(null);
 
   // Plantilla rival (scouting) para el Informe de Rival
   const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
@@ -364,8 +378,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const positions = report.lineupPositions || [];
     const ids = positions
       .flatMap(pos => pos.playerIds || [])
-      .filter((id): id is number => typeof id === 'number');
-    const uniqueIds = Array.from(new Set(ids));
+      .filter(Boolean);
+    const uniqueIds = Array.from(new Set(ids.map(String)));
     return uniqueIds.map(id => squad.find(p => samePlayerId(p.id, id))).filter(Boolean) as Player[];
   }, [report.lineupPositions, squad]);
 
@@ -387,26 +401,45 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     return ids.map(id => squad.find(p => samePlayerId(p.id, id))).filter(Boolean) as Player[];
   }, [activeLineupPlayers, report.substitutions, squad]);
 
+  // Línea de tiempo combinada de sustituciones y cambios de sistema/formación,
+  // cada una generando su propia foto del campo en "Sistema tras cada cambio".
   const substitutionSnapshots = useMemo(() => {
     const basePositions = report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
       : getInitialPositions(report.formation || '4-3-3');
     let current = basePositions.map(pos => ({ ...pos, playerIds: [...(pos.playerIds || [])] }));
-    const subs = [...(report.substitutions || [])].sort((a, b) => a.minute - b.minute);
-    return subs.map(sub => {
+
+    const subEntries = (report.substitutions || []).map(sub => ({ id: sub.id, minute: sub.minute, kind: 'sub' as const, sub }));
+    const formationEntries = (report.formationChanges || []).map(change => ({ id: change.id, minute: change.minute, kind: 'formation' as const, change }));
+    const merged = [...subEntries, ...formationEntries].sort((a, b) => a.minute - b.minute);
+
+    return merged.map(entry => {
+      if (entry.kind === 'formation') {
+        current = entry.change.positions.map(pos => ({ ...pos, playerIds: [...(pos.playerIds || [])] }));
+        return { id: entry.id, minute: entry.minute, kind: 'formation' as const, change: entry.change, positions: current, sub: undefined };
+      }
       current = current.map(pos => {
         const ids = pos.playerIds || [];
-        if (sub.playerOutId !== undefined && ids.some(id => samePlayerId(id, sub.playerOutId))) {
-          return { ...pos, playerIds: ids.map(id => samePlayerId(id, sub.playerOutId) ? (sub.playerInId as string | number) : id) };
+        if (entry.sub.playerOutId !== undefined && ids.some(id => samePlayerId(id, entry.sub.playerOutId))) {
+          return { ...pos, playerIds: ids.map(id => samePlayerId(id, entry.sub.playerOutId) ? (entry.sub.playerInId as string | number) : id) };
         }
         return pos;
       });
-      return { sub, positions: current };
+      return { id: entry.id, minute: entry.minute, kind: 'sub' as const, sub: entry.sub, positions: current, change: undefined };
     });
-  }, [report.lineupPositions, report.formation, report.substitutions]);
+  }, [report.lineupPositions, report.formation, report.substitutions, report.formationChanges]);
+
+  const currentLineupPositions = useMemo(() => {
+    if (substitutionSnapshots.length > 0) {
+      return substitutionSnapshots[substitutionSnapshots.length - 1].positions;
+    }
+    return report.lineupPositions && report.lineupPositions.length > 0
+      ? report.lineupPositions
+      : getInitialPositions(report.formation || '4-3-3');
+  }, [substitutionSnapshots, report.lineupPositions, report.formation]);
 
   const renderPitchDiagram = (positionsList: TacticalPosition[], highlightInId?: string | number) => (
-    <div className="relative w-full max-w-56 mx-auto aspect-2/3 rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
+    <div className="relative mx-auto rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
       <div className="absolute inset-0 pointer-events-none opacity-70">
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
@@ -424,25 +457,77 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         const goals = goalsByPlayer.get(key) ?? 0;
         const cards = cardsByPlayer.get(key);
         return (
-          <div key={pos.id} className="absolute flex flex-col items-center gap-0.5" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}>
+          <div key={pos.id} className="absolute flex flex-col items-center gap-0" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}>
             <div className="relative">
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow shrink-0 ${isIncoming ? 'bg-emerald-500 text-white ring-2 ring-white' : 'bg-white text-[#1e8449]'}`}>{player.dorsal ?? '-'}</span>
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-black shadow shrink-0 ${isIncoming ? 'bg-emerald-500 text-white ring-1 ring-white' : 'bg-white text-[#1e8449]'}`}>{player.dorsal ?? '-'}</span>
               {(goals > 0 || cards?.amarillas || cards?.rojas) && (
-                <div className="absolute -top-1 -right-1 flex items-center gap-0.5">
+                <div className="absolute -top-0.5 -right-0.5 flex items-center gap-0">
                   {goals > 0 && (
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goals')}>
-                      <i className="fa-solid fa-futbol text-white text-[6px]"></i>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goals')}>
+                      <i className="fa-solid fa-futbol text-white text-[4px]"></i>
                     </span>
                   )}
                   {cards?.rojas ? (
-                    <span className="w-2.5 h-3.5 rounded-[2px] bg-red-600 shadow shrink-0"></span>
+                    <span className="w-1.5 h-2 rounded-[1px] bg-red-600 shadow shrink-0"></span>
                   ) : cards?.amarillas ? (
-                    <span className="w-2.5 h-3.5 rounded-[2px] bg-amber-500 shadow shrink-0"></span>
+                    <span className="w-1.5 h-2 rounded-[1px] bg-amber-500 shadow shrink-0"></span>
                   ) : null}
                 </div>
               )}
             </div>
-            <span className="text-white text-[8px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
+            <span className="text-white text-[6px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderEditablePitchDiagram = (positionsList: TacticalPosition[], onDropPlayer: (positionId: string, playerId: string | number) => void) => (
+    <div className="relative mx-auto rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
+      <div className="absolute inset-0 pointer-events-none opacity-70">
+        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
+            <rect x="3" y="3" width="94" height="94" />
+            <line x1="3" y1="50" x2="97" y2="50" />
+            <circle cx="50" cy="50" r="10" />
+          </g>
+        </svg>
+      </div>
+      {positionsList.map(pos => {
+        const playerId = (pos.playerIds || [])[0];
+        const player = playerId !== undefined ? squad.find(p => samePlayerId(p.id, playerId)) : undefined;
+
+        return (
+          <div
+            key={pos.id}
+            className="absolute flex flex-col items-center gap-0"
+            style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => {
+              e.preventDefault();
+              if (draggedPlayerId !== null) {
+                onDropPlayer(pos.id, draggedPlayerId);
+                setDraggedPlayerId(null);
+              }
+            }}
+          >
+            {player ? (
+              <div
+                draggable
+                onDragStart={() => setDraggedPlayerId(player.id)}
+                onDragEnd={() => setDraggedPlayerId(null)}
+                className="cursor-grab active:cursor-grabbing"
+              >
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shadow shrink-0 bg-white text-[#1e8449] border-2 border-emerald-400">
+                  {player.dorsal ?? '-'}
+                </span>
+                <span className="block text-white text-[6px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm mt-0.5">{player.apodo || player.nombre}</span>
+              </div>
+            ) : (
+              <span className="w-6 h-6 rounded-full border-2 border-dashed border-white/60 flex items-center justify-center text-[6px] font-black text-white/70 shrink-0">
+                {pos.label}
+              </span>
+            )}
           </div>
         );
       })}
@@ -829,6 +914,38 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const next = { ...report, substitutions: (report.substitutions || []).filter(s => s.id !== id) };
     setReport(next);
     persistReport(next);
+    if (editingSubstitutionId === id) {
+      setEditingSubstitutionId(null);
+    }
+  };
+
+  const startEditSubstitution = (sub: MatchSubstitution) => {
+    setEditingSubstitutionId(sub.id);
+    setSubstitutionEditForm({
+      minute: String(sub.minute ?? ''),
+      playerOutId: sub.playerOutId !== undefined ? String(sub.playerOutId) : '',
+      playerInId: sub.playerInId !== undefined ? String(sub.playerInId) : '',
+    });
+  };
+
+  const cancelEditSubstitution = () => {
+    setEditingSubstitutionId(null);
+    setSubstitutionEditForm({ minute: '', playerOutId: '', playerInId: '' });
+  };
+
+  const saveEditSubstitution = () => {
+    if (!editingSubstitutionId || !substitutionEditForm.minute || !substitutionEditForm.playerOutId || !substitutionEditForm.playerInId) return;
+    const next = {
+      ...report,
+      substitutions: (report.substitutions || [])
+        .map(s => s.id === editingSubstitutionId
+          ? { ...s, minute: Number(substitutionEditForm.minute), playerOutId: substitutionEditForm.playerOutId, playerInId: substitutionEditForm.playerInId }
+          : s)
+        .sort((a, b) => a.minute - b.minute),
+    };
+    setReport(next);
+    persistReport(next);
+    cancelEditSubstitution();
   };
 
   const addMatchGoal = () => {
@@ -873,7 +990,580 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     persistReport(next);
   };
 
+  const handlePlayerClickForEvent = (player: Player) => {
+    setSelectedPlayerForEvent(player);
+    setEventActionMenu({ type: null, minute: '' });
+  };
+
+  const handleEventActionSelect = (actionType: 'GOL' | 'CAMBIO' | 'TARJETA_AMARILLA' | 'TARJETA_ROJA') => {
+    setEventActionMenu({ type: actionType, minute: '' });
+  };
+
+  const handleConfirmEvent = () => {
+    if (!selectedPlayerForEvent || !eventActionMenu.type || !eventActionMenu.minute) return;
+    if (eventActionMenu.type === 'CAMBIO' && !eventActionMenu.playerInId) return;
+
+    const minute = Number(eventActionMenu.minute);
+
+    switch (eventActionMenu.type) {
+      case 'GOL': {
+        const item: MatchGoal = {
+          id: crypto.randomUUID(),
+          minute,
+          side: 'FAVOR',
+          playerId: selectedPlayerForEvent.id,
+        };
+        const next = { ...report, matchGoals: [...(report.matchGoals || []), item].sort((a, b) => a.minute - b.minute) };
+        setReport(next);
+        persistReport(next);
+        break;
+      }
+      case 'CAMBIO': {
+        const item: MatchSubstitution = {
+          id: crypto.randomUUID(),
+          minute,
+          playerOutId: selectedPlayerForEvent.id,
+          playerInId: eventActionMenu.playerInId!,
+        };
+        const next = { ...report, substitutions: [...(report.substitutions || []), item].sort((a, b) => a.minute - b.minute) };
+        setReport(next);
+        persistReport(next);
+        break;
+      }
+      case 'TARJETA_AMARILLA': {
+        const item: MatchCard = {
+          id: crypto.randomUUID(),
+          minute,
+          type: 'AMARILLA',
+          playerId: selectedPlayerForEvent.id,
+        };
+        const next = { ...report, matchCards: [...(report.matchCards || []), item].sort((a, b) => a.minute - b.minute) };
+        setReport(next);
+        persistReport(next);
+        break;
+      }
+      case 'TARJETA_ROJA': {
+        const item: MatchCard = {
+          id: crypto.randomUUID(),
+          minute,
+          type: 'ROJA',
+          playerId: selectedPlayerForEvent.id,
+        };
+        const next = { ...report, matchCards: [...(report.matchCards || []), item].sort((a, b) => a.minute - b.minute) };
+        setReport(next);
+        persistReport(next);
+        break;
+      }
+    }
+
+    setSelectedPlayerForEvent(null);
+    setEventActionMenu({ type: null, minute: '' });
+  };
+
+  const handleOpenWindowPanel = (minute: string) => {
+    setWindowPanelMinute(minute);
+    setWindowPanelOriginalFormation(report.formation || '4-3-3');
+    setIsWindowPanelOpen(true);
+    setSelectedPlayerForEvent(null);
+    setEventActionMenu({ type: null, minute: '' });
+  };
+
+  const handleConfirmWindowSubstitution = (playerOutId: string | number, playerInId: string | number) => {
+    if (!windowPanelMinute) return;
+    const minute = Number(windowPanelMinute);
+    const item: MatchSubstitution = {
+      id: crypto.randomUUID(),
+      minute,
+      playerOutId,
+      playerInId,
+    };
+    const next = { ...report, substitutions: [...(report.substitutions || []), item].sort((a, b) => a.minute - b.minute) };
+    setReport(next);
+    persistReport(next);
+  };
+
+  const renderWindowPanel = () => {
+    if (!isWindowPanelOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setIsWindowPanelOpen(false)}>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-6xl w-full my-auto p-8 space-y-6" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-4">
+            <h3 className="text-lg font-black text-[var(--text-strong)] uppercase tracking-widest flex items-center gap-2">
+              <i className="fa-solid fa-window-maximize text-[var(--accent)]"></i>{t('matchReport.matchEvents.window')}
+            </h3>
+            <button
+              onClick={() => setIsWindowPanelOpen(false)}
+              className="p-2 text-[var(--text-muted)] hover:text-[var(--text-strong)] hover:bg-[var(--surface-1)] rounded-lg transition-all"
+              title="Cerrar (Esc)"
+            >
+              <i className="fa-solid fa-xmark text-2xl"></i>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            {/* Campo de Fútbol */}
+            <div className="lg:col-span-2 flex flex-col justify-center items-center">
+              <label className="text-xs font-black text-[var(--text-muted)] uppercase mb-3 tracking-widest text-center">{t('tactics.formation')}</label>
+              <div className="w-full flex justify-center" style={{ paddingBottom: '260px' }}>
+                <div style={{ transform: 'scale(1.75)', transformOrigin: 'top' }}>
+                  {renderEditablePitchDiagram(
+                    tempLineupPositions && tempLineupPositions.length > 0
+                      ? tempLineupPositions
+                      : (report.lineupPositions && report.lineupPositions.length > 0
+                          ? report.lineupPositions
+                          : getInitialPositions(report.formation || '4-3-3')),
+                    handlePitchDrop
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Controles */}
+            <div className="lg:col-span-3 space-y-6 overflow-y-auto max-h-[600px]">
+              {/* Cambiar Sistema */}
+              <div>
+                <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-3 tracking-widest">{t('tactics.formation')}</label>
+                <div className="flex gap-2 flex-wrap">
+                  {['4-3-3', '4-4-2', '4-2-3-1', '5-3-2'].map(f => (
+                    <button
+                      key={f}
+                      onClick={() => handleChangeFormation(f)}
+                      className={`px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                        report.formation === f
+                          ? 'bg-[var(--accent)] text-white shadow-lg'
+                          : 'bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--border-soft)]'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Minuto */}
+              <div>
+                <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={130}
+                  value={windowPanelMinute}
+                  onChange={e => setWindowPanelMinute(e.target.value)}
+                  placeholder="45"
+                  className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+
+              {/* Recolocar Jugadores */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-3">Recolocar Jugadores</h4>
+                <p className="text-[10px] font-bold text-[var(--text-muted)] mb-3">Arrastra un jugador al campo para ubicarlo</p>
+                <div className="flex flex-wrap gap-3">
+                  {onPitchPlayers.map(p => {
+                    const currentPositions = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'));
+                    const assignedPos = currentPositions.find(pos => (pos.playerIds || []).some(id => samePlayerId(id, p.id)));
+                    const isValidPhoto = p.fotoUrl && p.fotoUrl.length > 1;
+                    return (
+                      <div
+                        key={p.id}
+                        draggable
+                        onDragStart={() => setDraggedPlayerId(p.id)}
+                        onDragEnd={() => setDraggedPlayerId(null)}
+                        className="flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing w-14"
+                        title={p.apodo || p.nombre}
+                      >
+                        <div className={`relative w-10 h-10 rounded-full overflow-hidden shadow-md border-[3px] ${assignedPos ? 'border-amber-500 ring-2 ring-amber-200' : 'border-slate-300'} flex items-center justify-center bg-white`}>
+                          {isValidPhoto ? (
+                            <img src={p.fotoUrl} alt={p.apodo || p.nombre} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className={`text-xs font-black ${assignedPos ? 'text-amber-600' : 'text-[#1e8449]'}`}>{p.dorsal ?? '-'}</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-bold text-[var(--text-strong)] text-center truncate w-full">{p.apodo || p.nombre}</span>
+                        {assignedPos && (
+                          <span className="text-[8px] font-black text-amber-600 uppercase">{assignedPos.label}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Sustituciones */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-3">{t('matchReport.matchEvents.substitutions')}</h4>
+                <p className="text-[10px] font-bold text-[var(--text-muted)] mb-3">Arrastra un suplente al campo para sustituir (indica el minuto arriba)</p>
+                <div className="flex flex-wrap gap-3">
+                  {benchPlayers.length === 0 ? (
+                    <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.generalData.noBenchYet')}</p>
+                  ) : (
+                    benchPlayers.map(p => {
+                      const isValidPhoto = p.fotoUrl && p.fotoUrl.length > 1;
+                      return (
+                        <div
+                          key={p.id}
+                          draggable
+                          onDragStart={() => setDraggedPlayerId(p.id)}
+                          onDragEnd={() => setDraggedPlayerId(null)}
+                          className="flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing w-14"
+                          title={p.apodo || p.nombre}
+                        >
+                          <div className="relative w-10 h-10 rounded-full overflow-hidden shadow border-2 border-slate-300 flex items-center justify-center bg-white">
+                            {isValidPhoto ? (
+                              <img src={p.fotoUrl} alt={p.apodo || p.nombre} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-black text-slate-500">{p.dorsal ?? '-'}</span>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-bold text-[var(--text-strong)] text-center truncate w-full">{p.apodo || p.nombre}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex gap-3 border-t border-[var(--border-soft)] pt-6">
+            <button
+              onClick={() => {
+                setIsWindowPanelOpen(false);
+                setTempLineupPositions(null);
+              }}
+              className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={() => {
+                const formationChanged = (report.formation || '4-3-3') !== windowPanelOriginalFormation;
+                if (formationChanged && !windowPanelMinute) {
+                  alert('Introduce el minuto del cambio de sistema antes de confirmar.');
+                  return;
+                }
+                if (tempLineupPositions) {
+                  let next = { ...report, lineupPositions: tempLineupPositions };
+                  if (formationChanged) {
+                    const change: MatchFormationChange = {
+                      id: crypto.randomUUID(),
+                      minute: Number(windowPanelMinute),
+                      formation: report.formation || '4-3-3',
+                      positions: tempLineupPositions,
+                    };
+                    next = { ...next, formationChanges: [...(report.formationChanges || []), change] };
+                  }
+                  setReport(next);
+                  persistReport(next);
+                }
+                setIsWindowPanelOpen(false);
+                setTempLineupPositions(null);
+                setWindowPanelMinute('');
+              }}
+              className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)] transition-all"
+            >
+              {t('common.confirm')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInteractiveFieldForEvents = () => {
+    if (activeLineupPlayers.length === 0) {
+      return <p className="text-xs font-bold text-[var(--text-muted)] text-center py-8">{t('matchReport.matchEvents.noStartingXI')}</p>;
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+        {/* 11 Inicial - Izquierda */}
+        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+          <h4 className="text-[9px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">{t('matchReport.matchEvents.startingXI')}</h4>
+          <div className="space-y-0.5">
+            {activeLineupPlayers.map(player => (
+              <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1 transition-all">
+                <span className="w-5 h-5 rounded-full bg-sport-primary text-white flex items-center justify-center text-[8px] font-black shrink-0">{player.dorsal ?? '-'}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Campo Interactivo - Centro */}
+        <div className="flex justify-center lg:col-span-3 flex-col h-fit">
+          {/* Botón Sistema y Posiciones */}
+          <button
+            onClick={() => {
+              const current = report.lineupPositions && report.lineupPositions.length > 0
+                ? report.lineupPositions
+                : getInitialPositions(report.formation || '4-3-3');
+              setTempLineupPositions(current);
+              setWindowPanelOriginalFormation(report.formation || '4-3-3');
+              setIsWindowPanelOpen(true);
+            }}
+            className="mb-3 px-4 py-2 bg-sport-primary hover:bg-sport-primary-dark text-white rounded-lg font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all self-center"
+          >
+            <i className="fa-solid fa-sliders"></i>Sistema y Posiciones
+          </button>
+
+          <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
+        <div className="absolute inset-0 pointer-events-none opacity-70">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
+              <rect x="3" y="3" width="94" height="94" />
+              <line x1="3" y1="50" x2="97" y2="50" />
+              <circle cx="50" cy="50" r="10" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute inset-0 flex items-center justify-center">
+          {onPitchPlayers.map(player => {
+            const startPos = currentLineupPositions.find(pos => (pos.playerIds || []).some(id => samePlayerId(id, player.id)));
+            if (!startPos) return null;
+
+            const isSelected = selectedPlayerForEvent?.id === player.id;
+            const x = (startPos.x || 50);
+            const y = (startPos.y || 50);
+            const goals = goalsByPlayer.get(String(player.id)) ?? 0;
+            const cards = cardsByPlayer.get(String(player.id));
+
+            return (
+              <div
+                key={player.id}
+                className="absolute flex flex-col items-center gap-1 cursor-pointer group transition-all"
+                style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+              >
+                <div className="relative">
+                  <button
+                    onClick={() => handlePlayerClickForEvent(player)}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shadow-lg transition-all ${
+                      isSelected
+                        ? 'bg-yellow-400 text-[#1e8449] ring-2 ring-white scale-125'
+                        : 'bg-white text-[#1e8449] hover:scale-110 group-hover:shadow-xl'
+                    }`}
+                  >
+                    {player.dorsal ?? '-'}
+                  </button>
+                  {(goals > 0 || cards?.amarillas || cards?.rojas) && (
+                    <div className="absolute -top-1 -right-1 flex items-center gap-0.5">
+                      {goals > 0 && (
+                        <span className="w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goals')}>
+                          <i className="fa-solid fa-futbol text-white text-[6px]"></i>
+                        </span>
+                      )}
+                      {cards?.rojas ? (
+                        <span className="w-2.5 h-3.5 rounded-[2px] bg-red-600 shadow shrink-0"></span>
+                      ) : cards?.amarillas ? (
+                        <span className="w-2.5 h-3.5 rounded-[2px] bg-amber-500 shadow shrink-0"></span>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                <span className="text-white text-[8px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Popup con 4 iconos de acciones */}
+        {selectedPlayerForEvent && !eventActionMenu.type && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl max-w-sm w-11/12 space-y-4 relative">
+              <button
+                onClick={() => {
+                  setSelectedPlayerForEvent(null);
+                  setEventActionMenu({ type: null, minute: '' });
+                }}
+                className="absolute top-4 right-4 p-2 text-[var(--text-muted)] hover:text-[var(--text-strong)] hover:bg-[var(--surface-1)] rounded-lg transition-all"
+                title="Cerrar"
+              >
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
+              <div className="text-center">
+                <h4 className="text-sm font-black text-[var(--text-strong)]">{selectedPlayerForEvent.dorsal} {selectedPlayerForEvent.nombre}</h4>
+                <p className="text-xs text-[var(--text-muted)] mt-1">{t('matchReport.matchEvents.selectAction')}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleEventActionSelect('GOL')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-600 hover:bg-emerald-600/40"
+                >
+                  <i className="fa-solid fa-futbol text-lg"></i>
+                  {t('matchReport.events.goal')}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEventActionMenu({ type: 'CAMBIO', minute: '' });
+                  }}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all bg-purple-600/20 text-purple-600 hover:bg-purple-600/40"
+                >
+                  <i className="fa-solid fa-arrows-left-right text-lg"></i>
+                  Cambio
+                </button>
+
+                <button
+                  onClick={() => handleEventActionSelect('TARJETA_AMARILLA')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all bg-amber-500/20 text-amber-600 hover:bg-amber-500/40"
+                >
+                  <i className="fa-solid fa-square text-lg"></i>
+                  {t('matchReport.matchEvents.yellowCard')}
+                </button>
+
+                <button
+                  onClick={() => handleEventActionSelect('TARJETA_ROJA')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all bg-red-600/20 text-red-600 hover:bg-red-600/40"
+                >
+                  <i className="fa-solid fa-square text-lg"></i>
+                  {t('matchReport.matchEvents.redCard')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Panel de CAMBIO - Selector de suplente y minuto */}
+        {selectedPlayerForEvent && eventActionMenu.type === 'CAMBIO' && (
+          <div className="absolute inset-0 flex items-end justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-t-3xl p-6 shadow-2xl w-full max-w-2xl space-y-4">
+              <div className="text-center">
+                <h4 className="text-sm font-black text-[var(--text-strong)]">Sale: {selectedPlayerForEvent.dorsal} {selectedPlayerForEvent.nombre}</h4>
+                <p className="text-xs text-[var(--text-muted)] mt-1">Selecciona el suplente que entra</p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
+                  <select
+                    value={eventActionMenu.playerInId || ''}
+                    onChange={e => setEventActionMenu({ ...eventActionMenu, playerInId: e.target.value })}
+                    className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                    autoFocus
+                  >
+                    <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
+                    {benchPlayers.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={130}
+                    value={eventActionMenu.minute}
+                    onChange={e => setEventActionMenu({ ...eventActionMenu, minute: e.target.value })}
+                    placeholder="45"
+                    className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedPlayerForEvent(null);
+                      setEventActionMenu({ type: null, minute: '' });
+                    }}
+                    className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={handleConfirmEvent}
+                    disabled={!eventActionMenu.playerInId || !eventActionMenu.minute}
+                    className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {t('common.confirm')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Popup para acciones GOL, AMARILLA, ROJA */}
+        {selectedPlayerForEvent && eventActionMenu.type && eventActionMenu.type !== 'CAMBIO' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl max-w-sm w-11/12 space-y-4">
+              <div className="text-center">
+                <h4 className="text-sm font-black text-[var(--text-strong)]">{selectedPlayerForEvent.dorsal} {selectedPlayerForEvent.nombre}</h4>
+                <p className="text-xs text-[var(--text-muted)] mt-1">{t('matchReport.matchEvents.minute')}</p>
+              </div>
+
+              <div>
+                <input
+                  type="number"
+                  min={0}
+                  max={130}
+                  value={eventActionMenu.minute}
+                  onChange={e => setEventActionMenu({ ...eventActionMenu, minute: e.target.value })}
+                  placeholder="45"
+                  className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedPlayerForEvent(null);
+                    setEventActionMenu({ type: null, minute: '' });
+                  }}
+                  className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={handleConfirmEvent}
+                  disabled={!eventActionMenu.minute}
+                  className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {t('common.confirm')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+            {/* Panel VENTANA */}
+            {renderWindowPanel()}
+          </div>
+        </div>
+
+        {/* Suplentes - Derecha */}
+        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+          <h4 className="text-[9px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">Suplentes</h4>
+          <div className="space-y-0.5">
+            {benchPlayers.length === 0 ? (
+              <p className="text-[9px] font-bold text-[var(--text-muted)] text-center py-2">{t('matchReport.generalData.noBenchYet')}</p>
+            ) : (
+              benchPlayers.map(player => (
+                <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1 transition-all">
+                  <span className="w-5 h-5 rounded-full bg-slate-400 text-white flex items-center justify-center text-[8px] font-black shrink-0">{player.dorsal ?? '-'}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const handleSave = async () => {
+    if (activeLineupPlayers.length !== 11) {
+      alert(t('matchReport.alerts.lineupMustHave11Players') || `No se puede guardar la alineación. Deben estar los 11 jugadores (actualmente hay ${activeLineupPlayers.length})`);
+      return;
+    }
     setIsSaving(true);
     try {
       await db.match_reports.upsert(report);
@@ -1199,11 +1889,117 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     persistReport(next);
   };
 
+  const [tempLineupPositions, setTempLineupPositions] = useState<TacticalPosition[] | null>(null);
+  const [cambioPendingPlayer, setCambioPendingPlayer] = useState<Player | null>(null);
+  const [draggedPlayerId, setDraggedPlayerId] = useState<string | number | null>(null);
+
+  const getPositionType = (label?: string): string => {
+    const l = (label || '').toUpperCase();
+    if (l === 'POR') return 'GK';
+    if (l === 'LD' || l === 'LI' || l === 'DFC' || l === 'CAD' || l === 'CAI') return 'DEF';
+    if (l === 'MC' || l === 'MCO' || l === 'MCD' || l === 'MD' || l === 'MI') return 'MID';
+    if (l === 'DC' || l === 'ED' || l === 'EI') return 'FWD';
+    return 'UNK';
+  };
+
   const handleChangeFormation = async (newForm: string) => {
+    const oldPositions = report.lineupPositions && report.lineupPositions.length > 0
+      ? report.lineupPositions
+      : getInitialPositions(report.formation || '4-3-3');
+
     const newPositions = getInitialPositions(newForm);
-    const next = { ...report, formation: newForm, lineupPositions: newPositions };
+
+    // Agrupar jugadores por tipo de posición
+    const playersByType = new Map<string, string[]>();
+    oldPositions.forEach(pos => {
+      if (pos.playerIds && pos.playerIds.length > 0) {
+        const type = getPositionType(pos.label);
+        if (!playersByType.has(type)) playersByType.set(type, []);
+        playersByType.get(type)?.push(...pos.playerIds);
+      }
+    });
+
+    // Contar cuántos de cada tipo en la nueva formación
+    const posCountByType = new Map<string, number>();
+    newPositions.forEach(pos => {
+      const type = getPositionType(pos.label);
+      posCountByType.set(type, (posCountByType.get(type) || 0) + 1);
+    });
+
+    // Asignar jugadores a nuevas posiciones por tipo
+    const usedPlayers = new Set<string>();
+    const positionsWithPlayers = newPositions.map(pos => {
+      const type = getPositionType(pos.label);
+      const playersOfType = playersByType.get(type) || [];
+      const availablePlayers = playersOfType.filter(p => !usedPlayers.has(String(p)));
+
+      if (availablePlayers.length > 0) {
+        const player = availablePlayers[0];
+        usedPlayers.add(String(player));
+        return { ...pos, playerIds: [player] };
+      }
+      return { ...pos, playerIds: [] };
+    });
+
+    setTempLineupPositions(positionsWithPlayers);
+    const next = { ...report, formation: newForm };
     setReport(next);
-    persistReport(next);
+  };
+
+  const handleDropSubstitution = (positionId: string, incomingPlayerId: string | number) => {
+    const minute = windowPanelMinute || subForm.minute;
+    if (!minute) {
+      alert('Introduce el minuto de la sustitución antes de arrastrar un suplente al campo.');
+      return;
+    }
+    const base = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0
+      ? report.lineupPositions
+      : getInitialPositions(report.formation || '4-3-3'));
+    const targetPos = base.find(pos => pos.id === positionId);
+    const outgoingPlayerId = targetPos?.playerIds?.[0];
+
+    if (outgoingPlayerId !== undefined) {
+      const item: MatchSubstitution = {
+        id: crypto.randomUUID(),
+        minute: Number(minute),
+        playerOutId: outgoingPlayerId,
+        playerInId: incomingPlayerId,
+      };
+      const next = { ...report, substitutions: [...(report.substitutions || []), item].sort((a, b) => a.minute - b.minute) };
+      setReport(next);
+      persistReport(next);
+    }
+
+    const updated = base.map(pos => {
+      if (pos.id === positionId) return { ...pos, playerIds: [incomingPlayerId] };
+      return { ...pos, playerIds: (pos.playerIds || []).filter(id => !samePlayerId(id, incomingPlayerId)) };
+    });
+    setTempLineupPositions(updated);
+  };
+
+  const handlePitchDrop = (positionId: string, playerId: string | number) => {
+    const isBenchPlayer = benchPlayers.some(p => samePlayerId(p.id, playerId));
+    if (isBenchPlayer) {
+      handleDropSubstitution(positionId, playerId);
+    } else {
+      handleRepositionPlayer(positionId, playerId);
+    }
+  };
+
+  const handleRepositionPlayer = (positionId: string, playerId: string | number) => {
+    const base = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0
+      ? report.lineupPositions
+      : getInitialPositions(report.formation || '4-3-3'));
+    const updated = base.map(pos => {
+      if (pos.id === positionId) {
+        const playerIds = new Set(pos.playerIds || []);
+        playerIds.add(String(playerId));
+        return { ...pos, playerIds: Array.from(playerIds) };
+      } else {
+        return { ...pos, playerIds: (pos.playerIds || []).filter(id => String(id) !== String(playerId)) };
+      }
+    });
+    setTempLineupPositions(updated);
   };
 
   const handleToggleConvocado = async (playerId: string | number, convocado: boolean, reason?: string) => {
@@ -1922,33 +2718,23 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             onRemovePlayer={handleRemovePlayer}
             onChangeFormation={handleChangeFormation}
             onToggleConvocado={handleToggleConvocado}
+            onPlayerSelect={setSelectedPlayerForModal}
         />
     </div>
   );
 
   const renderEventosPartido = () => {
     return (
-      <div className="animate-fade-in max-w-4xl mx-auto space-y-10">
+      <div className="animate-fade-in max-w-7xl mx-auto space-y-10">
+        {/* Nueva sección: Campo interactivo para registrar eventos */}
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
-            <i className="fa-solid fa-people-group text-[var(--accent)]"></i>{t('matchReport.matchEvents.startingXI')}
+            <i className="fa-solid fa-hand-pointer text-[var(--accent)]"></i>{t('matchReport.matchEvents.quickRegister')}
           </h3>
-          {startingXIEntries.length === 0 ? (
-            <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.matchEvents.noStartingXI')}</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {startingXIEntries.map(({ position, player }) => (
-                <div key={position.id} className="bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-3 flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-full bg-sport-primary text-white flex items-center justify-center text-[10px] font-black shrink-0">{player.dorsal ?? '-'}</span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{position.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-xs font-bold text-[var(--text-muted)] mb-4">{t('matchReport.matchEvents.clickPlayerInstruction')}</p>
+          {renderInteractiveFieldForEvents()}
         </div>
+
 
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
@@ -1970,45 +2756,32 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               ))
             )}
           </div>
-          <div className="flex flex-wrap items-end gap-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-4">
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
-              <input type="number" min={0} max={130} value={subForm.minute} onChange={e => setSubForm({ ...subForm, minute: e.target.value })} className="w-20 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]" />
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerOut')}</label>
-              <select value={subForm.playerOutId} onChange={e => setSubForm({ ...subForm, playerOutId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
-                <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
-                {playerOutOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
-              <select value={subForm.playerInId} onChange={e => setSubForm({ ...subForm, playerInId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
-                <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
-                {playerInOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-              </select>
-            </div>
-            <button onClick={addSubstitution} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"><i className="fa-solid fa-plus"></i>{t('matchReport.matchEvents.addSubstitution')}</button>
-          </div>
 
-          {substitutionSnapshots.length > 0 && (
-            <div className="mt-8">
-              <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
-                <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {substitutionSnapshots.map(({ sub, positions }) => (
-                  <div key={sub.id}>
-                    <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                      {sub.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(sub.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(sub.playerOutId)}</span>
-                    </p>
-                    {renderPitchDiagram(positions, sub.playerInId)}
-                  </div>
-                ))}
+          <div className="mt-8">
+            <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
+              <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
+                  {t('matchReport.generalData.startingXI')} · {report.formation || '4-3-3'}
+                </p>
+                {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
               </div>
+              {substitutionSnapshots.map(entry => (
+                <div key={entry.id}>
+                  <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
+                    {entry.kind === 'formation' ? (
+                      <>{entry.minute}' · <span className="text-[var(--accent)]">{t('tactics.formation')} {entry.change?.formation}</span></>
+                    ) : (
+                      <>{entry.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(entry.sub?.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(entry.sub?.playerOutId)}</span></>
+                    )}
+                  </p>
+                  {renderPitchDiagram(entry.positions, entry.sub?.playerInId)}
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         <div>
@@ -2614,6 +3387,20 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </div>
   );
 
+  const renderCambiosTacticos = () => (
+    <MatchTacticalSection
+      matchId={match.id}
+      changes={report.tacticalChanges || []}
+      initialFormation={report.formation || '4-3-3'}
+      initialLineup={report.lineupPositions || []}
+      squad={squad}
+      substituteIds={report.substituteIds || []}
+      onSaveChanges={(changes) => handleChange('tacticalChanges', changes)}
+      matchScore={match.score}
+      opponent={match.visitorTeam}
+    />
+  );
+
   const renderAbpImagePreview = () => (
     abpPreviewImage ? (
       <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6">
@@ -2768,12 +3555,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             {renderPitchDiagram(positions)}
           </div>
 
-          {substitutionSnapshots.map(({ sub, positions: subPositions }) => (
-            <div key={sub.id} className="w-56 shrink-0">
+          {substitutionSnapshots.map(entry => (
+            <div key={entry.id} className="w-56 shrink-0">
               <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                {sub.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(sub.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(sub.playerOutId)}</span>
+                {entry.kind === 'formation' ? (
+                  <>{entry.minute}' · <span className="text-[var(--accent)]">{t('tactics.formation')} {entry.change?.formation}</span></>
+                ) : (
+                  <>{entry.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(entry.sub?.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(entry.sub?.playerOutId)}</span></>
+                )}
               </p>
-              {renderPitchDiagram(subPositions, sub.playerInId)}
+              {renderPitchDiagram(entry.positions, entry.sub?.playerInId)}
             </div>
           ))}
         </div>
@@ -2865,7 +3656,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const renderDatosPartidos = () => {
     const startingIds = new Set(startingXIEntries.map(({ player }) => String(player.id)));
-    const rows = convocadoPlayers
+    const notConvocadoIds = new Set((report.notConvocadoIds || []).map(String));
+
+    const allRows = squad
       .slice()
       .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999))
       .map(player => {
@@ -2873,11 +3666,54 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         return {
           player,
           isStarter: startingIds.has(key),
+          isNotConvocado: notConvocadoIds.has(key),
           minutes: playerMinutesMap.get(key) ?? 0,
           goals: goalsByPlayer.get(key) ?? 0,
           cards: cardsByPlayer.get(key)
         };
       });
+
+    const starters = allRows.filter(r => r.isStarter);
+    const substitutes = allRows.filter(r => !r.isStarter && !r.isNotConvocado);
+    const notConvocados = allRows.filter(r => r.isNotConvocado);
+
+    const renderTable = (rows: typeof allRows, title: string, className: string) => (
+      <div className="space-y-3">
+        <h3 className={`text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
+          {title} ({rows.length})
+        </h3>
+        {rows.length === 0 ? (
+          <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                  <th className="px-3 py-3 text-left">#</th>
+                  <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
+                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
+                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.goals')}</th>
+                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.yellowCards')}</th>
+                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.redCards')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-soft)]">
+                {rows.map(({ player, minutes, goals, cards }) => (
+                  <tr key={player.id} className="text-[var(--text-strong)]">
+                    <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
+                    <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
+                    <td className="px-3 py-2 text-center font-bold">{minutes}'</td>
+                    <td className="px-3 py-2 text-center font-bold">{goals}</td>
+                    <td className="px-3 py-2 text-center font-bold">{cards?.amarillas ?? 0}</td>
+                    <td className="px-3 py-2 text-center font-bold">{cards?.rojas ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
 
     return (
       <div className="animate-fade-in space-y-8 max-w-4xl mx-auto pb-32">
@@ -2888,39 +3724,56 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
           </div>
 
+          {allRows.length === 0 ? (
+            <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.playerStats.noPlayers')}</p>
+          ) : (
+            <div className="space-y-8">
+              {renderTable(starters, 'Titulares', 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400')}
+              {renderTable(substitutes, 'Suplentes', 'bg-amber-500/20 text-amber-600 dark:text-amber-400')}
+              {renderTable(notConvocados, 'No Convocados', 'bg-slate-500/20 text-slate-600 dark:text-slate-400')}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderGraficas = () => {
+    const startingIds = new Set(startingXIEntries.map(({ player }) => String(player.id)));
+    const squadById = new Map(squad.map(p => [String(p.id), {
+      id: p.id,
+      nombre: p.nombre,
+      apodo: p.apodo,
+      dorsal: p.dorsal,
+      posicion: p.posicion
+    } as Jugador]));
+
+    const rows = convocadoPlayers.map(player => {
+      const key = String(player.id);
+      return {
+        playerId: key,
+        matchesPlayed: (playerMinutesMap.get(key) ?? 0) > 0 ? 1 : 0,
+        starterCount: startingIds.has(key) ? 1 : 0,
+        minutes: playerMinutesMap.get(key) ?? 0,
+        goals: goalsByPlayer.get(key) ?? 0,
+        yellowCards: cardsByPlayer.get(key)?.amarillas ?? 0,
+        redCards: cardsByPlayer.get(key)?.rojas ?? 0
+      };
+    });
+
+    return (
+      <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32">
+        <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+              <i className="fa-solid fa-chart-line text-red-500"></i> {t('matchReport.tabs.charts')}
+            </div>
+          </div>
+
           {rows.length === 0 ? (
             <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.playerStats.noPlayers')}</p>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
-                    <th className="px-3 py-3 text-left">#</th>
-                    <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
-                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.starter')}</th>
-                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
-                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.goals')}</th>
-                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.yellowCards')}</th>
-                    <th className="px-3 py-3 text-center">{t('matchReport.playerStats.redCards')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-soft)]">
-                  {rows.map(({ player, isStarter, minutes, goals, cards }) => (
-                    <tr key={player.id} className="text-[var(--text-strong)]">
-                      <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
-                      <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
-                      <td className="px-3 py-2 text-center font-bold">
-                        {isStarter ? t('matchReport.playerStats.yes') : t('matchReport.playerStats.no')}
-                      </td>
-                      <td className="px-3 py-2 text-center font-bold">{minutes}'</td>
-                      <td className="px-3 py-2 text-center font-bold">{goals}</td>
-                      <td className="px-3 py-2 text-center font-bold">{cards?.amarillas ?? 0}</td>
-                      <td className="px-3 py-2 text-center font-bold">{cards?.rojas ?? 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PlayerStatsCharts rows={rows} squadById={squadById} />
           )}
         </div>
       </div>
@@ -3061,7 +3914,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'PLAN DE PARTIDO', label: t('matchReport.tabs.matchPlan'), icon: 'fa-clipboard-list' },
     { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
     { id: 'EVENTOS PARTIDO', label: t('matchReport.tabs.matchEvents'), icon: 'fa-list-check' },
+    { id: 'CAMBIOS TÁCTICOS', label: 'Cambios Tácticos', icon: 'fa-diagram-project' },
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
+    { id: 'GRÁFICAS', label: t('matchReport.tabs.charts'), icon: 'fa-chart-line' },
     { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
     { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' }
   ];
@@ -3090,7 +3945,173 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'CAMBIOS TÁCTICOS' ? renderCambiosTacticos() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'GRÁFICAS' ? renderGraficas() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+
+      {selectedPlayerForModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>
+          <div className="bg-white dark:bg-[var(--surface-0)] rounded-t-3xl w-full max-h-[90vh] overflow-y-auto animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between p-6 border-b border-[var(--border-soft)] bg-white dark:bg-[var(--surface-0)]">
+              <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">Ficha del Jugador</h2>
+              <button
+                onClick={() => setSelectedPlayerForModal(null)}
+                className="w-8 h-8 rounded-lg bg-[var(--surface-1)] hover:bg-[var(--surface-2)] flex items-center justify-center transition-all text-[var(--text-muted)]"
+              >
+                <i className="fa-solid fa-xmark text-sm"></i>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Encabezado con foto */}
+              <div className="flex gap-6 items-start">
+                <div className="w-32 h-32 rounded-2xl overflow-hidden bg-[var(--surface-1)] flex items-center justify-center shrink-0">
+                  {selectedPlayerForModal.fotoUrl && selectedPlayerForModal.fotoUrl.length > 1 ? (
+                    <img src={selectedPlayerForModal.fotoUrl} alt={selectedPlayerForModal.nombre} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl font-black text-[var(--text-muted)]">{selectedPlayerForModal.nombre.slice(0, 2).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="px-3 py-1.5 bg-[var(--accent)] text-white rounded-lg text-2xl font-black">{selectedPlayerForModal.dorsal}</span>
+                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">{selectedPlayerForModal.posicion}</span>
+                  </div>
+                  <h3 className="text-xl font-black text-[var(--text-strong)] mb-1">{selectedPlayerForModal.apodo || selectedPlayerForModal.nombre}</h3>
+                  <p className="text-sm text-[var(--text-muted)] font-bold">{selectedPlayerForModal.nombre}</p>
+                </div>
+              </div>
+
+              {/* Información personal */}
+              <div className="grid grid-cols-2 gap-4">
+                {selectedPlayerForModal.posicionJuego && (
+                  <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                    <p className="text-[8px] font-black text-[var(--text-muted)] uppercase mb-1">Posición de Juego</p>
+                    <p className="text-sm font-bold text-[var(--text-strong)]">{selectedPlayerForModal.posicionJuego}</p>
+                  </div>
+                )}
+                {selectedPlayerForModal.perfil && (
+                  <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                    <p className="text-[8px] font-black text-[var(--text-muted)] uppercase mb-1">Perfil</p>
+                    <p className="text-sm font-bold text-[var(--text-strong)]">{selectedPlayerForModal.perfil === 'D' ? 'Diestro' : selectedPlayerForModal.perfil === 'I' ? 'Zurdo' : 'Ambidiestro'}</p>
+                  </div>
+                )}
+                {selectedPlayerForModal.estado && (
+                  <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                    <p className="text-[8px] font-black text-[var(--text-muted)] uppercase mb-1">Estado</p>
+                    <p className={`text-sm font-bold ${selectedPlayerForModal.estado === 'APTO' ? 'text-green-600' : 'text-red-600'}`}>{selectedPlayerForModal.estado}</p>
+                  </div>
+                )}
+                {selectedPlayerForModal.equipo && (
+                  <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                    <p className="text-[8px] font-black text-[var(--text-muted)] uppercase mb-1">Equipo</p>
+                    <p className="text-sm font-bold text-[var(--text-strong)]">{selectedPlayerForModal.equipo}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Ratings */}
+              {(selectedPlayerForModal.ratingTecnica || selectedPlayerForModal.ratingTactica || selectedPlayerForModal.ratingCondicional || selectedPlayerForModal.ratingPsicologico || selectedPlayerForModal.ratingHumano) && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-3">Valoraciones</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedPlayerForModal.ratingTecnica && (
+                      <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                        <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase mb-1">Técnica</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-black text-[var(--text-strong)]">{selectedPlayerForModal.ratingTecnica}</span>
+                          <div className="flex-1 bg-[var(--surface-0)] rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-blue-500" style={{ width: `${(selectedPlayerForModal.ratingTecnica / 10) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {selectedPlayerForModal.ratingTactica && (
+                      <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                        <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase mb-1">Táctica</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-black text-[var(--text-strong)]">{selectedPlayerForModal.ratingTactica}</span>
+                          <div className="flex-1 bg-[var(--surface-0)] rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-purple-500" style={{ width: `${(selectedPlayerForModal.ratingTactica / 10) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {selectedPlayerForModal.ratingCondicional && (
+                      <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                        <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase mb-1">Condicional</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-black text-[var(--text-strong)]">{selectedPlayerForModal.ratingCondicional}</span>
+                          <div className="flex-1 bg-[var(--surface-0)] rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-yellow-500" style={{ width: `${(selectedPlayerForModal.ratingCondicional / 10) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {selectedPlayerForModal.ratingPsicologico && (
+                      <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                        <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase mb-1">Psicológico</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-black text-[var(--text-strong)]">{selectedPlayerForModal.ratingPsicologico}</span>
+                          <div className="flex-1 bg-[var(--surface-0)] rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-red-500" style={{ width: `${(selectedPlayerForModal.ratingPsicologico / 10) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {selectedPlayerForModal.ratingHumano && (
+                      <div className="bg-[var(--surface-1)] rounded-xl p-3">
+                        <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase mb-1">Humano</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-black text-[var(--text-strong)]">{selectedPlayerForModal.ratingHumano}</span>
+                          <div className="flex-1 bg-[var(--surface-0)] rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-green-500" style={{ width: `${(selectedPlayerForModal.ratingHumano / 10) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Observaciones */}
+              {selectedPlayerForModal.observaciones && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-2">Observaciones</h4>
+                  <div className="bg-[var(--surface-1)] rounded-xl p-4 text-sm text-[var(--text)]">
+                    {selectedPlayerForModal.observaciones}
+                  </div>
+                </div>
+              )}
+
+              {/* Otros datos */}
+              {(selectedPlayerForModal.correo || selectedPlayerForModal.telefono || selectedPlayerForModal.fechaNacimiento) && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-strong)] mb-3">Contacto</h4>
+                  <div className="space-y-2">
+                    {selectedPlayerForModal.fechaNacimiento && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <i className="fa-solid fa-calendar text-[var(--accent)] w-4"></i>
+                        <span className="text-[var(--text)]">{new Date(selectedPlayerForModal.fechaNacimiento).toLocaleDateString('es-ES')}</span>
+                      </div>
+                    )}
+                    {selectedPlayerForModal.telefono && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <i className="fa-solid fa-phone text-[var(--accent)] w-4"></i>
+                        <span className="text-[var(--text)]">{selectedPlayerForModal.telefono}</span>
+                      </div>
+                    )}
+                    {selectedPlayerForModal.correo && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <i className="fa-solid fa-envelope text-[var(--accent)] w-4"></i>
+                        <span className="text-[var(--text)]">{selectedPlayerForModal.correo}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

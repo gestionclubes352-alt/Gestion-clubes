@@ -890,6 +890,7 @@
       "abp": "Set Pieces",
       "matchEvents": "Events",
       "summary": "Summary",
+      "charts": "Charts",
       "events": "Videos",
       "playerStats": "Match Data"
     },
@@ -1036,9 +1037,15 @@
       "copyManually": "Copy this link:",
       "noEventsToExport": "No events to export",
       "sessionExpired": "Session expired",
-      "deleteEventConfirm": "Delete this event?"
+      "deleteEventConfirm": "Delete this event?",
+      "lineupMustHave11Players": "Cannot save lineup. All 11 players must be assigned"
     },
     "matchEvents": {
+      "quickRegister": "Quick Event Register",
+      "clickPlayerInstruction": "Click on a player to quickly register goals, substitutions and cards",
+      "selectAction": "Select an action",
+      "window": "Window",
+      "substitution": "Substitution",
       "startingXI": "Starting XI",
       "noStartingXI": "Set the lineup in the Lineup tab to see the starting XI.",
       "substitutions": "Substitutions",

@@ -503,6 +503,7 @@ interface StoredMatchReport {
   substitutions?: unknown[];
   match_goals?: unknown[];
   match_cards?: unknown[];
+  tactical_changes?: unknown[];
   first_half_start: string;
   first_half_end: string;
   second_half_start: string;
@@ -603,6 +604,7 @@ function createMatchReportsStore(): LegacyStore<any> {
           substitutions: row.substitutions || [],
           matchGoals: row.match_goals || [],
           matchCards: row.match_cards || [],
+          tacticalChanges: row.tactical_changes || [],
           firstHalfStart: row.first_half_start,
           firstHalfEnd: row.first_half_end,
           secondHalfStart: row.second_half_start,
@@ -672,6 +674,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         substitutions: item.substitutions || [],
         match_goals: item.matchGoals || [],
         match_cards: item.matchCards || [],
+        tactical_changes: item.tacticalChanges || [],
         first_half_start: item.firstHalfStart || '',
         first_half_end: item.firstHalfEnd || '',
         second_half_start: item.secondHalfStart || '',

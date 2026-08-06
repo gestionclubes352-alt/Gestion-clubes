@@ -1,6 +1,7 @@
 // Tipos específicos del módulo Partidos
 
 import { TacticalPosition } from '../tactica/types';
+import { MatchTacticalChange } from '../tactica/types/match-changes';
 
 export interface Match {
   id: string;
@@ -42,6 +43,13 @@ export interface MatchSubstitution {
   minute: number;
   playerOutId?: string | number;
   playerInId?: string | number;
+}
+
+export interface MatchFormationChange {
+  id: string;
+  minute: number;
+  formation: string;
+  positions: TacticalPosition[];
 }
 
 export interface MatchGoal {
@@ -122,6 +130,7 @@ export interface MatchReport {
   notConvocadoReasons?: Record<string, string>;
   videoEvents?: VideoEvent[];
   substitutions?: MatchSubstitution[];
+  formationChanges?: MatchFormationChange[];
   matchGoals?: MatchGoal[];
   matchCards?: MatchCard[];
   firstHalfStart?: string;
@@ -131,4 +140,7 @@ export interface MatchReport {
 
   refereeName?: string;
   refereeDescription?: string;
+
+  // Cambios tácticos durante el partido
+  tacticalChanges?: MatchTacticalChange[];
 }

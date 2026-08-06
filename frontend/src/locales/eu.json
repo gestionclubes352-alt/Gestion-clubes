@@ -889,6 +889,7 @@
       "matchPlan": "Partidu Plana",
       "abp": "ABP",
       "matchEvents": "Gertaerak",
+      "charts": "Grafikoak",
       "events": "Bideoak",
       "playerStats": "Partiduaren Datuak"
     },
@@ -1024,9 +1025,15 @@
       "copyManually": "Kopiatu esteka hau:",
       "noEventsToExport": "Ez dago gertaerarik esportatzeko",
       "sessionExpired": "Saioa iraungi da",
-      "deleteEventConfirm": "Gertaera hau ezabatu?"
+      "deleteEventConfirm": "Gertaera hau ezabatu?",
+      "lineupMustHave11Players": "Ezin da alineazioa gorde. 11 jokalari osoa egon behar du"
     },
     "matchEvents": {
+      "quickRegister": "Gertaeren Erregistro Azkarra",
+      "clickPlayerInstruction": "Sakatu jokalaria gola, ordezkapena eta tarteta azkar erregistratzeko",
+      "selectAction": "Ekintza hautatu",
+      "window": "Leihoa",
+      "substitution": "Ordezkapena",
       "startingXI": "Hasierako Hamaikakoa",
       "noStartingXI": "Definitu alineazioa Alineazioa fitxan hasierako hamaikakoa ikusteko.",
       "substitutions": "Ordezkapenak",
@@ -1050,7 +1057,14 @@
       "confirmDeleteSubstitution": "Ordezkapen hau ezabatu?",
       "confirmDeleteGoal": "Gol hau ezabatu?",
       "add": "Gehitu",
-      "min": "min"
+      "min": "min",
+      "cards": "Tarteta",
+      "addCard": "Tarteta Gehitu",
+      "cardType": "Tarjeta Mota",
+      "yellowCard": "Horia",
+      "redCard": "Gorria",
+      "noCards": "Ez dago tarjeta erregistratuta",
+      "confirmDeleteCard": "Tarjeta hau ezabatu?"
     },
     "abp": {
       "title": "ABP - Baloi Geldiaren Ekintzak",

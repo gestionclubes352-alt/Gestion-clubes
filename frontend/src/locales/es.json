@@ -900,6 +900,7 @@
       "abp": "ABP",
       "matchEvents": "Eventos",
       "summary": "Resumen",
+      "charts": "Gráficas",
       "events": "Videos",
       "playerStats": "Datos Partidos"
     },
@@ -1046,9 +1047,15 @@
       "copyManually": "Copia este enlace:",
       "noEventsToExport": "No hay eventos para exportar",
       "sessionExpired": "La sesión ha expirado",
-      "deleteEventConfirm": "¿Eliminar este evento?"
+      "deleteEventConfirm": "¿Eliminar este evento?",
+      "lineupMustHave11Players": "No se puede guardar la alineación. Deben estar los 11 jugadores"
     },
     "matchEvents": {
+      "quickRegister": "Registro Rápido de Eventos",
+      "clickPlayerInstruction": "Haz clic en un jugador para registrar goles, cambios y tarjetas de forma rápida",
+      "selectAction": "Selecciona una acción",
+      "window": "Ventana",
+      "substitution": "Cambio",
       "startingXI": "Once Inicial",
       "noStartingXI": "Define la alineación en la pestaña Alineación para ver el once inicial.",
       "substitutions": "Sustituciones",
