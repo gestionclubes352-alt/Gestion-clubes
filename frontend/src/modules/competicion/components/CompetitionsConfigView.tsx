@@ -55,7 +55,13 @@ const CompetitionsConfigView: React.FC = () => {
     setIsAdding(false);
   };
 
-  const handleSave = () => {
+  const handleSave = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log('handleSave called with formData:', formData);
+
     if (!formData.nombre.trim()) {
       alert(t('common.error') + ': ' + 'El nombre de la competición es obligatorio');
       return;
@@ -65,21 +71,35 @@ const CompetitionsConfigView: React.FC = () => {
       return;
     }
 
-    if (editingId) {
-      // Actualizar
-      const updated = competiciones.map(c => c.id === editingId ? formData : c);
-      saveCompeticiones(updated);
-    } else {
-      // Agregar nuevo
-      saveCompeticiones([...competiciones, formData]);
-    }
+    try {
+      if (editingId) {
+        // Actualizar
+        const updated = competiciones.map(c => c.id === editingId ? formData : c);
+        saveCompeticiones(updated);
+      } else {
+        // Agregar nuevo
+        const newData = [...competiciones, formData];
+        console.log('Saving new competición. Current:', competiciones, 'New:', newData);
+        saveCompeticiones(newData);
+      }
 
-    setEditingId(null);
-    setIsAdding(false);
-    setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
+      setEditingId(null);
+      setIsAdding(false);
+      setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
+
+      // Mostrar confirmación
+      alert(editingId ? 'Competición actualizada correctamente' : 'Competición guardada correctamente');
+    } catch (error) {
+      console.error('Error al guardar competición:', error);
+      alert('Error al guardar la competición: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancel = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setEditingId(null);
     setIsAdding(false);
     setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
@@ -178,12 +198,14 @@ const CompetitionsConfigView: React.FC = () => {
           {/* Botones */}
           <div className="flex gap-3 mt-6 justify-end">
             <button
+              type="button"
               onClick={handleCancel}
               className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
             >
               {t('common.cancel')}
             </button>
             <button
+              type="button"
               onClick={handleSave}
               className="px-4 py-2 rounded-xl bg-[var(--accent)] text-white font-bold text-xs uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg"
             >
