@@ -439,7 +439,48 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       : getInitialPositions(report.formation || '4-3-3');
   }, [substitutionSnapshots, report.lineupPositions, report.formation]);
 
-  const renderPitchDiagram = (positionsList: TacticalPosition[], highlightInId?: string | number) => (
+  // Agrupa los eventos de substitutionSnapshots por minuto: todo lo que ocurre
+  // en la misma "ventana" (varias sustituciones y/o un cambio de sistema
+  // registrados juntos) se consolida en una única foto del campo + un
+  // resumen de texto, en vez de una imagen por cada evento individual.
+  const windowSnapshots = useMemo(() => {
+    const order: number[] = [];
+    const groups = new Map<number, typeof substitutionSnapshots>();
+    substitutionSnapshots.forEach(entry => {
+      if (!groups.has(entry.minute)) {
+        order.push(entry.minute);
+        groups.set(entry.minute, []);
+      }
+      groups.get(entry.minute)!.push(entry);
+    });
+
+    return order.map(minute => {
+      const entries = groups.get(minute)!;
+      const subs = entries.filter(e => e.kind === 'sub').map(e => e.sub!);
+      const formationChange = entries.filter(e => e.kind === 'formation').map(e => e.change!).pop();
+      const positions = entries[entries.length - 1].positions;
+      const incomingIds = subs.map(s => s.playerInId).filter((id): id is string | number => id !== undefined);
+      return { id: `window-${minute}`, minute, positions, subs, formationChange, incomingIds };
+    });
+  }, [substitutionSnapshots]);
+
+  const renderWindowSummary = (win: (typeof windowSnapshots)[number]) => (
+    <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center leading-relaxed">
+      <span className="block text-[var(--text-strong)]">{win.minute}'</span>
+      {win.formationChange && (
+        <span className="block text-[var(--accent)]">{t('tactics.formation')} {win.formationChange.formation}</span>
+      )}
+      {win.subs.map(sub => (
+        <span key={sub.id} className="block">
+          <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(sub.playerInId)}</span>
+          {' / '}
+          <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(sub.playerOutId)}</span>
+        </span>
+      ))}
+    </p>
+  );
+
+  const renderPitchDiagram = (positionsList: TacticalPosition[], highlightInIds?: Array<string | number> | string | number) => (
     <div className="relative mx-auto rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
       <div className="absolute inset-0 pointer-events-none opacity-70">
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -453,7 +494,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       {positionsList.filter(pos => (pos.playerIds || []).length > 0).map(pos => {
         const player = squad.find(p => samePlayerId(p.id, (pos.playerIds || [])[0]));
         if (!player) return null;
-        const isIncoming = highlightInId !== undefined && samePlayerId(player.id, highlightInId);
+        const highlightList = highlightInIds === undefined ? [] : Array.isArray(highlightInIds) ? highlightInIds : [highlightInIds];
+        const isIncoming = highlightList.some(id => samePlayerId(player.id, id));
         const key = String(player.id);
         const goals = goalsByPlayer.get(key) ?? 0;
         const cards = cardsByPlayer.get(key);
@@ -2746,6 +2788,26 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
+            <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <div>
+              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
+                {t('matchReport.generalData.startingXI')} · {report.formation || '4-3-3'}
+              </p>
+              {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
+            </div>
+            {windowSnapshots.map(win => (
+              <div key={win.id}>
+                {renderWindowSummary(win)}
+                {renderPitchDiagram(win.positions, win.incomingIds)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
             <i className="fa-solid fa-right-left text-[var(--accent)]"></i>{t('matchReport.matchEvents.substitutions')}
           </h3>
           <div className="space-y-2 mb-4">
@@ -2763,32 +2825,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 </div>
               ))
             )}
-          </div>
-
-          <div className="mt-8">
-            <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
-              <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              <div>
-                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                  {t('matchReport.generalData.startingXI')} · {report.formation || '4-3-3'}
-                </p>
-                {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
-              </div>
-              {substitutionSnapshots.map(entry => (
-                <div key={entry.id}>
-                  <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                    {entry.kind === 'formation' ? (
-                      <>{entry.minute}' · <span className="text-[var(--accent)]">{t('tactics.formation')} {entry.change?.formation}</span></>
-                    ) : (
-                      <>{entry.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(entry.sub?.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(entry.sub?.playerOutId)}</span></>
-                    )}
-                  </p>
-                  {renderPitchDiagram(entry.positions, entry.sub?.playerInId)}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -3563,16 +3599,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             {renderPitchDiagram(positions)}
           </div>
 
-          {substitutionSnapshots.map(entry => (
-            <div key={entry.id} className="w-56 shrink-0">
-              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                {entry.kind === 'formation' ? (
-                  <>{entry.minute}' · <span className="text-[var(--accent)]">{t('tactics.formation')} {entry.change?.formation}</span></>
-                ) : (
-                  <>{entry.minute}' · <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(entry.sub?.playerInId)}</span> / <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(entry.sub?.playerOutId)}</span></>
-                )}
-              </p>
-              {renderPitchDiagram(entry.positions, entry.sub?.playerInId)}
+          {windowSnapshots.map(win => (
+            <div key={win.id} className="w-56 shrink-0">
+              {renderWindowSummary(win)}
+              {renderPitchDiagram(win.positions, win.incomingIds)}
             </div>
           ))}
         </div>
