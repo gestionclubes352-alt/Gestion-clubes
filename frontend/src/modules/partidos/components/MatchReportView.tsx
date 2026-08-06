@@ -1,3 +1,4 @@
+// Force Vercel redeploy - v2
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Player } from '@modules/plantilla';
 import type { TacticalPosition } from '@modules/tactica';
@@ -2173,13 +2174,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       ? report.lineupPositions
       : getInitialPositions(report.formation || '4-3-3'));
     const updated = base.map(pos => {
-      if (pos.id === positionId) {
-        const playerIds = new Set(pos.playerIds || []);
-        playerIds.add(String(playerId));
-        return { ...pos, playerIds: Array.from(playerIds) };
-      } else {
-        return { ...pos, playerIds: (pos.playerIds || []).filter(id => String(id) !== String(playerId)) };
-      }
+      if (pos.id === positionId) return { ...pos, playerIds: [String(playerId)] };
+      return { ...pos, playerIds: (pos.playerIds || []).filter(id => String(id) !== String(playerId)) };
     });
     setTempLineupPositions(updated);
   };
