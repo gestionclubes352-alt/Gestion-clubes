@@ -110,6 +110,32 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     );
   }, [repositoryTasks, repoSearch]);
 
+  const groupedRepositoryTasks = useMemo(() => {
+    const grouped = new Map<string, TrainingTask[]>();
+    for (const task of filteredRepository) {
+      const category = task.category || 'Sin Categoría';
+      if (!grouped.has(category)) {
+        grouped.set(category, []);
+      }
+      grouped.get(category)!.push(task);
+    }
+    // Mantener un orden consistente de categorías
+    const categoryOrder = ['Juego', 'Posesión', 'Finalización', 'Físico', 'Recuperación', 'Rondo'];
+    const result: { category: string; tasks: TrainingTask[] }[] = [];
+    for (const cat of categoryOrder) {
+      if (grouped.has(cat)) {
+        result.push({ category: cat, tasks: grouped.get(cat)! });
+      }
+    }
+    // Agregar categorías no contempladas al final
+    for (const [cat, tasks] of grouped) {
+      if (!categoryOrder.includes(cat)) {
+        result.push({ category: cat, tasks });
+      }
+    }
+    return result;
+  }, [filteredRepository]);
+
   /** Agrupa las tareas de 4 en 4: cada grupo ocupa una página A4 completa en el PDF */
   const exportPages = useMemo(() => {
     const pages: SessionTask[][] = [];
@@ -127,65 +153,65 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="h-full rounded-2xl border-2 border-slate-100 p-4 flex gap-4">
-        <div className="w-[48%] flex-shrink-0 flex flex-col">
-          <div className="flex items-center justify-between mb-2 flex-shrink-0">
-            <span className="text-[20px] font-black text-slate-400 uppercase tracking-widest">
+      <div key={task.id} className="h-full min-h-0 overflow-hidden rounded-xl border-2 border-slate-100 p-2.5 flex gap-3">
+        <div className="w-[40%] flex-shrink-0 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-1 flex-shrink-0">
+            <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">
               {t('calendarView.exerciseLabel')} {globalIndex + 1}
             </span>
-            <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-0.5">
-              <i className="fa-solid fa-clock text-slate-400 text-[14px]"></i>
-              <span className="text-[20px] font-black text-slate-600">{seriesTotal} min</span>
+            <div className="flex items-center gap-1 border border-slate-200 rounded-md px-1.5 py-0.5">
+              <i className="fa-solid fa-clock text-slate-400 text-[9px]"></i>
+              <span className="text-[12px] font-black text-slate-600">{seriesTotal} min</span>
             </div>
           </div>
-          <div className="flex-1 flex items-center justify-center min-h-0">
+          <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="w-full max-h-full rounded-lg overflow-hidden">
+              <div className="w-full max-h-full rounded-md overflow-hidden">
                 <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
               </div>
             ) : task.thumbnail ? (
-              <div className="w-full max-h-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center">
+              <div className="w-full max-h-full aspect-[105/68] rounded-md bg-[#2f5a30] overflow-hidden flex items-center justify-center">
                 <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
             ) : (
-              <div className={`w-full max-h-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[20px]`}></i>
+              <div className={`w-full max-h-full aspect-[105/68] rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[14px]`}></i>
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col">
-          <p className="font-black text-slate-800 text-[28px] break-words mb-1 flex-shrink-0">{task.title}</p>
-          <p className="text-[28px] font-bold text-slate-500 mb-3 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+          <p className="font-black text-slate-800 text-[15px] break-words mb-0.5 flex-shrink-0 line-clamp-1">{task.title}</p>
+          <p className="text-[12px] font-bold text-slate-500 mb-1.5 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
 
-          <div className="flex-1 min-h-0 flex flex-col">
-            <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[28px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-y-auto">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
+            <p className="text-[11px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-hidden">
               {task.description || '—'}
             </p>
           </div>
 
           {((task.numberOfSeries ?? 0) > 0 || task.technicalRoles) && (
-            <div className="mt-2 flex-shrink-0 space-y-1.5">
+            <div className="mt-1 flex-shrink-0 space-y-1">
               {(task.numberOfSeries ?? 0) > 0 && (
-                <div className="grid grid-cols-3 gap-1.5 max-w-md">
-                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                    <p className="text-[14px] font-bold text-slate-400 uppercase">Series</p>
-                    <p className="text-[20px] font-black text-slate-700">{task.numberOfSeries}</p>
+                <div className="grid grid-cols-3 gap-1 max-w-md">
+                  <div className="rounded-md border border-slate-200 px-1 py-0.5 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Series</p>
+                    <p className="text-[12px] font-black text-slate-700">{task.numberOfSeries}</p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                    <p className="text-[14px] font-bold text-slate-400 uppercase">T/Serie</p>
-                    <p className="text-[20px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+                  <div className="rounded-md border border-slate-200 px-1 py-0.5 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">T/Serie</p>
+                    <p className="text-[12px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
                   </div>
-                  <div className="rounded-lg border border-slate-200 px-1.5 py-1 text-center">
-                    <p className="text-[14px] font-bold text-slate-400 uppercase">Descanso</p>
-                    <p className="text-[20px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+                  <div className="rounded-md border border-slate-200 px-1 py-0.5 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Descanso</p>
+                    <p className="text-[12px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
                   </div>
                 </div>
               )}
               {task.technicalRoles && (
-                <p className="text-[20px] font-bold text-slate-500 break-words">
+                <p className="text-[11px] font-bold text-slate-500 break-words line-clamp-1">
                   <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles}
                 </p>
               )}
@@ -225,33 +251,39 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
       const A4_WIDTH_MM = 210;
       const A4_HEIGHT_MM = 297;
+      // Dimensiones exactas de la página exportada (definidas en el estilo de data-export-page),
+      // mismo ratio que un DIN A4 (210x297mm). Se fijan aquí para forzar a html2canvas a capturar
+      // siempre este tamaño exacto, recortando cualquier contenido que se desborde en vez de dejar
+      // que la hoja crezca y pierda las proporciones A4.
+      const PAGE_WIDTH_PX = 1191;
+      const PAGE_HEIGHT_PX = 1684;
 
       let pdf: jsPDF | null = null;
 
       for (let i = 0; i < pageEls.length; i++) {
         const canvas = await html2canvas(pageEls[i], {
           scale: 2,
+          width: PAGE_WIDTH_PX,
+          height: PAGE_HEIGHT_PX,
+          windowWidth: PAGE_WIDTH_PX,
+          windowHeight: PAGE_HEIGHT_PX,
           backgroundColor: '#ffffff',
           useCORS: true,
           allowTaint: true,
           logging: false,
         });
 
-        // Alto real de la página en mm, respetando el ancho A4; si el contenido
-        // no cabe en una hoja estándar, la hoja crece en vez de recortar/comprimir el contenido.
-        const pageHeightMm = Math.max(A4_HEIGHT_MM, (canvas.height / canvas.width) * A4_WIDTH_MM);
-
         if (!pdf) {
           pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: [A4_WIDTH_MM, pageHeightMm],
+            format: [A4_WIDTH_MM, A4_HEIGHT_MM],
           });
         } else {
-          pdf.addPage([A4_WIDTH_MM, pageHeightMm]);
+          pdf.addPage([A4_WIDTH_MM, A4_HEIGHT_MM]);
         }
 
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_WIDTH_MM, pageHeightMm);
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
       }
 
       if (!pdf) {
@@ -300,42 +332,42 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           <div
             key={pageIndex}
             data-export-page="true"
-            className="bg-white flex flex-col"
-            style={{ width: '1191px', minHeight: '1684px', padding: '50px' }}
+            className="bg-white flex flex-col overflow-hidden"
+            style={{ width: '1191px', height: '1684px', padding: '40px' }}
           >
-            <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-100 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <i className="fa-solid fa-list-check text-[20px] text-[var(--accent)]"></i>
-                <h1 className="text-[20px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
+                <i className="fa-solid fa-list-check text-[16px] text-[var(--accent)]"></i>
+                <h1 className="text-[16px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
               </div>
-              <span className="text-[20px] font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
+              <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
             </div>
 
-            <div className="flex items-center gap-7 mb-5 pb-4 border-b border-slate-100 flex-shrink-0">
+            <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
                 <div>
-                  <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-                  <p className="font-black text-slate-700 text-[28px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+                  <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
                 <div>
-                  <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-                  <p className="font-black text-slate-700 text-[28px]">{team || t('calendarView.notDefined')}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+                  <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
                 <div>
-                  <p className="text-[14px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-                  <p className="font-black text-slate-700 text-[28px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+                  <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 [grid-auto-rows:1fr] gap-5 flex-1">
+            <div className="grid grid-cols-1 [grid-auto-rows:1fr] gap-3 flex-1 min-h-0 overflow-hidden">
               {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
             </div>
           </div>
@@ -564,7 +596,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-[28px] font-bold text-slate-600"
               />
             </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-2">
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
               {repositoryLoading ? (
                 <div className="text-center text-slate-400 text-[20px] font-bold py-8">
                   <i className="fa-solid fa-spinner fa-spin"></i>
@@ -572,26 +604,40 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               ) : filteredRepository.length === 0 ? (
                 <div className="text-center text-slate-400 text-[20px] font-bold py-8">{t('calendarView.repositoryEmpty')}</div>
               ) : (
-                filteredRepository.map(task => (
-                  <button
-                    key={task.id}
-                    type="button"
-                    onClick={() => addTaskFromRepository(task)}
-                    className="w-full flex items-center gap-3 rounded-xl border border-slate-100 hover:border-[var(--accent)]/40 hover:bg-slate-50 p-3 text-left transition-all"
-                  >
-                    {task.thumbnail ? (
-                      <img src={task.thumbnail} alt={task.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
-                    ) : (
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${CATEGORY_COLORS[task.category]}`}>
-                        <i className={`fa-solid ${CATEGORY_ICONS[task.category]}`}></i>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-black text-slate-700 text-[28px] truncate">{task.name}</p>
-                      <p className="text-[20px] text-slate-400 font-bold truncate">{task.category}</p>
+                groupedRepositoryTasks.map(({ category, tasks: categoryTasks }) => (
+                  <div key={category} className="border border-slate-100 rounded-xl overflow-hidden">
+                    {/* Category header */}
+                    <div className={`px-4 py-3 ${CATEGORY_COLORS[category] || 'bg-slate-100'}`}>
+                      <h5 className="font-black text-white text-[16px] uppercase tracking-wide flex items-center gap-2">
+                        <i className={`fa-solid ${CATEGORY_ICONS[category] || 'fa-ellipsis'}`}></i>
+                        {category}
+                        <span className="ml-auto text-[12px] bg-white/25 px-2 py-1 rounded">{categoryTasks.length}</span>
+                      </h5>
                     </div>
-                    <i className="fa-solid fa-plus text-[var(--accent)]"></i>
-                  </button>
+                    {/* Tasks in category */}
+                    <div className="space-y-1 p-3">
+                      {categoryTasks.map(task => (
+                        <button
+                          key={task.id}
+                          type="button"
+                          onClick={() => addTaskFromRepository(task)}
+                          className="w-full flex items-center gap-3 rounded-lg border border-slate-100 hover:border-[var(--accent)]/40 hover:bg-slate-50 p-2.5 text-left transition-all"
+                        >
+                          {task.thumbnail ? (
+                            <img src={task.thumbnail} alt={task.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                          ) : (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${CATEGORY_COLORS[task.category]}`}>
+                              <i className={`fa-solid ${CATEGORY_ICONS[task.category]}`}></i>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-slate-700 text-[16px] truncate">{task.name}</p>
+                          </div>
+                          <i className="fa-solid fa-plus text-[var(--accent)] flex-shrink-0"></i>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))
               )}
             </div>
