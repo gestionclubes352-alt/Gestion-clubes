@@ -638,7 +638,10 @@
     "chartMinutes": "Minutos Jugados",
     "chartCards": "Tarjetas",
     "chartSystemMinutesCollective": "Minutos por Sistema (Colectivo)",
-    "chartSystemMinutesByPlayer": "Minutos por Sistema (Individual)"
+    "chartSystemMinutesByPlayer": "Minutos por Sistema (Individual)",
+    "viewSystems": "Sistemas",
+    "systemsByMatch": "Sistemas por Partido",
+    "systemsUsed": "Sistemas Utilizados"
   },
   "calendarView": {
     "months": ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"],

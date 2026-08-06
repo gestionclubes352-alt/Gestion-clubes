@@ -1434,14 +1434,22 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
                   </div>
                   {goals > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-emerald-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
                       <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
                     </span>
                   )}
-                  {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0 text-[10px]"></i> : null}
-                  {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0 text-[10px]"></i> : null}
+                  {cards?.amarillas && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.amarillas} ${t('matchReport.matchEvents.yellowCard')}`}>
+                      <i className="fa-solid fa-square"></i>{cards.amarillas > 1 ? `x${cards.amarillas}` : ''}
+                    </span>
+                  )}
+                  {cards?.rojas && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.rojas} ${t('matchReport.matchEvents.redCard')}`}>
+                      <i className="fa-solid fa-square"></i>{cards.rojas > 1 ? `x${cards.rojas}` : ''}
+                    </span>
+                  )}
                   {subOutMinute !== undefined && (
-                    <span className="inline-flex items-center gap-0.5 text-red-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.substitutions')}>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={`${t('matchReport.matchEvents.substitutions')} ${subOutMinute}'`}>
                       <i className="fa-solid fa-arrow-right-from-bracket"></i>{subOutMinute}'
                     </span>
                   )}
@@ -1711,14 +1719,22 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
                     </div>
                     {goals > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-emerald-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
                         <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
                       </span>
                     )}
-                    {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0 text-[10px]"></i> : null}
-                    {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0 text-[10px]"></i> : null}
+                    {cards?.amarillas && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.amarillas} ${t('matchReport.matchEvents.yellowCard')}`}>
+                        <i className="fa-solid fa-square"></i>{cards.amarillas > 1 ? `x${cards.amarillas}` : ''}
+                      </span>
+                    )}
+                    {cards?.rojas && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.rojas} ${t('matchReport.matchEvents.redCard')}`}>
+                        <i className="fa-solid fa-square"></i>{cards.rojas > 1 ? `x${cards.rojas}` : ''}
+                      </span>
+                    )}
                     {subInMinute !== undefined && (
-                      <span className="inline-flex items-center gap-0.5 text-emerald-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.substitutions')}>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={`${t('matchReport.matchEvents.substitutions')} ${subInMinute}'`}>
                         <i className="fa-solid fa-arrow-right-to-bracket"></i>{subInMinute}'
                       </span>
                     )}
@@ -3789,19 +3805,27 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     const cards = cardsByPlayer.get(key);
                     const subOutMinute = subOutMinuteByPlayer.get(key);
                     return (
-                      <div key={player.id} className="flex items-center gap-2 px-3 py-2 text-xs">
+                      <div key={player.id} className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap">
                         <span className="w-6 h-6 rounded-full bg-sport-primary text-white flex items-center justify-center text-[9px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                         <span className="flex-1 truncate font-bold text-[var(--text-strong)]">{player.apodo || player.nombre}</span>
                         {goals > 0 && (
-                          <span className="inline-flex items-center gap-1 text-emerald-500 font-black shrink-0" title={t('matchReport.matchEvents.goals')}>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
                             <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
                           </span>
                         )}
-                        {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0"></i> : null}
-                        {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0"></i> : null}
+                        {cards?.amarillas && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.amarillas} ${t('matchReport.matchEvents.yellowCard')}`}>
+                            <i className="fa-solid fa-square"></i>{cards.amarillas > 1 ? `x${cards.amarillas}` : ''}
+                          </span>
+                        )}
+                        {cards?.rojas && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.rojas} ${t('matchReport.matchEvents.redCard')}`}>
+                            <i className="fa-solid fa-square"></i>{cards.rojas > 1 ? `x${cards.rojas}` : ''}
+                          </span>
+                        )}
                         {subOutMinute !== undefined && (
-                          <span className="inline-flex items-center gap-1 text-red-500 font-black shrink-0" title={`${t('matchReport.matchEvents.substitutions')} ${subOutMinute}'`}>
-                            <i className="fa-solid fa-arrow-right-from-bracket text-[10px]"></i><span className="text-[11px]">{subOutMinute}'</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={`${t('matchReport.matchEvents.substitutions')} ${subOutMinute}'`}>
+                            <i className="fa-solid fa-arrow-right-from-bracket"></i>{subOutMinute}'
                           </span>
                         )}
                         {subOutMinute === undefined && (
@@ -3830,18 +3854,26 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   const cards = cardsByPlayer.get(key);
                   const subInMinute = subInMinuteByPlayer.get(key);
                   return (
-                    <div key={player.id} className={`flex items-center gap-2 px-3 py-2 text-xs ${played ? '' : 'opacity-50'}`}>
+                    <div key={player.id} className={`flex items-center gap-2 px-3 py-2 text-xs flex-wrap ${played ? '' : 'opacity-50'}`}>
                       <span className="w-6 h-6 rounded-full bg-[var(--surface-2)] text-[var(--text-strong)] flex items-center justify-center text-[9px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                       <span className="flex-1 truncate font-bold text-[var(--text-strong)]">{player.apodo || player.nombre}</span>
                       {goals > 0 && (
-                        <span className="inline-flex items-center gap-1 text-emerald-500 font-black shrink-0" title={t('matchReport.matchEvents.goals')}>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
                           <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
                         </span>
                       )}
-                      {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0"></i> : null}
-                      {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0"></i> : null}
+                      {cards?.amarillas && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.amarillas} ${t('matchReport.matchEvents.yellowCard')}`}>
+                          <i className="fa-solid fa-square"></i>{cards.amarillas > 1 ? `x${cards.amarillas}` : ''}
+                        </span>
+                      )}
+                      {cards?.rojas && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={`${cards.rojas} ${t('matchReport.matchEvents.redCard')}`}>
+                          <i className="fa-solid fa-square"></i>{cards.rojas > 1 ? `x${cards.rojas}` : ''}
+                        </span>
+                      )}
                       {subInMinute !== undefined && (
-                        <span className="inline-flex items-center gap-1 text-emerald-500 font-black shrink-0" title={t('matchReport.matchEvents.substitutions')}>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={`${t('matchReport.matchEvents.substitutions')} ${subInMinute}'`}>
                           <i className="fa-solid fa-arrow-right-to-bracket"></i>{subInMinute}'
                         </span>
                       )}

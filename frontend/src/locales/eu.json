@@ -638,7 +638,10 @@
     "chartMinutes": "Min. Jokatuak",
     "chartCards": "Txartelak",
     "chartSystemMinutesCollective": "Sistemako minutuak (Taldekakoa)",
-    "chartSystemMinutesByPlayer": "Sistemako minutuak (Norbanakoa)"
+    "chartSystemMinutesByPlayer": "Sistemako minutuak (Norbanakoa)",
+    "viewSystems": "Sistemak",
+    "systemsByMatch": "Sistemak Partidae Arabera",
+    "systemsUsed": "Erabilitako Sistemak"
   },
   "calendarView": {
     "months": ["URTARRILA", "OTSAILA", "MARTXOA", "APIRILA", "MAIATZA", "EKAINA", "UZTAILA", "ABUZTUA", "IRAILA", "URRIA", "AZAROA", "ABENDUA"],

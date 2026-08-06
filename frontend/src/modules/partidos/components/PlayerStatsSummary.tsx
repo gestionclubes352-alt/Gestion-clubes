@@ -4,6 +4,7 @@ import type { Match, MatchReport } from '../types';
 import { db, plantillasService, getTeamConfig } from '@shared/services/dataService';
 import type { Jugador } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
+import SystemsDataSummary from './SystemsDataSummary';
 
 const getMyTeamName = (): string => {
   try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -113,7 +114,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
   const [teamFilter, setTeamFilter] = useState<string>(ALL);
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL);
   const [matchFilter, setMatchFilter] = useState<string>(ALL);
-  const [view, setView] = useState<'TABLE' | 'CHARTS'>('TABLE');
+  const [view, setView] = useState<'TABLE' | 'CHARTS' | 'SYSTEMS'>('TABLE');
 
   useEffect(() => {
     (async () => {
@@ -274,12 +275,20 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
               >
                 <i className="fa-solid fa-chart-simple"></i> {t('playerStatsSummary.viewCharts')}
               </button>
+              <button
+                onClick={() => setView('SYSTEMS')}
+                className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view === 'SYSTEMS' ? 'bg-white text-sport-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <i className="fa-solid fa-diagram-project"></i> {t('playerStatsSummary.viewSystems')}
+              </button>
             </div>
           </div>
         </div>
 
         {isLoading ? (
           <p className="text-xs font-bold text-slate-400">{t('playerStatsSummary.loading')}</p>
+        ) : view === 'SYSTEMS' ? (
+          <SystemsDataSummary matches={filteredMatches} reports={reports} squadById={squadById} />
         ) : view === 'CHARTS' ? (
           <PlayerStatsCharts rows={rows} squadById={squadById} />
         ) : rows.length === 0 ? (

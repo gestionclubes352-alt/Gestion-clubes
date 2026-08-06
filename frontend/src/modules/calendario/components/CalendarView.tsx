@@ -975,7 +975,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 {week.map((date, j) => (
                   <div
                     key={j}
-                    className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
+                    className={`min-h-24 md:min-h-32 lg:min-h-40 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
                       date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'
                     } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
                     onDragOver={(e) => date && handleDragOver(e, date)}

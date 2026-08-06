@@ -638,7 +638,10 @@
     "chartMinutes": "Minutes Played",
     "chartCards": "Cards",
     "chartSystemMinutesCollective": "Minutes by System (Collective)",
-    "chartSystemMinutesByPlayer": "Minutes by System (Individual)"
+    "chartSystemMinutesByPlayer": "Minutes by System (Individual)",
+    "viewSystems": "Systems",
+    "systemsByMatch": "Systems by Match",
+    "systemsUsed": "Systems Used"
   },
   "calendarView": {
     "months": ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"],
