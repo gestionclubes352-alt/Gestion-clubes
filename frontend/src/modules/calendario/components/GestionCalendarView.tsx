@@ -380,9 +380,9 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                             }}
                           >
                             <div className="flex items-center justify-between gap-1">
-                              <span className="flex items-center gap-1 min-w-0 bg-white/60 rounded px-1 py-0.5">
-                                <i className="fa-solid fa-clock text-[8px] opacity-70 flex-shrink-0"></i>
-                                <span className="text-[9px] font-black leading-none">{ev.time || '--:--'}</span>
+                              <span className="flex items-center gap-1 min-w-0 bg-white/60 rounded px-1.5 py-1">
+                                <i className="fa-solid fa-clock text-[10px] opacity-70 flex-shrink-0"></i>
+                                <span className="text-xs font-black leading-none">{ev.time || '--:--'}</span>
                               </span>
                               <button
                                 onClick={(e) => {
@@ -402,39 +402,39 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                               <div className="flex items-center gap-1">
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
                                   {resolveClubLogo(ev.visitorTeamClubId) ? (
-                                    <img src={resolveClubLogo(ev.visitorTeamClubId)} alt="" className="h-5 w-5 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                    <img src={resolveClubLogo(ev.visitorTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
                                   ) : (
-                                    <div className="h-5 w-5 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
-                                      <i className="fa-solid fa-shield-halved text-[8px] opacity-40"></i>
+                                    <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
+                                      <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
                                     </div>
                                   )}
                                   {resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId) && (
-                                    <span className="block text-[6.5px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId)}</span>
+                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId)}</span>
                                   )}
-                                  <span className="block truncate w-full text-[9px] leading-tight">{ev.visitorTeam}</span>
+                                  <span className="block truncate w-full text-xs leading-tight">{ev.visitorTeam}</span>
                                 </div>
-                                <span className="flex-shrink-0 bg-red-600 text-white text-[7px] font-black leading-none px-1.5 py-1 rounded-full shadow-sm">VS</span>
+                                <span className="flex-shrink-0 bg-red-600 text-white text-[10px] font-black leading-none px-2 py-1.5 rounded-full shadow-sm">VS</span>
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
                                   {resolveClubLogo(ev.localTeamClubId) ? (
-                                    <img src={resolveClubLogo(ev.localTeamClubId)} alt="" className="h-5 w-5 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                    <img src={resolveClubLogo(ev.localTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
                                   ) : (
-                                    <div className="h-5 w-5 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
-                                      <i className="fa-solid fa-shield-halved text-[8px] opacity-40"></i>
+                                    <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
+                                      <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
                                     </div>
                                   )}
                                   {resolveClubLabel(ev.localTeam, ev.localTeamClubId) && (
-                                    <span className="block text-[6.5px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(ev.localTeam, ev.localTeamClubId)}</span>
+                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(ev.localTeam, ev.localTeamClubId)}</span>
                                   )}
-                                  <span className="block truncate w-full text-[9px] leading-tight">{ev.localTeam}</span>
+                                  <span className="block truncate w-full text-xs leading-tight">{ev.localTeam}</span>
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-[8px] font-semibold leading-tight truncate block">
+                              <span className="text-[11px] font-semibold leading-tight truncate block">
                                 {ev.title || ev.opponent || 'Partido'}
                               </span>
                             )}
                             {ev.score && (
-                              <div className="text-[8px] font-black text-white bg-red-700 rounded-md py-0.5 text-center">
+                              <div className="text-[11px] font-black text-white bg-red-700 rounded-md py-0.5 text-center">
                                 {ev.score}
                               </div>
                             )}

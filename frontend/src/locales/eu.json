@@ -636,7 +636,9 @@
     "chartStarters": "Titulartasunak",
     "chartGoals": "Golegileak",
     "chartMinutes": "Min. Jokatuak",
-    "chartCards": "Txartelak"
+    "chartCards": "Txartelak",
+    "chartSystemMinutesCollective": "Sistemako minutuak (Taldekakoa)",
+    "chartSystemMinutesByPlayer": "Sistemako minutuak (Norbanakoa)"
   },
   "calendarView": {
     "months": ["URTARRILA", "OTSAILA", "MARTXOA", "APIRILA", "MAIATZA", "EKAINA", "UZTAILA", "ABUZTUA", "IRAILA", "URRIA", "AZAROA", "ABENDUA"],
@@ -908,7 +910,9 @@
       "yellowCards": "T. Horiak",
       "redCards": "T. Gorriak",
       "yes": "Bai",
-      "no": "Ez"
+      "no": "Ez",
+      "systemMinutesTitle": "Sistemako minutuak",
+      "totalMinutes": "min. guztira"
     },
     "rivalSelector": {
       "noClub": "Aukeratu aurkariaren kluba Datu Orokorrak fitxan bere txostena ikusteko.",

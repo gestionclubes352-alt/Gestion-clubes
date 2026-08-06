@@ -7,10 +7,11 @@ import type { CompetitionTeam } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
 import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
 import type { Equipo, Jugador, Club } from '@shared/services/dataService';
-import { TacticalBoard, MatchTacticalSection } from '@modules/tactica';
+import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
 import PlayerStatsCharts from './PlayerStatsCharts';
+import SystemMinutesCharts from './SystemMinutesCharts';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { uploadMatchReportFile } from '@shared/services/photoService';
 import { useTranslation } from 'react-i18next';
@@ -439,6 +440,35 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       : getInitialPositions(report.formation || '4-3-3');
   }, [substitutionSnapshots, report.lineupPositions, report.formation]);
 
+  // Coordenadas de cada jugador en el campo, separando a quienes caen en
+  // posiciones iguales o muy próximas (p.ej. tras sustituciones o cambios de
+  // sistema mal ajustados) para que no se dibujen dos círculos superpuestos.
+  const resolvedOnPitchPositions = useMemo(() => {
+    const raw = onPitchPlayers
+      .map(player => {
+        const startPos = currentLineupPositions.find(pos => (pos.playerIds || []).some(id => samePlayerId(id, player.id)));
+        return startPos ? { player, x: startPos.x ?? 50, y: startPos.y ?? 50 } : null;
+      })
+      .filter((entry): entry is { player: Player; x: number; y: number } => entry !== null);
+
+    const COLLISION_THRESHOLD = 6;
+    const clusters: Array<typeof raw> = [];
+    raw.forEach(entry => {
+      const cluster = clusters.find(c => c.some(other => Math.hypot(other.x - entry.x, other.y - entry.y) < COLLISION_THRESHOLD));
+      if (cluster) cluster.push(entry);
+      else clusters.push([entry]);
+    });
+
+    return clusters.flatMap(cluster => {
+      if (cluster.length === 1) return cluster;
+      const spread = 8;
+      return cluster.map((entry, i) => ({
+        ...entry,
+        x: Math.min(96, Math.max(4, entry.x + (i - (cluster.length - 1) / 2) * spread)),
+      }));
+    });
+  }, [onPitchPlayers, currentLineupPositions]);
+
   // Agrupa los eventos de substitutionSnapshots por minuto: todo lo que ocurre
   // en la misma "ventana" (varias sustituciones y/o un cambio de sistema
   // registrados juntos) se consolida en una única foto del campo + un
@@ -591,11 +621,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const benchPlayers = useMemo(() => {
     const notConvocado = report.notConvocadoIds || [];
     const onPitchIds = onPitchPlayers.map(p => p.id);
+    const alreadySubbedOffIds = (report.substitutions || [])
+      .map(sub => sub.playerOutId)
+      .filter((id): id is string | number => id !== undefined);
     return squad.filter(p =>
       !notConvocado.some(id => samePlayerId(id, p.id)) &&
-      !onPitchIds.some(id => samePlayerId(id, p.id))
+      !onPitchIds.some(id => samePlayerId(id, p.id)) &&
+      !alreadySubbedOffIds.some(id => samePlayerId(id, p.id))
     );
-  }, [squad, report.notConvocadoIds, onPitchPlayers]);
+  }, [squad, report.notConvocadoIds, onPitchPlayers, report.substitutions]);
 
   const convocadoPlayers = useMemo(() => {
     const notConvocado = report.notConvocadoIds || [];
@@ -610,11 +644,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const MATCH_DURATION_MINUTES = 90;
 
-  // Minutos jugados por jugador (apartado Resumen): un titular juega hasta que
-  // le cambian o le expulsan (roja), lo que ocurra antes; un suplente juega
-  // desde que entra hasta el final (o su roja).
-  const playerMinutesMap = useMemo(() => {
-    const map = new Map<string, number>();
+  // Intervalo [start, end] jugado por cada jugador: un titular juega desde el
+  // minuto 0 hasta que le cambian o le expulsan (roja), lo que ocurra antes; un
+  // suplente juega desde que entra hasta el final (o su roja).
+  const playerIntervalsMap = useMemo(() => {
+    const map = new Map<string, { start: number; end: number }>();
     const subs = report.substitutions || [];
     const redCardMinuteByPlayer = new Map<string, number>();
     (report.matchCards || []).filter(c => c.type === 'ROJA' && c.playerId !== undefined).forEach(c => {
@@ -629,7 +663,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       let end = subOff ? subOff.minute : MATCH_DURATION_MINUTES;
       const red = redCardMinuteByPlayer.get(key);
       if (red !== undefined && red < end) end = red;
-      map.set(key, Math.max(0, end));
+      map.set(key, { start: 0, end: Math.max(0, end) });
     });
 
     subs.forEach(sub => {
@@ -639,11 +673,53 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       let end = MATCH_DURATION_MINUTES;
       const red = redCardMinuteByPlayer.get(key);
       if (red !== undefined && red < end) end = red;
-      map.set(key, Math.max(0, end - sub.minute));
+      map.set(key, { start: sub.minute, end: Math.max(sub.minute, end) });
     });
 
     return map;
   }, [startingXIEntries, report.substitutions, report.matchCards]);
+
+  // Minutos jugados por jugador (apartado Resumen): duración del intervalo anterior.
+  const playerMinutesMap = useMemo(() => {
+    const map = new Map<string, number>();
+    playerIntervalsMap.forEach((interval, key) => map.set(key, interval.end - interval.start));
+    return map;
+  }, [playerIntervalsMap]);
+
+  // Ventanas de sistema/formación durante el partido: desde el sistema inicial
+  // hasta el primer cambio de sistema, y así sucesivamente hasta el final.
+  const formationWindows = useMemo(() => {
+    const changes = [...(report.formationChanges || [])].sort((a, b) => a.minute - b.minute);
+    const marks = [{ minute: 0, formation: report.formation || '4-3-3' }, ...changes.map(c => ({ minute: c.minute, formation: c.formation }))];
+    return marks
+      .map((mark, i) => ({
+        formation: mark.formation,
+        start: mark.minute,
+        end: i + 1 < marks.length ? marks[i + 1].minute : MATCH_DURATION_MINUTES
+      }))
+      .filter(w => w.end > w.start);
+  }, [report.formation, report.formationChanges]);
+
+  // Minutos jugados por sistema (apartados Gráficas y Datos Partido): a nivel
+  // colectivo (cuánto tiempo estuvo el equipo en cada sistema) y a nivel
+  // individual (cuántos de esos minutos jugó cada jugador convocado).
+  const systemMinutesStats = useMemo(() => {
+    const collective = new Map<string, number>();
+    const individual = new Map<string, Map<string, number>>();
+
+    formationWindows.forEach(win => {
+      collective.set(win.formation, (collective.get(win.formation) ?? 0) + (win.end - win.start));
+      playerIntervalsMap.forEach((interval, playerId) => {
+        const overlap = Math.min(interval.end, win.end) - Math.max(interval.start, win.start);
+        if (overlap <= 0) return;
+        if (!individual.has(win.formation)) individual.set(win.formation, new Map());
+        const byPlayer = individual.get(win.formation)!;
+        byPlayer.set(playerId, (byPlayer.get(playerId) ?? 0) + overlap);
+      });
+    });
+
+    return { collective, individual };
+  }, [formationWindows, playerIntervalsMap]);
 
   const goalsByPlayer = useMemo(() => {
     const map = new Map<string, number>();
@@ -689,7 +765,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   useEffect(() => {
     const loadData = async () => {
       try {
-        const { data: reportsData } = await db.match_reports.get();
+        const { data: reportsData } = await db.match_reports.get(match.id);
         const existing = reportsData?.find((r: any) => String(r.id) === String(match.id));
         if (existing) {
             const formation = existing.formation || '4-3-3';
@@ -1344,14 +1420,34 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
           <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">{t('matchReport.matchEvents.startingXI')}</h4>
           <div className="space-y-0.5">
-            {activeLineupPlayers.map(player => (
-              <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 transition-all">
-                <span className="w-6 h-6 rounded-full bg-sport-primary text-white flex items-center justify-center text-[11px] font-black shrink-0">{player.dorsal ?? '-'}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+            {activeLineupPlayers.map(player => {
+              const key = String(player.id);
+              const minutes = playerMinutesMap.get(key) ?? 0;
+              const goals = goalsByPlayer.get(key) ?? 0;
+              const cards = cardsByPlayer.get(key);
+              const subOutMinute = subOutMinuteByPlayer.get(key);
+              return (
+                <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 transition-all">
+                  <span className="w-6 h-6 rounded-full bg-sport-primary text-white flex items-center justify-center text-[11px] font-black shrink-0">{player.dorsal ?? '-'}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+                  </div>
+                  {goals > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-emerald-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
+                      <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
+                    </span>
+                  )}
+                  {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0 text-[10px]"></i> : null}
+                  {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0 text-[10px]"></i> : null}
+                  {subOutMinute !== undefined && (
+                    <span className="inline-flex items-center gap-0.5 text-red-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.substitutions')}>
+                      <i className="fa-solid fa-arrow-right-from-bracket"></i>{subOutMinute}'
+                    </span>
+                  )}
+                  <span className="text-[var(--text-muted)] font-bold w-7 text-right shrink-0 text-[10px]">{minutes}'</span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -1384,13 +1480,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
 
         <div className="absolute inset-0 flex items-center justify-center">
-          {onPitchPlayers.map(player => {
-            const startPos = currentLineupPositions.find(pos => (pos.playerIds || []).some(id => samePlayerId(id, player.id)));
-            if (!startPos) return null;
-
+          {resolvedOnPitchPositions.map(({ player, x, y }) => {
             const isSelected = selectedPlayerForEvent?.id === player.id;
-            const x = (startPos.x || 50);
-            const y = (startPos.y || 50);
             const goals = goalsByPlayer.get(String(player.id)) ?? 0;
             const cards = cardsByPlayer.get(String(player.id));
 
@@ -1605,14 +1696,35 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             {benchPlayers.length === 0 ? (
               <p className="text-[13px] font-bold text-[var(--text-muted)] text-center py-2">{t('matchReport.generalData.noBenchYet')}</p>
             ) : (
-              benchPlayers.map(player => (
-                <div key={player.id} className="flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 transition-all">
-                  <span className="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-black shrink-0">{player.dorsal ?? '-'}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+              benchPlayers.map(player => {
+                const key = String(player.id);
+                const minutes = playerMinutesMap.get(key);
+                const played = minutes !== undefined;
+                const goals = goalsByPlayer.get(key) ?? 0;
+                const cards = cardsByPlayer.get(key);
+                const subInMinute = subInMinuteByPlayer.get(key);
+                return (
+                  <div key={player.id} className={`flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 transition-all ${played ? '' : 'opacity-50'}`}>
+                    <span className="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-black shrink-0">{player.dorsal ?? '-'}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-black text-[var(--text-strong)] truncate">{player.apodo || player.nombre}</p>
+                    </div>
+                    {goals > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
+                        <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
+                      </span>
+                    )}
+                    {cards?.amarillas ? <i className="fa-solid fa-square text-amber-500 shrink-0 text-[10px]"></i> : null}
+                    {cards?.rojas ? <i className="fa-solid fa-square text-red-600 shrink-0 text-[10px]"></i> : null}
+                    {subInMinute !== undefined && (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-500 font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.substitutions')}>
+                        <i className="fa-solid fa-arrow-right-to-bracket"></i>{subInMinute}'
+                      </span>
+                    )}
+                    <span className="text-[var(--text-muted)] font-bold w-7 text-right shrink-0 text-[10px]">{played ? `${minutes}'` : '-'}</span>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -3449,20 +3561,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </div>
   );
 
-  const renderCambiosTacticos = () => (
-    <MatchTacticalSection
-      matchId={match.id}
-      changes={report.tacticalChanges || []}
-      initialFormation={report.formation || '4-3-3'}
-      initialLineup={report.lineupPositions || []}
-      squad={squad}
-      substituteIds={report.substituteIds || []}
-      onSaveChanges={(changes) => handleChange('tacticalChanges', changes)}
-      matchScore={match.score}
-      opponent={match.visitorTeam}
-    />
-  );
-
   const renderAbpImagePreview = () => (
     abpPreviewImage ? (
       <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6">
@@ -3733,6 +3831,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const substitutes = allRows.filter(r => !r.isStarter && !r.isNotConvocado);
     const notConvocados = allRows.filter(r => r.isNotConvocado);
 
+    const systemRows = Array.from(systemMinutesStats.collective.entries())
+      .map(([formation, minutes]) => ({
+        formation,
+        minutes,
+        players: Array.from(systemMinutesStats.individual.get(formation)?.entries() ?? [])
+          .map(([playerId, playerMinutes]) => ({ player: squad.find(p => String(p.id) === playerId), minutes: playerMinutes }))
+          .filter((r): r is { player: Player; minutes: number } => !!r.player)
+          .sort((a, b) => b.minutes - a.minutes)
+      }))
+      .sort((a, b) => b.minutes - a.minutes);
+
     const renderTable = (rows: typeof allRows, title: string, className: string) => (
       <div className="space-y-3">
         <h3 className={`text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
@@ -3790,6 +3899,45 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
           )}
         </div>
+
+        {systemRows.length > 0 && (
+          <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+              <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+                <i className="fa-solid fa-diagram-project text-red-500"></i> {t('matchReport.playerStats.systemMinutesTitle')}
+              </div>
+            </div>
+            <div className="space-y-8">
+              {systemRows.map(({ formation, minutes, players }) => (
+                <div key={formation} className="space-y-3">
+                  <h3 className="text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400">
+                    {formation} — {minutes}' {t('matchReport.playerStats.totalMinutes')}
+                  </h3>
+                  <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                          <th className="px-3 py-3 text-left">#</th>
+                          <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
+                          <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-soft)]">
+                        {players.map(({ player, minutes: playerMinutes }) => (
+                          <tr key={player.id} className="text-[var(--text-strong)]">
+                            <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
+                            <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
+                            <td className="px-3 py-2 text-center font-bold">{playerMinutes}'</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -3829,7 +3977,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           {rows.length === 0 ? (
             <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.playerStats.noPlayers')}</p>
           ) : (
-            <PlayerStatsCharts rows={rows} squadById={squadById} />
+            <>
+              <PlayerStatsCharts rows={rows} squadById={squadById} />
+              <div className="pt-6 border-t border-[var(--border-soft)]">
+                <SystemMinutesCharts stats={systemMinutesStats} squadById={squadById} />
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -3970,7 +4123,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'PLAN DE PARTIDO', label: t('matchReport.tabs.matchPlan'), icon: 'fa-clipboard-list' },
     { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
     { id: 'EVENTOS PARTIDO', label: t('matchReport.tabs.matchEvents'), icon: 'fa-list-check' },
-    { id: 'CAMBIOS TÁCTICOS', label: 'Cambios Tácticos', icon: 'fa-diagram-project' },
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
     { id: 'GRÁFICAS', label: t('matchReport.tabs.charts'), icon: 'fa-chart-line' },
     { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
@@ -4001,7 +4153,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'CAMBIOS TÁCTICOS' ? renderCambiosTacticos() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'GRÁFICAS' ? renderGraficas() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'GRÁFICAS' ? renderGraficas() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
 
       {selectedPlayerForModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>

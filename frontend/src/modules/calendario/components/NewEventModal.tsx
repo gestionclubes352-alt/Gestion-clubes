@@ -6,6 +6,13 @@ import type { Club } from '@modules/clubes/types';
 import EquipoSelect, { type EquipoOption } from '../../../shared/components/EquipoSelect';
 import { clubesService } from '@shared/services';
 
+const toLocalDateString = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const eventTypeLabels: Record<EventType, { label: string; icon: string; color: string }> = {
   Partido: { label: 'Partido', icon: 'fa-futbol', color: 'from-[#FF5A5F] to-[#e54449]' },
   Sesión: { label: 'Sesión', icon: 'fa-person-running', color: 'from-emerald-400 to-emerald-600' },
@@ -66,8 +73,8 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [formData, setFormData] = useState<EventFormData>({
     title: currentEvent?.title || '',
     date: currentEvent?.date
-      ? (currentEvent.date instanceof Date ? currentEvent.date.toISOString().slice(0, 10) : String(currentEvent.date).slice(0, 10))
-      : initialDate.toISOString().slice(0, 10),
+      ? (currentEvent.date instanceof Date ? toLocalDateString(currentEvent.date) : String(currentEvent.date).slice(0, 10))
+      : toLocalDateString(initialDate),
     time: currentEvent?.time || '18:00',
     location: currentEvent?.location || (currentEvent?.type === 'Sesión' ? 'Derio' : ''),
     team: currentEvent?.team || '',
@@ -88,7 +95,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     if (!currentEvent) {
       setFormData(prev => ({
         ...prev,
-        date: initialDate.toISOString().slice(0, 10)
+        date: toLocalDateString(initialDate)
       }));
     }
   }, [initialDate, currentEvent]);
@@ -124,7 +131,10 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       ...(currentEvent ?? {}),
       id: currentEvent?.id ?? crypto.randomUUID(),
       title: formData.title || eventTypeLabels[typeSelected].label,
-      date: new Date(formData.date),
+      date: (() => {
+        const [year, month, day] = formData.date.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      })(),
       time: formData.time,
       type: typeSelected,
       team: formData.team || undefined,

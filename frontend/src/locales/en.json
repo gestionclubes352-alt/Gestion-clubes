@@ -636,7 +636,9 @@
     "chartStarters": "Starts",
     "chartGoals": "Top Scorers",
     "chartMinutes": "Minutes Played",
-    "chartCards": "Cards"
+    "chartCards": "Cards",
+    "chartSystemMinutesCollective": "Minutes by System (Collective)",
+    "chartSystemMinutesByPlayer": "Minutes by System (Individual)"
   },
   "calendarView": {
     "months": ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"],
@@ -920,7 +922,9 @@
       "yellowCards": "Yellow Cards",
       "redCards": "Red Cards",
       "yes": "Yes",
-      "no": "No"
+      "no": "No",
+      "systemMinutesTitle": "Minutes by System",
+      "totalMinutes": "total min."
     },
     "rivalSelector": {
       "noClub": "Select the opponent club in the General Data tab to see its report.",

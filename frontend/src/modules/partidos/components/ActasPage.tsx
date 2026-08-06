@@ -22,55 +22,55 @@ const MatchCard: React.FC<{
   onViewActa: () => void;
 }> = ({ match, onViewActa }) => (
   <div
-    className={`rounded-2xl p-4 transition-all border ${
+    className={`rounded-xl p-2.5 transition-all border ${
       match.played
         ? 'bg-slate-800/40 border-slate-700/40 hover:bg-slate-800/60 cursor-pointer'
         : 'bg-slate-900/30 border-slate-800/30 opacity-60'
     }`}
     onClick={match.played ? onViewActa : undefined}
   >
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <div className="flex-1 min-w-0 text-right">
-        <span className={`block truncate text-[12px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
+        <span className={`block truncate text-[10px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
           {match.home}
         </span>
       </div>
 
-      <div className="px-4 min-w-[70px] shrink-0 text-center">
+      <div className="px-2 min-w-[55px] shrink-0 text-center">
         {match.played && match.homeGoals !== null ? (
-          <span className="text-lg font-black text-white tabular-nums">
+          <span className="text-base font-black text-white tabular-nums">
             {match.homeGoals}
-            <span className="text-slate-500 mx-1 text-sm">-</span>
+            <span className="text-slate-500 mx-0.5 text-xs">-</span>
             {match.awayGoals}
           </span>
         ) : (
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
             {match.time || 'vs'}
           </span>
         )}
       </div>
 
       <div className="flex-1 min-w-0 text-left">
-        <span className={`block truncate text-[12px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
+        <span className={`block truncate text-[10px] font-semibold ${match.played ? 'text-slate-200' : 'text-slate-400'}`}>
           {match.away}
         </span>
       </div>
     </div>
 
-    <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-700/30">
-      <div className="flex items-center gap-3 text-[10px] text-slate-500">
-        {match.date && <span><i className="fa-regular fa-calendar mr-1"></i>{match.date}</span>}
-        {match.time && <span><i className="fa-regular fa-clock mr-1"></i>{match.time}</span>}
+    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-700/30">
+      <div className="flex items-center gap-2 text-[8px] text-slate-500">
+        {match.date && <span><i className="fa-regular fa-calendar mr-0.5"></i>{match.date}</span>}
+        {match.time && <span><i className="fa-regular fa-clock mr-0.5"></i>{match.time}</span>}
       </div>
       {match.played && (
-        <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500/70 flex items-center gap-1">
-          <i className="fa-solid fa-clipboard-check text-[8px]"></i> Ver Acta
+        <span className="text-[8px] font-bold uppercase tracking-widest text-emerald-500/70 flex items-center gap-0.5">
+          <i className="fa-solid fa-clipboard-check text-[7px]"></i> Acta
         </span>
       )}
     </div>
 
     {match.referee && (
-      <div className="text-[9px] text-slate-600 mt-1">
+      <div className="text-[8px] text-slate-600 mt-1 truncate">
         <i className="fa-solid fa-whistle mr-1"></i>{match.referee}
       </div>
     )}
@@ -325,7 +325,7 @@ const ActasPage: React.FC = () => {
 
       {/* Partidos */}
       {!loading && jornadaData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {jornadaData.matches.length === 0 ? (
             <div className="col-span-full text-center py-20 text-slate-600 text-xs">
               <i className="fa-solid fa-calendar-xmark text-4xl mb-4 block"></i>

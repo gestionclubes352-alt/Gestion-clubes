@@ -636,7 +636,9 @@
     "chartStarters": "Titularidades",
     "chartGoals": "Goleadores",
     "chartMinutes": "Minutos Jugados",
-    "chartCards": "Tarjetas"
+    "chartCards": "Tarjetas",
+    "chartSystemMinutesCollective": "Minutos por Sistema (Colectivo)",
+    "chartSystemMinutesByPlayer": "Minutos por Sistema (Individual)"
   },
   "calendarView": {
     "months": ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"],
@@ -930,7 +932,9 @@
       "yellowCards": "T. Amarillas",
       "redCards": "T. Rojas",
       "yes": "Sí",
-      "no": "No"
+      "no": "No",
+      "systemMinutesTitle": "Minutos por Sistema",
+      "totalMinutes": "min. totales"
     },
     "rivalSelector": {
       "noClub": "Selecciona el club rival en la pestaña Datos Generales para ver su informe.",

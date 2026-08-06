@@ -258,7 +258,7 @@ export const tareasService = createTableService<Tarea>('tareas');
 // migración). Este shim evita que la app crashee al cargar; cada entidad se
 // sustituye por su servicio real en la Fase 2, módulo a módulo.
 interface LegacyStore<T = any> {
-  get(): Promise<{ data: T[] }>;
+  get(id?: string | number): Promise<{ data: T[] }>;
   upsert(item: T): Promise<T>;
   delete(id: string | number): Promise<void>;
   clearAll(): Promise<void>;
@@ -521,8 +521,10 @@ interface StoredMatchReport {
 
 function createMatchReportsStore(): LegacyStore<any> {
   return {
-    async get() {
-      const { data, error } = await supabase.from('match_reports').select('*');
+    async get(id?: string | number) {
+      let query = supabase.from('match_reports').select('*');
+      if (id !== undefined) query = query.eq('id', id);
+      const { data, error } = await query;
       if (error) throw error;
       return {
         data: (data ?? []).map((row: StoredMatchReport) => ({
