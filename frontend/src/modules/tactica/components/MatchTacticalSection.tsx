@@ -47,6 +47,7 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
   const [selectedChangeId, setSelectedChangeId] = useState<string | undefined>();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingChange, setEditingChange] = useState<MatchTacticalChange | undefined>();
+  const [modalChangeId, setModalChangeId] = useState<string | undefined>();
 
   // Build players on field at each point in time
   const computeFormationAtMinute = (minute: number) => {
@@ -222,24 +223,34 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
                   : `${change.minute}' - FORMACIÓN ${change.newFormation}`;
 
               return (
-                <button
-                  key={change.id}
-                  onClick={() => setSelectedChangeId(change.id)}
-                  className={`text-left rounded-lg border-2 transition-all overflow-hidden ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10'
-                      : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#1a1a1a] dark:hover:border-white/20'
-                  }`}
-                >
-                  <MatchFormationViewer
-                    formation={selectedFormation.formation}
-                    players={playersOnField}
-                    highlightPlayerId={change.playerInId || change.playerOutId}
-                    title={changeLabel}
-                    compact={true}
-                    className="p-0"
-                  />
-                </button>
+                <div key={change.id} className="group relative">
+                  <button
+                    onClick={() => setSelectedChangeId(change.id)}
+                    className={`text-left rounded-lg border-2 transition-all overflow-hidden w-full ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10'
+                        : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#1a1a1a] dark:hover:border-white/20'
+                    }`}
+                  >
+                    <MatchFormationViewer
+                      formation={selectedFormation.formation}
+                      players={playersOnField}
+                      highlightPlayerId={change.playerInId || change.playerOutId}
+                      title={changeLabel}
+                      compact={true}
+                      className="p-0"
+                    />
+                  </button>
+
+                  {/* Expand button overlay */}
+                  <button
+                    onClick={() => setModalChangeId(change.id)}
+                    className="absolute right-2 top-2 rounded-lg bg-white dark:bg-slate-800 p-2 shadow-md opacity-0 transition-opacity group-hover:opacity-100"
+                    title="Ver en grande"
+                  >
+                    <i className="fa-solid fa-expand text-slate-700 dark:text-slate-300" />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -256,6 +267,68 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
             Haz clic en "Agregar Cambio" para registrar modificaciones durante el partido
           </p>
+        </div>
+      )}
+
+      {/* Modal for expanded view */}
+      {modalChangeId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-[#1a1a1a] shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Close button */}
+            <button
+              onClick={() => setModalChangeId(undefined)}
+              className="sticky top-0 right-0 z-10 float-right m-4 rounded-lg bg-slate-100 dark:bg-slate-800 p-2 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              title="Cerrar"
+            >
+              <i className="fa-solid fa-xmark text-lg" />
+            </button>
+
+            {/* Modal content */}
+            <div className="p-6">
+              {changes.find((c) => c.id === modalChangeId) && (
+                <>
+                  {(() => {
+                    const change = changes.find((c) => c.id === modalChangeId)!;
+                    const changeLabel =
+                      change.type === 'entrada'
+                        ? `${change.minute}' - ENTRA ${change.playerInName}`
+                        : change.type === 'salida'
+                        ? `${change.minute}' - SALE ${change.playerOutName}`
+                        : `${change.minute}' - FORMACIÓN ${change.newFormation}`;
+
+                    const lastFormationChange = changes
+                      .filter((c) => c.type === 'cambio_formacion' && c.minute <= change.minute)
+                      .sort((a, b) => b.minute - a.minute)[0];
+                    const formation = lastFormationChange?.newFormation || initialFormation;
+
+                    return (
+                      <div className="space-y-4">
+                        <div>
+                          <h2 className="text-lg font-black uppercase text-slate-900 dark:text-white">
+                            {changeLabel}
+                          </h2>
+                          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                            {opponent} — {matchScore}
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 dark:border-white/10 p-4 bg-slate-50 dark:bg-[#0a0a0a]">
+                          <MatchFormationViewer
+                            formation={formation}
+                            players={playersOnField}
+                            substitutes={substitutePlayers}
+                            highlightPlayerId={change.playerInId || change.playerOutId}
+                            fullLayout={true}
+                            showNames={true}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

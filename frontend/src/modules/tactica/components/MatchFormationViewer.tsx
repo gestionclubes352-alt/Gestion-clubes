@@ -209,33 +209,33 @@ const MatchFormationViewer: React.FC<MatchFormationViewerProps> = ({
 
                 return (
                   <g key={pos.id}>
-                    {/* Larger player circle */}
+                    {/* Player circle */}
                     <circle
                       cx={pos.x}
                       cy={pos.y}
-                      r="5.5"
+                      r="3.8"
                       fill={
                         isHighlighted
-                          ? '#ffffff' // white ring
+                          ? '#fbbf24' // amber-400
                           : player
-                          ? '#ffffff' // white
+                          ? '#dc2626' // red-600
                           : '#d1d5db' // gray-300
                       }
                       opacity={isHighlighted ? 1 : player ? 1 : 0.2}
                       style={{ pointerEvents: 'none' }}
-                      stroke={isHighlighted ? '#e5e7eb' : 'none'}
-                      strokeWidth="1"
+                      stroke={isHighlighted ? '#ffffff' : 'none'}
+                      strokeWidth="0.5"
                     />
 
                     {/* Player number text */}
                     {player && (
                       <text
                         x={pos.x}
-                        y={pos.y + 1.5}
+                        y={pos.y + 1}
                         textAnchor="middle"
-                        fontSize="3.5"
+                        fontSize="2.8"
                         fontWeight="bold"
-                        fill="#1f2937"
+                        fill="#ffffff"
                         style={{ pointerEvents: 'none' }}
                       >
                         {player.dorsal || '?'}
