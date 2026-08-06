@@ -457,7 +457,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
     id: event.id,
     club_id: event.clubId || null,
-    title: event.title,
+    title: event.title || 'Sin título',
     type: event.type,
     date: event.date instanceof Date ? event.date.toISOString() : event.date,
     time: event.time || null,
@@ -477,8 +477,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     opponent: event.opponent || null,
     score: event.score || null,
     status: event.status || null,
-    tasks: event.tasks || [],
-    attendance: event.attendance || {},
+    tasks: Array.isArray(event.tasks) ? event.tasks : [],
+    attendance: (event.attendance && typeof event.attendance === 'object') ? event.attendance : {},
   });
 
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
@@ -670,11 +670,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     setShowStatus("Guardando...");
 
     try {
-      await eventosCalendarioService.upsert(calendarEventToRow(eventWithClub));
+      const row = calendarEventToRow(eventWithClub);
+      console.log('Guardando evento:', row);
+      console.log('Event con club:', eventWithClub);
+
+      // Validar que el evento tiene los campos requeridos
+      if (!row.id) throw new Error('El evento debe tener un ID');
+      if (!row.title) throw new Error('El evento debe tener un título');
+      if (!row.date) throw new Error('El evento debe tener una fecha');
+      if (!row.type) throw new Error('El evento debe tener un tipo');
+
+      console.log('Validación pasada, llamando a upsert...');
+      const result = await eventosCalendarioService.upsert(row);
+      console.log('Resultado del upsert:', result);
       setShowStatus("Guardado correctamente");
     } catch (err) {
       console.error("Error guardando evento:", err);
-      setShowStatus("Error al sincronizar");
+      console.error("Stack:", err instanceof Error ? err.stack : 'N/A');
+      console.error("Evento que falló:", eventWithClub);
+      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error("Mensaje de error:", errorMsg);
+      setShowStatus(`Error al sincronizar: ${errorMsg}`);
     }
     setTimeout(() => setShowStatus(null), 2000);
   };
@@ -1018,7 +1034,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                 <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} />
+                <GestionCalendarView events={filteredEventsList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -1206,6 +1222,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               email: (s as any).email || undefined,
               equipo_ids: (s as any).equipo_ids || undefined,
               foto_url: s.foto_url || undefined,
+              club_id: s.club_id,
             });
           }
           await fetchData();

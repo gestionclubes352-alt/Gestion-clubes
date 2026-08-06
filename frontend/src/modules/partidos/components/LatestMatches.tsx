@@ -103,10 +103,15 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return map;
   }, [competitionTeams, clubNameById]);
 
+  const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
+
   // Preferimos el clubId guardado con el propio partido (exacto, no ambiguo);
   // solo caemos al emparejamiento por nombre para partidos guardados antes de este fix.
   const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
+
+  const resolveClubLogo = (clubId?: string): string | undefined =>
+    clubId ? clubLogoById.get(String(clubId)) : undefined;
   return (
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
@@ -185,100 +190,109 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredMatches.map((match) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
           const localClubLabel = resolveClubLabel(local, match.localTeamClubId);
           const visitorClubLabel = resolveClubLabel(visitor, match.visitorTeamClubId);
+          const localLogo = resolveClubLogo(match.localTeamClubId);
+          const visitorLogo = resolveClubLogo(match.visitorTeamClubId);
 
           return (
-            <div 
-              key={match.id} 
+            <div
+              key={match.id}
               onClick={() => onClickMatch && onClickMatch(match)}
-              className="bg-white p-4 md:p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 group relative overflow-hidden cursor-pointer hover:border-red-200"
+              className="bg-white p-3 md:p-4 rounded-2xl shadow-sm hover:shadow-lg transition-all border border-slate-100 flex flex-col gap-2.5 group relative overflow-hidden cursor-pointer hover:border-red-200"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-4 flex-wrap">
-                  <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                    {match.jornada || match.competition}
-                  </span>
-                  <span className="text-slate-300 text-[10px] font-bold">
-                    {new Date(match.date).toLocaleDateString()} {match.time ? `• ${match.time}h` : ''}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 md:gap-6">
-                  <div className="text-center min-w-0 flex-1 md:flex-none md:min-w-[100px]">
-                    {localClubLabel && (
-                      <p className="text-[9px] font-bold text-slate-400 uppercase truncate">
-                        {localClubLabel}
-                      </p>
-                    )}
-                    <p className={`font-black text-sm md:text-lg uppercase leading-none mb-1 truncate ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-600'}`}>
-                      {local}
-                    </p>
-                    <p className="text-[8px] font-black text-black tracking-[0.3em] uppercase">{t('matchesList.home')}</p>
-                  </div>
-
-                  <div className="flex flex-col items-center shrink-0">
-                    {match.status === 'Finished' ? (
-                      <div className="bg-[var(--accent)] text-white font-black text-base md:text-2xl px-3 md:px-6 py-2 rounded-2xl shadow-lg shadow-[var(--accent)]/20">
-                        {match.score}
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 text-slate-400 font-black px-3 md:px-6 py-2 rounded-2xl border border-slate-100">
-                        VS
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="text-center min-w-0 flex-1 md:flex-none md:min-w-[100px]">
-                    {visitorClubLabel && (
-                      <p className="text-[9px] font-bold text-slate-400 uppercase truncate">
-                        {visitorClubLabel}
-                      </p>
-                    )}
-                    <p className={`font-black text-sm md:text-lg uppercase leading-none mb-1 truncate ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-600'}`}>
-                      {visitor}
-                    </p>
-                    <p className="text-[8px] font-black text-black tracking-[0.3em] uppercase">{t('matchesList.away')}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="md:ml-8 flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 relative z-10">
-                <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] font-black uppercase tracking-wider">
+                  {match.jornada || match.competition}
+                </span>
+                <span className="text-slate-400 text-[8px] font-bold">
+                  {new Date(match.date).toLocaleDateString()} {match.time ? `• ${match.time}h` : ''}
+                </span>
+                <span className={`ml-auto px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider ${
                   match.status === 'Finished' ? 'bg-slate-100 text-slate-400' : 'bg-red-100 text-red-600 animate-pulse'
                 }`}>
                   {match.status}
                 </span>
-                <div className="flex gap-2">
-                   <button 
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onEdit && onEdit(match);
-                    }}
-                    className="w-10 h-10 bg-white border border-slate-100 text-slate-300 hover:text-red-500 rounded-xl transition-all flex items-center justify-center shadow-sm"
-                    title={t('matchesList.editViaEvents')}
-                   >
-                     <i className="fa-regular fa-pen-to-square text-sm"></i>
-                   </button>
-                   <button 
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onDelete(String(match.id));
-                    }}
-                    className="w-10 h-10 bg-white border border-slate-100 text-slate-300 hover:text-red-500 rounded-xl transition-all flex items-center justify-center shadow-sm"
-                    title={t('matchesList.deleteEvent')}
-                   >
-                     <i className="fa-regular fa-trash-can text-sm"></i>
-                   </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 min-h-20">
+                <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">LOCAL</p>
+                  {localLogo && (
+                    <img src={localLogo} alt={localClubLabel} className="h-8 w-8 object-contain mb-1" />
+                  )}
+                  {localClubLabel && (
+                    <p className="text-[7px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
+                      {localClubLabel}
+                    </p>
+                  )}
+                  <p className={`font-black text-[11px] md:text-xs uppercase leading-tight truncate w-full ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                    {local}
+                  </p>
                 </div>
+
+                <div className="flex flex-col items-center shrink-0 gap-1.5">
+                  {match.status === 'Finished' ? (
+                    <div className="bg-[var(--accent)] text-white font-black text-sm px-2.5 md:px-3 py-1 rounded-xl shadow-lg shadow-[var(--accent)]/20">
+                      {match.score}
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 text-slate-400 font-black text-[10px] px-2.5 md:px-3 py-1 rounded-xl border border-slate-200">
+                      VS
+                    </div>
+                  )}
+                  {match.location && (
+                    <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-16 text-center">
+                      {match.location}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">VISITANTES</p>
+                  {visitorLogo && (
+                    <img src={visitorLogo} alt={visitorClubLabel} className="h-8 w-8 object-contain mb-1" />
+                  )}
+                  {visitorClubLabel && (
+                    <p className="text-[7px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
+                      {visitorClubLabel}
+                    </p>
+                  )}
+                  <p className={`font-black text-[11px] md:text-xs uppercase leading-tight truncate w-full ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                    {visitor}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-1.5 border-t border-slate-100 pt-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onEdit && onEdit(match);
+                  }}
+                  className="w-8 h-8 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-lg transition-all flex items-center justify-center shadow-sm text-xs"
+                  title={t('matchesList.editViaEvents')}
+                >
+                  <i className="fa-regular fa-pen-to-square text-xs"></i>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDelete(String(match.id));
+                  }}
+                  className="w-8 h-8 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-lg transition-all flex items-center justify-center shadow-sm text-xs"
+                  title={t('matchesList.deleteEvent')}
+                >
+                  <i className="fa-regular fa-trash-can text-xs"></i>
+                </button>
               </div>
             </div>
           );

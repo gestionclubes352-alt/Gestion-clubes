@@ -170,12 +170,15 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
 
               return (
                 <div key={pos.id} className="absolute transition-all duration-300" style={{ left: `${adjustedX}%`, top: `${adjustedY}%`, transform: 'translate(-50%, -50%)' }}>
-                  <button 
+                  <button
                     onClick={() => setActivePosId(isActive ? null : pos.id)}
-                    className="flex flex-col items-center group"
+                    className="flex flex-col items-center group p-4 md:p-6 -m-4 md:-m-6 transition-all cursor-pointer"
+                    style={{
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
                   >
                     <div className="flex items-center justify-center transition-all relative">
-                      <i className="fa-solid fa-plus text-white/60 text-[18px] md:text-[22px]"></i>
+                      <i className={`fa-solid fa-plus text-[18px] md:text-[22px] transition-all ${isActive ? 'text-white drop-shadow-lg scale-125' : 'text-white/60 group-hover:text-white group-hover:scale-110'}`}></i>
                     </div>
                     {displayPlayers.length > 0 && (
                       <div className="mt-1 md:mt-2 bg-black/90 text-white font-black px-2 md:px-3 py-1.5 rounded-md uppercase tracking-widest text-left leading-tight shadow-xl cursor-pointer max-w-45" style={{ minWidth: '90px' }}>

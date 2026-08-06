@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '../types';
+import type { CompetitionTeam } from '@modules/competicion';
+import type { Club } from '@modules/clubes/types';
 
 interface GestionCalendarViewProps {
   events: CalendarEvent[];
@@ -8,6 +10,8 @@ interface GestionCalendarViewProps {
   onClickEvent?: (event: CalendarEvent) => void;
   onDeleteEvent?: (id: string | number) => void;
   onSaveEvent?: (event: CalendarEvent) => void;
+  competitionTeams?: CompetitionTeam[];
+  clubes?: Club[];
 }
 
 const EVENT_BADGE_COLORS: Record<string, string> = {
@@ -51,11 +55,40 @@ const formatEventLabel = (time?: string, team?: string, fallbackTime = '--:--') 
   return team ? `${hour} - ${team}` : hour;
 };
 
-const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent }) => {
+const generateUUID = (): string => {
+  // Usar crypto.randomUUID si está disponible (navegadores modernos)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback: generar un UUID v4 manualmente
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [] }) => {
   const { t, i18n } = useTranslation();
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNames = t('calendarView.daysAbbr', { returnObjects: true }) as string[];
   const orderedDayNames = useMemo(() => [...dayNames.slice(1), dayNames[0]], [dayNames]);
+
+  const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
+  const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
+  const clubNameByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    competitionTeams.forEach((team) => {
+      const teamName = team.equipo || team.nombre;
+      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
+      if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
+    });
+    return map;
+  }, [competitionTeams, clubNameById]);
+  const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
+    (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
+  const resolveClubLogo = (clubId?: string): string | undefined =>
+    clubId ? clubLogoById.get(String(clubId)) : undefined;
   const [activeView, setActiveView] = useState<'annual' | 'monthly' | 'weekly' | 'schedule'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
@@ -65,17 +98,46 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
   const [duplicateEvent, setDuplicateEvent] = useState<CalendarEvent | null>(null);
   const [duplicateTargetDate, setDuplicateTargetDate] = useState<Date | null>(null);
+  const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  const availableTeams = useMemo(() => {
+    const teams = new Set<string>();
+    events.forEach(ev => {
+      if (ev.team) teams.add(ev.team);
+      if (ev.localTeam) teams.add(ev.localTeam);
+      if (ev.visitorTeam) teams.add(ev.visitorTeam);
+    });
+    return Array.from(teams).sort((a, b) => a.localeCompare(b));
+  }, [events]);
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    events.forEach(ev => { if (ev.type) types.add(ev.type); });
+    return Array.from(types).sort((a, b) => a.localeCompare(b));
+  }, [events]);
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(ev => {
+      if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
+      if (teamFilter !== 'all') {
+        const matchesTeam = ev.team === teamFilter || ev.localTeam === teamFilter || ev.visitorTeam === teamFilter;
+        if (!matchesTeam) return false;
+      }
+      return true;
+    });
+  }, [events, teamFilter, typeFilter]);
 
   const eventsByDay = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
-    events.forEach(ev => {
+    filteredEvents.forEach(ev => {
       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (!map[key]) map[key] = [];
       map[key].push(ev);
     });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const getMonthMatrix = (date: Date) => {
     const year = date.getFullYear();
@@ -130,14 +192,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
   const eventsByMonth = useMemo(() => {
     const map: Record<number, CalendarEvent[]> = {};
-    events.forEach(ev => {
+    filteredEvents.forEach(ev => {
       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
       const key = d.getMonth();
       if (!map[key]) map[key] = [];
       map[key].push(ev);
     });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const scheduleDays = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, index) => {
@@ -268,7 +330,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 onDrop={(e) => {
                   e.preventDefault();
                   if (draggedEvent && date) {
-                    const newEvent = { ...draggedEvent, id: `${draggedEvent.id}-copy-${Date.now()}`, date };
+                    const newEvent = { ...draggedEvent, id: generateUUID(), date };
                     onSaveEvent?.(newEvent);
                     setDraggedEvent(null);
                     setDragOverDate(null);
@@ -289,12 +351,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 <div className="flex-1 flex flex-col gap-1">
                   {dayEvents.map(ev => {
                     const deleteColors = EVENT_DELETE_HOVER_COLORS[ev.type] || EVENT_DELETE_HOVER_COLORS.Otro;
+                    const isMatch = ev.type === 'Partido';
                     return (
                       <div
                         key={ev.id}
                         draggable
-                        className={`rounded px-1 py-1 text-[11px] font-bold cursor-pointer flex items-center gap-0.5 group/ev transition-all opacity-100 hover:shadow-md border-2 ${EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
-                        title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                        className={`rounded px-1 py-1 text-[11px] font-bold cursor-pointer group/ev transition-all opacity-100 hover:shadow-md border-2 ${EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-0.5' : 'flex items-center gap-0.5'}`}
+                        title={isMatch
+                          ? `${ev.time || ''} ${ev.localTeam || ''} vs ${ev.visitorTeam || ev.opponent || ''}`
+                          : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                         onDragStart={(e) => {
                           e.dataTransfer!.effectAllowed = 'copy';
                           e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
@@ -305,30 +370,99 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           setDragOverDate(null);
                         }}
                       >
-                        <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100 flex-shrink-0"></i>
-                        <span
-                          className="truncate leading-tight flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEvent(ev);
-                            onClickEvent?.(ev);
-                          }}
-                        >
-                          {formatEventLabel(ev.time, ev.team)} {ev.title}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteEvent?.(ev.id);
-                          }}
-                          className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
-                          style={{ color: deleteColors.color }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = deleteColors.hoverBg}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                          title={t('common.delete')}
-                        >
-                          <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
-                        </button>
+                        {isMatch ? (
+                          <div
+                            className="flex flex-col gap-0.5 w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(ev);
+                              onClickEvent?.(ev);
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="flex items-center gap-0.5 min-w-0">
+                                <i className="fa-solid fa-grip-vertical text-[9px] opacity-60 flex-shrink-0"></i>
+                                <span className="text-[9px] font-black leading-none">{ev.time || '--:--'}</span>
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteEvent?.(ev.id);
+                                }}
+                                className="hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
+                                style={{ color: deleteColors.color }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = deleteColors.hoverBg}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title={t('common.delete')}
+                              >
+                                <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                              </button>
+                            </div>
+                            {(ev.localTeam && ev.visitorTeam) ? (
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {resolveClubLogo(ev.localTeamClubId) && (
+                                    <img src={resolveClubLogo(ev.localTeamClubId)} alt="" className="h-3.5 w-3.5 object-contain flex-shrink-0" />
+                                  )}
+                                  <span className="truncate leading-tight min-w-0">
+                                    {resolveClubLabel(ev.localTeam, ev.localTeamClubId) && (
+                                      <span className="block text-[7px] font-bold opacity-70 truncate">{resolveClubLabel(ev.localTeam, ev.localTeamClubId)}</span>
+                                    )}
+                                    <span className="block truncate">{ev.localTeam}</span>
+                                  </span>
+                                </div>
+                                <span className="text-red-700 font-black leading-tight text-center">VS</span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {resolveClubLogo(ev.visitorTeamClubId) && (
+                                    <img src={resolveClubLogo(ev.visitorTeamClubId)} alt="" className="h-3.5 w-3.5 object-contain flex-shrink-0" />
+                                  )}
+                                  <span className="truncate leading-tight min-w-0">
+                                    {resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId) && (
+                                      <span className="block text-[7px] font-bold opacity-70 truncate">{resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId)}</span>
+                                    )}
+                                    <span className="block truncate">{ev.visitorTeam}</span>
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[8px] font-semibold leading-tight truncate block">
+                                {ev.title || ev.opponent || 'Partido'}
+                              </span>
+                            )}
+                            {ev.score && (
+                              <div className="text-[7px] font-black text-red-700 text-center">
+                                {ev.score}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100 flex-shrink-0"></i>
+                            <span
+                              className="truncate leading-tight flex-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEvent(ev);
+                                onClickEvent?.(ev);
+                              }}
+                            >
+                              {formatEventLabel(ev.time, ev.team)} {ev.title}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEvent?.(ev.id);
+                              }}
+                              className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
+                              style={{ color: deleteColors.color }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = deleteColors.hoverBg}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              title={t('common.delete')}
+                            >
+                              <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                            </button>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -436,7 +570,29 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
   return (
     <div className="animate-fade-in flex h-full min-h-[calc(100vh-110px)] flex-col gap-4 pb-6">
-      <div className="flex items-center justify-end gap-3 px-1">
+      <div className="flex items-center justify-between gap-3 px-1 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">{t('calendarView.filterAllTeams', 'Todos los equipos')}</option>
+            {availableTeams.map(team => (
+              <option key={team} value={team}>{team}</option>
+            ))}
+          </select>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">{t('calendarView.filterAllEvents', 'Todos los eventos')}</option>
+            {availableTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
         <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
           <button
             type="button"
@@ -670,7 +826,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   <button
                     key={i}
                     onClick={() => {
-                      const newEvent = { ...duplicateEvent, id: `${duplicateEvent.id}-copy-${Date.now()}`, date };
+                      const newEvent = { ...duplicateEvent, id: generateUUID(), date };
                       onSaveEvent?.(newEvent);
                       setDuplicateEvent(null);
                     }}

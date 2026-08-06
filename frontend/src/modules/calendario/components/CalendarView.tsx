@@ -228,14 +228,57 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     }
   };
 
+  const generateUUID = (): string => {
+    // Usar crypto.randomUUID si está disponible (navegadores modernos)
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback: generar un UUID v4 manualmente
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
   const duplicateEvent = (event: CalendarEvent, newDate: Date): CalendarEvent => {
-    return {
-      ...event,
-      id: crypto.randomUUID(),
-      date: newDate,
-      tasks: [],
-      attendance: {}
-    };
+    try {
+      console.log('Duplicando evento:', event);
+      console.log('Nueva fecha:', newDate);
+
+      const duplicated: CalendarEvent = {
+        id: generateUUID(),
+        title: event.title || 'Sin título',
+        type: event.type,
+        date: newDate,
+        time: event.time || '',
+        team: event.team,
+        clubId: event.clubId,
+        location: event.location,
+        notes: event.notes,
+        videoUrl: event.videoUrl,
+        docUrl: event.docUrl,
+        staffRoles: event.staffRoles,
+        competition: event.competition,
+        jornada: event.jornada,
+        sessionNumber: event.sessionNumber,
+        localTeam: event.localTeam,
+        visitorTeam: event.visitorTeam,
+        localTeamClubId: event.localTeamClubId,
+        visitorTeamClubId: event.visitorTeamClubId,
+        opponent: event.opponent,
+        score: event.score,
+        status: event.status,
+        tasks: [],
+        attendance: {}
+      };
+
+      console.log('Evento duplicado:', duplicated);
+      return duplicated;
+    } catch (err) {
+      console.error('Error al duplicar evento:', err, event);
+      throw new Error(`No se pudo duplicar el evento correctamente: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
@@ -958,32 +1001,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                           }`}
                         >
                           {ev.type === 'Partido' ? (
-                            <>
-                              <div className="flex items-center gap-0.5">
-                                <div
-                                  draggable="true"
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.effectAllowed = 'copy';
-                                    e.dataTransfer.setData('text/plain', JSON.stringify(ev));
-                                    setDraggedEvent(ev);
-                                  }}
-                                  onDragEnd={() => {
-                                    setDraggedEvent(null);
-                                    setDragOverDate(null);
-                                  }}
-                                  className="cursor-grab active:cursor-grabbing flex-shrink-0"
-                                  title={t('calendarView.dragToDuplicate')}
-                                >
-                                  <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100"></i>
+                            <div className="flex flex-col gap-0.5 p-0.5 w-full" onClick={() => handleEventClick(ev)}>
+                              <div className="text-[9px] font-bold leading-tight">{ev.time}</div>
+                              {(ev.localTeam && ev.visitorTeam) ? (
+                                <div className="text-[8px] font-semibold leading-tight">
+                                  <span className="truncate block">{ev.localTeam}</span>
+                                  <span className="text-red-700 font-black">VS</span>
+                                  <span className="truncate block">{ev.visitorTeam}</span>
                                 </div>
-                                <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
-                                  {ev.time}
-                                </span>
-                              </div>
-                              <span className="text-[10px] leading-tight pl-3 font-semibold break-words" onClick={() => handleEventClick(ev)}>
-                                {ev.localTeam && ev.visitorTeam ? `${ev.localTeam} vs ${ev.visitorTeam}` : `${ev.title || ev.opponent || ''}`}
-                              </span>
-                            </>
+                              ) : (
+                                <div className="text-[8px] font-semibold leading-tight truncate">
+                                  {ev.title || ev.opponent || 'Partido'}
+                                </div>
+                              )}
+                              {ev.score && (
+                                <div className="text-[7px] font-bold text-red-700 text-center">
+                                  {ev.score}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex items-center gap-0.5">
                               <div
