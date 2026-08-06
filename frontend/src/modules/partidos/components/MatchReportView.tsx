@@ -2703,7 +2703,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const renderAlineacionTactiva = () => (
     <div className="animate-fade-in flex flex-col h-[calc(100vh-130px)]">
-        <div className="flex justify-end px-6 py-2">
+        <div className="flex justify-center px-6 py-2">
              <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveLineup')}</button>
         </div>
         <TacticalBoard
