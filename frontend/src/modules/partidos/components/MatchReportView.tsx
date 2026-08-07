@@ -16,6 +16,8 @@ import SystemMinutesCharts from './SystemMinutesCharts';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { uploadMatchReportFile } from '@shared/services/photoService';
 import { useTranslation } from 'react-i18next';
+import html2canvas from 'html2canvas-pro';
+import jsPDF from 'jspdf';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -321,6 +323,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
   const [pitchDiagramPreview, setPitchDiagramPreview] = useState<{ label: string; positions: TacticalPosition[]; highlightIds?: Array<string | number> } | null>(null);
+  const resumenExportRef = useRef<HTMLDivElement>(null);
+  const [isExportingResumenPdf, setIsExportingResumenPdf] = useState(false);
 
   // Estado para el flujo interactivo de eventos
   const [selectedPlayerForEvent, setSelectedPlayerForEvent] = useState<Player | null>(null);
@@ -559,11 +563,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   ) => {
     const baseWidth = 224;
     const baseHeight = 336;
-    const dorsalClass = large ? 'w-9 h-9 text-[13px]' : 'w-4 h-4 text-[7px]';
-    const nameClass = large ? 'text-[12px]' : 'text-[6px]';
-    const goalBadgeClass = large ? 'w-4 h-4' : 'w-2 h-2';
-    const goalIconClass = large ? 'text-[7px]' : 'text-[4px]';
-    const cardBadgeClass = large ? 'w-3 h-3.5' : 'w-1.5 h-2';
+    const dorsalClass = 'w-4 h-4 text-[7px]';
+    const nameClass = large ? 'text-[7px]' : 'text-[6px]';
+    const goalBadgeClass = 'w-2 h-2';
+    const goalIconClass = 'text-[4px]';
+    const cardBadgeClass = 'w-1.5 h-2';
     const content = (
       <div className="relative rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: `${baseWidth}px`, height: `${baseHeight}px` }}>
         <div className="absolute inset-0 pointer-events-none opacity-70">
@@ -3892,6 +3896,53 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </div>
   );
 
+  const exportResumenToPDF = async () => {
+    const node = resumenExportRef.current;
+    if (!node) return;
+    setIsExportingResumenPdf(true);
+    try {
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
+
+      const A4_WIDTH_MM = 210;
+      const A4_HEIGHT_MM = 297;
+      const imgWidth = A4_WIDTH_MM;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [A4_WIDTH_MM, A4_HEIGHT_MM] });
+      const imgData = canvas.toDataURL('image/png');
+
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= A4_HEIGHT_MM;
+
+      while (heightLeft > 0) {
+        position -= A4_HEIGHT_MM;
+        pdf.addPage([A4_WIDTH_MM, A4_HEIGHT_MM]);
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= A4_HEIGHT_MM;
+      }
+
+      const fileName = `Resumen_${(dgForm.localTeam || 'local').replace(/\s+/g, '_')}_vs_${(dgForm.visitorTeam || 'visitante').replace(/\s+/g, '_')}.pdf`;
+
+      const pdfOutput = pdf.output('blob') as Blob | Promise<Blob>;
+      const pdfBlob = pdfOutput instanceof Promise ? await pdfOutput : pdfOutput;
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Error exporting resumen to PDF:', error);
+      alert('Error al generar el PDF del resumen');
+    } finally {
+      setIsExportingResumenPdf(false);
+    }
+  };
+
   const renderResumenSection = () => {
     const positions = report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
@@ -3914,11 +3965,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
     return (
       <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32">
-      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
+      <div ref={resumenExportRef} className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
           <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
             <i className="fa-solid fa-chart-simple text-red-500"></i> {t('matchReport.generalData.summary')}
           </div>
+          <button
+            onClick={exportResumenToPDF}
+            disabled={isExportingResumenPdf}
+            className="px-4 py-2 rounded-xl bg-sport-primary hover:bg-sport-primary-dark disabled:opacity-60 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"
+          >
+            {isExportingResumenPdf ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-pdf"></i>}
+            {isExportingResumenPdf ? t('common.loading') : 'INFORME PDF'}
+          </button>
         </div>
 
         <div className="flex items-center justify-center gap-4 sm:gap-6 py-2">
@@ -3958,8 +4017,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         <span className="w-6 h-6 rounded-full bg-sport-primary text-white flex items-center justify-center text-[9px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                         <span className="flex-1 truncate font-bold text-[var(--text-strong)]">{player.apodo || player.nombre}</span>
                         {subOutMinute !== undefined && subPartner && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.playerInLabel')}>
-                            <i className="fa-solid fa-arrow-right-to-bracket"></i>{subPartner.apodo || subPartner.nombre}
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md font-bold shrink-0 text-[8px] max-w-16 truncate" title={t('matchReport.matchEvents.playerInLabel')}>
+                            <i className="fa-solid fa-arrow-right-to-bracket text-[7px]"></i>{subPartner.apodo || subPartner.nombre}
                           </span>
                         )}
                         {goals > 0 && (
@@ -4001,7 +4060,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 className="cursor-pointer transition-transform hover:scale-[1.02]"
                 onClick={() => setPitchDiagramPreview({ label: `${t('matchReport.generalData.initialSystem')} · ${report.formation || '4-3-3'}`, positions })}
               >
-                {renderPitchDiagram(positions, undefined, 1.9, true)}
+                {renderPitchDiagram(positions, undefined, 1.6, true)}
               </div>
             </div>
           </div>
@@ -4027,8 +4086,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       <span className="w-6 h-6 rounded-full bg-[var(--surface-2)] text-[var(--text-strong)] flex items-center justify-center text-[9px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                       <span className="flex-1 truncate font-bold text-[var(--text-strong)]">{player.apodo || player.nombre}</span>
                       {subInMinute !== undefined && subPartner && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.playerOutLabel')}>
-                          <i className="fa-solid fa-arrow-right-from-bracket"></i>{subPartner.apodo || subPartner.nombre}
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-md font-bold shrink-0 text-[8px] max-w-16 truncate" title={t('matchReport.matchEvents.playerOutLabel')}>
+                          <i className="fa-solid fa-arrow-right-from-bracket text-[7px]"></i>{subPartner.apodo || subPartner.nombre}
                         </span>
                       )}
                       {goals > 0 && (

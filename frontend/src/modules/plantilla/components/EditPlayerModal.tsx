@@ -10,6 +10,7 @@ import type { Match } from '@modules/partidos/types';
 import type { Club } from '@modules/clubes/types';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import PlayerMatchBreakdown from './PlayerMatchBreakdown';
+import PlayerPositionMap from './PlayerPositionMap';
 
 interface EditPlayerModalProps {
   player: Player;
@@ -646,6 +647,16 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             sesionesAsistidas={attendanceStats.attended}
             sesionesAusencias={attendanceStats.absences}
           />
+
+          {/* === MINUTOS POR POSICIÓN EN EL CAMPO === */}
+          {matches && matches.length > 0 && (
+            <PlayerPositionMap
+              playerId={String(player.id)}
+              playerName={formData.apodo || formData.nombre}
+              photoUrl={preview || undefined}
+              matches={matches}
+            />
+          )}
 
           {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
           {matches && matches.length > 0 && (
