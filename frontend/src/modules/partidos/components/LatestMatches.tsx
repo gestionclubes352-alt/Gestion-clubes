@@ -6,6 +6,16 @@ import type { Club } from '@modules/clubes/types';
 import { getTeamConfig } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
 
+const getMyClubIdsForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
+  const ids = new Set<string>();
+  competitionTeams
+    .filter(team => team.competicion === competition && team.clubId)
+    .forEach(team => {
+      if (team.clubId) ids.add(String(team.clubId));
+    });
+  return ids;
+};
+
 const getMyTeamNamesForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
   const names = new Set<string>();
   // Agregar nombres conocidos del equipo (hardcoded como fallback)
@@ -31,8 +41,16 @@ const isMyTeam = (name: string, myTeamNames: Set<string> | undefined): boolean =
 const ownTeamNameOf = (match: Match, competitionTeams: CompetitionTeam[]): string => {
   const local = match.localTeam || '';
   const visitor = match.visitorTeam || '';
-  const myTeams = getMyTeamNamesForCompetition(match.competition, competitionTeams);
 
+  // Primero, intentar identificar por clubId (más confiable)
+  const myClubIds = getMyClubIdsForCompetition(match.competition, competitionTeams);
+  if (myClubIds.size > 0) {
+    if (match.localTeamClubId && myClubIds.has(String(match.localTeamClubId))) return local;
+    if (match.visitorTeamClubId && myClubIds.has(String(match.visitorTeamClubId))) return visitor;
+  }
+
+  // Fallback: identificar por nombre
+  const myTeams = getMyTeamNamesForCompetition(match.competition, competitionTeams);
   if (isMyTeam(local, myTeams)) return local;
   if (isMyTeam(visitor, myTeams)) return visitor;
   return local || visitor;
@@ -244,7 +262,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {matches.map((match) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
