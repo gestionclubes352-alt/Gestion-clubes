@@ -139,7 +139,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       if (a.competition !== b.competition) return a.competition.localeCompare(b.competition, 'es');
       const numA = parseInt(a.jornada) || 0;
       const numB = parseInt(b.jornada) || 0;
-      return numB - numA;
+      return numA - numB;
     });
   }, [filteredMatches]);
 
@@ -244,7 +244,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {matches.map((match) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
