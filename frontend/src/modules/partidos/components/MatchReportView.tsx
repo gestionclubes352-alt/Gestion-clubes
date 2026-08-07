@@ -23,6 +23,35 @@ type AbpSection =
 
 const newAbpItem = (): AbpItem => ({ id: crypto.randomUUID(), text: '', image: '', video: '' });
 
+// Separa posiciones que caen muy cerca entre sí (p.ej. tras sustituciones o
+// cambios de sistema mal ajustados) para que no se dibujen círculos superpuestos.
+// La distancia se normaliza según el aspect ratio del contenedor del campo:
+// un mismo % de diferencia vertical y horizontal no ocupa los mismos píxeles
+// reales cuando el campo no es cuadrado (p.ej. aspect-video 16:9).
+const resolveFieldCollisions = <T extends { x: number; y: number }>(
+  items: T[],
+  aspectRatio: number,
+  threshold = 6,
+  spread = 8,
+): T[] => {
+  const clusters: T[][] = [];
+  items.forEach(item => {
+    const cluster = clusters.find(c =>
+      c.some(other => Math.hypot(other.x - item.x, (other.y - item.y) / aspectRatio) < threshold)
+    );
+    if (cluster) cluster.push(item);
+    else clusters.push([item]);
+  });
+
+  return clusters.flatMap(cluster => {
+    if (cluster.length === 1) return cluster;
+    return cluster.map((item, i) => ({
+      ...item,
+      x: Math.min(96, Math.max(4, item.x + (i - (cluster.length - 1) / 2) * spread)),
+    }));
+  });
+};
+
 interface MatchReportViewProps {
   match: CalendarEvent;
   onBack: () => void;
@@ -264,6 +293,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const manualTicker = useRef<any>(null);
   const stopTimeoutRef = useRef<any>(null);
 
+  const [fullscreenAbpVideo, setFullscreenAbpVideo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!fullscreenAbpVideo) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreenAbpVideo(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [fullscreenAbpVideo]);
+
   const [currentNote, setCurrentNote] = useState('');
   const [eventFilter, setEventFilter] = useState('ALL');
   const [playerFilter, setPlayerFilter] = useState<string | number | 'ALL'>('ALL');
@@ -280,6 +320,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [isDuelDialogOpen, setIsDuelDialogOpen] = useState(false);
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
+  const [pitchDiagramPreview, setPitchDiagramPreview] = useState<{ label: string; positions: TacticalPosition[]; highlightIds?: Array<string | number> } | null>(null);
 
   // Estado para el flujo interactivo de eventos
   const [selectedPlayerForEvent, setSelectedPlayerForEvent] = useState<Player | null>(null);
@@ -293,6 +334,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [collapsedPlanBlocks, setCollapsedPlanBlocks] = useState<Set<string>>(new Set());
   const [collapsedRivalBlocks, setCollapsedRivalBlocks] = useState<Set<string>>(new Set());
   const [expandedAbpCard, setExpandedAbpCard] = useState<{ section: AbpSection; id: string; label: string } | null>(null);
+  const [expandedFormation, setExpandedFormation] = useState<{ type: 'initial' | 'window'; id?: string } | null>(null);
 
   // Ficha del jugador (modal embebido)
   const [selectedPlayerForModal, setSelectedPlayerForModal] = useState<Player | null>(null);
@@ -453,22 +495,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       })
       .filter((entry): entry is { player: Player; x: number; y: number } => entry !== null);
 
-    const COLLISION_THRESHOLD = 6;
-    const clusters: Array<typeof raw> = [];
-    raw.forEach(entry => {
-      const cluster = clusters.find(c => c.some(other => Math.hypot(other.x - entry.x, other.y - entry.y) < COLLISION_THRESHOLD));
-      if (cluster) cluster.push(entry);
-      else clusters.push([entry]);
-    });
-
-    return clusters.flatMap(cluster => {
-      if (cluster.length === 1) return cluster;
-      const spread = 8;
-      return cluster.map((entry, i) => ({
-        ...entry,
-        x: Math.min(96, Math.max(4, entry.x + (i - (cluster.length - 1) / 2) * spread)),
-      }));
-    });
+    // Campo grande: contenedor con aspect-video (16/9).
+    return resolveFieldCollisions(raw, 16 / 9);
   }, [onPitchPlayers, currentLineupPositions]);
 
   // Agrupa los eventos de substitutionSnapshots por minuto: todo lo que ocurre
@@ -523,50 +551,79 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     persistReport(next);
   };
 
-  const renderPitchDiagram = (positionsList: TacticalPosition[], highlightInIds?: Array<string | number> | string | number) => (
-    <div className="relative mx-auto rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
-      <div className="absolute inset-0 pointer-events-none opacity-70">
-        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
-            <rect x="3" y="3" width="94" height="94" />
-            <line x1="3" y1="50" x2="97" y2="50" />
-            <circle cx="50" cy="50" r="10" />
-          </g>
-        </svg>
-      </div>
-      {positionsList.filter(pos => (pos.playerIds || []).length > 0).map(pos => {
-        const player = squad.find(p => samePlayerId(p.id, (pos.playerIds || [])[0]));
-        if (!player) return null;
-        const highlightList = highlightInIds === undefined ? [] : Array.isArray(highlightInIds) ? highlightInIds : [highlightInIds];
-        const isIncoming = highlightList.some(id => samePlayerId(player.id, id));
-        const key = String(player.id);
-        const goals = goalsByPlayer.get(key) ?? 0;
-        const cards = cardsByPlayer.get(key);
-        return (
-          <div key={pos.id} className="absolute flex flex-col items-center gap-0" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}>
-            <div className="relative">
-              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-black shadow shrink-0 ${isIncoming ? 'bg-emerald-500 text-white ring-1 ring-white' : 'bg-white text-[#1e8449]'}`}>{player.dorsal ?? '-'}</span>
-              {(goals > 0 || cards?.amarillas || cards?.rojas) && (
-                <div className="absolute -top-0.5 -right-0.5 flex items-center gap-0">
-                  {goals > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goals')}>
-                      <i className="fa-solid fa-futbol text-white text-[4px]"></i>
-                    </span>
-                  )}
-                  {cards?.rojas ? (
-                    <span className="w-1.5 h-2 rounded-[1px] bg-red-600 shadow shrink-0"></span>
-                  ) : cards?.amarillas ? (
-                    <span className="w-1.5 h-2 rounded-[1px] bg-amber-500 shadow shrink-0"></span>
-                  ) : null}
-                </div>
-              )}
+  const renderPitchDiagram = (
+    positionsList: TacticalPosition[],
+    highlightInIds?: Array<string | number> | string | number,
+    scale: number = 1,
+    large: boolean = false,
+  ) => {
+    const baseWidth = 224;
+    const baseHeight = 336;
+    const dorsalClass = large ? 'w-9 h-9 text-[13px]' : 'w-4 h-4 text-[7px]';
+    const nameClass = large ? 'text-[12px]' : 'text-[6px]';
+    const goalBadgeClass = large ? 'w-4 h-4' : 'w-2 h-2';
+    const goalIconClass = large ? 'text-[7px]' : 'text-[4px]';
+    const cardBadgeClass = large ? 'w-3 h-3.5' : 'w-1.5 h-2';
+    const content = (
+      <div className="relative rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: `${baseWidth}px`, height: `${baseHeight}px` }}>
+        <div className="absolute inset-0 pointer-events-none opacity-70">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
+              <rect x="3" y="3" width="94" height="94" />
+              <line x1="3" y1="50" x2="97" y2="50" />
+              <circle cx="50" cy="50" r="10" />
+            </g>
+          </svg>
+        </div>
+        {resolveFieldCollisions(
+          positionsList
+            .filter(pos => (pos.playerIds || []).length > 0)
+            .map(pos => ({ pos, x: pos.x, y: pos.y })),
+          baseWidth / baseHeight,
+        ).map(({ pos, x, y }) => {
+          const player = squad.find(p => samePlayerId(p.id, (pos.playerIds || [])[0]));
+          if (!player) return null;
+          const highlightList = highlightInIds === undefined ? [] : Array.isArray(highlightInIds) ? highlightInIds : [highlightInIds];
+          const isIncoming = highlightList.some(id => samePlayerId(player.id, id));
+          const key = String(player.id);
+          const goals = goalsByPlayer.get(key) ?? 0;
+          const cards = cardsByPlayer.get(key);
+          return (
+            <div key={pos.id} className="absolute flex flex-col items-center gap-0" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
+              <div className="relative">
+                <span className={`${dorsalClass} rounded-full flex items-center justify-center font-black shadow shrink-0 ${isIncoming ? 'bg-emerald-500 text-white ring-1 ring-white' : 'bg-white text-[#1e8449]'}`}>{player.dorsal ?? '-'}</span>
+                {(goals > 0 || cards?.amarillas || cards?.rojas) && (
+                  <div className="absolute -top-0.5 -right-0.5 flex items-center gap-0">
+                    {goals > 0 && (
+                      <span className={`${goalBadgeClass} rounded-full bg-emerald-500 flex items-center justify-center shadow`} title={t('matchReport.matchEvents.goals')}>
+                        <i className={`fa-solid fa-futbol text-white ${goalIconClass}`}></i>
+                      </span>
+                    )}
+                    {cards?.rojas ? (
+                      <span className={`${cardBadgeClass} rounded-[1px] bg-red-600 shadow shrink-0`}></span>
+                    ) : cards?.amarillas ? (
+                      <span className={`${cardBadgeClass} rounded-[1px] bg-amber-500 shadow shrink-0`}></span>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+              <span className={`text-white ${nameClass} font-bold leading-none text-center whitespace-nowrap drop-shadow-sm`}>{player.apodo || player.nombre}</span>
             </div>
-            <span className="text-white text-[6px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm">{player.apodo || player.nombre}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+          );
+        })}
+      </div>
+    );
+
+    if (scale === 1) {
+      return <div className="mx-auto" style={{ width: `${baseWidth}px` }}>{content}</div>;
+    }
+
+    return (
+      <div className="mx-auto" style={{ width: `${baseWidth * scale}px`, height: `${baseHeight * scale}px` }}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>{content}</div>
+      </div>
+    );
+  };
 
   const renderEditablePitchDiagram = (positionsList: TacticalPosition[], onDropPlayer: (positionId: string, playerId: string | number) => void) => (
     <div className="relative mx-auto rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
@@ -579,7 +636,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </g>
         </svg>
       </div>
-      {positionsList.map(pos => {
+      {resolveFieldCollisions(positionsList.map(pos => ({ pos, x: pos.x, y: pos.y })), 224 / 336).map(({ pos, x, y }) => {
         const playerId = (pos.playerIds || [])[0];
         const player = playerId !== undefined ? squad.find(p => samePlayerId(p.id, playerId)) : undefined;
 
@@ -587,7 +644,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <div
             key={pos.id}
             className="absolute flex flex-col items-center gap-0"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
             onDragOver={e => e.preventDefault()}
             onDrop={e => {
               e.preventDefault();
@@ -763,6 +820,25 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     });
     return map;
   }, [report.substitutions]);
+
+  // Jugador con el que se produce el cambio: para el que sale, quién entra en su lugar; y viceversa.
+  const subPartnerByOutPlayer = useMemo(() => {
+    const map = new Map<string, Player | undefined>();
+    (report.substitutions || []).forEach(s => {
+      if (s.playerOutId === undefined) return;
+      map.set(String(s.playerOutId), s.playerInId !== undefined ? squad.find(p => samePlayerId(p.id, s.playerInId)) : undefined);
+    });
+    return map;
+  }, [report.substitutions, squad]);
+
+  const subPartnerByInPlayer = useMemo(() => {
+    const map = new Map<string, Player | undefined>();
+    (report.substitutions || []).forEach(s => {
+      if (s.playerInId === undefined) return;
+      map.set(String(s.playerInId), s.playerOutId !== undefined ? squad.find(p => samePlayerId(p.id, s.playerOutId)) : undefined);
+    });
+    return map;
+  }, [report.substitutions, squad]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -1417,9 +1493,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* 11 Inicial - Izquierda */}
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+        <div className="space-y-2 max-h-[700px] overflow-y-auto">
           <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">{t('matchReport.matchEvents.startingXI')}</h4>
           <div className="space-y-0.5">
             {activeLineupPlayers.map(player => {
@@ -1462,7 +1538,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
 
         {/* Campo Interactivo - Centro */}
-        <div className="flex justify-center lg:col-span-3 flex-col h-fit">
+        <div className="flex justify-center flex-col h-fit">
           {/* Botón Sistema y Posiciones */}
           <button
             onClick={() => {
@@ -1478,7 +1554,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <i className="fa-solid fa-sliders"></i>Sistema y Posiciones
           </button>
 
-          <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
+          <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
         <div className="absolute inset-0 pointer-events-none opacity-70">
           <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
             <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
@@ -1700,7 +1776,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
 
         {/* Suplentes - Derecha */}
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+        <div className="space-y-2 max-h-[700px] overflow-y-auto">
           <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">Suplentes</h4>
           <div className="space-y-0.5">
             {benchPlayers.length === 0 ? (
@@ -2008,7 +2084,23 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         />
         {value && (
           isDirectVideoUrl(value) ? (
-            <video src={value} controls className="w-full rounded-2xl border border-[var(--border-soft)] bg-black" />
+            <div className="relative">
+              <video
+                src={value}
+                controls
+                playsInline
+                controlsList="nofullscreen"
+                className="w-full rounded-2xl border border-[var(--border-soft)] bg-black"
+              />
+              <button
+                type="button"
+                onClick={() => setFullscreenAbpVideo(value)}
+                title={t('matchReport.video.fullscreen') as string}
+                className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-all"
+              >
+                <i className="fa-solid fa-expand text-xs"></i>
+              </button>
+            </div>
           ) : (
             <a
               href={value}
@@ -2020,6 +2112,32 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </a>
           )
         )}
+      </div>
+    );
+  };
+
+  const renderFullscreenAbpVideo = () => {
+    if (!fullscreenAbpVideo) return null;
+    return (
+      <div
+        className="fixed inset-0 z-[400] bg-black flex items-center justify-center p-4 animate-fade-in"
+        onClick={(e) => { if (e.target === e.currentTarget) setFullscreenAbpVideo(null); }}
+      >
+        <button
+          type="button"
+          onClick={() => setFullscreenAbpVideo(null)}
+          className="absolute top-4 right-4 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
+        >
+          <i className="fa-solid fa-xmark text-lg"></i>
+        </button>
+        <video
+          src={fullscreenAbpVideo}
+          controls
+          autoPlay
+          playsInline
+          controlsList="nofullscreen"
+          className="max-w-full max-h-full rounded-2xl"
+        />
       </div>
     );
   };
@@ -2919,23 +3037,47 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            <div>
+            <div
+              onClick={() => setExpandedFormation({ type: 'initial' })}
+              className="relative group cursor-pointer rounded-lg overflow-hidden transition-all hover:shadow-lg hover:scale-105"
+              role="button"
+              tabIndex={0}
+            >
               <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
                 {t('matchReport.generalData.startingXI')} · {report.formation || '4-3-3'}
               </p>
-              {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
+              <div className="relative">
+                {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <i className="fa-solid fa-expand text-white text-lg drop-shadow-lg"></i>
+                </div>
+              </div>
             </div>
             {windowSnapshots.map(win => (
-              <div key={win.id} className="relative group">
+              <div
+                key={win.id}
+                onClick={() => setExpandedFormation({ type: 'window', id: win.id })}
+                className="relative group cursor-pointer rounded-lg overflow-hidden transition-all hover:shadow-lg hover:scale-105"
+                role="button"
+                tabIndex={0}
+              >
                 <button
-                  onClick={() => handleDeleteWindow(win)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteWindow(win);
+                  }}
                   title={t('common.delete')}
-                  className="absolute top-0 right-1/2 translate-x-[110px] z-10 w-6 h-6 rounded-full bg-white dark:bg-[#1a1a1a] border border-[var(--border-soft)] text-[var(--text-muted)] hover:text-red-500 hover:border-red-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow"
+                  className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-white dark:bg-[#1a1a1a] border border-[var(--border-soft)] text-[var(--text-muted)] hover:text-red-500 hover:border-red-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow"
                 >
                   <i className="fa-solid fa-trash-can text-[10px]"></i>
                 </button>
                 {renderWindowSummary(win)}
-                {renderPitchDiagram(win.positions, win.incomingIds)}
+                <div className="relative">
+                  {renderPitchDiagram(win.positions, win.incomingIds)}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <i className="fa-solid fa-expand text-white text-lg drop-shadow-lg"></i>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -3640,6 +3782,26 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     ) : null
   );
 
+  const renderPitchDiagramPreview = () => (
+    pitchDiagramPreview ? (
+      <div
+        className="fixed inset-0 z-[300] bg-black/80 flex flex-col items-center justify-center p-6 gap-4"
+        onClick={() => setPitchDiagramPreview(null)}
+      >
+        <button
+          onClick={() => setPitchDiagramPreview(null)}
+          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+        >
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+        <p className="text-white text-sm font-black uppercase tracking-widest text-center">{pitchDiagramPreview.label}</p>
+        <div onClick={e => e.stopPropagation()}>
+          {renderPitchDiagram(pitchDiagramPreview.positions, pitchDiagramPreview.highlightIds, 2.4, true)}
+        </div>
+      </div>
+    ) : null
+  );
+
   const renderExpandedAbpCard = () => {
     if (!expandedAbpCard) return null;
     const { label, section, id } = expandedAbpCard;
@@ -3760,31 +3922,21 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
 
         <div className="flex items-center justify-center gap-4 sm:gap-6 py-2">
-          <p className="flex-1 text-right text-sm font-black text-[var(--text-strong)] uppercase truncate">{dgForm.localTeam || t('newEvent.homeTeam')}</p>
+          <div className="flex-1 text-right">
+            {localClubLabel && <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wide truncate">{localClubLabel}</p>}
+            <p className="text-sm font-black text-[var(--text-strong)] uppercase truncate">{dgForm.localTeam || t('newEvent.homeTeam')}</p>
+          </div>
           <div className="px-6 py-3 rounded-2xl bg-[var(--surface-1)] border border-[var(--border-soft)] text-2xl font-black text-[var(--text-strong)] tracking-widest shrink-0">
             {liveScore || dgForm.score || '- : -'}
           </div>
-          <p className="flex-1 text-left text-sm font-black text-[var(--text-strong)] uppercase truncate">{dgForm.visitorTeam || t('newEvent.awayTeam')}</p>
-        </div>
-
-        <div className="flex flex-wrap justify-center gap-8">
-          <div className="w-56 shrink-0">
-            <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2 justify-center">
-              <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '4-3-3'}
-            </h4>
-            {renderPitchDiagram(positions)}
+          <div className="flex-1 text-left">
+            {visitorClubLabel && <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wide truncate">{visitorClubLabel}</p>}
+            <p className="text-sm font-black text-[var(--text-strong)] uppercase truncate">{dgForm.visitorTeam || t('newEvent.awayTeam')}</p>
           </div>
-
-          {windowSnapshots.map(win => (
-            <div key={win.id} className="w-56 shrink-0">
-              {renderWindowSummary(win)}
-              {renderPitchDiagram(win.positions, win.incomingIds)}
-            </div>
-          ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
+        <div className="flex flex-col lg:flex-row items-start gap-8">
+          <div className="w-full lg:flex-1 lg:max-w-xs order-2 lg:order-1">
             <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2">
               <i className="fa-solid fa-list-ol"></i> {t('matchReport.generalData.startingXI')}
             </h4>
@@ -3800,10 +3952,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     const goals = goalsByPlayer.get(key) ?? 0;
                     const cards = cardsByPlayer.get(key);
                     const subOutMinute = subOutMinuteByPlayer.get(key);
+                    const subPartner = subPartnerByOutPlayer.get(key);
                     return (
                       <div key={player.id} className="flex items-center gap-2 px-3 py-2 text-xs flex-wrap">
                         <span className="w-6 h-6 rounded-full bg-sport-primary text-white flex items-center justify-center text-[9px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                         <span className="flex-1 truncate font-bold text-[var(--text-strong)]">{player.apodo || player.nombre}</span>
+                        {subOutMinute !== undefined && subPartner && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.playerInLabel')}>
+                            <i className="fa-solid fa-arrow-right-to-bracket"></i>{subPartner.apodo || subPartner.nombre}
+                          </span>
+                        )}
                         {goals > 0 && (
                           <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
                             <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
@@ -3834,7 +3992,21 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             )}
           </div>
 
-          <div>
+          <div className="w-full lg:w-auto lg:flex-1 order-1 lg:order-2 flex justify-center">
+            <div className="w-full max-w-lg">
+              <h4 className="text-base font-black text-[var(--text-muted)] uppercase tracking-widest mb-4 flex items-center gap-2 justify-center">
+                <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '4-3-3'}
+              </h4>
+              <div
+                className="cursor-pointer transition-transform hover:scale-[1.02]"
+                onClick={() => setPitchDiagramPreview({ label: `${t('matchReport.generalData.initialSystem')} · ${report.formation || '4-3-3'}`, positions })}
+              >
+                {renderPitchDiagram(positions, undefined, 1.9, true)}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full lg:flex-1 lg:max-w-xs order-3">
             <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2">
               <i className="fa-solid fa-people-group"></i> {t('matchReport.generalData.calledUp')}
             </h4>
@@ -3849,10 +4021,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   const goals = goalsByPlayer.get(key) ?? 0;
                   const cards = cardsByPlayer.get(key);
                   const subInMinute = subInMinuteByPlayer.get(key);
+                  const subPartner = subPartnerByInPlayer.get(key);
                   return (
                     <div key={player.id} className={`flex items-center gap-2 px-3 py-2 text-xs flex-wrap ${played ? '' : 'opacity-50'}`}>
                       <span className="w-6 h-6 rounded-full bg-[var(--surface-2)] text-[var(--text-strong)] flex items-center justify-center text-[9px] font-black shrink-0">{player.dorsal ?? '-'}</span>
                       <span className="flex-1 truncate font-bold text-[var(--text-strong)]">{player.apodo || player.nombre}</span>
+                      {subInMinute !== undefined && subPartner && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.playerOutLabel')}>
+                          <i className="fa-solid fa-arrow-right-from-bracket"></i>{subPartner.apodo || subPartner.nombre}
+                        </span>
+                      )}
                       {goals > 0 && (
                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg font-black shrink-0 text-[10px]" title={t('matchReport.matchEvents.goals')}>
                           <i className="fa-solid fa-futbol"></i>{goals > 1 ? `x${goals}` : ''}
@@ -3881,6 +4059,26 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             )}
           </div>
         </div>
+
+        {windowSnapshots.length > 0 && (
+          <div className="border-t border-[var(--border-soft)] pt-6">
+            <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2 justify-center">
+              <i className="fa-solid fa-images"></i> {t('matchReport.matchEvents.systemAfterSubstitutions')}
+            </h4>
+            <div className="flex flex-wrap justify-center gap-8">
+              {windowSnapshots.map(win => (
+                <div
+                  key={win.id}
+                  className="w-56 shrink-0 cursor-pointer transition-transform hover:scale-[1.02]"
+                  onClick={() => setPitchDiagramPreview({ label: `${win.minute}' · ${t('matchReport.matchEvents.systemAfterSubstitutions')}`, positions: win.positions, highlightIds: win.incomingIds })}
+                >
+                  {renderWindowSummary(win)}
+                  {renderPitchDiagram(win.positions, win.incomingIds)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       </div>
     );
@@ -4266,7 +4464,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   return (
     <div className="min-h-screen flex flex-col animate-fade-in bg-[var(--bg)]">
       {renderAbpImagePreview()}
+      {renderPitchDiagramPreview()}
       {renderExpandedAbpCard()}
+      {renderFullscreenAbpVideo()}
       <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-0)] shadow-sm sticky top-0 z-[100]">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="w-10 h-10 rounded-xl flex items-center justify-center transition-all text-[var(--text)] bg-[var(--surface-1)] hover:bg-[var(--surface-2)]"><i className="fa-solid fa-chevron-left text-xs"></i></button>
@@ -4448,6 +4648,75 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para formaciones ampliadas */}
+      {expandedFormation && (
+        <div className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-soft)] bg-[var(--surface-1)] shrink-0">
+              <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">
+                {expandedFormation.type === 'initial'
+                  ? `${t('matchReport.generalData.startingXI')} · ${report.formation || '4-3-3'}`
+                  : windowSnapshots.find(w => w.id === expandedFormation.id)?.minute
+                  ? `${windowSnapshots.find(w => w.id === expandedFormation.id)?.minute}' - ${t('matchReport.matchEvents.systemAfterSubstitutions')}`
+                  : 'Formación'}
+              </h2>
+              <button
+                onClick={() => setExpandedFormation(null)}
+                className="w-10 h-10 rounded-lg bg-[var(--surface-0)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all"
+              >
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center justify-center gap-6">
+              {expandedFormation.type === 'initial' ? (
+                <>
+                  <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '600px' }}>
+                    <div className="w-full max-w-3xl h-full">
+                      {renderPitchDiagram(
+                        report.lineupPositions && report.lineupPositions.length > 0
+                          ? report.lineupPositions
+                          : getInitialPositions(report.formation || '4-3-3')
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {windowSnapshots.find(w => w.id === expandedFormation.id) && (
+                    <>
+                      <div className="w-full">
+                        {renderWindowSummary(windowSnapshots.find(w => w.id === expandedFormation.id)!)}
+                      </div>
+                      <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '600px' }}>
+                        <div className="w-full max-w-3xl h-full">
+                          {renderPitchDiagram(
+                            windowSnapshots.find(w => w.id === expandedFormation.id)!.positions,
+                            windowSnapshots.find(w => w.id === expandedFormation.id)!.incomingIds
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-6 border-t border-[var(--border-soft)] bg-[var(--surface-1)] flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => setExpandedFormation(null)}
+                className="px-6 py-3 rounded-xl bg-[var(--surface-0)] hover:bg-[var(--surface-2)] text-[var(--text)] font-black text-[10px] uppercase tracking-widest transition-all"
+              >
+                {t('common.close')}
+              </button>
             </div>
           </div>
         </div>

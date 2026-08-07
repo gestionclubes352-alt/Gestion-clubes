@@ -210,9 +210,10 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
       {changes.length > 0 && (
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase text-slate-700 dark:text-slate-300">
-            Cambios Registrados
+            <i className="fa-solid fa-diagram-project mr-2" />
+            Sistema tras cada cambio
           </h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {changes.map((change) => {
               const isSelected = selectedChangeId === change.id;
               const changeLabel =
@@ -225,41 +226,38 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
               return (
                 <div
                   key={change.id}
-                  className="relative rounded-lg border-2 cursor-pointer transition-all group"
+                  onClick={() => setModalChangeId(change.id)}
+                  className="relative rounded-lg border-2 cursor-pointer transition-all group hover:shadow-xl hover:border-blue-400 dark:hover:border-blue-500"
                   style={{
                     borderColor: isSelected ? '#3b82f6' : '#e2e8f0',
-                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.05)' : '',
+                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.05)' : 'transparent',
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setModalChangeId(change.id);
+                    }
                   }}
                 >
                   <div className="rounded-lg overflow-hidden">
-                    <button
-                      onClick={() => setSelectedChangeId(change.id)}
-                      className="w-full text-left"
-                      type="button"
-                    >
-                      <MatchFormationViewer
-                        formation={selectedFormation.formation}
-                        players={playersOnField}
-                        highlightPlayerId={change.playerInId || change.playerOutId}
-                        title={changeLabel}
-                        compact={true}
-                        className="p-0"
-                      />
-                    </button>
+                    <MatchFormationViewer
+                      formation={selectedFormation.formation}
+                      players={playersOnField}
+                      highlightPlayerId={change.playerInId || change.playerOutId}
+                      title={changeLabel}
+                      compact={true}
+                      className="p-0"
+                    />
                   </div>
 
-                  {/* Expand button - positioned outside overflow */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setModalChangeId(change.id);
-                    }}
-                    className="absolute -top-3 -right-3 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-all hover:scale-110"
-                    title="Ver en grande"
-                    type="button"
-                  >
-                    <i className="fa-solid fa-expand text-base" />
-                  </button>
+                  {/* Expand overlay indicator */}
+                  <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                    <div className="flex flex-col items-center gap-2">
+                      <i className="fa-solid fa-expand text-white text-lg drop-shadow-lg" />
+                      <span className="text-white text-xs font-bold drop-shadow-lg">Ver en grande</span>
+                    </div>
+                  </div>
                 </div>
               );
             })}

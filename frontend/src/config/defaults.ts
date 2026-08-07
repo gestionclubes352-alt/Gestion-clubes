@@ -225,7 +225,7 @@ export const FOOTBALL_FORMATIONS: FormationConfig[] = [
       { id: 'GK', x: 50, y: 92, label: 'POR', fullName: 'Portero' },
       { id: 'CAD', x: 94, y: 65, label: 'CAD', fullName: 'Carrilero Derecho' },
       { id: 'CD1', x: 75, y: 82, label: 'DFC', fullName: 'Defensa Central' },
-      { id: 'CD2', x: 50, y: 85, label: 'DFC', fullName: 'Defensa Central' },
+      { id: 'CD2', x: 50, y: 82, label: 'DFC', fullName: 'Defensa Central' },
       { id: 'CD3', x: 25, y: 82, label: 'DFC', fullName: 'Defensa Central' },
       { id: 'CAI', x: 6, y: 65, label: 'CAI', fullName: 'Carrilero Izquierdo' },
       { id: 'MC1', x: 65, y: 52, label: 'MC', fullName: 'Mediocentro' },

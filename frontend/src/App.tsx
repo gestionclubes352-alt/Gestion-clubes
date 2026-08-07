@@ -1202,9 +1202,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       }} />}
       {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={ownClubCompetitionTeams} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
         try {
-          if (isNewStaff) {
-            await personalService.create({
-              nombre: s.nombre,
+          const validateAndPrepare = (staff: Personal) => {
+            if (!staff.nombre || !staff.nombre.trim()) {
+              throw new Error('El nombre es requerido');
+            }
+            return {
+              ...staff,
+              nombre: staff.nombre.trim(),
               cargo: s.cargo || '',
               telefono: s.telefono || undefined,
               dni: s.dni || undefined,
@@ -1212,23 +1216,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               equipo_ids: (s as any).equipo_ids || undefined,
               foto_url: s.foto_url || undefined,
               club_id: s.club_id || currentTeam?.id || '',
-            });
+            };
+          };
+
+          const preparedData = validateAndPrepare(s);
+
+          if (isNewStaff) {
+            await personalService.create(preparedData);
           } else {
-            await personalService.update(s.id, {
-              nombre: s.nombre,
-              cargo: s.cargo || '',
-              telefono: s.telefono || undefined,
-              dni: s.dni || undefined,
-              email: (s as any).email || undefined,
-              equipo_ids: (s as any).equipo_ids || undefined,
-              foto_url: s.foto_url || undefined,
-              club_id: s.club_id,
-            });
+            await personalService.update(s.id, preparedData);
           }
           await fetchData();
           setEditingStaff(null);
           setIsNewStaff(false);
         } catch (e) {
+          console.error('Error guardando personal:', e);
           alert(e instanceof Error ? e.message : 'Error al guardar el personal');
         }
       }} />}
