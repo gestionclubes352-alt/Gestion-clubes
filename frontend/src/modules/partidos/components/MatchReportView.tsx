@@ -4246,6 +4246,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </div>
   );
 
+  // Match report tabs - CAMBIOS TÁCTICOS removed (consolidated into ALINEACIÓN and PLAN DE PARTIDO)
   const tabs = [
     { id: 'DATOS GENERALES', label: t('matchReport.tabs.generalData'), icon: 'fa-circle-info' },
     { id: 'INFORME RIVAL', label: t('matchReport.tabs.opponentReport'), icon: 'fa-shield-heart' },
