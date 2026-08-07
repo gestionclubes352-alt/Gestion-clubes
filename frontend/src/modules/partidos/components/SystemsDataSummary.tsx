@@ -61,12 +61,13 @@ const calculatePlayerIntervals = (
   substitutions: any[] = [],
   redCards: any[] = [],
   matchDuration = MATCH_DURATION_MINUTES
-) => {
-  const intervals = new Map<string, { start: number; end: number }>();
+): Map<string, Array<{ start: number; end: number }>> => {
+  const playerIntervals = new Map<string, Array<{ start: number; end: number }>>();
   const starterIds = new Set((lineup || []).flatMap(pos => pos.playerIds || []).map(id => String(id)));
 
+  // Starters comienzan en minuto 0
   starterIds.forEach(id => {
-    intervals.set(id, { start: 0, end: matchDuration });
+    playerIntervals.set(id, [{ start: 0, end: matchDuration }]);
   });
 
   const redCardMinute = new Map<string, number>();
@@ -78,29 +79,44 @@ const calculatePlayerIntervals = (
       if (existing === undefined || c.minute < existing) redCardMinute.set(key, c.minute);
     });
 
+  // Procesa todas las sustituciones para ajustar intervalos
   (substitutions || []).forEach(sub => {
     if (sub.playerOutId !== undefined) {
       const outId = String(sub.playerOutId);
-      const interval = intervals.get(outId);
-      if (interval) interval.end = sub.minute;
+      const intervals = playerIntervals.get(outId);
+      if (intervals && intervals.length > 0) {
+        // Cierra el último intervalo del jugador que sale
+        intervals[intervals.length - 1].end = sub.minute;
+      }
     }
     if (sub.playerInId !== undefined) {
       const inId = String(sub.playerInId);
-      intervals.set(inId, { start: sub.minute, end: matchDuration });
+      if (!playerIntervals.has(inId)) {
+        playerIntervals.set(inId, []);
+      }
+      // Abre un nuevo intervalo para el jugador que entra
+      playerIntervals.get(inId)!.push({ start: sub.minute, end: matchDuration });
     }
   });
 
+  // Aplica tarjetas rojas (reduce el tiempo de fin)
   redCardMinute.forEach((minute, playerId) => {
-    const interval = intervals.get(playerId);
-    if (interval) interval.end = Math.min(interval.end, minute);
+    const intervals = playerIntervals.get(playerId);
+    if (intervals) {
+      intervals.forEach(interval => {
+        if (minute >= interval.start && minute < interval.end) {
+          interval.end = minute;
+        }
+      });
+    }
   });
 
-  return intervals;
+  return playerIntervals;
 };
 
 const calculateSystemStats = (report: MatchReport): SystemStats[] => {
   const formationWindows = calculateFormationWindows(report.formation, report.formationChanges);
-  const playerIntervals = calculatePlayerIntervals(report.lineupPositions, report.substitutions, report.matchCards);
+  const playerIntervalsMap = calculatePlayerIntervals(report.lineupPositions, report.substitutions, report.matchCards);
 
   const systemMap = new Map<string, { minutes: number; playerMinutes: Map<string, number> }>();
 
@@ -112,11 +128,14 @@ const calculateSystemStats = (report: MatchReport): SystemStats[] => {
     const entry = systemMap.get(key)!;
     entry.minutes += window.end - window.start;
 
-    playerIntervals.forEach((interval, playerId) => {
-      const overlap = Math.min(interval.end, window.end) - Math.max(interval.start, window.start);
-      if (overlap > 0) {
-        entry.playerMinutes.set(playerId, (entry.playerMinutes.get(playerId) ?? 0) + overlap);
-      }
+    playerIntervalsMap.forEach((intervals, playerId) => {
+      // Itera sobre todos los intervalos del jugador
+      intervals.forEach(interval => {
+        const overlap = Math.min(interval.end, window.end) - Math.max(interval.start, window.start);
+        if (overlap > 0) {
+          entry.playerMinutes.set(playerId, (entry.playerMinutes.get(playerId) ?? 0) + overlap);
+        }
+      });
     });
   });
 

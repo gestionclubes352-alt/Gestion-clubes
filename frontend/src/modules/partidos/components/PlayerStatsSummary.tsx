@@ -43,22 +43,47 @@ export const computeMatchStats = (report: MatchReport) => {
       if (existing === undefined || c.minute < existing) redCardMinuteByPlayer.set(key, c.minute);
     });
 
-  const minutesByPlayer = new Map<string, number>();
+  // Calcula intervalos de tiempo en el que cada jugador está en el campo
+  const playerIntervals = new Map<string, Array<{ start: number; end: number }>>();
+
+  // Starters comienzan en minuto 0
   starterIds.forEach(key => {
-    const subOff = subs.find(s => s.playerOutId !== undefined && String(s.playerOutId) === key);
-    let end = subOff ? subOff.minute : MATCH_DURATION_MINUTES;
-    const red = redCardMinuteByPlayer.get(key);
-    if (red !== undefined && red < end) end = red;
-    minutesByPlayer.set(key, Math.max(0, end));
+    playerIntervals.set(key, [{ start: 0, end: MATCH_DURATION_MINUTES }]);
   });
+
+  // Procesa todas las sustituciones para ajustar intervalos
   subs.forEach(sub => {
-    if (sub.playerInId === undefined) return;
-    const key = String(sub.playerInId);
-    if (minutesByPlayer.has(key)) return;
-    let end = MATCH_DURATION_MINUTES;
-    const red = redCardMinuteByPlayer.get(key);
-    if (red !== undefined && red < end) end = red;
-    minutesByPlayer.set(key, Math.max(0, end - sub.minute));
+    if (sub.playerOutId !== undefined) {
+      const outKey = String(sub.playerOutId);
+      const intervals = playerIntervals.get(outKey);
+      if (intervals && intervals.length > 0) {
+        // Cierra el último intervalo del jugador que sale
+        intervals[intervals.length - 1].end = sub.minute;
+      }
+    }
+    if (sub.playerInId !== undefined) {
+      const inKey = String(sub.playerInId);
+      if (!playerIntervals.has(inKey)) {
+        playerIntervals.set(inKey, []);
+      }
+      // Abre un nuevo intervalo para el jugador que entra
+      playerIntervals.get(inKey)!.push({ start: sub.minute, end: MATCH_DURATION_MINUTES });
+    }
+  });
+
+  // Convierte los intervalos a minutos totales y aplica tarjetas rojas
+  const minutesByPlayer = new Map<string, number>();
+  playerIntervals.forEach((intervals, playerId) => {
+    let total = 0;
+    intervals.forEach(interval => {
+      let end = interval.end;
+      const redMinute = redCardMinuteByPlayer.get(playerId);
+      if (redMinute !== undefined && redMinute < end && redMinute >= interval.start) {
+        end = redMinute;
+      }
+      total += Math.max(0, end - interval.start);
+    });
+    minutesByPlayer.set(playerId, total);
   });
 
   const goalsByPlayer = new Map<string, number>();
