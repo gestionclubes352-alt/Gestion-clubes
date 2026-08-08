@@ -5,9 +5,10 @@ import type { TacticalPosition } from '@modules/tactica';
 import { getInitialPositions } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
 import type { CompetitionTeam } from '@modules/competicion';
+import { competicionService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
 import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
-import type { Equipo, Jugador, Club } from '@shared/services/dataService';
+import type { Equipo, Jugador, Club, Competicion } from '@shared/services/dataService';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
@@ -203,6 +204,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   // Datos generales del partido (fecha, hora, club rival, competición, equipos, resultado)
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [competitions, setCompetitions] = useState<Competicion[]>([]);
   const [dgSaved, setDgSaved] = useState(false);
   const toDateInputValue = (d: Date | string) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString()).slice(0, 10);
   const [dgForm, setDgForm] = useState({
@@ -216,6 +218,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     localTeamClubId: match.localTeamClubId || '',
     visitorTeamClubId: match.visitorTeamClubId || '',
     score: match.score || '',
+    nombreInterno: match.nombreInterno || '',
   });
 
   useEffect(() => {
@@ -230,6 +233,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       localTeamClubId: match.localTeamClubId || '',
       visitorTeamClubId: match.visitorTeamClubId || '',
       score: match.score || '',
+      nombreInterno: match.nombreInterno || '',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id]);
@@ -275,6 +279,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       localTeamClubId: dgForm.localTeamClubId || undefined,
       visitorTeamClubId: dgForm.visitorTeamClubId || undefined,
       score: dgForm.score || undefined,
+      nombreInterno: dgForm.nombreInterno || undefined,
     });
     setDgSaved(true);
     setTimeout(() => setDgSaved(false), 2000);
@@ -882,6 +887,18 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       }
     })();
   }, [ownClubId]);
+
+  useEffect(() => {
+    const loadCompetitions = async () => {
+      try {
+        const data = await competicionService.listCompeticiones();
+        setCompetitions(data || []);
+      } catch (err) {
+        console.error('Error loading competitions:', err);
+      }
+    };
+    loadCompetitions();
+  }, []);
 
   // El club rival se deduce de qué lado (local/visitante) no es nuestro propio club,
   // usando el clubId guardado junto a cada equipo (evita confundir equipos homónimos
@@ -4421,8 +4438,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
           >
             <option value="">{t('newEvent.competition')}</option>
-            <option value="Liga">{t('newEvent.league')}</option>
-            <option value="Copa">{t('newEvent.cup')}</option>
+            {competitions.map((c) => (
+              <option key={c.id} value={c.nombre}>
+                {c.nombre}
+              </option>
+            ))}
             <option value="Amistoso">{t('newEvent.friendly')}</option>
           </select>
         </div>
@@ -4461,25 +4481,55 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
         <div>
           <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+            <i className="fa-solid fa-tag mr-2"></i>Nombre Interno
+          </label>
+          <select
+            value={dgForm.nombreInterno}
+            onChange={(e) => setDgForm({ ...dgForm, nombreInterno: e.target.value })}
+            className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)] appearance-none cursor-pointer"
+          >
+            <option value="">Selecciona nombre interno</option>
+            <option value="Clásico">Clásico</option>
+            <option value="Derbi">Derbi</option>
+            <option value="Amistoso">Amistoso</option>
+            <option value="Copa">Copa</option>
+            <option value="Supercopa">Supercopa</option>
+            <option value="Playoff">Playoff</option>
+            <option value="Preparación">Preparación</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
             <i className="fa-solid fa-people-group mr-2"></i>{t('newEvent.teams')}
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <EquipoSelect
-              value={dgForm.localTeam}
-              selectedClubId={dgForm.localTeamClubId}
-              onChange={(team, clubId) => setDgForm({ ...dgForm, localTeam: team, localTeamClubId: clubId || '' })}
-              extraTeams={teamOptions}
-              placeholder={t('newEvent.homeTeam')}
-              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
-            />
-            <EquipoSelect
-              value={dgForm.visitorTeam}
-              selectedClubId={dgForm.visitorTeamClubId}
-              onChange={(team, clubId) => setDgForm({ ...dgForm, visitorTeam: team, visitorTeamClubId: clubId || '' })}
-              extraTeams={teamOptions}
-              placeholder={t('newEvent.awayTeam')}
-              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
-            />
+            <div>
+              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+                <i className="fa-solid fa-shield mr-1"></i>Local
+              </label>
+              <EquipoSelect
+                value={dgForm.localTeam}
+                selectedClubId={dgForm.localTeamClubId}
+                onChange={(team, clubId) => setDgForm({ ...dgForm, localTeam: team, localTeamClubId: clubId || '' })}
+                extraTeams={teamOptions}
+                placeholder={t('newEvent.homeTeam')}
+                className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+                <i className="fa-solid fa-shield mr-1"></i>Visitante
+              </label>
+              <EquipoSelect
+                value={dgForm.visitorTeam}
+                selectedClubId={dgForm.visitorTeamClubId}
+                onChange={(team, clubId) => setDgForm({ ...dgForm, visitorTeam: team, visitorTeamClubId: clubId || '' })}
+                extraTeams={teamOptions}
+                placeholder={t('newEvent.awayTeam')}
+                className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
           </div>
         </div>
 

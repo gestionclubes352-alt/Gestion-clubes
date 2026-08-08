@@ -91,9 +91,19 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
       cell: info => <span className="text-slate-400 tabular-nums">{info.getValue() || '-'}</span>,
     }),
     columnHelper.display({
-      id: 'dni',
-      header: t('staffTable.dni'),
-      cell: ({ row }) => <span className="text-slate-400 tabular-nums">{(row.original as any).dni || '-'}</span>,
+      id: 'equipo',
+      header: t('staffTable.team', 'Equipo'),
+      cell: ({ row }) => {
+        const member = row.original;
+        if (!member.equipo_ids || member.equipo_ids.length === 0) return <span className="text-slate-400">-</span>;
+        return (
+          <span className="text-slate-600 text-sm">{member.equipo_ids.length} equipo(s)</span>
+        );
+      },
+    }),
+    columnHelper.accessor('email', {
+      header: t('staffTable.email', 'Correo'),
+      cell: info => <span className="text-slate-600 text-sm">{info.getValue() || '-'}</span>,
     }),
   ], []);
 

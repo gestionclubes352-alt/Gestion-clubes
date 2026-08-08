@@ -10,6 +10,8 @@ export interface CompetitionTeam {
   logoUrl?: string;
   /** Sub-equipo al que pertenece (ej: 'Juvenil A', 'Cadete A'). Sin valor = equipo principal. */
   equipo?: string;
+  /** Nombre del equipo asignado en federación. */
+  nombreEnFed?: string;
   /** Etapa/categoría del equipo (ej: Senior, Juvenil, Cadete, Infantil, Alevín, Benjamín). */
   etapa?: string;
   /** Nombre de la competición en la que participa. */

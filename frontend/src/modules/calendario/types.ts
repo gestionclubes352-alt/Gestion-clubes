@@ -51,6 +51,7 @@ export interface CalendarEvent {
   opponent?: string;
   score?: string;
   status?: 'Finished' | 'Upcoming';
+  nombreInterno?: string;
   tasks?: SessionTask[];
   /** Asistencia de la plantilla a esta sesión, indexada por id de jugador */
   attendance?: Record<string, AttendanceStatus>;
@@ -81,6 +82,7 @@ export interface EventFormData {
   notes: string;
   videoUrl: string;
   docUrl: string;
+  nombreInterno: string;
 }
 
 export const EVENT_COLORS: Record<EventType, string> = {

@@ -216,14 +216,33 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterCompetition')}
           </label>
-          <select
-            value={competitionFilter}
-            onChange={(e) => setCompetitionFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>{t('playerStatsSummary.allCompetitions')}</option>
-            {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setCompetitionFilter(ALL_FILTER)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
+                competitionFilter === ALL_FILTER
+                  ? 'bg-sport-primary text-white border-sport-primary shadow-sm'
+                  : 'bg-slate-50 text-slate-700 border-slate-100 hover:border-sport-primary/40'
+              }`}
+            >
+              {t('playerStatsSummary.allCompetitions')}
+            </button>
+            {competitionOptions.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setCompetitionFilter(name)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
+                  competitionFilter === name
+                    ? 'bg-sport-primary text-white border-sport-primary shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-100 hover:border-sport-primary/40'
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -240,29 +259,29 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {groupedMatches.map(({ competition, jornada, matches }) => (
           <div key={`${competition}|${jornada}`} className="space-y-4">
-            <div className="bg-gradient-to-r from-sport-primary/10 to-transparent p-6 rounded-2xl border-l-4 border-sport-primary">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gradient-to-r from-sport-primary/10 to-transparent p-3 md:p-4 rounded-lg border-l-4 border-sport-primary">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Competición</p>
-                  <p className="text-xl font-black text-slate-800 uppercase">{competition}</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Competición</p>
+                  <p className="text-xs font-black text-slate-800 uppercase">{competition}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Jornada</p>
-                  <p className="text-xl font-black text-sport-primary uppercase">{jornada}</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Jornada</p>
+                  <p className="text-xs font-black text-sport-primary uppercase">{jornada}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha</p>
-                  <p className="text-xl font-black text-slate-800">
-                    {matches.length > 0 ? new Date(matches[0].date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Fecha</p>
+                  <p className="text-xs font-black text-slate-800">
+                    {matches.length > 0 ? new Date(matches[0].date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               {matches.map((match) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
@@ -275,69 +294,76 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             <div
               key={match.id}
               onClick={() => onClickMatch && onClickMatch(match)}
-              className="bg-white p-2 md:p-2.5 rounded-xl shadow-sm hover:shadow-lg transition-all border border-slate-100 flex flex-col gap-1.5 group relative overflow-hidden cursor-pointer hover:border-red-200"
+              className="bg-white p-1.5 md:p-2 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-100 flex flex-col gap-1 group relative overflow-hidden cursor-pointer hover:border-red-200"
             >
+              <div className="flex items-center justify-center gap-1">
+                {match.nombreInterno && (
+                  <span className="px-2 py-0.5 rounded-md text-[5px] font-black uppercase tracking-wider bg-blue-50 text-blue-600">
+                    {match.nombreInterno}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center justify-end">
-                <span className={`px-1.5 py-0.5 rounded-md text-[6px] font-black uppercase tracking-wider shrink-0 ${
+                <span className={`px-1 py-0.5 rounded-md text-[5px] font-black uppercase tracking-wider shrink-0 ${
                   match.status === 'Finished' ? 'bg-slate-100 text-slate-400' : 'bg-red-100 text-red-600 animate-pulse'
                 }`}>
                   {match.status}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between gap-1.5 min-h-20">
+              <div className="flex items-center justify-between gap-1 min-h-16">
                 <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest mb-1">LOCAL</p>
+                  <p className="text-[5px] font-black text-slate-400 uppercase tracking-widest mb-0.5">LOCAL</p>
                   {localLogo && (
-                    <img src={localLogo} alt={localClubLabel} className="h-6 w-6 object-contain mb-1" />
+                    <img src={localLogo} alt={localClubLabel} className="h-5 w-5 object-contain mb-0.5" />
                   )}
                   {localClubLabel && (
-                    <p className="text-[6px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
+                    <p className="text-[5px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
                       {localClubLabel}
                     </p>
                   )}
-                  <p className={`font-black text-[10px] md:text-xs uppercase leading-tight truncate w-full ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  <p className={`font-black text-xs md:text-sm uppercase leading-tight truncate w-full ${isMyTeam(local) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
                     {local}
                   </p>
                 </div>
 
-                <div className="flex flex-col items-center shrink-0 gap-1">
-                  <p className="text-red-600 font-black text-base md:text-lg">
+                <div className="flex flex-col items-center shrink-0 gap-0.5">
+                  <p className="text-red-600 font-black text-sm md:text-base">
                     {match.time || '—'}
                   </p>
                   {match.status === 'Finished' ? (
-                    <div className="bg-[var(--accent)] text-white font-black text-xs px-2 py-1 rounded-lg shadow-lg shadow-[var(--accent)]/20">
+                    <div className="bg-[var(--accent)] text-white font-black text-[10px] px-1.5 py-0.5 rounded-md shadow-lg shadow-[var(--accent)]/20">
                       {match.score}
                     </div>
                   ) : (
-                    <div className="bg-red-50 text-red-600 font-black text-[10px] px-2 py-1 rounded-lg border border-red-200">
+                    <div className="bg-red-50 text-red-600 font-black text-[8px] px-1.5 py-0.5 rounded-md border border-red-200">
                       VS
                     </div>
                   )}
                   {match.location && (
-                    <p className="text-[6px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-16 text-center">
+                    <p className="text-[5px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-16 text-center">
                       {match.location}
                     </p>
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest mb-1">VISITANTES</p>
+                  <p className="text-[5px] font-black text-slate-400 uppercase tracking-widest mb-0.5">VISITANTES</p>
                   {visitorLogo && (
-                    <img src={visitorLogo} alt={visitorClubLabel} className="h-6 w-6 object-contain mb-1" />
+                    <img src={visitorLogo} alt={visitorClubLabel} className="h-5 w-5 object-contain mb-0.5" />
                   )}
                   {visitorClubLabel && (
-                    <p className="text-[6px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
+                    <p className="text-[5px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
                       {visitorClubLabel}
                     </p>
                   )}
-                  <p className={`font-black text-[10px] md:text-xs uppercase leading-tight truncate w-full ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  <p className={`font-black text-xs md:text-sm uppercase leading-tight truncate w-full ${isMyTeam(visitor) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
                     {visitor}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-1 border-t border-slate-100 pt-1.5">
+              <div className="flex items-center justify-end gap-0.5 border-t border-slate-100 pt-1">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -345,10 +371,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                       e.stopPropagation();
                       onEdit && onEdit(match);
                   }}
-                  className="w-6 h-6 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm text-[10px]"
+                  className="w-5 h-5 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm text-[8px]"
                   title={t('matchesList.editViaEvents')}
                 >
-                  <i className="fa-regular fa-pen-to-square text-[10px]"></i>
+                  <i className="fa-regular fa-pen-to-square text-[8px]"></i>
                 </button>
                 <button
                   type="button"
@@ -357,10 +383,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                       e.stopPropagation();
                       onDelete(String(match.id));
                   }}
-                  className="w-6 h-6 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm text-[10px]"
+                  className="w-5 h-5 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm text-[8px]"
                   title={t('matchesList.deleteEvent')}
                 >
-                  <i className="fa-regular fa-trash-can text-[10px]"></i>
+                  <i className="fa-regular fa-trash-can text-[8px]"></i>
                 </button>
               </div>
             </div>

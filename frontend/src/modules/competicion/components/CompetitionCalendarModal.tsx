@@ -84,6 +84,7 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
         visitor_team_club_id: matchData.visitorTeamClubId,
         opponent: matchData.visitorTeam,
         status: 'Upcoming' as const,
+        nombre_interno: matchData.nombreInterno,
       };
 
       if (matchData.id) {

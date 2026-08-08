@@ -28,6 +28,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
   const [expandedClubs, setExpandedClubs] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState('');
   const [clubFilter, setClubFilter] = useState('Todos');
+  const [equipoInternoFilter, setEquipoInternoFilter] = useState('Todos');
   const [activeTab, setActiveTab] = useState<'todos' | 'equipos' | 'rivales'>('todos');
 
   const myTeamName = useMemo(() => {
@@ -70,17 +71,38 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
               e.nombre.toLowerCase().includes(q) ||
               (e.etapa || '').toLowerCase().includes(q) ||
               (e.equipo || '').toLowerCase().includes(q) ||
+              (e.nombreEnFed || '').toLowerCase().includes(q) ||
               (e.competicion || '').toLowerCase().includes(q)
             ),
           }))
           .filter(g => g.equipos.length > 0 || g.nombre.toLowerCase().includes(q));
 
-    if (clubFilter === 'Todos') return bySearch;
-    return bySearch.filter(g => g.nombre === clubFilter);
-  }, [tabGroups, search, clubFilter]);
+    const byClub = clubFilter === 'Todos' ? bySearch : bySearch.filter(g => g.nombre === clubFilter);
+
+    if (equipoInternoFilter === 'Todos') return byClub;
+    return byClub
+      .map(g => ({ ...g, equipos: g.equipos.filter(e => (e.equipo || '—') === equipoInternoFilter) }))
+      .filter(g => g.equipos.length > 0);
+  }, [tabGroups, search, clubFilter, equipoInternoFilter]);
 
   // Clubs disponibles para el filtro (basados en los grupos de la pestaña activa, sin filtrar por búsqueda)
-  const availableClubs = useMemo(() => tabGroups.map(g => g.nombre), [tabGroups]);
+  // IPC ESCUELA se destaca y aparece primero
+  const availableClubs = useMemo(() => {
+    const clubs = tabGroups.map(g => g.nombre);
+    const ipcIndex = clubs.findIndex(c => c.toUpperCase().includes('IPC'));
+    if (ipcIndex > -1) {
+      const [ipc] = clubs.splice(ipcIndex, 1);
+      return [ipc, ...clubs];
+    }
+    return clubs;
+  }, [tabGroups]);
+
+  // Equipos internos disponibles para el filtro (sub-equipo, ej: Juvenil A, Cadete A)
+  const availableEquiposInternos = useMemo(() => {
+    const set = new Set<string>();
+    tabGroups.forEach(g => g.equipos.forEach(e => set.add(e.equipo || '—')));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tabGroups]);
 
   const toggleClub = (nombre: string) => {
     setExpandedClubs(prev => {
@@ -198,6 +220,41 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         </div>
       )}
 
+      {/* FILTRO EQUIPO INTERNO (sub-equipo, ej: Juvenil A, Cadete A) */}
+      {availableEquiposInternos.length > 0 && (
+        <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-[var(--accent)]/5 to-transparent border border-[var(--accent)]/20">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <span className="flex-shrink-0 flex items-center gap-1.5 text-[10px] font-black text-[var(--accent)] uppercase tracking-widest pr-2">
+              <i className="fa-solid fa-layer-group text-sm"></i>
+              Equipo Interno:
+            </span>
+            <button
+              onClick={() => setEquipoInternoFilter('Todos')}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+                equipoInternoFilter === 'Todos'
+                  ? 'bg-[var(--accent)] text-white shadow-md'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Todos
+            </button>
+            {availableEquiposInternos.map(equipo => (
+              <button
+                key={equipo}
+                onClick={() => setEquipoInternoFilter(equipo === equipoInternoFilter ? 'Todos' : equipo)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
+                  equipoInternoFilter === equipo
+                    ? 'bg-[var(--accent)] text-white shadow-md'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {equipo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* BARRA DE BÚSQUEDA + CONTROLES */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[200px]">
@@ -232,12 +289,13 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         <div className="min-w-[900px]">
         {/* Cabecera */}
         <div className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-          style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
+          style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 160px 1fr 80px' }}
         >
           <div className="px-3 py-3"></div>
           <div className="px-3 py-3">Club / Equipo</div>
           <div className="px-3 py-3">Etapa</div>
           <div className="px-3 py-3">Equipo</div>
+          <div className="px-3 py-3">Nombre en Fed.</div>
           <div className="px-3 py-3">Competición</div>
           <div className="px-3 py-3">Enlace</div>
           <div className="px-3 py-3 text-right">Acciones</div>
@@ -252,7 +310,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
 
         {filteredGroups.map((group) => {
           const isExpanded = expandedClubs.has(group.nombre);
-          const highlight = isMyTeam(group.nombre);
+          const highlight = group.isOwn || isMyTeam(group.nombre);
           return (
             <div key={group.nombre} className="border-b border-slate-100 last:border-b-0">
               {/* FILA CLUB (cabecera del grupo) */}
@@ -260,7 +318,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                 type="button"
                 onClick={() => toggleClub(group.nombre)}
                 className={`w-full grid items-center text-left transition-colors hover:bg-slate-50 ${highlight ? 'bg-[var(--accent)]/5' : 'bg-white'}`}
-                style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
+                style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 160px 1fr 80px' }}
               >
                 {/* Logo */}
                 <div className="px-3 py-3 flex items-center justify-center">
@@ -283,23 +341,23 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                   </span>
                 </div>
                 {/* Columnas vacías en la fila del club */}
-                <div /><div /><div /><div /><div />
+                <div /><div /><div /><div /><div /><div />
               </button>
 
               {/* SUB-FILAS EQUIPOS */}
               {isExpanded && group.equipos.map((eq) => (
                 <div
                   key={String(eq.id)}
-                  className="grid items-center border-t border-slate-100 bg-slate-50/60 hover:bg-slate-100/60 transition-colors"
-                  style={{ gridTemplateColumns: '48px 1fr 100px 130px 160px 1fr 80px' }}
+                  className={`grid items-center border-t border-slate-100 hover:bg-slate-100/60 transition-colors ${highlight ? 'bg-[var(--accent)]/5' : 'bg-slate-50/60'}`}
+                  style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 160px 1fr 80px' }}
                 >
                   {/* Indent visual */}
                   <div className="px-3 py-2.5 flex items-center justify-center">
-                    <div className="w-1 h-1 rounded-full bg-slate-300 ml-3"></div>
+                    <div className={`w-1 h-1 rounded-full ml-3 ${highlight ? 'bg-[var(--accent)]' : 'bg-slate-300'}`}></div>
                   </div>
                   {/* Equipo nombre (indentado) */}
                   <div className="px-3 py-2.5 pl-8">
-                    <span className="text-xs font-semibold text-slate-600">{eq.nombre}</span>
+                    <span className={`text-xs font-semibold ${highlight ? 'text-[var(--accent)]' : 'text-slate-600'}`}>{eq.nombre}</span>
                   </div>
                   {/* Etapa */}
                   <div className="px-3 py-2.5">
@@ -312,6 +370,10 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                   {/* Equipo */}
                   <div className="px-3 py-2.5">
                     <span className="text-xs font-bold text-slate-700">{eq.equipo || <span className="text-slate-300">—</span>}</span>
+                  </div>
+                  {/* Nombre en Fed */}
+                  <div className="px-3 py-2.5">
+                    <span className="text-xs text-slate-600">{eq.nombreEnFed || <span className="text-slate-300">—</span>}</span>
                   </div>
                   {/* Competición */}
                   <div className="px-3 py-2.5">

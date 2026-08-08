@@ -413,7 +413,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         localTeamClubId: e.localTeamClubId,
         visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
-        location: e.location
+        location: e.location,
+        nombreInterno: e.nombreInterno
       } as Match));
   }, [eventsList]);
 
@@ -450,6 +451,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     opponent: row.opponent || undefined,
     score: row.score || undefined,
     status: row.status as CalendarEvent['status'] | undefined,
+    nombreInterno: row.nombre_interno || undefined,
     tasks: (row.tasks as CalendarEvent['tasks']) || [],
     attendance: (row.attendance as CalendarEvent['attendance']) || {},
   });
@@ -477,6 +479,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     opponent: event.opponent || null,
     score: event.score || null,
     status: event.status || null,
+    nombre_interno: event.nombreInterno || null,
     tasks: Array.isArray(event.tasks) ? event.tasks : [],
     attendance: (event.attendance && typeof event.attendance === 'object') ? event.attendance : {},
   });
@@ -619,6 +622,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         localidad: e.localidad || '',
         logoUrl: e.logo_url || undefined,
         equipo: e.sub_equipo,
+        nombreEnFed: e.nombre_en_fed,
         etapa: e.categoria,
         competicion: e.competicion,
         enlace: e.enlace,
@@ -791,12 +795,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [competitionTeams, selectedTeams]
   );
 
+  // Equipos del propio club: excluye equipos rivales de otros clubes.
+  const misClubCompetitionTeams = useMemo(
+    () => competitionTeams.filter(team => String(team.clubId ?? '') === String(currentTeam?.id ?? '')),
+    [competitionTeams, currentTeam?.id]
+  );
+
   // Equipos del propio club (p.ej. para asignar personal): excluye equipos rivales de otros clubes.
   const ownClubCompetitionTeams = useMemo(
-    () => competitionTeams
-      .filter(team => String(team.clubId ?? '') === String(currentTeam?.id ?? ''))
+    () => misClubCompetitionTeams
       .map(team => ({ id: String(team.id), nombre: team.equipo ? `${team.nombre} - ${team.equipo}` : team.nombre })),
-    [competitionTeams, currentTeam?.id]
+    [misClubCompetitionTeams]
   );
 
   const filteredCampogramasList = useMemo(
@@ -825,7 +834,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         localTeamClubId: e.localTeamClubId,
         visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
-        location: e.location
+        location: e.location,
+        nombreInterno: e.nombreInterno
       } as Match));
   }, [filteredEventsList]);
 
@@ -976,6 +986,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       competicion: t.competicion || undefined,
                       logo_url: t.logoUrl || '',
                       sub_equipo: t.equipo || undefined,
+                      nombre_en_fed: t.nombreEnFed || undefined,
                       estadio: t.estadio || '',
                       localidad: t.localidad || '',
                       enlace: t.enlace || undefined,
@@ -1060,7 +1071,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} />
               } />
-              <Route path="/competiciones" element={<CompetitionsConfigView />} />
+              <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={misClubCompetitionTeams} />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />

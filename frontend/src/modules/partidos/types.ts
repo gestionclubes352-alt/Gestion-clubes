@@ -18,6 +18,7 @@ export interface Match {
   visitorTeamClubId?: string;
   time?: string;
   location?: string;
+  nombreInterno?: string;
 }
 
 export interface VideoEvent {

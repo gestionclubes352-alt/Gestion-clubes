@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
+import { equiposService, Equipo } from '@shared/services/dataService';
+import { competicionService } from '../services/competicionService';
 
 interface CompetitionConfig {
   id: string;
@@ -21,23 +23,71 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
   const [formData, setFormData] = useState<CompetitionTeam>({ ...team });
   const [isSaving, setIsSaving] = useState(false);
   const [competiciones, setCompeticiones] = useState<CompetitionConfig[]>([]);
+  const [equiposPorCompeticion, setEquiposPorCompeticion] = useState<Equipo[]>([]);
+  const [loadingEquipos, setLoadingEquipos] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showClubDropdown, setShowClubDropdown] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('competiciones-config');
-    if (saved) {
+    const loadCompeticiones = async () => {
       try {
-        setCompeticiones(JSON.parse(saved));
-      } catch {
+        const data = await competicionService.listCompeticiones();
+        setCompeticiones(data);
+      } catch (err) {
+        console.error('Error loading competiciones:', err);
         setCompeticiones([]);
       }
-    }
+    };
+    loadCompeticiones();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowClubDropdown(false);
+      }
+    };
+    if (showClubDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showClubDropdown]);
+
+  // Cargar equipos cuando cambia la competición seleccionada
+  useEffect(() => {
+    const loadEquipos = async () => {
+      if (!formData.competicion) {
+        setEquiposPorCompeticion([]);
+        return;
+      }
+
+      try {
+        setLoadingEquipos(true);
+        const allEquipos = await equiposService.list({ competicion: formData.competicion });
+        setEquiposPorCompeticion(allEquipos);
+      } catch (err) {
+        console.error('Error loading equipos:', err);
+        setEquiposPorCompeticion([]);
+      } finally {
+        setLoadingEquipos(false);
+      }
+    };
+
+    loadEquipos();
+  }, [formData.competicion]);
 
   const handleClubChange = (selectedClubId: string) => {
     const club = clubes.find(c => String(c.id) === selectedClubId);
     if (!club) return;
     setFormData(prev => ({ ...prev, clubId: club.id, nombre: club.nombre, logoUrl: club.logoUrl || '' }));
+    setSearchTerm('');
+    setShowClubDropdown(false);
   };
+
+  const filteredClubs = clubes
+    .filter(c => c.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
   const handleSave = async () => {
     if (!formData.clubId) return;
@@ -80,17 +130,54 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
                 No hay clubes creados. Crea un club primero en la sección Clubes.
               </div>
             ) : (
-              <select
-                value={formData.clubId ? String(formData.clubId) : ''}
-                onChange={(e) => handleClubChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 uppercase"
-              >
-                <option value="">-- Selecciona un club --</option>
-                {clubes.map(c => (
-                  <option key={String(c.id)} value={String(c.id)}>{c.nombre}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder={formData.clubId ? clubes.find(c => String(c.id) === String(formData.clubId))?.nombre : '-- Selecciona un club --'}
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowClubDropdown(true);
+                  }}
+                  onFocus={() => setShowClubDropdown(true)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 uppercase"
+                />
+                {showClubDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+                    {filteredClubs.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-slate-500">
+                        No se encontraron clubes
+                      </div>
+                    ) : (
+                      filteredClubs.map(club => (
+                        <button
+                          key={String(club.id)}
+                          type="button"
+                          onClick={() => handleClubChange(String(club.id))}
+                          className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 border-b border-slate-100 last:border-b-0 uppercase transition-colors"
+                        >
+                          {club.nombre}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             )}
+          </div>
+
+          {/* Nombre del Equipo */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
+              Nombre del Equipo *
+            </label>
+            <input
+              type="text"
+              value={formData.nombre || ''}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              placeholder="Ej: EF Huesca Juvenil A"
+            />
           </div>
 
           {/* Etapa y Equipo */}
@@ -116,16 +203,30 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Equipo
+                Equipo Interno
               </label>
               <input
                 type="text"
                 value={formData.equipo || ''}
                 onChange={(e) => setFormData({ ...formData, equipo: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-                placeholder="Ej: Primer equipo, Filial, Juvenil A"
+                placeholder="Ej: Juvenil A, A, B, Senior..."
               />
             </div>
+          </div>
+
+          {/* Equipo Fed */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
+              Equipo Fed
+            </label>
+            <input
+              type="text"
+              value={formData.nombreEnFed || ''}
+              onChange={(e) => setFormData({ ...formData, nombreEnFed: e.target.value })}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              placeholder="Ej: IPC LA ESCUELA"
+            />
           </div>
 
           {/* Competición */}
