@@ -74,6 +74,7 @@ export interface Equipo {
   estadio?: string;
   localidad?: string;
   enlace?: string;
+  nombre_en_fed?: string;
 }
 
 export interface Jugador { // tabla `plantillas`
@@ -158,16 +159,21 @@ export interface Competicion {
 
 export interface Partido {
   id: string;
-  competicion_id: string;
-  equipo_local_id?: string | null;
-  equipo_visitante_id?: string | null;
-  rival_nombre?: string | null;
+  competition: string;
+  date: string;
+  opponent: string;
+  status: 'Finished' | 'Upcoming';
+  score?: string;
   jornada?: string;
-  fecha: string;
-  hora?: string;
-  lugar?: string;
-  marcador?: string;
-  estado: 'Programado' | 'Finalizado' | 'Aplazado' | 'Suspendido';
+  local_team?: string;
+  visitor_team?: string;
+  local_team_club_id?: string;
+  visitor_team_club_id?: string;
+  time?: string;
+  location?: string;
+  nombre_interno?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Sesion {
@@ -205,8 +211,20 @@ export interface EventoCalendario {
   opponent?: string | null;
   score?: string | null;
   status?: string | null;
+  nombre_interno?: string | null;
   tasks?: unknown[] | null;
   attendance?: Record<string, string> | null;
+}
+
+/** Fila de la tabla `calendario_competicion` (calendario íntegro de una competición externa, no solo los partidos del club). */
+export interface CalendarioCompeticionPartido {
+  id: string;
+  competicion_id: string;
+  jornada: number;
+  fecha: string;
+  equipo_local: string;
+  equipo_visitante: string;
+  resultado?: string | null;
 }
 
 export interface PizarraTactica {
@@ -230,6 +248,19 @@ export interface Tarea {
   fecha_limite?: string;
 }
 
+/** Catálogo de equipos rivales (tabla `equipos_rivales`), reutilizable en competiciones, pizarra táctica e informes. */
+export interface EquipoRival {
+  id: string;
+  club_id?: string | null;
+  nombre: string;
+  escudo_url?: string | null;
+  competicion?: string | null;
+  temporada?: string | null;
+  notas?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ── Servicios por tabla ────────────────────────────────────────────────────
 export const clubesService = createTableService<Club>('clubes');
 export const equiposService = createTableService<Equipo>('equipos');
@@ -240,8 +271,10 @@ export const competicionesService = createTableService<Competicion>('competicion
 export const partidosService = createTableService<Partido>('partidos');
 export const sesionesService = createTableService<Sesion>('sesiones');
 export const eventosCalendarioService = createTableService<EventoCalendario>('eventos_calendario');
+export const calendarioCompeticionService = createTableService<CalendarioCompeticionPartido>('calendario_competicion');
 export const pizarrasService = createTableService<PizarraTactica>('pizarras_tacticas');
 export const tareasService = createTableService<Tarea>('tareas');
+export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
 
 // Ejemplo de uso en un componente:
 //

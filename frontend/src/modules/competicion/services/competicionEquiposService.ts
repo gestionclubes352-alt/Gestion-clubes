@@ -1,8 +1,12 @@
 /**
  * Servicio para manejar la relación M:M entre competiciones y equipos.
  * Permite configurar qué equipos participan en cada competición, ya sean
- * equipos propios (con ficha en `plantillas`) o equipos externos/rivales
- * de nombre libre (p.ej. equipos de amistosos sin ficha en el sistema).
+ * equipos propios (con ficha en `equipos`) o equipos rivales del catálogo
+ * `equipos_rivales` (p.ej. equipos de amistosos sin plantilla propia).
+ *
+ * Ambos deben existir previamente como entidad (en `equipos` o en
+ * `equipos_rivales`) antes de poder añadirse a una competición: no se admite
+ * texto libre, para mantener consistencia de datos entre partidos.
  */
 
 import { supabase } from '@/shared/services/supabaseClient';
@@ -11,43 +15,35 @@ export interface CompeticionEquipo {
   id: string;
   competicion_id: string;
   equipo_id: string | null;
-  nombre_externo: string | null;
+  equipo_rival_id: string | null;
   created_at?: string;
 }
 
-/** Referencia a un equipo dentro de una competición: propio (por id) o externo (por nombre) */
+/** Referencia a un equipo dentro de una competición: propio (por id) o rival de catálogo (por id) */
 export interface EquipoRef {
   equipoId?: string;
-  nombreExterno?: string;
+  equipoRivalId?: string;
 }
 
 export const competicionEquiposService = {
   /**
-   * Obtiene todos los equipos (propios y externos) de una competición
+   * Obtiene todos los equipos (propios y rivales de catálogo) de una competición
    */
   async getTeamsByCompeticion(competicionId: string): Promise<EquipoRef[]> {
     const { data, error } = await supabase
       .from('competicion_equipos')
-      .select('equipo_id, nombre_externo')
+      .select('equipo_id, equipo_rival_id')
       .eq('competicion_id', competicionId);
 
     if (error) throw error;
     return (data || []).map(row => ({
       equipoId: row.equipo_id || undefined,
-      nombreExterno: row.nombre_externo || undefined,
+      equipoRivalId: row.equipo_rival_id || undefined,
     }));
   },
 
   /**
-   * @deprecated usa getTeamsByCompeticion, que también incluye equipos externos
-   */
-  async getEquiposByCompeticion(competicionId: string): Promise<string[]> {
-    const teams = await this.getTeamsByCompeticion(competicionId);
-    return teams.filter(t => t.equipoId).map(t => t.equipoId as string);
-  },
-
-  /**
-   * Reemplaza todos los equipos (propios y externos) de una competición.
+   * Reemplaza todos los equipos (propios y rivales) de una competición.
    * Primero elimina los existentes y luego inserta la nueva lista.
    */
   async setTeamsForCompeticion(competicionId: string, teams: EquipoRef[]): Promise<void> {
@@ -62,7 +58,7 @@ export const competicionEquiposService = {
       const rowsToInsert = teams.map(team => ({
         competicion_id: competicionId,
         equipo_id: team.equipoId || null,
-        nombre_externo: team.nombreExterno || null,
+        equipo_rival_id: team.equipoRivalId || null,
       }));
 
       const { error: insertError } = await supabase
@@ -71,31 +67,5 @@ export const competicionEquiposService = {
 
       if (insertError) throw insertError;
     }
-  },
-
-  /**
-   * @deprecated usa setTeamsForCompeticion, que también soporta equipos externos
-   */
-  async setEquiposForCompeticion(competicionId: string, equipoIds: string[]): Promise<void> {
-    await this.setTeamsForCompeticion(
-      competicionId,
-      equipoIds.map(equipoId => ({ equipoId }))
-    );
-  },
-
-  /**
-   * Obtiene todos los nombres de equipos externos ya usados en cualquier competición,
-   * para poder reutilizarlos (p.ej. "San Lorenzo" ya añadido a un amistoso anterior)
-   * sin tener que volver a escribirlos.
-   */
-  async getAllExternalTeamNames(): Promise<string[]> {
-    const { data, error } = await supabase
-      .from('competicion_equipos')
-      .select('nombre_externo')
-      .not('nombre_externo', 'is', null);
-
-    if (error) throw error;
-    const unique = new Set((data || []).map(row => row.nombre_externo as string));
-    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'es'));
   },
 };

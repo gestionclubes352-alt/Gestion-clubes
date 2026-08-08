@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Competicion } from '@/shared/services/dataService';
+import type { Competicion, EquipoRival } from '@/shared/services/dataService';
+import { equiposRivalesService } from '@shared/services';
 import type { Club } from '@modules/clubes/types';
 import type { CompetitionTeam } from '../types';
 import { clubesService } from '@shared/services';
-import { competicionEquiposService, type EquipoRef } from '../services/competicionEquiposService';
+import type { EquipoRef } from '../services/competicionEquiposService';
 
 interface CompetitionTeamsSelectorProps {
   competicion: Competicion;
   allTeams: CompetitionTeam[];
-  /** Equipos (propios y externos) ya guardados para esta competición */
+  /** Equipos (propios y rivales de catálogo) ya guardados para esta competición */
   initialTeams?: EquipoRef[];
   onTeamsSelected: (teams: EquipoRef[]) => void;
 }
-
-const ownKey = (id: string) => `own:${id}`;
-const externalKey = (name: string) => `ext:${name.trim().toLowerCase()}`;
 
 const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   competicion,
@@ -25,14 +23,15 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   const [selectedOwnIds, setSelectedOwnIds] = useState<Set<string>>(
     () => new Set(initialTeams.filter(t => t.equipoId).map(t => t.equipoId as string))
   );
-  const [externalTeams, setExternalTeams] = useState<string[]>(
-    () => initialTeams.filter(t => t.nombreExterno).map(t => t.nombreExterno as string)
+  const [selectedRivalIds, setSelectedRivalIds] = useState<Set<string>>(
+    () => new Set(initialTeams.filter(t => t.equipoRivalId).map(t => t.equipoRivalId as string))
   );
-  const [newExternalName, setNewExternalName] = useState('');
   const [selectedTeamToAdd, setSelectedTeamToAdd] = useState('');
-  const [selectedExternalToAdd, setSelectedExternalToAdd] = useState('');
-  const [knownExternalNames, setKnownExternalNames] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRivalToAdd, setSelectedRivalToAdd] = useState('');
+  const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
+  const [newRivalName, setNewRivalName] = useState('');
+  const [creatingRival, setCreatingRival] = useState(false);
+  const [rivalError, setRivalError] = useState<string | null>(null);
   const [clubs, setClubs] = useState<Club[]>([]);
 
   useEffect(() => {
@@ -48,20 +47,21 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   }, []);
 
   useEffect(() => {
-    const loadKnownExternalNames = async () => {
+    const loadRivalCatalog = async () => {
       try {
-        const names = await competicionEquiposService.getAllExternalTeamNames();
-        setKnownExternalNames(names);
+        const data = await equiposRivalesService.list();
+        setRivalCatalog((data as EquipoRival[]) || []);
       } catch (err) {
-        console.error('Error loading known external teams:', err);
+        console.error('Error loading rival catalog:', err);
       }
     };
-    loadKnownExternalNames();
+    loadRivalCatalog();
   }, []);
 
   const clubNameById = useMemo(() => new Map(clubs.map(c => [String(c.id), c.nombre])), [clubs]);
 
   const teamById = useMemo(() => new Map(allTeams.map(t => [String(t.id), t])), [allTeams]);
+  const rivalById = useMemo(() => new Map(rivalCatalog.map(r => [String(r.id), r])), [rivalCatalog]);
 
   const availableOwnTeamsByClub = useMemo(() => {
     const grouped = new Map<string, CompetitionTeam[]>();
@@ -74,24 +74,18 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
     return grouped;
   }, [allTeams, selectedOwnIds]);
 
-  // Rivales ya usados en otras competiciones, que aún no están en esta
-  const availableExternalNames = useMemo(() => {
-    const alreadyAdded = new Set(externalTeams.map(t => t.toLowerCase()));
-    return knownExternalNames.filter(name => !alreadyAdded.has(name.toLowerCase()));
-  }, [knownExternalNames, externalTeams]);
+  const availableRivals = useMemo(
+    () => rivalCatalog.filter(r => !selectedRivalIds.has(String(r.id))),
+    [rivalCatalog, selectedRivalIds]
+  );
 
-  const emitChange = (ownIds: Set<string>, external: string[]) => {
+  const emitChange = (ownIds: Set<string>, rivalIds: Set<string>) => {
     const teams: EquipoRef[] = [
       ...Array.from(ownIds).map(equipoId => ({ equipoId })),
-      ...external.map(nombreExterno => ({ nombreExterno })),
+      ...Array.from(rivalIds).map(equipoRivalId => ({ equipoRivalId })),
     ];
     onTeamsSelected(teams);
   };
-
-  const filteredExternalTeams = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    return externalTeams.filter(name => name.toLowerCase().includes(term));
-  }, [externalTeams, searchTerm]);
 
   const handleToggleOwnTeam = (teamId: string) => {
     const newSelected = new Set(selectedOwnIds);
@@ -101,7 +95,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
       newSelected.add(teamId);
     }
     setSelectedOwnIds(newSelected);
-    emitChange(newSelected, externalTeams);
+    emitChange(newSelected, selectedRivalIds);
   };
 
   const handleSelectTeamFromDropdown = (teamId: string) => {
@@ -113,48 +107,60 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
     newSelected.add(teamId);
     setSelectedOwnIds(newSelected);
     setSelectedTeamToAdd('');
-    emitChange(newSelected, externalTeams);
+    emitChange(newSelected, selectedRivalIds);
   };
 
-  const handleAddExternalTeam = () => {
-    const name = newExternalName.trim();
-    if (!name) return;
-    if (externalTeams.some(t => t.toLowerCase() === name.toLowerCase())) {
-      setNewExternalName('');
+  const handleToggleRival = (rivalId: string) => {
+    const newSelected = new Set(selectedRivalIds);
+    if (newSelected.has(rivalId)) {
+      newSelected.delete(rivalId);
+    } else {
+      newSelected.add(rivalId);
+    }
+    setSelectedRivalIds(newSelected);
+    emitChange(selectedOwnIds, newSelected);
+  };
+
+  const handleSelectRivalFromDropdown = (rivalId: string) => {
+    if (!rivalId || selectedRivalIds.has(rivalId)) {
+      setSelectedRivalToAdd('');
       return;
     }
-    const updated = [...externalTeams, name];
-    setExternalTeams(updated);
-    setNewExternalName('');
-    emitChange(selectedOwnIds, updated);
-    // Si es un rival nuevo, lo añadimos también al catálogo reutilizable local
-    setKnownExternalNames(prev => (prev.some(n => n.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name].sort((a, b) => a.localeCompare(b, 'es'))));
+    const newSelected = new Set(selectedRivalIds);
+    newSelected.add(rivalId);
+    setSelectedRivalIds(newSelected);
+    setSelectedRivalToAdd('');
+    emitChange(selectedOwnIds, newSelected);
   };
 
-  const handleSelectExternalFromDropdown = (name: string) => {
-    if (!name || externalTeams.some(t => t.toLowerCase() === name.toLowerCase())) {
-      setSelectedExternalToAdd('');
-      return;
+  const handleCreateRival = async () => {
+    const nombre = newRivalName.trim();
+    if (!nombre) return;
+    setRivalError(null);
+    setCreatingRival(true);
+    try {
+      const created = await equiposRivalesService.create({ nombre });
+      setRivalCatalog(prev => [...prev, created].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+      const newSelected = new Set(selectedRivalIds);
+      newSelected.add(String(created.id));
+      setSelectedRivalIds(newSelected);
+      emitChange(selectedOwnIds, newSelected);
+      setNewRivalName('');
+    } catch (err) {
+      console.error('Error creating rival team:', err);
+      setRivalError(err instanceof Error ? err.message : 'Error al dar de alta el equipo rival');
+    } finally {
+      setCreatingRival(false);
     }
-    const updated = [...externalTeams, name];
-    setExternalTeams(updated);
-    setSelectedExternalToAdd('');
-    emitChange(selectedOwnIds, updated);
-  };
-
-  const handleRemoveExternalTeam = (name: string) => {
-    const updated = externalTeams.filter(t => t !== name);
-    setExternalTeams(updated);
-    emitChange(selectedOwnIds, updated);
   };
 
   const handleClearAll = () => {
     setSelectedOwnIds(new Set());
-    setExternalTeams([]);
+    setSelectedRivalIds(new Set());
     onTeamsSelected([]);
   };
 
-  const totalSelected = selectedOwnIds.size + externalTeams.length;
+  const totalSelected = selectedOwnIds.size + selectedRivalIds.size;
 
   return (
     <div className="space-y-4">
@@ -163,57 +169,8 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
           Equipos que participan en {competicion.nombre}
         </h4>
         <p className="text-[10px] text-slate-500">
-          Selecciona tus equipos y/o añade rivales externos (p.ej. amistosos). Aparecerán en el selector al crear partidos.
+          Solo se pueden añadir equipos ya dados de alta (propios o del catálogo de rivales). Aparecerán en el selector al crear partidos.
         </p>
-      </div>
-
-      {/* Añadir equipo externo: desplegable de rivales ya usados */}
-      {availableExternalNames.length > 0 && (
-        <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-            <i className="fa-solid fa-earth-americas mr-1"></i>Añadir rival ya usado
-          </label>
-          <select
-            value={selectedExternalToAdd}
-            onChange={(e) => handleSelectExternalFromDropdown(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
-          >
-            <option value="">Selecciona un rival...</option>
-            {availableExternalNames.map(name => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Añadir equipo externo: escribir uno nuevo */}
-      <div>
-        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-          <i className="fa-solid fa-user-plus mr-1"></i>Añadir rival nuevo
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Ej: San Lorenzo"
-            value={newExternalName}
-            onChange={(e) => setNewExternalName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleAddExternalTeam();
-              }
-            }}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
-          />
-          <button
-            type="button"
-            onClick={handleAddExternalTeam}
-            disabled={!newExternalName.trim()}
-            className="px-4 py-2.5 rounded-xl bg-[var(--accent)] text-white font-black text-xs uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all disabled:opacity-40"
-          >
-            <i className="fa-solid fa-plus"></i> Añadir
-          </button>
-        </div>
       </div>
 
       {/* Desplegable de equipos propios */}
@@ -241,16 +198,62 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         </select>
       </div>
 
-      {/* Buscador (filtra equipos externos) */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Buscar equipo..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+      {/* Desplegable de rivales del catálogo */}
+      <div>
+        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <i className="fa-solid fa-earth-americas mr-1"></i>Añadir equipo rival
+        </label>
+        <select
+          value={selectedRivalToAdd}
+          onChange={(e) => handleSelectRivalFromDropdown(e.target.value)}
           className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
-        />
-        <i className="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        >
+          <option value="">
+            {availableRivals.length === 0 ? 'No hay rivales en el catálogo todavía' : 'Selecciona un rival...'}
+          </option>
+          {availableRivals.map(rival => (
+            <option key={rival.id} value={String(rival.id)}>{rival.nombre}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Dar de alta un rival nuevo en el catálogo */}
+      <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50">
+        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <i className="fa-solid fa-plus mr-1"></i>¿El rival no existe todavía? Dalo de alta
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Ej: San Lorenzo"
+            value={newRivalName}
+            onChange={(e) => setNewRivalName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleCreateRival();
+              }
+            }}
+            disabled={creatingRival}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={handleCreateRival}
+            disabled={!newRivalName.trim() || creatingRival}
+            className="px-4 py-2.5 rounded-xl bg-[var(--accent)] text-white font-black text-xs uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all disabled:opacity-40"
+          >
+            <i className="fa-solid fa-floppy-disk"></i> {creatingRival ? 'Guardando...' : 'Dar de alta'}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-2">
+          Se guarda en el catálogo de equipos rivales y se añade automáticamente a esta competición.
+        </p>
+        {rivalError && (
+          <p className="text-[10px] text-red-600 font-semibold mt-2">
+            <i className="fa-solid fa-circle-exclamation mr-1"></i>{rivalError}
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end">
@@ -263,26 +266,29 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         </button>
       </div>
 
-      {/* Lista de equipos externos ya añadidos */}
-      {filteredExternalTeams.length > 0 && (
+      {/* Lista de rivales seleccionados */}
+      {selectedRivalIds.size > 0 && (
         <div className="space-y-2">
           <div className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">
-            <i className="fa-solid fa-earth-americas mr-1"></i>Equipos externos
+            <i className="fa-solid fa-earth-americas mr-1"></i>Rivales seleccionados
           </div>
           <div className="space-y-1.5 border border-slate-200 rounded-xl p-3 bg-amber-50/50">
-            {filteredExternalTeams.map(name => (
-              <div key={externalKey(name)} className="flex items-center justify-between p-2 rounded-lg bg-white">
-                <span className="text-sm font-semibold text-slate-700">{name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveExternalTeam(name)}
-                  className="text-slate-400 hover:text-red-500 transition-colors"
-                  title="Quitar equipo"
-                >
-                  <i className="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-            ))}
+            {Array.from(selectedRivalIds).map(rivalId => {
+              const rival = rivalById.get(rivalId);
+              return (
+                <div key={rivalId} className="flex items-center justify-between p-2 rounded-lg bg-white">
+                  <span className="text-sm font-semibold text-slate-700">{rival?.nombre || rivalId}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleRival(rivalId)}
+                    className="text-slate-400 hover:text-red-500 transition-colors"
+                    title="Quitar equipo"
+                  >
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -333,7 +339,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         <p className="text-xs font-semibold text-blue-700">
           <i className="fa-solid fa-circle-info mr-1.5"></i>
           {totalSelected === 0
-            ? 'Selecciona o añade al menos un equipo para esta competición'
+            ? 'Selecciona al menos un equipo para esta competición'
             : `${totalSelected} equipo${totalSelected !== 1 ? 's' : ''} seleccionado${totalSelected !== 1 ? 's' : ''}`}
         </p>
       </div>

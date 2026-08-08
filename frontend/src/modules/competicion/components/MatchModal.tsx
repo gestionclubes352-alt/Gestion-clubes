@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { CompetitionTeam } from '../types';
 import type { Club } from '@modules/clubes/types';
+import type { EquipoRival } from '@/shared/services/dataService';
 import EquipoSelect, { type EquipoOption } from '@shared/components/EquipoSelect';
-import { clubesService } from '@shared/services';
+import { clubesService, equiposRivalesService } from '@shared/services';
 import { competicionEquiposService } from '../services/competicionEquiposService';
 
 export interface MatchFormData {
@@ -57,7 +58,8 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
-  const [configuredExternalTeams, setConfiguredExternalTeams] = useState<string[]>([]);
+  const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
+  const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
 
   // Resolver el id de la competición seleccionada (por nombre, ya que el <select> guarda el nombre)
   const selectedCompetitionId = useMemo(() => {
@@ -79,20 +81,32 @@ const MatchModal: React.FC<MatchModalProps> = ({
   }, []);
 
   useEffect(() => {
+    const loadRivalCatalog = async () => {
+      try {
+        const data = await equiposRivalesService.list();
+        setRivalCatalog((data as EquipoRival[]) || []);
+      } catch (err) {
+        console.error('Error loading rival catalog:', err);
+      }
+    };
+    loadRivalCatalog();
+  }, []);
+
+  useEffect(() => {
     if (!selectedCompetitionId) {
       setConfiguredOwnTeamIds(null);
-      setConfiguredExternalTeams([]);
+      setConfiguredRivalIds(new Set());
       return;
     }
     const loadTeams = async () => {
       try {
         const teams = await competicionEquiposService.getTeamsByCompeticion(selectedCompetitionId);
         setConfiguredOwnTeamIds(new Set(teams.filter(t => t.equipoId).map(t => t.equipoId as string)));
-        setConfiguredExternalTeams(teams.filter(t => t.nombreExterno).map(t => t.nombreExterno as string));
+        setConfiguredRivalIds(new Set(teams.filter(t => t.equipoRivalId).map(t => t.equipoRivalId as string)));
       } catch (err) {
         console.error('Error loading configured teams:', err);
         setConfiguredOwnTeamIds(null);
-        setConfiguredExternalTeams([]);
+        setConfiguredRivalIds(new Set());
       }
     };
     loadTeams();
@@ -111,9 +125,11 @@ const MatchModal: React.FC<MatchModalProps> = ({
     ? competitionTeams.filter(team => configuredOwnTeamIds.has(String(team.id)))
     : competitionTeams;
 
+  const relevantRivals = rivalCatalog.filter(rival => configuredRivalIds.has(String(rival.id)));
+
   const teamOptions: EquipoOption[] = [
     ...relevantOwnTeams.map(toTeamOption),
-    ...configuredExternalTeams.map((name): EquipoOption => ({ value: name })),
+    ...relevantRivals.map((rival): EquipoOption => ({ value: rival.nombre })),
   ].filter(option => option.value.trim().length > 0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
