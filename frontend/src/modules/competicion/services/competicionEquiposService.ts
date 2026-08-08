@@ -82,4 +82,20 @@ export const competicionEquiposService = {
       equipoIds.map(equipoId => ({ equipoId }))
     );
   },
+
+  /**
+   * Obtiene todos los nombres de equipos externos ya usados en cualquier competición,
+   * para poder reutilizarlos (p.ej. "San Lorenzo" ya añadido a un amistoso anterior)
+   * sin tener que volver a escribirlos.
+   */
+  async getAllExternalTeamNames(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('competicion_equipos')
+      .select('nombre_externo')
+      .not('nombre_externo', 'is', null);
+
+    if (error) throw error;
+    const unique = new Set((data || []).map(row => row.nombre_externo as string));
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'es'));
+  },
 };
