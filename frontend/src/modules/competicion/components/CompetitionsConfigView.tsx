@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Competicion } from '@/shared/services/dataService';
 import { competicionService } from '../services/competicionService';
-import { competicionEquiposService } from '../services/competicionEquiposService';
+import { competicionEquiposService, type EquipoRef } from '../services/competicionEquiposService';
 import { CompetitionTeam } from '../types';
 import CompetitionCalendarModal from './CompetitionCalendarModal';
 import CompetitionTeamsSelector from './CompetitionTeamsSelector';
@@ -36,6 +36,8 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [equiposSelectorOpen, setEquiposSelectorOpen] = useState(false);
   const [competicionSeleccionada, setCompeticionSeleccionada] = useState<Competicion | null>(null);
   const [todosLosEquipos, setTodosLosEquipos] = useState<CompetitionTeam[]>([]);
+  const [equiposCompeticionActual, setEquiposCompeticionActual] = useState<EquipoRef[]>([]);
+  const [loadingEquiposCompeticion, setLoadingEquiposCompeticion] = useState(false);
 
   // Cargar configuraciones desde Supabase
   useEffect(() => {
@@ -65,6 +67,21 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     // Cargar todos los equipos disponibles
     // Usamos misEquipos que contiene los equipos de la plantilla
     return misEquipos || [];
+  };
+
+  const handleOpenEquiposSelector = async (comp: Competicion) => {
+    setCompeticionSeleccionada(comp);
+    setEquiposSelectorOpen(true);
+    setLoadingEquiposCompeticion(true);
+    try {
+      const teams = await competicionEquiposService.getTeamsByCompeticion(comp.id);
+      setEquiposCompeticionActual(teams);
+    } catch (err) {
+      console.error('Error loading teams for competition:', err);
+      setEquiposCompeticionActual([]);
+    } finally {
+      setLoadingEquiposCompeticion(false);
+    }
   };
 
   const loadCompeticiones = async () => {
@@ -339,10 +356,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                   </div>
                   <div className="px-6 py-4 flex items-center justify-end gap-2">
                     <button
-                      onClick={() => {
-                        setCompeticionSeleccionada(comp);
-                        setEquiposSelectorOpen(true);
-                      }}
+                      onClick={() => handleOpenEquiposSelector(comp)}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
                       title="Configurar equipos"
                       disabled={loading}
@@ -423,16 +437,24 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
 
             {/* Body */}
             <div className="p-6 sm:p-8 overflow-y-auto flex-1">
-              <CompetitionTeamsSelector
-                competicion={competicionSeleccionada}
-                allTeams={todosLosEquipos}
-                onTeamsSelected={(teamIds) => {
-                  competicionEquiposService.setEquiposForCompeticion(competicionSeleccionada.id, teamIds).catch(err => {
-                    console.error('Error saving teams:', err);
-                    setError('Error al guardar los equipos');
-                  });
-                }}
-              />
+              {loadingEquiposCompeticion ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                  <i className="fa-solid fa-spinner text-3xl mb-3 animate-spin"></i>
+                  <span className="text-sm font-bold uppercase tracking-widest">Cargando equipos...</span>
+                </div>
+              ) : (
+                <CompetitionTeamsSelector
+                  competicion={competicionSeleccionada}
+                  allTeams={todosLosEquipos}
+                  initialTeams={equiposCompeticionActual}
+                  onTeamsSelected={(teams) => {
+                    competicionEquiposService.setTeamsForCompeticion(competicionSeleccionada.id, teams).catch(err => {
+                      console.error('Error saving teams:', err);
+                      setError('Error al guardar los equipos');
+                    });
+                  }}
+                />
+              )}
             </div>
 
             {/* Footer */}

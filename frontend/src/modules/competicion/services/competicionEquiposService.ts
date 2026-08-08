@@ -1,6 +1,8 @@
 /**
  * Servicio para manejar la relación M:M entre competiciones y equipos.
- * Permite configurar qué equipos participan en cada competición.
+ * Permite configurar qué equipos participan en cada competición, ya sean
+ * equipos propios (con ficha en `plantillas`) o equipos externos/rivales
+ * de nombre libre (p.ej. equipos de amistosos sin ficha en el sistema).
  */
 
 import { supabase } from '@/shared/services/supabaseClient';
@@ -8,57 +10,47 @@ import { supabase } from '@/shared/services/supabaseClient';
 export interface CompeticionEquipo {
   id: string;
   competicion_id: string;
-  equipo_id: string;
+  equipo_id: string | null;
+  nombre_externo: string | null;
   created_at?: string;
+}
+
+/** Referencia a un equipo dentro de una competición: propio (por id) o externo (por nombre) */
+export interface EquipoRef {
+  equipoId?: string;
+  nombreExterno?: string;
 }
 
 export const competicionEquiposService = {
   /**
-   * Obtiene todos los equipos de una competición
+   * Obtiene todos los equipos (propios y externos) de una competición
    */
-  async getEquiposByCompeticion(competicionId: string): Promise<string[]> {
+  async getTeamsByCompeticion(competicionId: string): Promise<EquipoRef[]> {
     const { data, error } = await supabase
       .from('competicion_equipos')
-      .select('equipo_id')
+      .select('equipo_id, nombre_externo')
       .eq('competicion_id', competicionId);
 
     if (error) throw error;
-    return (data || []).map(row => row.equipo_id);
+    return (data || []).map(row => ({
+      equipoId: row.equipo_id || undefined,
+      nombreExterno: row.nombre_externo || undefined,
+    }));
   },
 
   /**
-   * Agrega un equipo a una competición
+   * @deprecated usa getTeamsByCompeticion, que también incluye equipos externos
    */
-  async addEquipoToCompeticion(competicionId: string, equipoId: string): Promise<void> {
-    const { error } = await supabase
-      .from('competicion_equipos')
-      .insert({
-        competicion_id: competicionId,
-        equipo_id: equipoId,
-      });
-
-    if (error) throw error;
+  async getEquiposByCompeticion(competicionId: string): Promise<string[]> {
+    const teams = await this.getTeamsByCompeticion(competicionId);
+    return teams.filter(t => t.equipoId).map(t => t.equipoId as string);
   },
 
   /**
-   * Elimina un equipo de una competición
+   * Reemplaza todos los equipos (propios y externos) de una competición.
+   * Primero elimina los existentes y luego inserta la nueva lista.
    */
-  async removeEquipoFromCompeticion(competicionId: string, equipoId: string): Promise<void> {
-    const { error } = await supabase
-      .from('competicion_equipos')
-      .delete()
-      .eq('competicion_id', competicionId)
-      .eq('equipo_id', equipoId);
-
-    if (error) throw error;
-  },
-
-  /**
-   * Reemplaza todos los equipos de una competición
-   * Primero elimina todos los existentes y luego agrega los nuevos
-   */
-  async setEquiposForCompeticion(competicionId: string, equipoIds: string[]): Promise<void> {
-    // Primero, eliminar todos los equipos existentes
+  async setTeamsForCompeticion(competicionId: string, teams: EquipoRef[]): Promise<void> {
     const { error: deleteError } = await supabase
       .from('competicion_equipos')
       .delete()
@@ -66,11 +58,11 @@ export const competicionEquiposService = {
 
     if (deleteError) throw deleteError;
 
-    // Si hay equipos nuevos, agregarlos
-    if (equipoIds.length > 0) {
-      const rowsToInsert = equipoIds.map(equipoId => ({
+    if (teams.length > 0) {
+      const rowsToInsert = teams.map(team => ({
         competicion_id: competicionId,
-        equipo_id: equipoId,
+        equipo_id: team.equipoId || null,
+        nombre_externo: team.nombreExterno || null,
       }));
 
       const { error: insertError } = await supabase
@@ -82,17 +74,12 @@ export const competicionEquiposService = {
   },
 
   /**
-   * Verifica si un equipo participa en una competición
+   * @deprecated usa setTeamsForCompeticion, que también soporta equipos externos
    */
-  async equipoParticipa(competicionId: string, equipoId: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('competicion_equipos')
-      .select('id')
-      .eq('competicion_id', competicionId)
-      .eq('equipo_id', equipoId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
-    return !!data;
+  async setEquiposForCompeticion(competicionId: string, equipoIds: string[]): Promise<void> {
+    await this.setTeamsForCompeticion(
+      competicionId,
+      equipoIds.map(equipoId => ({ equipoId }))
+    );
   },
 };

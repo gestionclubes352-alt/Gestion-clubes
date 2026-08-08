@@ -16,6 +16,7 @@ export interface MatchFormData {
   visitorTeam: string;
   localTeamClubId?: string;
   visitorTeamClubId?: string;
+  nombreInterno?: string;
 }
 
 interface MatchModalProps {
@@ -49,12 +50,14 @@ const MatchModal: React.FC<MatchModalProps> = ({
     visitorTeam: match?.visitorTeam || '',
     localTeamClubId: match?.localTeamClubId || '',
     visitorTeamClubId: match?.visitorTeamClubId || '',
+    nombreInterno: match?.nombreInterno || '',
   });
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [configuredTeamIds, setConfiguredTeamIds] = useState<Set<string> | null>(null);
+  const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
+  const [configuredExternalTeams, setConfiguredExternalTeams] = useState<string[]>([]);
 
   // Resolver el id de la competición seleccionada (por nombre, ya que el <select> guarda el nombre)
   const selectedCompetitionId = useMemo(() => {
@@ -77,19 +80,22 @@ const MatchModal: React.FC<MatchModalProps> = ({
 
   useEffect(() => {
     if (!selectedCompetitionId) {
-      setConfiguredTeamIds(null);
+      setConfiguredOwnTeamIds(null);
+      setConfiguredExternalTeams([]);
       return;
     }
-    const loadTeamIds = async () => {
+    const loadTeams = async () => {
       try {
-        const teamIds = await competicionEquiposService.getEquiposByCompeticion(selectedCompetitionId);
-        setConfiguredTeamIds(new Set(teamIds));
+        const teams = await competicionEquiposService.getTeamsByCompeticion(selectedCompetitionId);
+        setConfiguredOwnTeamIds(new Set(teams.filter(t => t.equipoId).map(t => t.equipoId as string)));
+        setConfiguredExternalTeams(teams.filter(t => t.nombreExterno).map(t => t.nombreExterno as string));
       } catch (err) {
         console.error('Error loading configured teams:', err);
-        setConfiguredTeamIds(null);
+        setConfiguredOwnTeamIds(null);
+        setConfiguredExternalTeams([]);
       }
     };
-    loadTeamIds();
+    loadTeams();
   }, [selectedCompetitionId]);
 
   const clubNameById = new Map(clubs.map(club => [String(club.id), club.nombre]));
@@ -100,14 +106,15 @@ const MatchModal: React.FC<MatchModalProps> = ({
     clubId: team.clubId != null ? String(team.clubId) : undefined,
   });
 
-  // Si hay equipos configurados para esta competición, filtrar solo esos; si no, mostrar todos
-  const relevantTeams = configuredTeamIds && configuredTeamIds.size > 0
-    ? competitionTeams.filter(team => configuredTeamIds.has(String(team.id)))
+  // Si hay equipos propios configurados para esta competición, filtrar solo esos; si no, mostrar todos
+  const relevantOwnTeams = configuredOwnTeamIds && configuredOwnTeamIds.size > 0
+    ? competitionTeams.filter(team => configuredOwnTeamIds.has(String(team.id)))
     : competitionTeams;
 
-  const teamOptions: EquipoOption[] = relevantTeams
-    .map(toTeamOption)
-    .filter(option => option.value.trim().length > 0);
+  const teamOptions: EquipoOption[] = [
+    ...relevantOwnTeams.map(toTeamOption),
+    ...configuredExternalTeams.map((name): EquipoOption => ({ value: name })),
+  ].filter(option => option.value.trim().length > 0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -285,6 +292,21 @@ const MatchModal: React.FC<MatchModalProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Nombre Interno */}
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  <i className="fa-solid fa-tag mr-1"></i>Nombre Interno
+                </label>
+                <input
+                  type="text"
+                  name="nombreInterno"
+                  value={formData.nombreInterno}
+                  onChange={handleChange}
+                  placeholder="Ej: Clásico, Derbi, Amistoso..."
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                />
               </div>
             </div>
           </div>
