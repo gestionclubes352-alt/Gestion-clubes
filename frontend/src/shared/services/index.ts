@@ -13,10 +13,12 @@ export {
   sesionesService,
   pizarrasService,
   tareasService,
+  equiposRivalesService,
 } from './dataService';
 export type {
   Club, Equipo, Jugador, Personal, Usuario,
   Competicion, Partido, Sesion, PizarraTactica, Tarea,
+  EquipoRival,
 } from './dataService';
 
 // Shim temporal de compatibilidad (Fase 1 de la migración, ver dataService.ts)
