@@ -38,6 +38,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [todosLosEquipos, setTodosLosEquipos] = useState<CompetitionTeam[]>([]);
   const [equiposCompeticionActual, setEquiposCompeticionActual] = useState<EquipoRef[]>([]);
   const [loadingEquiposCompeticion, setLoadingEquiposCompeticion] = useState(false);
+  const [equiposSelectorError, setEquiposSelectorError] = useState<string | null>(null);
 
   // Cargar configuraciones desde Supabase
   useEffect(() => {
@@ -72,6 +73,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const handleOpenEquiposSelector = async (comp: Competicion) => {
     setCompeticionSeleccionada(comp);
     setEquiposSelectorOpen(true);
+    setEquiposSelectorError(null);
     setLoadingEquiposCompeticion(true);
     try {
       const teams = await competicionEquiposService.getTeamsByCompeticion(comp.id);
@@ -436,7 +438,13 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
             </div>
 
             {/* Body */}
-            <div className="p-6 sm:p-8 overflow-y-auto flex-1">
+            <div className="p-6 sm:p-8 overflow-y-auto flex-1 space-y-4">
+              {equiposSelectorError && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+                  <i className="fa-solid fa-circle-exclamation mr-2"></i>
+                  {equiposSelectorError}
+                </div>
+              )}
               {loadingEquiposCompeticion ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                   <i className="fa-solid fa-spinner text-3xl mb-3 animate-spin"></i>
@@ -448,9 +456,11 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                   allTeams={todosLosEquipos}
                   initialTeams={equiposCompeticionActual}
                   onTeamsSelected={(teams) => {
+                    setEquiposSelectorError(null);
                     competicionEquiposService.setTeamsForCompeticion(competicionSeleccionada.id, teams).catch(err => {
                       console.error('Error saving teams:', err);
-                      setError('Error al guardar los equipos');
+                      const msg = err instanceof Error ? err.message : 'Error al guardar los equipos';
+                      setEquiposSelectorError(msg);
                     });
                   }}
                 />
