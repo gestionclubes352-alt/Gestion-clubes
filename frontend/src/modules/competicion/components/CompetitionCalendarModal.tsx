@@ -194,6 +194,7 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
       {matchModalOpen && (
         <MatchModal
           match={editingMatch}
+          competitionId={competicion.id}
           competitionName={competicion.nombre}
           competitionTeams={competitionTeams}
           competitions={allCompetitions}

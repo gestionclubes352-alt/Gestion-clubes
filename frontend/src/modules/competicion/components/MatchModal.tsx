@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { CompetitionTeam } from '../types';
 import type { Club } from '@modules/clubes/types';
 import EquipoSelect, { type EquipoOption } from '@shared/components/EquipoSelect';
 import { clubesService } from '@shared/services';
+import { competicionEquiposService } from '../services/competicionEquiposService';
 
 export interface MatchFormData {
   id?: string;
@@ -53,6 +54,14 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [configuredTeamIds, setConfiguredTeamIds] = useState<Set<string> | null>(null);
+
+  // Resolver el id de la competición seleccionada (por nombre, ya que el <select> guarda el nombre)
+  const selectedCompetitionId = useMemo(() => {
+    if (competitionId) return competitionId;
+    const found = competitions.find(c => c.nombre === formData.competition);
+    return found?.id;
+  }, [competitionId, competitions, formData.competition]);
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -66,6 +75,23 @@ const MatchModal: React.FC<MatchModalProps> = ({
     loadClubs();
   }, []);
 
+  useEffect(() => {
+    if (!selectedCompetitionId) {
+      setConfiguredTeamIds(null);
+      return;
+    }
+    const loadTeamIds = async () => {
+      try {
+        const teamIds = await competicionEquiposService.getEquiposByCompeticion(selectedCompetitionId);
+        setConfiguredTeamIds(new Set(teamIds));
+      } catch (err) {
+        console.error('Error loading configured teams:', err);
+        setConfiguredTeamIds(null);
+      }
+    };
+    loadTeamIds();
+  }, [selectedCompetitionId]);
+
   const clubNameById = new Map(clubs.map(club => [String(club.id), club.nombre]));
 
   const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
@@ -74,7 +100,12 @@ const MatchModal: React.FC<MatchModalProps> = ({
     clubId: team.clubId != null ? String(team.clubId) : undefined,
   });
 
-  const teamOptions: EquipoOption[] = competitionTeams
+  // Si hay equipos configurados para esta competición, filtrar solo esos; si no, mostrar todos
+  const relevantTeams = configuredTeamIds && configuredTeamIds.size > 0
+    ? competitionTeams.filter(team => configuredTeamIds.has(String(team.id)))
+    : competitionTeams;
+
+  const teamOptions: EquipoOption[] = relevantTeams
     .map(toTeamOption)
     .filter(option => option.value.trim().length > 0);
 
