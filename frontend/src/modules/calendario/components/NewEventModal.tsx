@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent, EventType, EventFormData } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import EquipoSelect, { type EquipoOption } from '../../../shared/components/EquipoSelect';
-import { clubesService } from '@shared/services';
+import { clubesService, equiposRivalesService } from '@shared/services';
+import { competicionService, competicionEquiposService } from '@modules/competicion';
+import type { Competicion, EquipoRival } from '@shared/services/dataService';
 
 const toLocalDateString = (d: Date): string => {
   const year = d.getFullYear();
@@ -49,6 +51,10 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const currentEvent = editEvent ?? event ?? null;
   const [typeSelected, setTypeSelected] = useState<EventType | null>(currentEvent?.type || defaultType);
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [competitions, setCompetitions] = useState<Competicion[]>([]);
+  const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
+  const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
+  const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -60,6 +66,26 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       }
     };
     loadClubs();
+
+    const loadCompetitions = async () => {
+      try {
+        const data = await competicionService.listCompeticiones();
+        setCompetitions(data || []);
+      } catch (err) {
+        console.error('Error loading competitions:', err);
+      }
+    };
+    loadCompetitions();
+
+    const loadRivalCatalog = async () => {
+      try {
+        const data = await equiposRivalesService.list();
+        setRivalCatalog((data as EquipoRival[]) || []);
+      } catch (err) {
+        console.error('Error loading rival catalog:', err);
+      }
+    };
+    loadRivalCatalog();
   }, []);
 
   const typeTranslations: Record<EventType, string> = {
@@ -89,6 +115,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     notes: currentEvent?.notes || '',
     videoUrl: currentEvent?.videoUrl || '',
     docUrl: currentEvent?.docUrl || '',
+    nombreInterno: currentEvent?.nombreInterno || '',
   });
 
   useEffect(() => {
@@ -104,6 +131,32 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Resolver el id de la competición seleccionada (el <select> guarda el nombre, no el id)
+  const selectedCompetitionId = useMemo(() => {
+    const found = competitions.find(c => c.nombre === formData.competition);
+    return found?.id;
+  }, [competitions, formData.competition]);
+
+  useEffect(() => {
+    if (!selectedCompetitionId) {
+      setConfiguredOwnTeamIds(null);
+      setConfiguredRivalIds(new Set());
+      return;
+    }
+    const loadConfiguredTeams = async () => {
+      try {
+        const teams = await competicionEquiposService.getTeamsByCompeticion(selectedCompetitionId);
+        setConfiguredOwnTeamIds(new Set(teams.filter(t => t.equipoId).map(t => t.equipoId as string)));
+        setConfiguredRivalIds(new Set(teams.filter(t => t.equipoRivalId).map(t => t.equipoRivalId as string)));
+      } catch (err) {
+        console.error('Error loading configured teams for competition:', err);
+        setConfiguredOwnTeamIds(null);
+        setConfiguredRivalIds(new Set());
+      }
+    };
+    loadConfiguredTeams();
+  }, [selectedCompetitionId]);
+
   const clubNameById = new Map(clubs.map((club) => [String(club.id), club.nombre]));
 
   const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
@@ -112,9 +165,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     clubId: team.clubId != null ? String(team.clubId) : undefined,
   });
 
-  const teamOptions: EquipoOption[] = competitionTeams
-    .map(toTeamOption)
-    .filter((option) => option.value.trim().length > 0);
+  // Si la competición seleccionada tiene equipos configurados, mostrar solo esos (propios + rivales de catálogo);
+  // si no hay competición seleccionada o no tiene equipos configurados, mostrar todos como fallback.
+  const relevantOwnTeams = configuredOwnTeamIds && configuredOwnTeamIds.size > 0
+    ? competitionTeams.filter((team) => configuredOwnTeamIds.has(String(team.id)))
+    : competitionTeams;
+
+  const relevantRivals = configuredRivalIds.size > 0
+    ? rivalCatalog.filter((rival) => configuredRivalIds.has(String(rival.id)))
+    : [];
+
+  const teamOptions: EquipoOption[] = [
+    ...relevantOwnTeams.map(toTeamOption),
+    ...relevantRivals.map((rival): EquipoOption => ({ value: rival.nombre })),
+  ].filter((option) => option.value.trim().length > 0);
 
   // Para sesiones (entrenamientos propios) solo tiene sentido elegir entre los equipos del propio club
   const subTeamOptions: EquipoOption[] = ownClubId
@@ -150,6 +214,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       localTeamClubId: formData.localTeamClubId || undefined,
       visitorTeamClubId: formData.visitorTeamClubId || undefined,
       score: formData.score || undefined,
+      nombreInterno: formData.nombreInterno || undefined,
     };
 
     onSave(nextEvent);
@@ -296,8 +361,11 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
                   >
                     <option value="">{t('newEvent.competition')}</option>
-                    <option value="Liga">{t('newEvent.league')}</option>
-                    <option value="Copa">{t('newEvent.cup')}</option>
+                    {competitions.map((c) => (
+                      <option key={c.id} value={c.nombre}>
+                        {c.nombre}
+                      </option>
+                    ))}
                     <option value="Amistoso">{t('newEvent.friendly')}</option>
                   </select>
                 </>
@@ -327,6 +395,21 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                           {i + 1}
                         </option>
                       ))}
+                    </select>
+                    <select
+                      name="nombreInterno"
+                      value={formData.nombreInterno}
+                      onChange={handleChange}
+                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                    >
+                      <option value="">Nombre interno</option>
+                      <option value="Clásico">Clásico</option>
+                      <option value="Derbi">Derbi</option>
+                      <option value="Amistoso">Amistoso</option>
+                      <option value="Copa">Copa</option>
+                      <option value="Supercopa">Supercopa</option>
+                      <option value="Playoff">Playoff</option>
+                      <option value="Preparación">Preparación</option>
                     </select>
                   </div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>

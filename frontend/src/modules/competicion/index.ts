@@ -10,6 +10,11 @@ export { default as MatchModal } from './components/MatchModal';
 export { default as CompetitionTeamsSelector } from './components/CompetitionTeamsSelector';
 export type { MatchFormData } from './components/MatchModal';
 
+// Servicios
+export { competicionService } from './services/competicionService';
+export { competicionEquiposService } from './services/competicionEquiposService';
+export type { EquipoRef } from './services/competicionEquiposService';
+
 // Hooks
 export { useGeminiStandings } from './hooks';
 export type { UseGeminiStandingsOptions, UseGeminiStandingsReturn } from './hooks';
