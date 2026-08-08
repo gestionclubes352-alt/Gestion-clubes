@@ -173,10 +173,10 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         </p>
       </div>
 
-      {/* Desplegable de equipos propios */}
+      {/* Desplegable de equipos ya registrados en el sistema (de cualquier club) */}
       <div>
         <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-          <i className="fa-solid fa-users mr-1"></i>Añadir equipo propio
+          <i className="fa-solid fa-users mr-1"></i>Añadir equipo del sistema
         </label>
         <select
           value={selectedTeamToAdd}
@@ -184,7 +184,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
           className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
         >
           <option value="">
-            {availableOwnTeamsByClub.size === 0 ? 'No hay más equipos propios disponibles' : 'Selecciona un equipo...'}
+            {availableOwnTeamsByClub.size === 0 ? 'No hay más equipos disponibles' : 'Selecciona un equipo...'}
           </option>
           {Array.from(availableOwnTeamsByClub.entries()).map(([clubId, teams]) => (
             <optgroup key={clubId} label={clubNameById.get(clubId) || 'Mi club'}>
@@ -297,16 +297,16 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         </div>
       )}
 
-      {/* Lista de equipos propios seleccionados */}
+      {/* Lista de equipos del sistema seleccionados */}
       <div className="space-y-2">
         <div className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">
-          <i className="fa-solid fa-shield-halved mr-1"></i>Equipos propios seleccionados
+          <i className="fa-solid fa-shield-halved mr-1"></i>Equipos del sistema seleccionados
         </div>
         <div className="space-y-1.5 max-h-72 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50">
           {selectedOwnIds.size === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-slate-400">
               <i className="fa-solid fa-users text-2xl mb-2"></i>
-              <p className="text-xs font-semibold">Ningún equipo propio seleccionado</p>
+              <p className="text-xs font-semibold">Ningún equipo seleccionado todavía</p>
             </div>
           ) : (
             Array.from(selectedOwnIds).map(teamId => {

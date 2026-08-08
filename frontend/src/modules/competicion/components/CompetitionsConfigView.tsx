@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Competicion } from '@/shared/services/dataService';
+import { Competicion, Equipo } from '@/shared/services/dataService';
+import { equiposService } from '@shared/services';
 import { competicionService } from '../services/competicionService';
 import { competicionEquiposService, type EquipoRef } from '../services/competicionEquiposService';
 import { CompetitionTeam } from '../types';
@@ -65,9 +66,27 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   };
 
   const loadAllTeams = async (): Promise<CompetitionTeam[]> => {
-    // Cargar todos los equipos disponibles
-    // Usamos misEquipos que contiene los equipos de la plantilla
-    return misEquipos || [];
+    // Cargar TODOS los equipos del sistema (de cualquier club), no solo los propios,
+    // para poder añadir a una competición equipos ya registrados por otros clubes.
+    try {
+      const data = await equiposService.list();
+      return (data as Equipo[]).map((e): CompetitionTeam => ({
+        id: e.id,
+        clubId: e.club_id,
+        nombre: e.nombre,
+        estadio: e.estadio || '',
+        localidad: e.localidad || '',
+        logoUrl: e.logo_url || undefined,
+        equipo: e.sub_equipo,
+        nombreEnFed: e.nombre_en_fed,
+        etapa: e.categoria,
+        competicion: e.competicion,
+        enlace: e.enlace,
+      }));
+    } catch (err) {
+      console.error('Error loading all teams:', err);
+      return misEquipos || [];
+    }
   };
 
   const handleOpenEquiposSelector = async (comp: Competicion) => {
