@@ -5,7 +5,7 @@
 ALTER TABLE competicion_equipos DROP CONSTRAINT IF EXISTS competicion_equipos_equipo_id_fkey;
 ALTER TABLE competicion_equipos ALTER COLUMN equipo_id DROP NOT NULL;
 
--- 2. Nueva columna para el nombre de equipos externos (sin entidad en `plantillas`)
+-- 2. Nueva columna para el nombre de equipos externos (sin entidad en `equipos`)
 ALTER TABLE competicion_equipos ADD COLUMN IF NOT EXISTS nombre_externo TEXT;
 
 -- 3. Restricción: cada fila debe representar un equipo propio O uno externo, nunca ninguno
@@ -18,4 +18,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_competicion_equipos_externo_unico
   ON competicion_equipos(competicion_id, nombre_externo)
   WHERE nombre_externo IS NOT NULL;
 
-COMMENT ON COLUMN competicion_equipos.nombre_externo IS 'Nombre libre de un equipo rival sin ficha en plantillas (p.ej. equipos de amistosos)';
+COMMENT ON COLUMN competicion_equipos.nombre_externo IS 'Nombre libre de un equipo rival sin ficha en equipos (p.ej. equipos de amistosos)';
