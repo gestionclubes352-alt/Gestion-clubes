@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Competicion } from '@/shared/services/dataService';
 import { competicionService } from '../services/competicionService';
+import { competicionEquiposService } from '../services/competicionEquiposService';
 import { CompetitionTeam } from '../types';
 import CompetitionCalendarModal from './CompetitionCalendarModal';
+import CompetitionTeamsSelector from './CompetitionTeamsSelector';
 
 interface CompetitionConfig {
   id: string;
@@ -31,11 +33,39 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [calendarioCompeticion, setCalendarioCompeticion] = useState<Competicion | null>(null);
+  const [equiposSelectorOpen, setEquiposSelectorOpen] = useState(false);
+  const [competicionSeleccionada, setCompeticionSeleccionada] = useState<Competicion | null>(null);
+  const [todosLosEquipos, setTodosLosEquipos] = useState<CompetitionTeam[]>([]);
 
   // Cargar configuraciones desde Supabase
   useEffect(() => {
-    loadCompeticiones();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [competicionesData, equiposData] = await Promise.all([
+        competicionService.listCompeticiones(),
+        loadAllTeams(),
+      ]);
+      setCompeticiones(competicionesData);
+      setTodosLosEquipos(equiposData);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al cargar datos';
+      setError(errorMsg);
+      console.error('Error loading data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllTeams = async (): Promise<CompetitionTeam[]> => {
+    // Cargar todos los equipos disponibles
+    // Usamos misEquipos que contiene los equipos de la plantilla
+    return misEquipos || [];
+  };
 
   const loadCompeticiones = async () => {
     try {
@@ -309,6 +339,17 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                   </div>
                   <div className="px-6 py-4 flex items-center justify-end gap-2">
                     <button
+                      onClick={() => {
+                        setCompeticionSeleccionada(comp);
+                        setEquiposSelectorOpen(true);
+                      }}
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                      title="Configurar equipos"
+                      disabled={loading}
+                    >
+                      <i className="fa-solid fa-people-group text-[11px]"></i>
+                    </button>
+                    <button
                       onClick={() => setCalendarioCompeticion(comp)}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
                       title="Calendario"
@@ -356,6 +397,55 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
           allCompetitions={competiciones}
           onClose={() => setCalendarioCompeticion(null)}
         />
+      )}
+
+      {/* Modal para configurar equipos */}
+      {equiposSelectorOpen && competicionSeleccionada && (
+        <div className="fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-[var(--accent)] font-black text-xl uppercase tracking-tighter">
+                  Configurar Equipos
+                </h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                  {competicionSeleccionada.nombre}
+                </p>
+              </div>
+              <button
+                onClick={() => setEquiposSelectorOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto flex-1">
+              <CompetitionTeamsSelector
+                competicion={competicionSeleccionada}
+                allTeams={todosLosEquipos}
+                onTeamsSelected={(teamIds) => {
+                  competicionEquiposService.setEquiposForCompeticion(competicionSeleccionada.id, teamIds).catch(err => {
+                    console.error('Error saving teams:', err);
+                    setError('Error al guardar los equipos');
+                  });
+                }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3 justify-end">
+              <button
+                onClick={() => setEquiposSelectorOpen(false)}
+                className="px-6 py-3 rounded-2xl border border-slate-200 bg-white text-slate-600 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                CERRAR
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
