@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Competicion } from '@/shared/services/dataService';
 import { competicionService } from '../services/competicionService';
+import { CompetitionTeam } from '../types';
+import CompetitionCalendarModal from './CompetitionCalendarModal';
 
 interface CompetitionConfig {
   id: string;
@@ -10,7 +12,12 @@ interface CompetitionConfig {
   minutosPorParte: number;
 }
 
-const CompetitionsConfigView: React.FC = () => {
+interface CompetitionsConfigViewProps {
+  /** Equipos propios del club (con nombreEnFed) para resaltar el equipo correcto en cada calendario de competición. */
+  misEquipos?: CompetitionTeam[];
+}
+
+const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [] }) => {
   const { t } = useTranslation();
   const [competiciones, setCompeticiones] = useState<Competicion[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,6 +30,7 @@ const CompetitionsConfigView: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [calendarioCompeticion, setCalendarioCompeticion] = useState<Competicion | null>(null);
 
   // Cargar configuraciones desde Supabase
   useEffect(() => {
@@ -255,7 +263,7 @@ const CompetitionsConfigView: React.FC = () => {
             {/* Encabezado */}
             <div
               className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-              style={{ gridTemplateColumns: '1fr 100px 100px 120px 100px' }}
+              style={{ gridTemplateColumns: '1fr 100px 100px 120px 140px' }}
             >
               <div className="px-6 py-4">Competición</div>
               <div className="px-6 py-4 text-center">Partes</div>
@@ -280,7 +288,7 @@ const CompetitionsConfigView: React.FC = () => {
                 <div
                   key={comp.id}
                   className="grid items-center border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '1fr 100px 100px 120px 100px' }}
+                  style={{ gridTemplateColumns: '1fr 100px 100px 120px 140px' }}
                 >
                   <div className="px-6 py-4">
                     <span className="font-semibold text-slate-800">{comp.nombre}</span>
@@ -300,6 +308,14 @@ const CompetitionsConfigView: React.FC = () => {
                     </span>
                   </div>
                   <div className="px-6 py-4 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => setCalendarioCompeticion(comp)}
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                      title="Calendario"
+                      disabled={loading}
+                    >
+                      <i className="fa-solid fa-calendar-days text-[11px]"></i>
+                    </button>
                     <button
                       onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte })}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
@@ -330,6 +346,16 @@ const CompetitionsConfigView: React.FC = () => {
           <i className="fa-solid fa-circle-info mr-2"></i>
           Total de {competiciones.length} competición{competiciones.length !== 1 ? 'es' : ''} configurada{competiciones.length !== 1 ? 's' : ''}
         </div>
+      )}
+
+      {calendarioCompeticion && (
+        <CompetitionCalendarModal
+          competicion={calendarioCompeticion}
+          equipoDestacado={misEquipos.find(eq => eq.competicion === calendarioCompeticion.nombre)?.nombreEnFed}
+          competitionTeams={misEquipos}
+          allCompetitions={competiciones}
+          onClose={() => setCalendarioCompeticion(null)}
+        />
       )}
     </div>
   );
