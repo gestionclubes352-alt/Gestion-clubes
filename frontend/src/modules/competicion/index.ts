@@ -7,6 +7,7 @@ export { default as LeagueTable } from './components/LeagueTable';
 export { default as CompetitionsConfigView } from './components/CompetitionsConfigView';
 export { default as CompetitionCalendarModal } from './components/CompetitionCalendarModal';
 export { default as MatchModal } from './components/MatchModal';
+export { default as CompetitionTeamsSelector } from './components/CompetitionTeamsSelector';
 export type { MatchFormData } from './components/MatchModal';
 
 // Hooks
