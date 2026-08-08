@@ -209,7 +209,11 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
           className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
         >
           <option value="">
-            {availableRivals.length === 0 ? 'No hay rivales en el catálogo todavía' : 'Selecciona un rival...'}
+            {availableRivals.length === 0
+              ? (rivalCatalog.length === 0
+                  ? 'No hay rivales en el catálogo todavía'
+                  : 'Todos los rivales del catálogo ya están añadidos')
+              : 'Selecciona un rival...'}
           </option>
           {availableRivals.map(rival => (
             <option key={rival.id} value={String(rival.id)}>{rival.nombre}</option>
