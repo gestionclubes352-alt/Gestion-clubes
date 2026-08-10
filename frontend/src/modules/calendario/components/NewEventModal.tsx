@@ -307,33 +307,32 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                 />
               ) : null}
 
-              {(typeSelected === 'Sesión' || (typeSelected !== 'Partido' && typeSelected !== 'Sesión')) && (
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{t('newEvent.team')}</p>
-                  <EquipoSelect
-                    value={formData.team}
-                    onChange={(team) => setFormData({ ...formData, team })}
-                    extraTeams={subTeamOptions}
-                    placeholder={t('newEvent.teamPlaceholder')}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
-                  />
-                </div>
-              )}
-
               {typeSelected === 'Sesión' && (
-                <select
-                  name="sessionNumber"
-                  value={formData.sessionNumber}
-                  onChange={handleChange}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
-                >
-                  <option value="">{t('newEvent.sessionNumber')}</option>
-                  {Array.from({ length: 200 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={String(n)}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{t('newEvent.team')}</p>
+                    <EquipoSelect
+                      value={formData.team}
+                      onChange={(team) => setFormData({ ...formData, team })}
+                      extraTeams={subTeamOptions}
+                      placeholder={t('newEvent.teamPlaceholder')}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
+                    />
+                  </div>
+                  <select
+                    name="sessionNumber"
+                    value={formData.sessionNumber}
+                    onChange={handleChange}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                  >
+                    <option value="">{t('newEvent.sessionNumber')}</option>
+                    {Array.from({ length: 200 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={String(n)}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
@@ -382,6 +381,16 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
               {typeSelected === 'Partido' && (
                 <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{t('newEvent.team')}</p>
+                    <EquipoSelect
+                      value={formData.team}
+                      onChange={(team) => setFormData({ ...formData, team })}
+                      extraTeams={subTeamOptions}
+                      placeholder={t('newEvent.teamPlaceholder')}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <select
                       name="jornada"
@@ -404,13 +413,11 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
                     >
                       <option value="" disabled hidden>Nombre interno</option>
-                      <option value="Clásico">Clásico</option>
-                      <option value="Derbi">Derbi</option>
-                      <option value="Amistoso">Amistoso</option>
-                      <option value="Copa">Copa</option>
-                      <option value="Supercopa">Supercopa</option>
-                      <option value="Playoff">Playoff</option>
-                      <option value="Preparación">Preparación</option>
+                      {subTeamOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.value}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>

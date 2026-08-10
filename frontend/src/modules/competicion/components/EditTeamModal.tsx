@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
-import { equiposService, Equipo } from '@shared/services/dataService';
-import { competicionService } from '../services/competicionService';
-
-interface CompetitionConfig {
-  id: string;
-  nombre: string;
-  partes: number;
-  minutosPorParte: number;
-}
 
 interface EditTeamModalProps {
   team: CompetitionTeam;
@@ -22,24 +13,8 @@ interface EditTeamModalProps {
 const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onClose, onSave }) => {
   const [formData, setFormData] = useState<CompetitionTeam>({ ...team });
   const [isSaving, setIsSaving] = useState(false);
-  const [competiciones, setCompeticiones] = useState<CompetitionConfig[]>([]);
-  const [equiposPorCompeticion, setEquiposPorCompeticion] = useState<Equipo[]>([]);
-  const [loadingEquipos, setLoadingEquipos] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showClubDropdown, setShowClubDropdown] = useState(false);
-
-  useEffect(() => {
-    const loadCompeticiones = async () => {
-      try {
-        const data = await competicionService.listCompeticiones();
-        setCompeticiones(data);
-      } catch (err) {
-        console.error('Error loading competiciones:', err);
-        setCompeticiones([]);
-      }
-    };
-    loadCompeticiones();
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -53,29 +28,6 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showClubDropdown]);
-
-  // Cargar equipos cuando cambia la competición seleccionada
-  useEffect(() => {
-    const loadEquipos = async () => {
-      if (!formData.competicion) {
-        setEquiposPorCompeticion([]);
-        return;
-      }
-
-      try {
-        setLoadingEquipos(true);
-        const allEquipos = await equiposService.list({ competicion: formData.competicion });
-        setEquiposPorCompeticion(allEquipos);
-      } catch (err) {
-        console.error('Error loading equipos:', err);
-        setEquiposPorCompeticion([]);
-      } finally {
-        setLoadingEquipos(false);
-      }
-    };
-
-    loadEquipos();
-  }, [formData.competicion]);
 
   const handleClubChange = (selectedClubId: string) => {
     const club = clubes.find(c => String(c.id) === selectedClubId);
@@ -227,30 +179,6 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
               placeholder="Ej: IPC LA ESCUELA"
             />
-          </div>
-
-          {/* Competición */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-              Competición
-            </label>
-            {competiciones.length === 0 ? (
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
-                <i className="fa-solid fa-circle-info"></i>
-                No hay competiciones creadas. Crea una en Configuración.
-              </div>
-            ) : (
-              <select
-                value={formData.competicion || ''}
-                onChange={(e) => setFormData({ ...formData, competicion: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              >
-                <option value="">-- Selecciona una competición --</option>
-                {competiciones.map(comp => (
-                  <option key={comp.id} value={comp.nombre}>{comp.nombre}</option>
-                ))}
-              </select>
-            )}
           </div>
         </div>
 

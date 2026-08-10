@@ -370,7 +370,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* PAGE TITLE */}
       <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
-        {activeTab === 'rivales' ? t('sidebar.rivalTeamsLabel') : 'Mis Plantillas'}
+        {activeTab === 'rivales' ? 'Jugadores Rivales' : 'Mis Plantillas'}
       </h2>
 
       {/* PESTAÑAS MIS PLANTILLAS / EQUIPOS RIVALES */}
@@ -395,7 +395,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           }`}
         >
           <i className="fa-solid fa-user-secret text-[10px]"></i>
-          {t('sidebar.rivalTeamsLabel')}
+          Jugadores Rivales
         </button>
       </div>
 

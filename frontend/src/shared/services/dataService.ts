@@ -312,24 +312,44 @@ function createLegacyStub<T = any>(): LegacyStore<T> {
  * `payload` — ver 016_task_templates_y_fix_rls_exercises.sql.
  */
 function createJsonPayloadStore<T extends { id: string } = any>(tableName: string): LegacyStore<T> {
+  // Varias vistas (repositorio, calendario, diseñador) piden esta misma tabla
+  // en cada montaje; el payload incluye miniaturas en base64 y puede pesar
+  // varios MB en total, así que se comparte una única lectura en memoria
+  // entre todas ellas y se invalida solo cuando algo cambia.
+  let cache: T[] | null = null;
+  let inflight: Promise<T[]> | null = null;
+
+  async function fetchAll(): Promise<T[]> {
+    const { data, error } = await supabase.from(tableName).select('payload');
+    if (error) throw error;
+    return (data ?? []).map((row: { payload: T }) => row.payload);
+  }
+
   return {
     async get() {
-      const { data, error } = await supabase.from(tableName).select('payload');
-      if (error) throw error;
-      return { data: (data ?? []).map((row: { payload: T }) => row.payload) };
+      if (cache) return { data: cache };
+      if (!inflight) {
+        inflight = fetchAll().finally(() => { inflight = null; });
+      }
+      const data = await inflight;
+      cache = data;
+      return { data };
     },
     async upsert(item: T) {
       const { error } = await supabase.from(tableName).upsert({ id: item.id, payload: item });
       if (error) throw error;
+      cache = null;
       return item;
     },
     async delete(id: string | number) {
       const { error } = await supabase.from(tableName).delete().eq('id', id);
       if (error) throw error;
+      cache = null;
     },
     async clearAll() {
       const { error } = await supabase.from(tableName).delete().neq('id', '');
       if (error) throw error;
+      cache = null;
     },
   };
 }

@@ -23,6 +23,8 @@ interface PositionInterval {
 interface MatchPositionPoint {
   matchId: string;
   date?: string;
+  opponent?: string;
+  formation?: string;
   label: string;
   x: number;
   y: number;
@@ -141,6 +143,10 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
         result.push({
           matchId: String(match.id),
           date: match.date,
+          opponent: match.localTeam && match.visitorTeam
+            ? `${match.localTeam} vs ${match.visitorTeam}`
+            : (match.opponent || match.localTeam || match.visitorTeam),
+          formation: report.formation,
           label: dominant.label,
           x: dominant.x,
           y: dominant.y,
@@ -212,7 +218,9 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
           <thead>
             <tr className="uppercase text-slate-500 font-black tracking-widest">
               <th className="text-left px-2 py-1">{t('common.date', 'Fecha')}</th>
+              <th className="text-left px-2 py-1">{t('common.match', 'Partido')}</th>
               <th className="text-left px-2 py-1">{t('common.position')}</th>
+              <th className="text-left px-2 py-1">{t('common.formation', 'Sistema')}</th>
               <th className="text-right px-2 py-1">{t('editPlayer.minutes')}</th>
             </tr>
           </thead>
@@ -220,7 +228,9 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
             {points.map(point => (
               <tr key={point.matchId} className="border-t border-white/5">
                 <td className="px-2 py-1 whitespace-nowrap">{point.date ? new Date(point.date).toLocaleDateString() : '—'}</td>
+                <td className="px-2 py-1 font-bold whitespace-nowrap">{point.opponent || '—'}</td>
                 <td className="px-2 py-1 font-bold">{point.label}</td>
+                <td className="px-2 py-1">{point.formation || '—'}</td>
                 <td className="px-2 py-1 text-right font-black text-sky-300">{point.minutes}'</td>
               </tr>
             ))}
