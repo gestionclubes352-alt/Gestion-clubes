@@ -136,27 +136,35 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     let totalTeamMatches = 0;
     let totalTeamMinutes = 0;
 
-    (matches || []).forEach(match => {
-      const report = reportById.get(String(match.id));
-      if (!report) return;
+    try {
+      (matches || []).forEach(match => {
+        const report = reportById.get(String(match.id));
+        if (!report) return;
 
-      totalTeamMatches += 1;
-      const stats = computeMatchStats(report);
+        totalTeamMatches += 1;
+        const stats = computeMatchStats(report);
 
-      // Calcula minutos totales del equipo por partido
-      let teamMinutesThisMatch = 0;
-      stats.minutesByPlayer.forEach(minutes => {
-        teamMinutesThisMatch += minutes;
+        // Calcula minutos totales del equipo por partido
+        let teamMinutesThisMatch = 0;
+        if (stats.minutesByPlayer && stats.minutesByPlayer.size > 0) {
+          stats.minutesByPlayer.forEach(minutes => {
+            if (typeof minutes === 'number' && isFinite(minutes)) {
+              teamMinutesThisMatch += minutes;
+            }
+          });
+        }
+        totalTeamMinutes += teamMinutesThisMatch;
+
+        if (!stats.involvedIds.has(pid)) return;
+
+        partidosJugados += 1;
+        minutos += stats.minutesByPlayer.get(pid) ?? 0;
+        if (stats.starterIds.has(pid)) titular += 1;
+        goles += stats.goalsByPlayer.get(pid) ?? 0;
       });
-      totalTeamMinutes += teamMinutesThisMatch;
-
-      if (!stats.involvedIds.has(pid)) return;
-
-      partidosJugados += 1;
-      minutos += stats.minutesByPlayer.get(pid) ?? 0;
-      if (stats.starterIds.has(pid)) titular += 1;
-      goles += stats.goalsByPlayer.get(pid) ?? 0;
-    });
+    } catch (error) {
+      console.error('Error en matchStats:', error);
+    }
 
     const playerAvailableMatches = totalTeamMatches > 0 ? totalTeamMatches : undefined;
 
