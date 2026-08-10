@@ -74,6 +74,26 @@ const ExerciseDesigner = React.lazy(() => import('@modules/entrenamientos/compon
 const PizarraTactica = React.lazy(() => import('@modules/tactica/components/PizarraTactica'));
 const AIModeView = React.lazy(() => import('@modules/ai-mode/components/AIModeView'));
 
+// Error Boundary para capturar errores en componentes lazy
+class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback?: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err: any) {
+    console.error('[ErrorBoundary]', err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || <div className="p-12 text-center text-red-600"><i className="fa-solid fa-triangle-exclamation text-3xl mb-4"></i><p>Error al cargar el componente</p></div>;
+    }
+    return this.props.children;
+  }
+}
+
 
 
 // Mapeo de rutas a secciones para el Sidebar
@@ -852,14 +872,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const [matchLoading, setMatchLoading] = useState(true);
     const [matchLoadError, setMatchLoadError] = useState<string | null>(null);
 
+    console.log('[MatchReportWrapper] Rendering with matchId:', matchId);
+    console.log('[MatchReportWrapper] filteredEventsList count:', filteredEventsList.length);
+
     // Buscar en la lista filtrada
     const match = filteredEventsList.find(e => String(e.id) === matchId);
+    console.log('[MatchReportWrapper] Found in list:', !!match);
 
     // Si no está en la lista, cargar de la BD
     useEffect(() => {
       const loadMatch = async () => {
+        console.log('[MatchReportWrapper] Starting load, match exists in list:', !!match);
         try {
           if (match) {
+            console.log('[MatchReportWrapper] Using match from list');
             setLoadedMatch(match);
             setMatchLoadError(null);
             setMatchLoading(false);
@@ -867,12 +893,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           }
 
           if (!matchId) {
+            console.error('[MatchReportWrapper] No matchId');
             setMatchLoadError('No match ID provided');
             setMatchLoading(false);
             return;
           }
 
+          console.log('[MatchReportWrapper] Loading from BD:', matchId);
           const loaded = await eventosCalendarioService.getById(matchId);
+          console.log('[MatchReportWrapper] Loaded from BD:', loaded);
           setLoadedMatch(loaded);
           setMatchLoadError(null);
         } catch (err) {
@@ -889,6 +918,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     }, [matchId, match]);
 
     const displayMatch = match || loadedMatch;
+    console.log('[MatchReportWrapper] displayMatch:', !!displayMatch, 'loading:', matchLoading, 'error:', matchLoadError);
 
     if (matchLoading) {
       return <LoadingScreen />;
@@ -910,16 +940,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       );
     }
 
+    console.log('[MatchReportWrapper] Rendering MatchReportView');
     const backPath = locState?.from || '/partidos';
     return (
-      <MatchReportView
-        match={displayMatch}
-        onBack={() => navigate(backPath)}
-        ownClubId={currentTeam?.id || ''}
-        competitionTeams={competitionTeams}
-        onSave={handleSaveEvent}
-        onDelete={handleDeleteEvent}
-      />
+      <ErrorBoundary>
+        <MatchReportView
+          match={displayMatch}
+          onBack={() => navigate(backPath)}
+          ownClubId={currentTeam?.id || ''}
+          competitionTeams={competitionTeams}
+          onSave={handleSaveEvent}
+          onDelete={handleDeleteEvent}
+        />
+      </ErrorBoundary>
     );
   };
 
