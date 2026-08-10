@@ -440,7 +440,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
 
         {detailTab === 'asistencias' && (
           <SessionAttendancePanel
-            players={activeTraining.team ? squad.filter(p => !p.equipo || p.equipo === activeTraining.team) : squad}
+            players={squad}
             attendance={attendance}
             onChange={setAttendance}
           />
@@ -501,7 +501,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       title="video"
                       src={getVideoEmbedUrl(videoUrl)}
                       className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
                     ></iframe>
                   </div>
                 )}
@@ -608,19 +609,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                   return result;
                 };
 
-                const groupedAll = groupPlayersByDemarcation(squad);
+                const attendingPlayers = squad.filter(p => (attendance[p.id] || 'Si') === 'Si');
+                const groupedAttending = groupPlayersByDemarcation(attendingPlayers);
 
                 return (
                   <>
+                    {groupedAttending.length === 0 && squad.length > 0 && (
+                      <div className="text-center text-slate-400 text-sm font-bold py-4">{t('calendarView.allAbsent')}</div>
+                    )}
                     {squad.length === 0 && (
                       <div className="text-center text-slate-400 text-3xl font-black uppercase tracking-widest py-8">{t('calendarView.noPlayers')}</div>
                     )}
 
-                    {groupedAll.map(([positionGroup, players]) => (
-                      <div key={positionGroup} className="space-y-1.5">
+                    {groupedAttending.map(([positionGroup, players]) => (
+                      <div key={positionGroup} className="space-y-2">
                         {players.length > 0 && (
                           <>
-                            <div className="flex items-center gap-2 mt-3 mb-1.5 pt-1">
+                            <div className="flex items-center gap-2 mt-4 mb-2 pt-2">
                               {(() => {
                                 const colors = getPositionColor(players[0]);
                                 return (
@@ -635,17 +640,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                             </div>
                             {players.map((player) => {
                               const colors = getPositionColor(player);
-                              const status = attendance[player.id] || 'Si';
                               return (
-                                <div key={player.id} className={`flex items-center justify-between ${colors.bg} rounded-xl px-3 py-1.5 border ${colors.border}`}>
+                                <div key={player.id} className={`flex items-center justify-between ${colors.bg} rounded-xl p-3 border ${colors.border}`}>
                                   <div className="flex items-center gap-3 min-w-0">
                                     <div className={`${colors.badge} text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[11px]`}>
                                       {player.dorsal || player.nombre.charAt(0)}
                                     </div>
-                                    <p className="text-[12px] font-black text-black truncate">{player.nombre}</p>
+                                    <div className="min-w-0">
+                                      <p className="text-[12px] font-black text-black truncate">{player.nombre}</p>
+                                      <p className="text-[10px] text-slate-400 font-bold truncate">{player.posicionJuego || player.posicion}</p>
+                                    </div>
                                   </div>
                                   <select
-                                    value={status}
+                                    value="Si"
                                     onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as AttendanceStatus }))}
                                     className={`px-3 py-2 rounded-xl border ${colors.border} ${colors.text} ${colors.bg} text-xs font-black`}
                                   >
@@ -663,6 +670,58 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                         )}
                       </div>
                     ))}
+
+                    {(() => {
+                      const absentPlayers = squad.filter(p => (attendance[p.id] || 'Si') !== 'Si');
+                      if (absentPlayers.length === 0) return null;
+
+                      const groupedAbsent = groupPlayersByDemarcation(absentPlayers);
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200">
+                            <i className="fa-solid fa-user-xmark text-red-500"></i>
+                            <h4 className="text-red-600 font-black text-sm uppercase tracking-widest">{t('calendarView.absences')}</h4>
+                            <span className="ml-auto text-[10px] font-black text-red-400">{absentPlayers.length}</span>
+                          </div>
+                          {groupedAbsent.map(([positionGroup, players]) => (
+                            <div key={`absent-${positionGroup}`} className="space-y-2">
+                              <div className="flex items-center gap-2 mt-2 mb-2">
+                                <div className="bg-red-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">DF</div>
+                                <h5 className="text-red-600 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
+                              </div>
+                              {players.map((player) => {
+                                const status = attendance[player.id] || 'Si';
+                                return (
+                                  <div key={player.id} className="flex items-center justify-between bg-red-50 rounded-xl p-3 border border-red-200">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-9 h-9 rounded-full bg-red-400 text-white flex items-center justify-center font-black text-[11px]">
+                                        {player.dorsal || player.nombre.charAt(0)}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-[12px] font-black text-red-700 truncate">{player.nombre}</p>
+                                        <p className="text-[10px] text-slate-400 font-bold truncate">{player.posicionJuego || player.posicion}</p>
+                                      </div>
+                                    </div>
+                                    <select
+                                      value={status}
+                                      onChange={(e) => setAttendance(prev => ({ ...prev, [player.id]: e.target.value as AttendanceStatus }))}
+                                      className="px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-xs font-black"
+                                    >
+                                      <option value="Si">{t('calendarView.attendYes')}</option>
+                                      <option value="Lesión">{t('calendarView.attendInjury')}</option>
+                                      <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
+                                      <option value="Descanso">{t('calendarView.attendRest')}</option>
+                                      <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
+                                      <option value="Otro">{t('calendarView.other')}</option>
+                                    </select>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </>
                 );
               })()}

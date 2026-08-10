@@ -14,7 +14,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 11;
+const MENU_VERSION = 9;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -35,6 +35,8 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'PLANTILLAS', labelKey: 'sidebar.squadsLabel', icon: 'fa-users', section: 'management' },
   { id: 'CAMPOGRAMA', labelKey: 'sidebar.fieldDiagramLabel', icon: 'fa-diagram-project', section: 'management' },
   { id: 'PERSONAL', labelKey: 'sidebar.technicalStaffLabel', icon: 'fa-user-tie', section: 'management' },
+  { id: 'CLUBES', labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', section: 'management' },
+  { id: 'EQUIPOS', labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', section: 'management' },
   // Planificación
   { id: 'SESIONES', labelKey: 'sidebar.sessionsLabel', icon: 'fa-calendar-days', section: 'planning' },
   { id: 'PARTIDOS', labelKey: 'sidebar.matchesLabel', icon: 'fa-futbol', section: 'planning' },
@@ -52,9 +54,6 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   // Contenido
   { id: 'VIDEOTECA', labelKey: 'sidebar.videoLibraryLabel', icon: 'fa-video', section: 'content' },
   // Admin
-  { id: 'CLUBES', labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', section: 'admin' },
-  { id: 'EQUIPOS', labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', section: 'admin' },
-  { id: 'EQUIPOS_INTERNOS', labelKey: 'sidebar.internalTeamsLabel', icon: 'fa-users-rectangle', section: 'admin' },
   { id: 'USUARIOS', labelKey: 'sidebar.usersLabel', icon: 'fa-user-gear', section: 'admin' },
   { id: 'COMPETICIONES', labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', section: 'admin' },
   { id: 'CONFIGURACIÓN', labelKey: 'sidebar.settingsLabel', icon: 'fa-gear', section: 'admin', locked: true },

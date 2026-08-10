@@ -320,10 +320,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 
           {isSectionVisible('management') && (
-          <SidebarSection title={t('sidebar.management')} sectionKey="management" collapsed={isCollapsed} hasActiveChild={['PLANTILLAS', 'PERSONAL', 'CAMPOGRAMA'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.management')} sectionKey="management" collapsed={isCollapsed} hasActiveChild={['PLANTILLAS', 'PERSONAL', 'CLUBES', 'EQUIPOS', 'CAMPOGRAMA'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('PLANTILLAS') && <SidebarItem icon="fa-users" label={t('sidebar.squadsLabel')} active={activeSection === 'PLANTILLAS'} onClick={() => handleItemClick('PLANTILLAS')} collapsed={isCollapsed} />}
             {isVisible('CAMPOGRAMA') && <SidebarItem icon="fa-diagram-project" label={t('sidebar.fieldDiagramLabel')} active={activeSection === 'CAMPOGRAMA'} onClick={() => handleItemClick('CAMPOGRAMA')} collapsed={isCollapsed} />}
             {isVisible('PERSONAL') && <SidebarItem icon="fa-user-tie" label={t('sidebar.technicalStaffLabel')} active={activeSection === 'PERSONAL'} onClick={() => handleItemClick('PERSONAL')} collapsed={isCollapsed} />}
+            {isVisible('CLUBES') && <SidebarItem icon="fa-shield-halved" label={t('sidebar.clubsLabel')} active={activeSection === 'CLUBES'} onClick={() => handleItemClick('CLUBES')} collapsed={isCollapsed} />}
+            {isVisible('EQUIPOS') && <SidebarItem icon="fa-trophy" label={t('sidebar.teamsLabel')} active={activeSection === 'EQUIPOS'} onClick={() => handleItemClick('EQUIPOS')} collapsed={isCollapsed} />}
           </SidebarSection>
           )}
 
@@ -350,10 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('admin') && userRole !== 'Tecnico' && (
-          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'USUARIOS', 'CONFIGURACIÓN', 'FUENTE DE DATOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
-            {isVisible('CLUBES') && <SidebarItem icon="fa-shield-halved" label={t('sidebar.clubsLabel')} active={activeSection === 'CLUBES'} onClick={() => handleItemClick('CLUBES')} collapsed={isCollapsed} />}
-            {isVisible('EQUIPOS') && <SidebarItem icon="fa-trophy" label={t('sidebar.teamsLabel')} active={activeSection === 'EQUIPOS'} onClick={() => handleItemClick('EQUIPOS')} collapsed={isCollapsed} />}
-            {isVisible('EQUIPOS_INTERNOS') && <SidebarItem icon="fa-users-rectangle" label={t('sidebar.internalTeamsLabel')} active={activeSection === 'EQUIPOS_INTERNOS'} onClick={() => handleItemClick('EQUIPOS_INTERNOS')} collapsed={isCollapsed} />}
+          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['USUARIOS', 'CONFIGURACIÓN', 'FUENTE DE DATOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('USUARIOS') && <SidebarItem icon="fa-user-gear" label={t('sidebar.usersLabel')} active={activeSection === 'USUARIOS'} onClick={() => handleItemClick('USUARIOS')} collapsed={isCollapsed} />}
             {isVisible('CONFIGURACIÓN') && (userRole === 'Responsable' || userRole === 'Administrador') && <SidebarItem icon="fa-gear" label={t('sidebar.settingsLabel')} active={activeSection === 'CONFIGURACIÓN'} onClick={() => handleItemClick('CONFIGURACIÓN')} collapsed={isCollapsed} />}
             <SidebarItem icon="fa-database" label={t('header.dataSource')} active={activeSection === 'FUENTE DE DATOS'} onClick={() => handleItemClick('FUENTE DE DATOS')} collapsed={isCollapsed} />

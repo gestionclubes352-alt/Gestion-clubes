@@ -19,7 +19,6 @@ export interface Match {
   time?: string;
   location?: string;
   nombreInterno?: string;
-  team?: string;
 }
 
 export interface VideoEvent {

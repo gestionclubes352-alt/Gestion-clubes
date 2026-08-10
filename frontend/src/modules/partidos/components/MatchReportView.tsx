@@ -278,7 +278,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       nombreInterno: dgForm.nombreInterno || undefined,
     });
     setDgSaved(true);
-    onBack();
+    setTimeout(() => setDgSaved(false), 2000);
   };
 
   const handleDeleteMatch = () => {
@@ -2408,6 +2408,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         className="w-full h-full" 
                         frameBorder="0" 
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        allowFullScreen
                     ></iframe>
                 )}
                 {calculateMatchTime && (
@@ -3267,7 +3268,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 )}
                 {report.planVideoUrl && !isBlockedEmbed(report.planVideoUrl) && (
                   <div className="mt-4 aspect-video rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
-                  <iframe title="reproductor-plan" src={getEmbedUrl(report.planVideoUrl, sharedStartSec ?? undefined)} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
+                  <iframe title="reproductor-plan" src={getEmbedUrl(report.planVideoUrl, sharedStartSec ?? undefined)} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen></iframe>
                   </div>
                 )}
                 {report.planVideoUrl && (
@@ -3318,7 +3319,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="w-full bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
                         {(report as any)[`${block.id}Video`] && !isBlockedEmbed((report as any)[`${block.id}Video`]) && (
                           <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
-                            <iframe title={`${block.id}-video-plan`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
+                            <iframe title={`${block.id}-video-plan`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen></iframe>
                           </div>
                         )}
                         {(report as any)[`${block.id}Video`] && (
@@ -3573,7 +3574,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 )}
                 {report.rivalVideoUrl && !isBlockedEmbed(report.rivalVideoUrl) && (
                   <div className="mt-4 aspect-video rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
-                    <iframe title="reproductor" src={getEmbedUrl(report.rivalVideoUrl, sharedStartSec ?? undefined)} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
+                    <iframe title="reproductor" src={getEmbedUrl(report.rivalVideoUrl, sharedStartSec ?? undefined)} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen></iframe>
                   </div>
                 )}
                 {report.rivalVideoUrl && (
@@ -3623,7 +3624,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="w-full bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
                         {(report as any)[`${block.id}Video`] && !isBlockedEmbed((report as any)[`${block.id}Video`]) && (
                           <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
-                            <iframe title={`${block.id}-video`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
+                            <iframe title={`${block.id}-video`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen></iframe>
                           </div>
                         )}
                         {(report as any)[`${block.id}Video`] && (
@@ -4438,15 +4439,22 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
         <div>
           <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
-            <i className="fa-solid fa-tag mr-2"></i>Equipo Interno
+            <i className="fa-solid fa-tag mr-2"></i>Nombre Interno
           </label>
-          <EquipoSelect
+          <select
             value={dgForm.nombreInterno}
-            onChange={(value) => setDgForm({ ...dgForm, nombreInterno: value })}
-            extraTeams={teamOptions}
-            placeholder="Selecciona equipo interno"
+            onChange={(e) => setDgForm({ ...dgForm, nombreInterno: e.target.value })}
             className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)] appearance-none cursor-pointer"
-          />
+          >
+            <option value="">Selecciona nombre interno</option>
+            <option value="Clásico">Clásico</option>
+            <option value="Derbi">Derbi</option>
+            <option value="Amistoso">Amistoso</option>
+            <option value="Copa">Copa</option>
+            <option value="Supercopa">Supercopa</option>
+            <option value="Playoff">Playoff</option>
+            <option value="Preparación">Preparación</option>
+          </select>
         </div>
 
         <div>

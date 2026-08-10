@@ -27,6 +27,8 @@ const HOME_SECTIONS: HomeSection[] = [
       { labelKey: 'sidebar.squadsLabel', icon: 'fa-users', route: '/plantillas', menuId: 'PLANTILLAS' },
       { labelKey: 'sidebar.fieldDiagramLabel', icon: 'fa-diagram-project', route: '/campograma', menuId: 'CAMPOGRAMA' },
       { labelKey: 'sidebar.technicalStaffLabel', icon: 'fa-user-tie', route: '/staff', menuId: 'PERSONAL' },
+      { labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', route: '/clubes', menuId: 'CLUBES' },
+      { labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', route: '/equipos', menuId: 'EQUIPOS' },
     ],
   },
   {
@@ -71,9 +73,6 @@ const HOME_SECTIONS: HomeSection[] = [
     borderColor: 'border-slate-200',
     textColor: 'text-slate-100',
     items: [
-      { labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', route: '/clubes', menuId: 'CLUBES' },
-      { labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', route: '/equipos', menuId: 'EQUIPOS' },
-      { labelKey: 'sidebar.internalTeamsLabel', icon: 'fa-users-rectangle', route: '/equipos-internos', menuId: 'EQUIPOS_INTERNOS' },
       { labelKey: 'sidebar.usersLabel', icon: 'fa-user-gear', route: '/usuarios', menuId: 'USUARIOS' },
       { labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', route: '/competiciones', menuId: 'COMPETICIONES' },
       { labelKey: 'sidebar.settingsLabel', icon: 'fa-gear', route: '/settings', menuId: 'CONFIGURACIÓN' },

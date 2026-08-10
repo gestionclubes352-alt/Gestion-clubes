@@ -36,30 +36,23 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
   }, []);
   const isMyTeam = (name: string) => myTeamName && name.toLowerCase().includes(myTeamName.toLowerCase());
 
-  const clubById = useMemo(() => new Map(clubes.map(c => [String(c.id), c])), [clubes]);
-
-  // Agrupa equipos por CLUB (vía clubId); marca cada grupo como propio o rival según clubId.
-  // Si un equipo no tiene clubId o no hay club dado de alta con ese id, se agrupa por su propio
-  // nombre como fallback (para no perder equipos "sueltos" de datos antiguos).
+  // Agrupa equipos por nombre de club; marca cada grupo como propio o rival según clubId
   const groups = useMemo<ClubGroup[]>(() => {
     const map = new Map<string, ClubGroup>();
     teams.forEach(t => {
-      const club = t.clubId != null ? clubById.get(String(t.clubId)) : undefined;
-      const key = club ? String(club.id) : `__sin_club__${t.nombre.trim().toUpperCase()}`;
-      const displayNombre = club ? club.nombre : t.nombre;
-      const displayLogo = club?.logoUrl || t.logoUrl;
+      const key = t.nombre.trim().toUpperCase();
       if (!map.has(key)) {
-        map.set(key, { nombre: displayNombre, logoUrl: displayLogo, equipos: [], isOwn: !!clubId && String(t.clubId) === String(clubId) });
+        map.set(key, { nombre: t.nombre, logoUrl: t.logoUrl, equipos: [], isOwn: !!clubId && String(t.clubId) === String(clubId) });
       }
       map.get(key)!.equipos.push(t);
       if (clubId && String(t.clubId) === String(clubId)) map.get(key)!.isOwn = true;
-      // Actualiza el logo del grupo si el equipo tiene uno y el grupo todavía no
-      if (displayLogo && !map.get(key)!.logoUrl) {
-        map.get(key)!.logoUrl = displayLogo;
+      // Actualiza el logo del grupo si el equipo tiene uno
+      if (t.logoUrl && !map.get(key)!.logoUrl) {
+        map.get(key)!.logoUrl = t.logoUrl;
       }
     });
     return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [teams, clubId, clubById]);
+  }, [teams, clubId]);
 
   const tabGroups = useMemo(() => {
     if (activeTab === 'todos') return groups;
@@ -296,13 +289,14 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         <div className="min-w-[900px]">
         {/* Cabecera */}
         <div className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-          style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 1fr 80px' }}
+          style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 160px 1fr 80px' }}
         >
           <div className="px-3 py-3"></div>
           <div className="px-3 py-3">Club / Equipo</div>
           <div className="px-3 py-3">Etapa</div>
           <div className="px-3 py-3">Equipo</div>
           <div className="px-3 py-3">Nombre en Fed.</div>
+          <div className="px-3 py-3">Competición</div>
           <div className="px-3 py-3">Enlace</div>
           <div className="px-3 py-3 text-right">Acciones</div>
         </div>
@@ -324,7 +318,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                 type="button"
                 onClick={() => toggleClub(group.nombre)}
                 className={`w-full grid items-center text-left transition-colors hover:bg-slate-50 ${highlight ? 'bg-[var(--accent)]/5' : 'bg-white'}`}
-                style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 1fr 80px' }}
+                style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 160px 1fr 80px' }}
               >
                 {/* Logo */}
                 <div className="px-3 py-3 flex items-center justify-center">
@@ -347,7 +341,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                   </span>
                 </div>
                 {/* Columnas vacías en la fila del club */}
-                <div /><div /><div /><div /><div />
+                <div /><div /><div /><div /><div /><div />
               </button>
 
               {/* SUB-FILAS EQUIPOS */}
@@ -355,7 +349,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                 <div
                   key={String(eq.id)}
                   className={`grid items-center border-t border-slate-100 hover:bg-slate-100/60 transition-colors ${highlight ? 'bg-[var(--accent)]/5' : 'bg-slate-50/60'}`}
-                  style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 1fr 80px' }}
+                  style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 160px 1fr 80px' }}
                 >
                   {/* Indent visual */}
                   <div className="px-3 py-2.5 flex items-center justify-center">
@@ -380,6 +374,10 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                   {/* Nombre en Fed */}
                   <div className="px-3 py-2.5">
                     <span className="text-xs text-slate-600">{eq.nombreEnFed || <span className="text-slate-300">—</span>}</span>
+                  </div>
+                  {/* Competición */}
+                  <div className="px-3 py-2.5">
+                    <span className="text-xs text-slate-500">{eq.competicion || <span className="text-slate-300">—</span>}</span>
                   </div>
                   {/* Enlace */}
                   <div className="px-3 py-2.5">

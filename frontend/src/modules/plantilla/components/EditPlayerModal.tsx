@@ -628,22 +628,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.stage', 'Etapa')}</label>
-              <select
-                value={formData.etapa || ''}
-                onChange={(e) => handleChange('etapa' as keyof Player, e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-              >
-                <option value="">–</option>
-                <option value="Senior">Senior</option>
-                <option value="Juvenil">Juvenil</option>
-                <option value="Cadete">Cadete</option>
-                <option value="Infantil">Infantil</option>
-                <option value="Alevín">Alevín</option>
-                <option value="Benjamín">Benjamín</option>
-              </select>
-            </div>
-            <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.team')}</label>
               {equipos.length === 0 ? (
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
@@ -738,13 +722,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             estado={formData.estado}
           />
 
-          {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
-          {showDetailedStats && matches && matches.length > 0 && (
-            <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
-              <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} matchReports={matchReports} />
-            </Suspense>
-          )}
-
           {/* === MINUTOS POR POSICIÓN EN EL CAMPO === */}
           {showDetailedStats && matches && matches.length > 0 && (
             <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
@@ -755,6 +732,13 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 matches={matches}
                 matchReports={matchReports}
               />
+            </Suspense>
+          )}
+
+          {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
+          {showDetailedStats && matches && matches.length > 0 && (
+            <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
+              <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} matchReports={matchReports} />
             </Suspense>
           )}
 
@@ -838,6 +822,19 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.email', 'Correo')}</label>
                     <input type="email" value={formData.correo || ''} onChange={(e) => handleChange('correo' as keyof Player, e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.stage', 'Etapa')}</label>
+                    <select value={formData.etapa || ''} onChange={(e) => handleChange('etapa' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700 appearance-none cursor-pointer">
+                      <option value="">–</option>
+                      <option value="Senior">Senior</option>
+                      <option value="Juvenil">Juvenil</option>
+                      <option value="Cadete">Cadete</option>
+                      <option value="Infantil">Infantil</option>
+                      <option value="Alevín">Alevín</option>
+                      <option value="Benjamín">Benjamín</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.link', 'Enlace')}</label>

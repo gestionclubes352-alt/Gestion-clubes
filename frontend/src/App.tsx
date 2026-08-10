@@ -33,7 +33,6 @@ import { authService } from '@shared/services/authService';
 // Modules - Competicion
 import { CompetitionTable, LeagueTable, CompetitionsConfigView } from '@modules/competicion';
 import type { CompetitionTeam } from '@modules/competicion';
-import { EquiposInternosView } from '@modules/equiposInternos';
 
 // Modules - Clubes
 import { ClubesTable } from '@modules/clubes';
@@ -103,7 +102,6 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/staff': 'PERSONAL',
   '/clubes': 'CLUBES',
   '/equipos': 'EQUIPOS',
-  '/equipos-internos': 'EQUIPOS_INTERNOS',
   '/campograma': 'CAMPOGRAMA',
   '/disenador': 'DISEÑADOR',
   '/pizarra': 'PIZARRA TÁCTICA',
@@ -129,7 +127,6 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'PERSONAL': '/staff',
   'CLUBES': '/clubes',
   'EQUIPOS': '/equipos',
-  'EQUIPOS_INTERNOS': '/equipos-internos',
   'CAMPOGRAMA': '/campograma',
   'DISEÑADOR': '/disenador',
   'PIZARRA TÁCTICA': '/pizarra',
@@ -148,117 +145,6 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'USUARIOS': '/usuarios',
   'CONFIGURACIÓN': '/settings',
   'FUENTE DE DATOS': '/settings#datasources'
-};
-
-const MatchReportLoadingScreen = () => {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col h-full items-center justify-center py-40 gap-4">
-      <i className="fa-solid fa-spinner fa-spin text-5xl text-sport-primary"></i>
-      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('app.initSystem')}</span>
-    </div>
-  );
-};
-
-// Componente de nivel de módulo (no definido dentro de App) para que su identidad
-// se mantenga estable entre renders del padre: si se redefiniera dentro de App,
-// cada render de App montaría una instancia nueva y MatchReportView perdería su
-// estado interno (p.ej. la pestaña activa) cada vez, incluso al entrar en pantalla completa.
-const MatchReportWrapper: React.FC<{
-  filteredEventsList: CalendarEvent[];
-  currentTeamId?: string;
-  competitionTeams: CompetitionTeam[];
-  onSave: (event: CalendarEvent) => void | Promise<void>;
-  onDelete: (id: string | number) => void | Promise<void>;
-}> = ({ filteredEventsList, currentTeamId, competitionTeams, onSave, onDelete }) => {
-  const { t } = useTranslation();
-  const { matchId } = useParams<{ matchId: string }>();
-  const navigate = useNavigate();
-  const locState = useLocation().state as { from?: string } | null;
-
-  // Buscar en la lista filtrada (se recalcula cada render, pero no debe disparar el efecto de carga)
-  const match = filteredEventsList.find(e => String(e.id) === matchId);
-
-  const [loadedMatch, setLoadedMatch] = useState<CalendarEvent | null>(null);
-  const [matchLoading, setMatchLoading] = useState(!match);
-  const [matchLoadError, setMatchLoadError] = useState<string | null>(null);
-
-  // Si no está en la lista, cargar de la BD. Depende únicamente de matchId (estable),
-  // nunca de `match` (referencia inestable por venir de un .find() recalculado cada render)
-  // para evitar un bucle de renders/efectos.
-  useEffect(() => {
-    if (filteredEventsList.some(e => String(e.id) === matchId)) {
-      setMatchLoading(false);
-      return;
-    }
-
-    if (!matchId) {
-      setMatchLoadError('No match ID provided');
-      setMatchLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setMatchLoading(true);
-
-    eventosCalendarioService.getById(matchId)
-      .then(loaded => {
-        if (cancelled) return;
-        setLoadedMatch(loaded);
-        setMatchLoadError(null);
-      })
-      .catch(err => {
-        if (cancelled) return;
-        const errMsg = err instanceof Error ? err.message : 'Unknown error loading match';
-        console.error('[MatchReportWrapper] Error loading match:', err);
-        setMatchLoadError(errMsg);
-        setLoadedMatch(null);
-      })
-      .finally(() => {
-        if (!cancelled) setMatchLoading(false);
-      });
-
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId]);
-
-  const displayMatch = match || loadedMatch;
-
-  if (!displayMatch && matchLoading) {
-    return <MatchReportLoadingScreen />;
-  }
-
-  if (matchLoadError || !displayMatch) {
-    return (
-      <div className="p-12 text-center space-y-4 max-w-md mx-auto">
-        <div className="text-4xl text-red-500">⚠️</div>
-        <p className="font-bold text-slate-700">{t('app.matchNotFound')}</p>
-        {matchLoadError && <p className="text-sm text-slate-500">{matchLoadError}</p>}
-        <button
-          onClick={() => navigate('/partidos')}
-          className="px-4 py-2 bg-sport-primary text-white rounded-lg text-sm font-bold"
-        >
-          Volver a Partidos
-        </button>
-      </div>
-    );
-  }
-
-  const backPath = locState?.from || '/partidos';
-  return (
-    <ErrorBoundary>
-      <React.Suspense fallback={<MatchReportLoadingScreen />}>
-        <MatchReportView
-          match={displayMatch}
-          onBack={() => navigate(backPath)}
-          ownClubId={currentTeamId || ''}
-          competitionTeams={competitionTeams}
-          onSave={onSave}
-          onDelete={onDelete}
-        />
-      </React.Suspense>
-    </ErrorBoundary>
-  );
 };
 
 const normalizeTeamName = (value: string) => value.trim().toLowerCase();
@@ -487,7 +373,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [modalDefaultType, setModalDefaultType] = useState<EventType | null>(null);
-  const [newModalInitialDate, setNewModalInitialDate] = useState<Date | null>(null);
   const [showNewCampModal, setShowNewCampModal] = useState(false);
   const [activeCampograma, setActiveCampograma] = useState<Campograma | null>(null);
 
@@ -554,8 +439,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location,
-        nombreInterno: e.nombreInterno,
-        team: e.team
+        nombreInterno: e.nombreInterno
       } as Match));
   }, [eventsList]);
 
@@ -976,10 +860,101 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location,
-        nombreInterno: e.nombreInterno,
-        team: e.team
+        nombreInterno: e.nombreInterno
       } as Match));
   }, [filteredEventsList]);
+
+  // Componente wrapper para Match Report con params
+  const MatchReportWrapper = () => {
+    const { matchId } = useParams<{ matchId: string }>();
+    const locState = useLocation().state as { from?: string } | null;
+    const [loadedMatch, setLoadedMatch] = useState<CalendarEvent | null>(null);
+    const [matchLoading, setMatchLoading] = useState(true);
+    const [matchLoadError, setMatchLoadError] = useState<string | null>(null);
+
+    console.log('[MatchReportWrapper] Rendering with matchId:', matchId);
+    console.log('[MatchReportWrapper] filteredEventsList count:', filteredEventsList.length);
+
+    // Buscar en la lista filtrada
+    const match = filteredEventsList.find(e => String(e.id) === matchId);
+    console.log('[MatchReportWrapper] Found in list:', !!match);
+
+    // Si no está en la lista, cargar de la BD
+    useEffect(() => {
+      const loadMatch = async () => {
+        console.log('[MatchReportWrapper] Starting load, match exists in list:', !!match);
+        try {
+          if (match) {
+            console.log('[MatchReportWrapper] Using match from list');
+            setLoadedMatch(match);
+            setMatchLoadError(null);
+            setMatchLoading(false);
+            return;
+          }
+
+          if (!matchId) {
+            console.error('[MatchReportWrapper] No matchId');
+            setMatchLoadError('No match ID provided');
+            setMatchLoading(false);
+            return;
+          }
+
+          console.log('[MatchReportWrapper] Loading from BD:', matchId);
+          const loaded = await eventosCalendarioService.getById(matchId);
+          console.log('[MatchReportWrapper] Loaded from BD:', loaded);
+          setLoadedMatch(loaded);
+          setMatchLoadError(null);
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : 'Unknown error loading match';
+          console.error('[MatchReportWrapper] Error loading match:', err);
+          setMatchLoadError(errMsg);
+          setLoadedMatch(null);
+        } finally {
+          setMatchLoading(false);
+        }
+      };
+
+      loadMatch();
+    }, [matchId, match]);
+
+    const displayMatch = match || loadedMatch;
+    console.log('[MatchReportWrapper] displayMatch:', !!displayMatch, 'loading:', matchLoading, 'error:', matchLoadError);
+
+    if (matchLoading) {
+      return <LoadingScreen />;
+    }
+
+    if (matchLoadError || !displayMatch) {
+      return (
+        <div className="p-12 text-center space-y-4 max-w-md mx-auto">
+          <div className="text-4xl text-red-500">⚠️</div>
+          <p className="font-bold text-slate-700">{t('app.matchNotFound')}</p>
+          {matchLoadError && <p className="text-sm text-slate-500">{matchLoadError}</p>}
+          <button
+            onClick={() => navigate('/partidos')}
+            className="px-4 py-2 bg-sport-primary text-white rounded-lg text-sm font-bold"
+          >
+            Volver a Partidos
+          </button>
+        </div>
+      );
+    }
+
+    console.log('[MatchReportWrapper] Rendering MatchReportView');
+    const backPath = locState?.from || '/partidos';
+    return (
+      <ErrorBoundary>
+        <MatchReportView
+          match={displayMatch}
+          onBack={() => navigate(backPath)}
+          ownClubId={currentTeam?.id || ''}
+          competitionTeams={competitionTeams}
+          onSave={handleSaveEvent}
+          onDelete={handleDeleteEvent}
+        />
+      </ErrorBoundary>
+    );
+  };
 
   // Componente de carga
   const LoadingScreen = () => (
@@ -1143,48 +1118,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     }
                   }}
                   onDelete={async id => {
-                    const affected = squadList.filter(p => String(p.equipoId ?? '') === String(id)).length;
-                    const warning = affected > 0
-                      ? `Este equipo tiene ${affected} jugador${affected === 1 ? '' : 'es'} en su plantilla. Al eliminarlo se borrarán también esos jugadores de forma permanente. ¿Continuar?`
-                      : '¿Eliminar este equipo?';
-                    if (!window.confirm(warning)) return;
-                    try { await equiposService.remove(id); await fetchData(); }
-                    catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el equipo'); }
-                  }}
-                />
-              } />
-              <Route path="/equipos-internos" element={
-                <EquiposInternosView
-                  equipos={misClubCompetitionTeams}
-                  clubId={currentTeam?.id || ''}
-                  onEdit={async t => {
-                    const exists = competitionTeams.some(existing => String(existing.id) === String(t.id));
-                    const payload = {
-                      club_id: currentTeam?.id ? String(currentTeam.id) : undefined,
-                      nombre: t.nombre,
-                      categoria: t.etapa || undefined,
-                      logo_url: t.logoUrl || '',
-                      sub_equipo: t.equipo || undefined,
-                      nombre_en_fed: t.nombreEnFed || undefined,
-                      estadio: t.estadio || '',
-                      localidad: t.localidad || '',
-                      enlace: t.enlace || undefined,
-                    };
-                    try {
-                      if (exists) await equiposService.update(t.id, payload);
-                      else await equiposService.create(payload);
-                      await fetchData();
-                    } catch (e) {
-                      const message = (e as { message?: string } | null)?.message;
-                      alert(message || 'Error al guardar el equipo');
-                    }
-                  }}
-                  onDelete={async id => {
-                    const affected = squadList.filter(p => String(p.equipoId ?? '') === String(id)).length;
-                    const warning = affected > 0
-                      ? `Este equipo tiene ${affected} jugador${affected === 1 ? '' : 'es'} en su plantilla. Al eliminarlo se borrarán también esos jugadores de forma permanente. ¿Continuar?`
-                      : '¿Eliminar este equipo?';
-                    if (!window.confirm(warning)) return;
                     try { await equiposService.remove(id); await fetchData(); }
                     catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el equipo'); }
                   }}
@@ -1229,7 +1162,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                 <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+                <GestionCalendarView events={filteredEventsList} onCreateEvent={() => setShowNewModal(true)} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -1244,22 +1177,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   }}
                   competitionTeams={competitionTeams}
                   clubes={clubesList}
-                  ownClubId={currentTeam?.id}
                   onSelectPlayer={(playerId) => {
                     const player = squadList.find(p => String(p.id) === playerId);
                     if (player) setEditingPlayer(player);
                   }}
                 />
               } />
-              <Route path="/partidos/:matchId" element={
-                <MatchReportWrapper
-                  filteredEventsList={filteredEventsList}
-                  currentTeamId={currentTeam?.id}
-                  competitionTeams={competitionTeams}
-                  onSave={handleSaveEvent}
-                  onDelete={handleDeleteEvent}
-                />
-              } />
+              <Route path="/partidos/:matchId" element={<MatchReportWrapper />} />
               <Route path="/videoteca" element={<Videoteca />} />
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} />
@@ -1451,7 +1375,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         }
       }} />}
       {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
-      {showNewModal && <NewEventModal initialDate={newModalInitialDate ?? new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); setNewModalInitialDate(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
+      {showNewModal && <NewEventModal initialDate={new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
       {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
       {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
 

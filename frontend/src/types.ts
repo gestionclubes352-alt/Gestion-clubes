@@ -190,6 +190,6 @@ export interface Match {
   location?: string;
 }
 
-export type SidebarSection = 'INICIO' | 'PLANTILLAS' | 'PERSONAL' | 'CAMPOGRAMA' | 'DISEÃ‘ADOR' | 'PIZARRA TÃCTICA' | 'SESIONES' | 'PARTIDOS' | 'VIDEOTECA' | 'USUARIOS' | 'EQUIPOS' | 'EQUIPOS_INTERNOS';
+export type SidebarSection = 'INICIO' | 'PLANTILLAS' | 'PERSONAL' | 'CAMPOGRAMA' | 'DISEÃ‘ADOR' | 'PIZARRA TÃCTICA' | 'SESIONES' | 'PARTIDOS' | 'VIDEOTECA' | 'USUARIOS' | 'EQUIPOS';
 
 export type HomeTab = 'CLASIFICACIÃ“N' | 'PARTIDOS' | 'PLANTILLA';

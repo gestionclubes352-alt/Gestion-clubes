@@ -27,7 +27,6 @@ const MORE_SECTIONS = [
     { id: 'CAMPOGRAMA', icon: 'fa-diagram-project', labelKey: 'sidebar.fieldDiagramLabel' },
     { id: 'PERSONAL', icon: 'fa-user-tie', labelKey: 'sidebar.technicalStaffLabel' },
     { id: 'EQUIPOS', icon: 'fa-trophy', labelKey: 'sidebar.teamsLabel' },
-    { id: 'EQUIPOS_INTERNOS', icon: 'fa-users-rectangle', labelKey: 'sidebar.internalTeamsLabel' },
   ]},
   { sectionLabel: 'sidebar.planning', items: [
     { id: 'SESIONES', icon: 'fa-calendar-days', labelKey: 'sidebar.sessionsLabel' },
