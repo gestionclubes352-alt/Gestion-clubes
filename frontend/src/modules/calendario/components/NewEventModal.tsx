@@ -307,6 +307,19 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                 />
               ) : null}
 
+              {typeSelected !== 'Partido' && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{t('newEvent.team')}</p>
+                  <EquipoSelect
+                    value={formData.team}
+                    onChange={(team) => setFormData({ ...formData, team })}
+                    extraTeams={subTeamOptions}
+                    placeholder={t('newEvent.teamPlaceholder')}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
+                  />
+                </div>
+              )}
+
               {typeSelected === 'Sesión' && (
                 <div className="space-y-4">
                   <div>
