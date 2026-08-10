@@ -9,6 +9,11 @@ interface PlayerStatsChartsProps {
   sesionesTotal?: number;
   sesionesAsistidas?: number;
   sesionesAusencias?: number;
+  // Datos sobre disponibilidad y comparativa con el equipo
+  totalTeamMatches?: number;
+  totalTeamMinutes?: number;
+  playerAvailableMatches?: number;
+  estado?: 'APTO' | 'LESIONADO' | 'OTRO';
 }
 
 const MINUTES_PER_MATCH = 90;
@@ -21,6 +26,10 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
   sesionesTotal = 0,
   sesionesAsistidas = 0,
   sesionesAusencias = 0,
+  totalTeamMatches = 0,
+  totalTeamMinutes = 0,
+  playerAvailableMatches = 0,
+  estado = 'APTO',
 }) => {
   const { t } = useTranslation();
 
@@ -39,6 +48,17 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
 
   const titularPct = partidos > 0 ? (titulares / partidos) * 100 : 0;
   const suplentePct = partidos > 0 ? (suplente / partidos) * 100 : 0;
+
+  // Cálculos respecto a disponibilidad y datos del equipo
+  const disponiblesCalculado = playerAvailableMatches || partidos;
+  const titularPctDisponible = disponiblesCalculado > 0 ? Math.round((titulares / disponiblesCalculado) * 100) : 0;
+  const minutosTeamCalculado = totalTeamMinutes || (totalTeamMatches || 1) * MINUTES_PER_MATCH;
+  const minutosPctTeam = minutosTeamCalculado > 0 ? Math.min(100, Math.round((minutosJugados / minutosTeamCalculado) * 100)) : 0;
+  const minutosTeamDisplay = `${minutosTeamCalculado}'`;
+
+  // Disponibilidad
+  const isLesionado = estado === 'LESIONADO';
+  const estadoLabel = isLesionado ? 'Lesionado' : 'Apto';
 
   return (
     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4">
@@ -95,6 +115,46 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Minutos vs minutos totales del equipo */}
+          {totalTeamMinutes > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Minutos vs equipo</span>
+                <span className="text-xs font-black text-[var(--accent)]">
+                  {minutosJugados} <span className="text-slate-400 font-semibold">/ {minutosTeamCalculado} min</span>
+                </span>
+              </div>
+              <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all"
+                  style={{ width: `${minutosPctTeam}%` }}
+                />
+              </div>
+              <div className="mt-1 text-[10px] font-bold text-slate-400">
+                {minutosPctTeam}% de minutos totales del equipo
+              </div>
+            </div>
+          )}
+
+          {/* Titularidad vs disponibilidad */}
+          {playerAvailableMatches > 0 && playerAvailableMatches !== partidos && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Titularidad disponible</span>
+                <span className="text-xs font-black text-slate-600">{titulares}/{disponiblesCalculado}</span>
+              </div>
+              <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 rounded-full transition-all"
+                  style={{ width: `${titularPctDisponible}%` }}
+                />
+              </div>
+              <div className="mt-1 text-[10px] font-bold text-slate-400">
+                {titularPctDisponible}% de los partidos disponibles
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -110,6 +170,19 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
           <span className="text-xs font-black text-[var(--accent)]">{goles}</span>
         </div>
       )}
+
+      {/* Estado de disponibilidad */}
+      <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</span>
+        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black inline-flex items-center gap-1 ${
+          isLesionado
+            ? 'bg-red-50 text-red-600 border border-red-200'
+            : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${isLesionado ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+          {estadoLabel}
+        </span>
+      </div>
 
       {sesionesTotal > 0 && (
         <div className="mt-3 pt-3 border-t border-slate-200">
@@ -161,4 +234,4 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
   );
 };
 
-export default PlayerStatsCharts;
+export default React.memo(PlayerStatsCharts);

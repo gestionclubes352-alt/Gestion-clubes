@@ -122,17 +122,34 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     let minutos = 0;
     let titular = 0;
     let goles = 0;
+    let totalTeamMatches = 0;
+    let totalTeamMinutes = 0;
+
     (matches || []).forEach(match => {
       const report = reportById.get(String(match.id));
       if (!report) return;
+
+      totalTeamMatches += 1;
+
       const stats = computeMatchStats(report);
+
+      // Calcula minutos totales del equipo en este partido (suma de todos los jugadores)
+      let teamMinutesThisMatch = 0;
+      stats.minutesByPlayer.forEach(minutes => {
+        teamMinutesThisMatch += minutes;
+      });
+      totalTeamMinutes += teamMinutesThisMatch;
+
       if (!stats.involvedIds.has(pid)) return;
       partidosJugados += 1;
       minutos += stats.minutesByPlayer.get(pid) ?? 0;
       if (stats.starterIds.has(pid)) titular += 1;
       goles += stats.goalsByPlayer.get(pid) ?? 0;
     });
-    return { partidosJugados, minutos, titular, goles };
+
+    const playerAvailableMatches = totalTeamMatches > 0 ? totalTeamMatches : undefined;
+
+    return { partidosJugados, minutos, titular, goles, totalTeamMatches, totalTeamMinutes, playerAvailableMatches };
   }, [matches, matchReports, player.id]);
 
   const modalRef = useRef<HTMLDivElement>(null);
@@ -676,6 +693,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             sesionesTotal={attendanceStats.total}
             sesionesAsistidas={attendanceStats.attended}
             sesionesAusencias={attendanceStats.absences}
+            totalTeamMatches={matchStats.totalTeamMatches}
+            totalTeamMinutes={matchStats.totalTeamMinutes}
+            playerAvailableMatches={matchStats.playerAvailableMatches}
+            estado={formData.estado}
           />
 
           {/* === MINUTOS POR POSICIÓN EN EL CAMPO === */}
@@ -685,12 +706,13 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               playerName={formData.apodo || formData.nombre}
               photoUrl={preview || undefined}
               matches={matches}
+              matchReports={matchReports}
             />
           )}
 
           {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
           {matches && matches.length > 0 && (
-            <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} />
+            <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} matchReports={matchReports} />
           )}
 
           {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}
