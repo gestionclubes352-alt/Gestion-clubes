@@ -1,4 +1,4 @@
-// Force rebuild - v1
+// Force rebuild - v3 - CLEAN VERCEL CACHE
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
