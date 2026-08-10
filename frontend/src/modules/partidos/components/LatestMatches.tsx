@@ -77,6 +77,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const [teamFilter, setTeamFilter] = useState<string>(ALL_FILTER);
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
   const [jornadaFilter, setJornadaFilter] = useState<string>(ALL_FILTER);
+  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
 
   const teamOptions = useMemo(() => {
     const names = new Set<string>();
@@ -106,9 +107,20 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
   }, [matchesByTeamAndCompetition]);
 
-  const filteredMatches = useMemo(
+  const equipoInternoOptions = useMemo(() => {
+    const names = new Set<string>();
+    matchesByTeamAndCompetition.forEach((m) => { if (m.nombreInterno) names.add(m.nombreInterno); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matchesByTeamAndCompetition]);
+
+  const matchesByTeamAndCompetitionAndJornada = useMemo(
     () => (jornadaFilter === ALL_FILTER ? matchesByTeamAndCompetition : matchesByTeamAndCompetition.filter((m) => m.jornada === jornadaFilter)),
     [matchesByTeamAndCompetition, jornadaFilter]
+  );
+
+  const filteredMatches = useMemo(
+    () => (equipoInternoFilter === ALL_FILTER ? matchesByTeamAndCompetitionAndJornada : matchesByTeamAndCompetitionAndJornada.filter((m) => m.nombreInterno === equipoInternoFilter)),
+    [matchesByTeamAndCompetitionAndJornada, equipoInternoFilter]
   );
 
   // Si cambia equipo/competición, la jornada elegida puede dejar de ser válida.
@@ -118,6 +130,14 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jornadaOptions]);
+
+  // Si cambia equipo/competición/jornada, el equipo interno elegido puede dejar de ser válido.
+  useEffect(() => {
+    if (equipoInternoFilter !== ALL_FILTER && !equipoInternoOptions.includes(equipoInternoFilter)) {
+      setEquipoInternoFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipoInternoOptions]);
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
 
@@ -198,7 +218,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
       ) : (
       <>
-      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterTeam')}
@@ -216,33 +236,14 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterCompetition')}
           </label>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setCompetitionFilter(ALL_FILTER)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
-                competitionFilter === ALL_FILTER
-                  ? 'bg-sport-primary text-white border-sport-primary shadow-sm'
-                  : 'bg-slate-50 text-slate-700 border-slate-100 hover:border-sport-primary/40'
-              }`}
-            >
-              {t('playerStatsSummary.allCompetitions')}
-            </button>
-            {competitionOptions.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setCompetitionFilter(name)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
-                  competitionFilter === name
-                    ? 'bg-sport-primary text-white border-sport-primary shadow-sm'
-                    : 'bg-slate-50 text-slate-700 border-slate-100 hover:border-sport-primary/40'
-                }`}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
+          <select
+            value={competitionFilter}
+            onChange={(e) => setCompetitionFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>{t('playerStatsSummary.allCompetitions')}</option>
+            {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -255,6 +256,19 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           >
             <option value={ALL_FILTER}>{t('matchesList.allJornadas')}</option>
             {jornadaOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            Equipo Interno
+          </label>
+          <select
+            value={equipoInternoFilter}
+            onChange={(e) => setEquipoInternoFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>Todos los equipos</option>
+            {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </div>
       </div>

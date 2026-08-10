@@ -12,6 +12,7 @@ import type { Equipo, Jugador, Club, Competicion } from '@shared/services/dataSe
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
+import YouTubeUploadForm from '@shared/components/YouTubeUploadForm';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemMinutesCharts from './SystemMinutesCharts';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
@@ -3225,6 +3226,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     <i className="fa-solid fa-cloud-arrow-up"></i>
                   </button>
                 </div>
+                <YouTubeUploadForm 
+  onVideoUploaded={(videoId, embedUrl) => {
+    setReport(prev => ({ ...prev, videoUrl: embedUrl }));
+  }}
+/>
                 {ytTargetField === 'planVideoUrl' && ytSelectedFile && !ytUploadProgress && (
                   <div className="mt-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl p-4 space-y-3">
                     <div className="flex items-center gap-3">

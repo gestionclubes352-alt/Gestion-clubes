@@ -7,12 +7,14 @@ import { competicionEquiposService, type EquipoRef } from '../services/competici
 import { CompetitionTeam } from '../types';
 import CompetitionCalendarModal from './CompetitionCalendarModal';
 import CompetitionTeamsSelector from './CompetitionTeamsSelector';
+import { useAuth } from '@/context/AuthContext';
 
 interface CompetitionConfig {
   id: string;
   nombre: string;
   partes: number;
   minutosPorParte: number;
+  equipoInternaId?: string;
 }
 
 interface CompetitionsConfigViewProps {
@@ -22,6 +24,7 @@ interface CompetitionsConfigViewProps {
 
 const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [] }) => {
   const { t } = useTranslation();
+  const { perfil } = useAuth();
   const [competiciones, setCompeticiones] = useState<Competicion[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<CompetitionConfig>({
@@ -36,6 +39,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [calendarioCompeticion, setCalendarioCompeticion] = useState<Competicion | null>(null);
   const [equiposSelectorOpen, setEquiposSelectorOpen] = useState(false);
   const [competicionSeleccionada, setCompeticionSeleccionada] = useState<Competicion | null>(null);
+  const [equiposInternas, setEquiposInternas] = useState<CompetitionTeam[]>([]);
   const [todosLosEquipos, setTodosLosEquipos] = useState<CompetitionTeam[]>([]);
   const [equiposCompeticionActual, setEquiposCompeticionActual] = useState<EquipoRef[]>([]);
   const [loadingEquiposCompeticion, setLoadingEquiposCompeticion] = useState(false);
@@ -43,19 +47,23 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
 
   // Cargar configuraciones desde Supabase
   useEffect(() => {
-    loadData();
-  }, []);
+    if (perfil?.club_id) {
+      loadData();
+    }
+  }, [perfil?.club_id]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [competicionesData, equiposData] = await Promise.all([
+      const [competicionesData, equiposData, equiposInternasData] = await Promise.all([
         competicionService.listCompeticiones(),
         loadAllTeams(),
+        loadInternalTeams(),
       ]);
       setCompeticiones(competicionesData);
       setTodosLosEquipos(equiposData);
+      setEquiposInternas(equiposInternasData);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cargar datos';
       setError(errorMsg);
@@ -86,6 +94,30 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     } catch (err) {
       console.error('Error loading all teams:', err);
       return misEquipos || [];
+    }
+  };
+
+  const loadInternalTeams = async (): Promise<CompetitionTeam[]> => {
+    // Cargar solo los equipos internos del club del usuario actual (Juvenil A, Juvenil B, etc.)
+    try {
+      if (!perfil?.club_id) return [];
+      const data = await equiposService.list({ club_id: perfil.club_id });
+      return (data as Equipo[]).map((e): CompetitionTeam => ({
+        id: e.id,
+        clubId: e.club_id,
+        nombre: e.nombre,
+        estadio: e.estadio || '',
+        localidad: e.localidad || '',
+        logoUrl: e.logo_url || undefined,
+        equipo: e.sub_equipo,
+        nombreEnFed: e.nombre_en_fed,
+        etapa: e.categoria,
+        competicion: e.competicion,
+        enlace: e.enlace,
+      }));
+    } catch (err) {
+      console.error('Error loading internal teams:', err);
+      return [];
     }
   };
 
@@ -127,14 +159,25 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       nombre: '',
       partes: 2,
       minutosPorParte: 45,
+      equipoInternaId: '',
     });
     setIsAdding(true);
   };
 
-  const handleEdit = (competicion: CompetitionConfig) => {
+  const handleEdit = async (competicion: CompetitionConfig) => {
     setFormData(competicion);
     setEditingId(competicion.id);
     setIsAdding(false);
+    // Cargar el equipo interno si existe
+    try {
+      const teams = await competicionEquiposService.getTeamsByCompeticion(competicion.id);
+      const equipoInterno = teams.find(t => t.equipoId);
+      if (equipoInterno?.equipoId) {
+        setFormData(prev => ({ ...prev, equipoInternaId: equipoInterno.equipoId }));
+      }
+    } catch (err) {
+      console.error('Error loading team for competition:', err);
+    }
   };
 
   const handleSave = async (e?: React.MouseEvent<HTMLButtonElement>) => {
@@ -163,15 +206,25 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
         total_minutos: formData.partes * formData.minutosPorParte,
       };
 
+      let competicionId = editingId;
+
       if (editingId) {
         await competicionService.updateCompeticion(editingId, competicionData);
       } else {
-        await competicionService.createCompeticion(competicionData);
+        const newCompeticion = await competicionService.createCompeticion(competicionData);
+        competicionId = newCompeticion.id;
+      }
+
+      // Guardar la relación con el equipo interno si se selecciona
+      if (competicionId && formData.equipoInternaId) {
+        await competicionEquiposService.setTeamsForCompeticion(competicionId, [
+          { equipoId: formData.equipoInternaId }
+        ]);
       }
 
       setEditingId(null);
       setIsAdding(false);
-      setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
+      setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
 
       await loadCompeticiones();
       alert(editingId ? 'Competición actualizada correctamente' : 'Competición guardada correctamente');
@@ -192,7 +245,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     }
     setEditingId(null);
     setIsAdding(false);
-    setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45 });
+    setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
   };
 
   const handleDelete = async (id: string) => {
@@ -267,6 +320,25 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 onChange={e => setFormData({ ...formData, partes: Math.max(1, parseInt(e.target.value) || 1) })}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
               />
+            </div>
+
+            {/* Campo: Equipo Interno */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                Equipo Interno
+              </label>
+              <select
+                value={formData.equipoInternaId || ''}
+                onChange={e => setFormData({ ...formData, equipoInternaId: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              >
+                <option value="">-- Seleccionar equipo --</option>
+                {equiposInternas.map(equipo => (
+                  <option key={equipo.id} value={equipo.id}>
+                    {equipo.equipo || equipo.etapa || equipo.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Campo: Minutos por Parte */}

@@ -3,7 +3,7 @@ import type { CompetitionTeam } from '../types';
 import type { Club } from '@modules/clubes/types';
 import type { EquipoRival } from '@/shared/services/dataService';
 import EquipoSelect, { type EquipoOption } from '@shared/components/EquipoSelect';
-import { clubesService, equiposRivalesService } from '@shared/services';
+import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
 import { competicionEquiposService } from '../services/competicionEquiposService';
 
 export interface MatchFormData {
@@ -60,6 +60,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
   const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
+  const [equiposInternos, setEquiposInternos] = useState<CompetitionTeam[]>([]);
 
   // Resolver el id de la competición seleccionada (por nombre, ya que el <select> guarda el nombre)
   const selectedCompetitionId = useMemo(() => {
@@ -90,6 +91,31 @@ const MatchModal: React.FC<MatchModalProps> = ({
       }
     };
     loadRivalCatalog();
+  }, []);
+
+  useEffect(() => {
+    const loadEquiposInternos = async () => {
+      try {
+        const data = await equiposService.list();
+        const teams = (data || []).map((e: any): CompetitionTeam => ({
+          id: e.id,
+          clubId: e.club_id,
+          nombre: e.nombre,
+          estadio: e.estadio || '',
+          localidad: e.localidad || '',
+          logoUrl: e.logo_url || undefined,
+          equipo: e.sub_equipo,
+          nombreEnFed: e.nombre_en_fed,
+          etapa: e.categoria,
+          competicion: e.competicion,
+          enlace: e.enlace,
+        }));
+        setEquiposInternos(teams);
+      } catch (err) {
+        console.error('Error loading internal teams:', err);
+      }
+    };
+    loadEquiposInternos();
   }, []);
 
   useEffect(() => {
@@ -323,16 +349,21 @@ const MatchModal: React.FC<MatchModalProps> = ({
               {/* Nombre Interno */}
               <div>
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  <i className="fa-solid fa-tag mr-1"></i>Nombre Interno
+                  <i className="fa-solid fa-people-group mr-1"></i>Nombre Interno
                 </label>
-                <input
-                  type="text"
+                <select
                   name="nombreInterno"
                   value={formData.nombreInterno}
                   onChange={handleChange}
-                  placeholder="Ej: Clásico, Derbi, Amistoso..."
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-                />
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
+                >
+                  <option value="">Selecciona equipo interno</option>
+                  {equiposInternos.map(equipo => (
+                    <option key={equipo.id} value={equipo.id}>
+                      {equipo.equipo || equipo.etapa || equipo.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
