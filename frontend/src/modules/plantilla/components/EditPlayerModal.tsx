@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
 import jsPDF from 'jspdf';
@@ -11,8 +11,9 @@ import type { Club } from '@modules/clubes/types';
 import { computeMatchStats } from '../../partidos/components/PlayerStatsSummary';
 import { db } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
-import PlayerMatchBreakdown from './PlayerMatchBreakdown';
-import PlayerPositionMap from './PlayerPositionMap';
+
+const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
+const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
 
 interface EditPlayerModalProps {
   player: Player;
@@ -102,6 +103,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   // Datos de partido reales, calculados a partir de las actas registradas (no editables a mano).
   const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
+  const [showDetailedStats, setShowDetailedStats] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -114,6 +117,14 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Muestra gráficas detalladas solo si hay datos y el usuario las quiere ver
+  useEffect(() => {
+    if (matchReports.length > 0) {
+      const timer = requestIdleCallback(() => setShowDetailedStats(true), { timeout: 2000 });
+      return () => cancelIdleCallback(timer);
+    }
+  }, [matchReports]);
 
   const matchStats = useMemo(() => {
     const pid = String(player.id);
@@ -130,10 +141,9 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
       if (!report) return;
 
       totalTeamMatches += 1;
-
       const stats = computeMatchStats(report);
 
-      // Calcula minutos totales del equipo en este partido (suma de todos los jugadores)
+      // Calcula minutos totales del equipo por partido
       let teamMinutesThisMatch = 0;
       stats.minutesByPlayer.forEach(minutes => {
         teamMinutesThisMatch += minutes;
@@ -141,6 +151,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
       totalTeamMinutes += teamMinutesThisMatch;
 
       if (!stats.involvedIds.has(pid)) return;
+
       partidosJugados += 1;
       minutos += stats.minutesByPlayer.get(pid) ?? 0;
       if (stats.starterIds.has(pid)) titular += 1;
@@ -700,19 +711,23 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           />
 
           {/* === MINUTOS POR POSICIÓN EN EL CAMPO === */}
-          {matches && matches.length > 0 && (
-            <PlayerPositionMap
-              playerId={String(player.id)}
-              playerName={formData.apodo || formData.nombre}
-              photoUrl={preview || undefined}
-              matches={matches}
-              matchReports={matchReports}
-            />
+          {showDetailedStats && matches && matches.length > 0 && (
+            <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
+              <PlayerPositionMap
+                playerId={String(player.id)}
+                playerName={formData.apodo || formData.nombre}
+                photoUrl={preview || undefined}
+                matches={matches}
+                matchReports={matchReports}
+              />
+            </Suspense>
           )}
 
           {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
-          {matches && matches.length > 0 && (
-            <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} matchReports={matchReports} />
+          {showDetailedStats && matches && matches.length > 0 && (
+            <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
+              <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} matchReports={matchReports} />
+            </Suspense>
           )}
 
           {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}
