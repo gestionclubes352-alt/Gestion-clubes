@@ -13,6 +13,8 @@ interface PlayerMatchBreakdownProps {
   equipos?: CompetitionTeam[];
   /** Clubes reales de Supabase, para mostrar el nombre del club en lugar (o además) de la categoría */
   clubes?: Club[];
+  /** Match reports precargados para evitar consultas duplicadas */
+  matchReports?: MatchReport[];
 }
 
 /** Abrevia una categoría de equipo tipo "Juvenil A" a sus iniciales, p.ej. "JA". */
@@ -42,10 +44,10 @@ interface CompetitionGroup {
   redCards: number;
 }
 
-const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, matches, equipos = [], clubes = [] }) => {
+const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, matches, equipos = [], clubes = [], matchReports = [] }) => {
   const { t } = useTranslation();
-  const [reports, setReports] = useState<MatchReport[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [reports, setReports] = useState<MatchReport[]>(matchReports);
+  const [isLoading, setIsLoading] = useState(!matchReports || matchReports.length === 0);
   const [view, setView] = useState<'TABLE' | 'CHART'>('TABLE');
 
   const clubNameById = useMemo(() => new Map(clubes.map(club => [String(club.id), club.nombre])), [clubes]);
@@ -73,6 +75,12 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
   };
 
   useEffect(() => {
+    if (matchReports && matchReports.length > 0) {
+      setReports(matchReports);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setIsLoading(true);
@@ -86,7 +94,7 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [matchReports]);
 
   const reportById = useMemo(() => new Map(reports.map(r => [String(r.id), r])), [reports]);
 
@@ -287,4 +295,4 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
   );
 };
 
-export default PlayerMatchBreakdown;
+export default React.memo(PlayerMatchBreakdown);
