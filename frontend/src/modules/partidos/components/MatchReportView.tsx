@@ -4490,7 +4490,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </div>
         </div>
       </div>
-      <div className="flex overflow-x-auto px-4 gap-2 scrollbar-hide border-b border-[var(--border-soft)] bg-[var(--surface-0)]">
+      <div className="flex overflow-x-auto px-4 gap-2 scrollbar-hide border-b border-[var(--border-soft)] bg-[var(--surface-0)] sticky top-[72px] z-50">
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}

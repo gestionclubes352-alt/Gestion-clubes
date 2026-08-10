@@ -26,6 +26,7 @@ const abbreviateTeamName = (name: string): string => {
 
 interface MatchRow {
   match: Match;
+  report?: MatchReport;
   minutes: number;
   isStarter: boolean;
   goals: number;
@@ -125,6 +126,7 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
         const cards = stats.cardsByPlayer.get(pid);
         const row: MatchRow = {
           match,
+          report,
           minutes: stats.minutesByPlayer.get(pid) ?? 0,
           isStarter: stats.starterIds.has(pid),
           goals: stats.goalsByPlayer.get(pid) ?? 0,
@@ -201,6 +203,8 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                     <tr className="text-slate-400 uppercase text-[9px] font-black tracking-widest">
                       <th className="px-3 py-2 text-left">{t('common.date', 'Fecha')}</th>
                       <th className="px-3 py-2 text-left">{t('playerStatsSummary.filterMatch', 'Partido')}</th>
+                      <th className="px-3 py-2 text-center">{t('common.position', 'Posición')}</th>
+                      <th className="px-3 py-2 text-center">{t('matchReport.generalData.formation', 'Sistema')}</th>
                       <th className="px-3 py-2 text-center">{t('editPlayer.minutes')}</th>
                       <th className="px-3 py-2 text-center">{t('editPlayer.starter')}</th>
                       <th className="px-3 py-2 text-center">{t('players.goals')}</th>
@@ -209,24 +213,35 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {group.rows.map(row => (
-                      <tr key={String(row.match.id)} className="text-slate-700">
-                        <td className="px-3 py-2 font-bold whitespace-nowrap">
-                          {row.match.date ? new Date(row.match.date).toLocaleDateString() : '—'}
-                        </td>
-                        <td className="px-3 py-2 font-bold truncate max-w-56">
-                          {formatTeam(row.match.localTeam, row.match.localTeamClubId)} vs{' '}
-                          {formatTeam(row.match.visitorTeam || row.match.opponent, row.match.visitorTeamClubId)}
-                        </td>
-                        <td className="px-3 py-2 text-center font-black text-[var(--accent)]">{row.minutes}'</td>
-                        <td className="px-3 py-2 text-center font-bold">
-                          {row.isStarter ? t('editPlayer.starter') : t('editPlayer.substitute', 'Suplente')}
-                        </td>
-                        <td className="px-3 py-2 text-center font-bold">{row.goals}</td>
-                        <td className="px-3 py-2 text-center font-bold">{row.yellowCards}</td>
-                        <td className="px-3 py-2 text-center font-bold">{row.redCards}</td>
-                      </tr>
-                    ))}
+                    {group.rows.map(row => {
+                      const playerPositionInMatch = row.report?.lineupPositions?.find(
+                        p => String(p.playerId) === String(playerId)
+                      )?.position;
+                      return (
+                        <tr key={String(row.match.id)} className="text-slate-700">
+                          <td className="px-3 py-2 font-bold whitespace-nowrap">
+                            {row.match.date ? new Date(row.match.date).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="px-3 py-2 font-bold truncate max-w-56">
+                            {formatTeam(row.match.localTeam, row.match.localTeamClubId)} vs{' '}
+                            {formatTeam(row.match.visitorTeam || row.match.opponent, row.match.visitorTeamClubId)}
+                          </td>
+                          <td className="px-3 py-2 text-center font-bold text-[var(--accent)]">
+                            {playerPositionInMatch || '—'}
+                          </td>
+                          <td className="px-3 py-2 text-center font-bold">
+                            {row.report?.formation || '—'}
+                          </td>
+                          <td className="px-3 py-2 text-center font-black text-[var(--accent)]">{row.minutes}'</td>
+                          <td className="px-3 py-2 text-center font-bold">
+                            {row.isStarter ? t('editPlayer.starter') : t('editPlayer.substitute', 'Suplente')}
+                          </td>
+                          <td className="px-3 py-2 text-center font-bold">{row.goals}</td>
+                          <td className="px-3 py-2 text-center font-bold">{row.yellowCards}</td>
+                          <td className="px-3 py-2 text-center font-bold">{row.redCards}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

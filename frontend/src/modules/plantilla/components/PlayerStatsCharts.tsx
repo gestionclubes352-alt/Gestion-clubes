@@ -116,27 +116,6 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
             </div>
           </div>
 
-          {/* Minutos vs minutos totales del equipo */}
-          {totalTeamMinutes > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Minutos vs equipo</span>
-                <span className="text-xs font-black text-[var(--accent)]">
-                  {minutosJugados} <span className="text-slate-400 font-semibold">/ {minutosTeamCalculado} min</span>
-                </span>
-              </div>
-              <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all"
-                  style={{ width: `${minutosPctTeam}%` }}
-                />
-              </div>
-              <div className="mt-1 text-[10px] font-bold text-slate-400">
-                {minutosPctTeam}% de minutos totales del equipo
-              </div>
-            </div>
-          )}
-
           {/* Titularidad vs disponibilidad */}
           {playerAvailableMatches > 0 && playerAvailableMatches !== partidos && (
             <div>

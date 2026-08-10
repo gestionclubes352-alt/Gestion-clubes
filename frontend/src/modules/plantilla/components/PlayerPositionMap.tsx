@@ -9,6 +9,8 @@ interface PlayerPositionMapProps {
   playerName?: string;
   photoUrl?: string;
   matches: Match[];
+  /** Match reports precargados para evitar consultas duplicadas */
+  matchReports?: MatchReport[];
 }
 
 interface PositionInterval {
@@ -93,12 +95,18 @@ const computePlayerPositionIntervals = (report: MatchReport, playerId: string): 
     .filter((v): v is PositionInterval => v !== null);
 };
 
-const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerName, photoUrl, matches }) => {
+const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerName, photoUrl, matches, matchReports = [] }) => {
   const { t } = useTranslation();
-  const [reports, setReports] = useState<MatchReport[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [reports, setReports] = useState<MatchReport[]>(matchReports);
+  const [isLoading, setIsLoading] = useState(!matchReports || matchReports.length === 0);
 
   useEffect(() => {
+    if (matchReports && matchReports.length > 0) {
+      setReports(matchReports);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setIsLoading(true);
@@ -112,7 +120,7 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [matchReports]);
 
   const reportById = useMemo(() => new Map(reports.map(r => [String(r.id), r])), [reports]);
 
@@ -223,4 +231,4 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
   );
 };
 
-export default PlayerPositionMap;
+export default React.memo(PlayerPositionMap);
