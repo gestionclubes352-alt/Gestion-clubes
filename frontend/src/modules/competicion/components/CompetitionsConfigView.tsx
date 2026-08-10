@@ -545,6 +545,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <CompetitionTeamsSelector
                   competicion={competicionSeleccionada}
                   allTeams={todosLosEquipos}
+                  ownClubId={perfil?.club_id}
                   initialTeams={equiposCompeticionActual}
                   onTeamsSelected={(teams) => {
                     setEquiposSelectorError(null);

@@ -6,12 +6,13 @@ import type { Club } from '@modules/clubes/types';
 
 interface GestionCalendarViewProps {
   events: CalendarEvent[];
-  onCreateEvent?: () => void;
+  onCreateEvent?: (date?: Date) => void;
   onClickEvent?: (event: CalendarEvent) => void;
   onDeleteEvent?: (id: string | number) => void;
   onSaveEvent?: (event: CalendarEvent) => void;
   competitionTeams?: CompetitionTeam[];
   clubes?: Club[];
+  ownClubId?: string;
 }
 
 const EVENT_BADGE_COLORS: Record<string, string> = {
@@ -50,6 +51,34 @@ const EVENT_DOT_COLORS: Record<string, string> = {
   Actividad: 'bg-amber-500',
 };
 
+// Paleta de colores por equipo: cada equipo distinto recibe un color estable,
+// asignado por hash del nombre, para diferenciar visualmente sus eventos en el calendario.
+const TEAM_COLOR_PALETTE: { thick: string; badge: string; dot: string; delColor: string; delHover: string }[] = [
+  { thick: 'bg-sky-100 text-sky-800 hover:bg-sky-200 border-sky-400', badge: 'bg-sky-100 text-sky-700 border-sky-200', dot: 'bg-sky-500', delColor: 'rgb(56,189,248)', delHover: 'rgb(2,132,199)' },
+  { thick: 'bg-violet-100 text-violet-800 hover:bg-violet-200 border-violet-400', badge: 'bg-violet-100 text-violet-700 border-violet-200', dot: 'bg-violet-500', delColor: 'rgb(167,139,250)', delHover: 'rgb(124,58,237)' },
+  { thick: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-400', badge: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500', delColor: 'rgb(251,146,60)', delHover: 'rgb(234,88,12)' },
+  { thick: 'bg-teal-100 text-teal-800 hover:bg-teal-200 border-teal-400', badge: 'bg-teal-100 text-teal-700 border-teal-200', dot: 'bg-teal-500', delColor: 'rgb(45,212,191)', delHover: 'rgb(13,148,136)' },
+  { thick: 'bg-pink-100 text-pink-800 hover:bg-pink-200 border-pink-400', badge: 'bg-pink-100 text-pink-700 border-pink-200', dot: 'bg-pink-500', delColor: 'rgb(244,114,182)', delHover: 'rgb(219,39,119)' },
+  { thick: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-400', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500', delColor: 'rgb(129,140,248)', delHover: 'rgb(79,70,229)' },
+  { thick: 'bg-lime-100 text-lime-800 hover:bg-lime-200 border-lime-400', badge: 'bg-lime-100 text-lime-700 border-lime-200', dot: 'bg-lime-500', delColor: 'rgb(163,230,53)', delHover: 'rgb(101,163,13)' },
+  { thick: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-cyan-400', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200', dot: 'bg-cyan-500', delColor: 'rgb(34,211,238)', delHover: 'rgb(8,145,178)' },
+  { thick: 'bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200 border-fuchsia-400', badge: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', dot: 'bg-fuchsia-500', delColor: 'rgb(232,121,249)', delHover: 'rgb(192,38,211)' },
+  { thick: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-400', badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500', delColor: 'rgb(251,191,36)', delHover: 'rgb(217,119,6)' },
+];
+
+const hashTeamKey = (key: string): number => {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+};
+
+const getTeamColor = (teamKey: string | undefined) => {
+  if (!teamKey) return null;
+  return TEAM_COLOR_PALETTE[hashTeamKey(teamKey) % TEAM_COLOR_PALETTE.length];
+};
+
 const formatEventLabel = (time?: string, team?: string, fallbackTime = '--:--') => {
   const hour = time || fallbackTime;
   return team ? `${hour} - ${team}` : hour;
@@ -68,7 +97,7 @@ const generateUUID = (): string => {
   });
 };
 
-const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [] }) => {
+const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], ownClubId }) => {
   const { t, i18n } = useTranslation();
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNames = t('calendarView.daysAbbr', { returnObjects: true }) as string[];
@@ -102,6 +131,47 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     if (!teamName) return '';
     return internalNameByFedName.get(teamName.trim().toLowerCase()) || teamName;
   };
+  // Equipos propios del club: `competitionTeams` incluye también equipos rivales
+  // dados de alta para programar amistosos, así que hay que filtrar por clubId
+  // para quedarnos solo con los que son realmente del propio club.
+  const internalCompetitionTeams = useMemo(
+    () => competitionTeams.filter((team) => String(team.clubId ?? '') === String(ownClubId ?? '')),
+    [competitionTeams, ownClubId]
+  );
+  // Nombres de los equipos propios del club (los que aparecen en Competición), para
+  // detectar cuál de los dos lados de un partido es "nuestro" equipo sin importar si juega en casa o fuera.
+  // Mapa nombre normalizado -> nombre canónico, para que un mismo equipo interno
+  // siempre reciba la misma clave de color sin importar de qué campo del evento
+  // (team, nombreInterno, localTeam o visitorTeam) ni con qué mayúsculas/espacios venga.
+  const internalTeamCanonicalByName = useMemo(() => {
+    const map = new Map<string, string>();
+    internalCompetitionTeams.forEach((team) => {
+      const canonical = (team.equipo || team.nombre || '').trim();
+      if (canonical) map.set(canonical.toLowerCase(), canonical);
+    });
+    return map;
+  }, [internalCompetitionTeams]);
+  const internalTeamNames = useMemo(
+    () => new Set(internalTeamCanonicalByName.keys()),
+    [internalTeamCanonicalByName]
+  );
+  const getEventTeamKey = (ev: CalendarEvent): string | undefined => {
+    if (ev.type === 'Partido') {
+      const candidates = [
+        ev.team,
+        ev.nombreInterno,
+        resolveTeamDisplayName(ev.localTeam),
+        resolveTeamDisplayName(ev.visitorTeam),
+      ];
+      for (const candidate of candidates) {
+        const canonical = candidate && internalTeamCanonicalByName.get(candidate.trim().toLowerCase());
+        if (canonical) return canonical;
+      }
+      return resolveTeamDisplayName(ev.localTeam) || ev.localTeam || ev.team || undefined;
+    }
+    const canonical = ev.team && internalTeamCanonicalByName.get(ev.team.trim().toLowerCase());
+    return canonical || ev.team;
+  };
   const [activeView, setActiveView] = useState<'annual' | 'monthly' | 'weekly' | 'schedule'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
@@ -113,16 +183,25 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [duplicateTargetDate, setDuplicateTargetDate] = useState<Date | null>(null);
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [onlyInternalTeams, setOnlyInternalTeams] = useState(true);
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
 
   const availableTeams = useMemo(() => {
     const teams = new Set<string>();
-    events.forEach(ev => {
-      if (ev.team) teams.add(ev.team);
-      if (ev.localTeam) teams.add(ev.localTeam);
-      if (ev.visitorTeam) teams.add(ev.visitorTeam);
+    internalCompetitionTeams.forEach(team => {
+      const name = (team.equipo || team.nombre || '').trim();
+      if (name) teams.add(name);
     });
+    if (!onlyInternalTeams) {
+      events.forEach(ev => {
+        const key = getEventTeamKey(ev);
+        if (key) teams.add(key);
+      });
+    }
     return Array.from(teams).sort((a, b) => a.localeCompare(b));
-  }, [events]);
+  }, [events, internalCompetitionTeams, onlyInternalTeams]);
 
   const availableTypes = useMemo(() => {
     const types = new Set<string>();
@@ -131,15 +210,40 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [events]);
 
   const filteredEvents = useMemo(() => {
+    const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
+    const dateTo = filterDateTo ? new Date(filterDateTo) : null;
+
     return events.filter(ev => {
       if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
+      if (onlyInternalTeams) {
+        const key = getEventTeamKey(ev);
+        if (!key || !internalTeamNames.has(key.trim().toLowerCase())) return false;
+      }
       if (teamFilter !== 'all') {
-        const matchesTeam = ev.team === teamFilter || ev.localTeam === teamFilter || ev.visitorTeam === teamFilter;
-        if (!matchesTeam) return false;
+        if (getEventTeamKey(ev) !== teamFilter) return false;
+      }
+      const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
+      if (monthFilter !== 'all' && d.getMonth() !== Number(monthFilter)) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo) {
+        const dateToEnd = new Date(dateTo);
+        dateToEnd.setHours(23, 59, 59, 999);
+        if (d > dateToEnd) return false;
       }
       return true;
     });
-  }, [events, teamFilter, typeFilter]);
+  }, [events, teamFilter, typeFilter, onlyInternalTeams, internalTeamNames, monthFilter, filterDateFrom, filterDateTo]);
+
+  const teamColorLegend = useMemo(() => {
+    const keys = new Set<string>();
+    filteredEvents.forEach(ev => {
+      const key = getEventTeamKey(ev);
+      if (key) keys.add(key);
+    });
+    return Array.from(keys)
+      .sort((a, b) => a.localeCompare(b))
+      .map(key => ({ key, color: getTeamColor(key)! }));
+  }, [filteredEvents, competitionTeams]);
 
   const eventsByDay = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
@@ -280,22 +384,25 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                       className={`min-h-14 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
                     >
                       <div className="space-y-1">
-                        {hourEvents.map(ev => (
-                          <div
-                            key={ev.id}
-                            onClick={() => {
-                              setSelectedEvent(ev);
-                              onClickEvent?.(ev);
-                            }}
-                            className={`rounded-lg px-2 py-1 text-[10px] font-bold truncate cursor-pointer border transition-all hover:shadow-sm ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}
-                            title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                          >
-                            <span className="font-black">{formatEventLabel(ev.time || `${String(hour).padStart(2, '0')}:00`, ev.team)}</span> {ev.title}
-                          </div>
-                        ))}
+                        {hourEvents.map(ev => {
+                          const teamColor = getTeamColor(getEventTeamKey(ev));
+                          return (
+                            <div
+                              key={ev.id}
+                              onClick={() => {
+                                setSelectedEvent(ev);
+                                onClickEvent?.(ev);
+                              }}
+                              className={`rounded-lg px-2 py-1 text-[10px] font-bold truncate cursor-pointer border transition-all hover:shadow-sm ${teamColor?.badge || EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}
+                              title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                            >
+                              <span className="font-black">{formatEventLabel(ev.time || `${String(hour).padStart(2, '0')}:00`, ev.team)}</span> {ev.title}
+                            </div>
+                          );
+                        })}
                         {hourEvents.length === 0 && onCreateEvent && hour === 9 && (
                           <button
-                            onClick={() => onCreateEvent()}
+                            onClick={() => onCreateEvent(date)}
                             className="w-full rounded-lg border border-dashed border-slate-300 text-[10px] font-bold text-slate-500 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
                           >
                             + {t('calendarView.newEventButton')}
@@ -354,7 +461,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   <button
                     className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
                     style={{ fontSize: '16px' }}
-                    onClick={(e) => { e.stopPropagation(); onCreateEvent(); }}
+                    onClick={(e) => { e.stopPropagation(); onCreateEvent(date ?? undefined); }}
                     title={t('calendarView.newEvent')}
                   >
                     <i className="fa-solid fa-plus"></i>
@@ -363,7 +470,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
                 <div className="flex-1 flex flex-col gap-1">
                   {dayEvents.map(ev => {
-                    const deleteColors = EVENT_DELETE_HOVER_COLORS[ev.type] || EVENT_DELETE_HOVER_COLORS.Otro;
+                    const teamColor = getTeamColor(getEventTeamKey(ev));
+                    const deleteColors = teamColor
+                      ? { color: teamColor.delColor, hoverBg: teamColor.delHover }
+                      : (EVENT_DELETE_HOVER_COLORS[ev.type] || EVENT_DELETE_HOVER_COLORS.Otro);
                     const isMatch = ev.type === 'Partido';
                     const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
                     const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
@@ -371,7 +481,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                       <div
                         key={ev.id}
                         draggable
-                        className={`rounded-lg px-1.5 py-1.5 text-[11px] font-bold cursor-pointer group/ev transition-all opacity-100 hover:shadow-md border-2 ${EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : 'flex items-center gap-0.5'}`}
+                        className={`rounded-lg px-1.5 py-1.5 text-[11px] font-bold cursor-pointer group/ev transition-all opacity-100 hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : 'flex items-center gap-0.5'}`}
                         title={isMatch
                           ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
                           : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
@@ -494,95 +604,232 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     </div>
   );
 
+  const weeklyTeamRows = useMemo(() => {
+    const keys = new Set<string>();
+    filteredEvents.forEach(ev => {
+      const key = getEventTeamKey(ev);
+      keys.add(key || t('calendarView.noTeam', 'Sin equipo'));
+    });
+    return Array.from(keys).sort((a, b) => a.localeCompare(b));
+  }, [filteredEvents, t]);
+
   const renderWeeklyGrid = () => {
     const weekEvents = weekDays.map(date => {
       const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       return { date, events: eventsByDay[key] || [] };
     });
+    const noTeamLabel = t('calendarView.noTeam', 'Sin equipo');
 
     return (
-      <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
-          {weekEvents.map(({ date, events: dayEvents }) => {
-            const isTodayDate = isToday(date);
-            return (
-              <div
-                key={date.toISOString()}
-                className={`rounded-2xl border p-3 min-h-40 ${isTodayDate ? 'border-[var(--accent)]/40 bg-red-50/30' : 'border-slate-100 bg-white'}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      {dayNames[date.getDay()]}
-                    </p>
-                    <p className={`text-xl font-black ${isTodayDate ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                      {date.getDate()}
-                    </p>
-                  </div>
-                  {onCreateEvent && (
-                    <button
-                      onClick={() => onCreateEvent()}
-                      className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm"
-                      title={t('calendarView.newEvent')}
-                    >
-                      <i className="fa-solid fa-plus text-[10px]"></i>
-                    </button>
-                  )}
+      <div className="flex-1 p-3 md:p-6 overflow-auto">
+        <div className="min-w-[980px]">
+          <div
+            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
+            style={{ gridTemplateColumns: '160px repeat(7, minmax(0, 1fr))' }}
+          >
+            <div className="bg-slate-50/60 px-3 py-3 flex items-end">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('calendarView.team', 'Equipo')}
+              </span>
+            </div>
+            {weekEvents.map(({ date }) => {
+              const isTodayDate = isToday(date);
+              return (
+                <div key={date.toISOString()} className="bg-slate-50/60 px-3 py-3 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {dayNames[date.getDay()]}
+                  </p>
+                  <p className={`text-sm font-black ${isTodayDate ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                    {date.getDate()}
+                  </p>
                 </div>
-                <div className="space-y-1.5">
-                  {dayEvents.length === 0 ? (
-                    <p className="text-xs text-slate-400 font-medium">{t('calendarView.noEvents', 'Sin eventos')}</p>
-                  ) : dayEvents.map(ev => (
-                    <div
-                      key={ev.id}
-                      onClick={() => {
-                        setSelectedEvent(ev);
-                        onClickEvent?.(ev);
-                      }}
-                      className={`rounded-lg px-2 py-1 text-[10px] font-bold truncate border cursor-pointer ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}
-                    >
-                      <span className="font-black">{formatEventLabel(ev.time, ev.team)}</span> {ev.title}
-                    </div>
-                  ))}
-                </div>
+              );
+            })}
+
+            {weeklyTeamRows.length === 0 ? (
+              <div className="bg-white px-4 py-8 text-center text-sm font-medium text-slate-400" style={{ gridColumn: '1 / -1' }}>
+                {t('calendarView.noEvents', 'Sin eventos')}
               </div>
-            );
-          })}
+            ) : weeklyTeamRows.map(team => {
+              const teamColor = team !== noTeamLabel ? getTeamColor(team) : null;
+              return (
+                <React.Fragment key={team}>
+                  <div className="bg-white px-3 py-3 flex items-center gap-2 min-w-0">
+                    {teamColor && <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${teamColor.dot}`}></span>}
+                    <span className="text-xs font-black text-slate-700 truncate">{team}</span>
+                  </div>
+                  {weekEvents.map(({ date, events: dayEvents }) => {
+                    const cellEvents = dayEvents.filter(ev => (getEventTeamKey(ev) || noTeamLabel) === team);
+                    return (
+                      <div
+                        key={`${team}-${date.toISOString()}`}
+                        className={`min-h-16 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
+                      >
+                        <div className="space-y-1">
+                          {cellEvents.map(ev => {
+                            const evTeamColor = getTeamColor(getEventTeamKey(ev));
+                            const isMatch = ev.type === 'Partido';
+                            const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
+                            const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
+                            return (
+                              <div
+                                key={ev.id}
+                                onClick={() => {
+                                  setSelectedEvent(ev);
+                                  onClickEvent?.(ev);
+                                }}
+                                className={`rounded-lg px-2 py-1 text-[10px] font-bold border cursor-pointer ${evTeamColor?.badge || EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}
+                                title={isMatch
+                                  ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
+                                  : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                              >
+                                <span className="font-black">{ev.time || '--:--'}</span>
+                                {isMatch ? (
+                                  (displayLocalTeam && displayVisitorTeam) ? (
+                                    <div className="truncate leading-tight">
+                                      {displayLocalTeam} <span className="opacity-60">vs</span> {displayVisitorTeam}
+                                    </div>
+                                  ) : (
+                                    <span className="truncate"> {ev.title || ev.opponent || 'Partido'}</span>
+                                  )
+                                ) : (
+                                  <span className="truncate"> {ev.title}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
   };
 
+  const annualEvents = useMemo(() => {
+    return filteredEvents
+      .filter(ev => {
+        const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
+        return d.getFullYear() === currentMonth.getFullYear();
+      })
+      .sort((a, b) => {
+        const da = a.date instanceof Date ? a.date : new Date(a.date);
+        const db = b.date instanceof Date ? b.date : new Date(b.date);
+        const diff = da.getTime() - db.getTime();
+        if (diff !== 0) return diff;
+        return (a.time || '').localeCompare(b.time || '');
+      });
+  }, [filteredEvents, currentMonth]);
+
   const renderAnnualGrid = () => (
     <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-        {monthNames.map((month, index) => {
-          const monthEvents = eventsByMonth[index] || [];
-          return (
-            <button
-              key={month}
-              onClick={() => {
-                setCurrentMonth(new Date(currentMonth.getFullYear(), index, 1));
-                setActiveView('monthly');
-              }}
-              className={`rounded-2xl border p-4 text-left transition-all hover:shadow-lg ${
-                index === currentMonth.getMonth()
-                  ? 'border-[var(--accent)]/40 bg-red-50/30'
-                  : 'border-slate-100 bg-white hover:border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black uppercase tracking-wider text-slate-700">{month}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
-                    {monthEvents.length} {t('calendarView.total', 'eventos')}
-                  </p>
-                </div>
-                <i className="fa-solid fa-calendar text-[var(--accent)]"></i>
-              </div>
-            </button>
-          );
-        })}
+      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-slate-50/60 border-b border-slate-100">
+              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('common.date', 'Día')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('common.time', 'Hora')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('calendarView.team', 'Equipo')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('calendarView.type', 'Tipo')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('calendarView.activity', 'Actividad')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {t('common.location', 'Lugar')}
+              </th>
+              <th className="px-4 md:px-6 py-3 w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {annualEvents.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 md:px-6 py-8 text-center text-sm font-medium text-slate-400">
+                  {t('calendarView.noEvents', 'Sin eventos')}
+                </td>
+              </tr>
+            )}
+            {annualEvents.map(ev => {
+              const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
+              const isMatch = ev.type === 'Partido';
+              const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
+              const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
+              const teamKey = getEventTeamKey(ev);
+              const activityLabel = isMatch
+                ? (displayLocalTeam && displayVisitorTeam
+                    ? `${displayLocalTeam} vs ${displayVisitorTeam}`
+                    : (ev.title || ev.opponent || 'Partido'))
+                : ev.title;
+              const isCurrentMonth = d.getMonth() === currentMonth.getMonth();
+              return (
+                <tr
+                  key={ev.id}
+                  onClick={() => {
+                    setSelectedEvent(ev);
+                    onClickEvent?.(ev);
+                  }}
+                  className={`cursor-pointer border-b border-slate-50 last:border-b-0 transition-colors hover:bg-slate-50 ${
+                    isCurrentMonth ? 'bg-red-50/20' : ''
+                  }`}
+                >
+                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
+                    <span className={`text-sm font-black ${isToday(d) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                      {d.toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' })}
+                    </span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
+                    <span className="text-sm font-bold text-slate-500">{ev.time || '--:--'}</span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
+                    {teamKey && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                        <span className={`w-2 h-2 rounded-full ${getTeamColor(teamKey)?.dot || EVENT_DOT_COLORS[ev.type] || EVENT_DOT_COLORS.Otro}`}></span>
+                        {teamKey}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
+                    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider border ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}>
+                      {ev.type}
+                    </span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5">
+                    <span className="text-sm font-bold text-slate-700">{activityLabel}</span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5">
+                    <span className="text-sm text-slate-500">{ev.location || '-'}</span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5 text-right">
+                    {onDeleteEvent && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteEvent(ev.id);
+                        }}
+                        className="w-6 h-6 inline-flex items-center justify-center rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                        title={t('common.delete')}
+                      >
+                        <i className="fa-solid fa-xmark text-xs"></i>
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -601,6 +848,18 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               <option key={team} value={team}>{team}</option>
             ))}
           </select>
+          <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={onlyInternalTeams}
+              onChange={(e) => {
+                setOnlyInternalTeams(e.target.checked);
+                setTeamFilter('all');
+              }}
+              className="rounded border-slate-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
+            />
+            {t('calendarView.filterOnlyInternalTeams', 'Solo equipos internos')}
+          </label>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
@@ -611,6 +870,41 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">{t('calendarView.filterAllMonths', 'Todos los meses')}</option>
+            {monthNames.map((name, index) => (
+              <option key={name} value={String(index)}>{name}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateTo', 'Hasta')}:</label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            />
+            {(filterDateFrom || filterDateTo) && (
+              <button
+                type="button"
+                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}
+                className="px-3 py-2.5 text-[10px] font-black text-red-600 hover:text-red-700 uppercase"
+              >
+                ✕ {t('calendarView.clearFilter', 'Limpiar')}
+              </button>
+            )}
+          </div>
         </div>
         <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
           <button
@@ -667,6 +961,17 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           </button>
         </div>
       </div>
+
+      {teamColorLegend.length > 0 && (
+        <div className="flex items-center gap-3 px-1 flex-wrap">
+          {teamColorLegend.map(({ key, color }) => (
+            <span key={key} className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wide">
+              <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`}></span>
+              {key}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 w-full">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[78dvh] flex flex-col overflow-hidden">

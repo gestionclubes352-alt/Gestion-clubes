@@ -5,6 +5,7 @@ import type { EquipoRival } from '@/shared/services/dataService';
 import EquipoSelect, { type EquipoOption } from '@shared/components/EquipoSelect';
 import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
 import { competicionEquiposService } from '../services/competicionEquiposService';
+import { useAuth } from '@/context/AuthContext';
 
 export interface MatchFormData {
   id?: string;
@@ -41,12 +42,13 @@ const MatchModal: React.FC<MatchModalProps> = ({
   onDelete,
   onClose,
 }) => {
+  const { perfil } = useAuth();
   const [formData, setFormData] = useState<MatchFormData>({
     date: match?.date || '',
     time: match?.time || '18:00',
     competition: match?.competition || competitionName || '',
     location: match?.location || '',
-    jornada: match?.jornada || '1',
+    jornada: match?.jornada || '-',
     localTeam: match?.localTeam || '',
     visitorTeam: match?.visitorTeam || '',
     localTeamClubId: match?.localTeamClubId || '',
@@ -95,8 +97,12 @@ const MatchModal: React.FC<MatchModalProps> = ({
 
   useEffect(() => {
     const loadEquiposInternos = async () => {
+      if (!perfil?.club_id) {
+        setEquiposInternos([]);
+        return;
+      }
       try {
-        const data = await equiposService.list();
+        const data = await equiposService.list({ club_id: perfil.club_id });
         const teams = (data || []).map((e: any): CompetitionTeam => ({
           id: e.id,
           clubId: e.club_id,
@@ -116,7 +122,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
       }
     };
     loadEquiposInternos();
-  }, []);
+  }, [perfil?.club_id]);
 
   useEffect(() => {
     if (!selectedCompetitionId) {
@@ -338,6 +344,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
                 >
                   <option value="">Selecciona jornada</option>
+                  <option value="-">-</option>
                   {Array.from({ length: 38 }, (_, i) => (
                     <option key={i + 1} value={String(i + 1)}>
                       {i + 1}
@@ -358,11 +365,14 @@ const MatchModal: React.FC<MatchModalProps> = ({
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
                 >
                   <option value="">Selecciona equipo interno</option>
-                  {equiposInternos.map(equipo => (
-                    <option key={equipo.id} value={equipo.id}>
-                      {equipo.equipo || equipo.etapa || equipo.nombre}
-                    </option>
-                  ))}
+                  {equiposInternos.map(equipo => {
+                    const nombre = equipo.equipo || equipo.etapa || equipo.nombre;
+                    return (
+                      <option key={equipo.id} value={nombre}>
+                        {nombre}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
