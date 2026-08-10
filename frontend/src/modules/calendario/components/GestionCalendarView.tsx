@@ -836,6 +836,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
   return (
     <div className="animate-fade-in flex h-full min-h-[calc(100vh-110px)] flex-col gap-4 pb-6">
+      {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
       <div className="flex items-center justify-between gap-3 px-1 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <select
