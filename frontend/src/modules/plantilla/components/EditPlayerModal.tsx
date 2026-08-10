@@ -110,9 +110,13 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     (async () => {
       try {
         const { data } = await db.match_reports.get();
-        if (!cancelled) setMatchReports((data as MatchReport[]) || []);
+        if (!cancelled) {
+          const reports = Array.isArray(data) ? data.slice(0, 500) : [];
+          setMatchReports(reports as MatchReport[]);
+        }
       } catch (err) {
         console.error('No se pudieron cargar los partes de partido', err);
+        if (!cancelled) setMatchReports([]);
       }
     })();
     return () => { cancelled = true; };
