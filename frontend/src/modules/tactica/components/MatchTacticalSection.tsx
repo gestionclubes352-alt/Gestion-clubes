@@ -281,7 +281,7 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
       {/* Modal for expanded view */}
       {modalChangeId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-[#1a1a1a] shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-[#1a1a1a] shadow-2xl max-h-[90dvh] overflow-y-auto">
             {/* Close button */}
             <button
               onClick={() => setModalChangeId(undefined)}

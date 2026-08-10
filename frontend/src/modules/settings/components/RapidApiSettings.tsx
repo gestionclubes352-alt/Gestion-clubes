@@ -112,7 +112,7 @@ VITE_RAPIDAPI_HOST=free-api-live-football-data.p.rapidapi.com`}
       <div className="p-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl text-white">
         <div className="flex flex-wrap items-center gap-4">
           {savedConfig.teamLogo && (
-            <img src={savedConfig.teamLogo} alt="" className="w-14 h-14 object-contain bg-white/20 rounded-2xl p-2" />
+            <img loading="lazy" decoding="async" src={savedConfig.teamLogo} alt="" className="w-14 h-14 object-contain bg-white/20 rounded-2xl p-2" />
           )}
           <div className="flex-1 min-w-[140px]">
             <h3 className="text-xl font-black">{savedConfig.teamName}</h3>
@@ -139,7 +139,7 @@ VITE_RAPIDAPI_HOST=free-api-live-football-data.p.rapidapi.com`}
         
         <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
           {savedConfig.teamLogo && (
-            <img src={savedConfig.teamLogo} alt="" className="w-16 h-16 object-contain" />
+            <img loading="lazy" decoding="async" src={savedConfig.teamLogo} alt="" className="w-16 h-16 object-contain" />
           )}
           <div>
             <div className="font-bold text-lg text-slate-700">{savedConfig.teamName}</div>

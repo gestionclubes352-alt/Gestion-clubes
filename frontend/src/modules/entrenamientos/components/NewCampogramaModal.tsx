@@ -24,7 +24,7 @@ const NewCampogramaModal: React.FC<NewCampogramaModalProps> = ({ onClose, onCrea
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[90vh] shadow-2xl overflow-hidden animate-fade-in border border-slate-200 flex flex-col">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[90dvh] shadow-2xl overflow-hidden animate-fade-in border border-slate-200 flex flex-col">
         <div className="p-6 flex justify-between items-center border-b border-slate-100 bg-slate-50">
           <div>
             <h3 className="text-[var(--accent)] font-black text-xl uppercase tracking-tighter">Nuevo Campograma</h3>

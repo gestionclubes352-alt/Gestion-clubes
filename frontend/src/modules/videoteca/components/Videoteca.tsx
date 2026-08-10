@@ -424,7 +424,7 @@ const Videoteca: React.FC = () => {
         {videos.map((video) => (
           <div key={video.id} className="group bg-white rounded-[32px] border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl transition-all">
             <div className="relative aspect-video overflow-hidden">
-              <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+              <img loading="lazy" decoding="async" src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
               {video.vimeoUrl && (
                 <div className="absolute bottom-4 left-4 bg-white/90 text-slate-800 text-[9px] font-black px-2 py-1 rounded-lg">
                   Vimeo

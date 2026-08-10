@@ -169,7 +169,7 @@ const TaskRepositoryView: React.FC = () => {
       {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
         <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
       ) : task.thumbnail ? (
-        <img src={task.thumbnail} alt={task.name} className="h-16 w-full object-cover" />
+        <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="h-16 w-full object-cover" />
       ) : (
         <div className="h-16 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
           <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-lg`}></i>
@@ -193,7 +193,7 @@ const TaskRepositoryView: React.FC = () => {
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         <div
           onClick={e => e.stopPropagation()}
-          className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in max-h-[90vh] flex flex-col"
+          className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in max-h-[90dvh] flex flex-col"
         >
           {/* Close button */}
           <button onClick={onClose} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/40 text-white hover:bg-black/60 flex items-center justify-center transition-colors">
@@ -206,7 +206,7 @@ const TaskRepositoryView: React.FC = () => {
               <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="max-w-full" />
             </div>
           ) : task.thumbnail ? (
-            <img src={task.thumbnail} alt={task.name} className="h-80 w-full object-cover shrink-0" />
+            <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="h-80 w-full object-cover shrink-0" />
           ) : (
             <div className="h-80 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center shrink-0">
               <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-6xl`}></i>

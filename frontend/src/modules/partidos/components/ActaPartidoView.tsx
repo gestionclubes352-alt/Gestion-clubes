@@ -26,7 +26,7 @@ const MatchCard: React.FC<{
       <div className="flex-1 min-w-0 text-right">
         <span className="block truncate text-[11px] font-bold text-white/80 leading-tight">{match.localTeam}</span>
       </div>
-      {match.localLogo && <img src={match.localLogo} alt="" className="w-7 h-7 object-contain shrink-0" />}
+      {match.localLogo && <img loading="lazy" decoding="async" src={match.localLogo} alt="" className="w-7 h-7 object-contain shrink-0" />}
 
       {/* Score */}
       <div className="px-3 min-w-[60px] shrink-0 text-center">
@@ -38,7 +38,7 @@ const MatchCard: React.FC<{
       </div>
 
       {/* Visitor */}
-      {match.visitorLogo && <img src={match.visitorLogo} alt="" className="w-7 h-7 object-contain shrink-0" />}
+      {match.visitorLogo && <img loading="lazy" decoding="async" src={match.visitorLogo} alt="" className="w-7 h-7 object-contain shrink-0" />}
       <div className="flex-1 min-w-0 text-left">
         <span className="block truncate text-[11px] font-bold text-white/80 leading-tight">{match.visitorTeam}</span>
       </div>
@@ -73,7 +73,7 @@ const TeamLineup: React.FC<{
 }> = ({ team, isHome }) => (
   <div className="flex-1">
     <div className={`flex items-center gap-3 mb-4 ${isHome ? '' : 'flex-row-reverse'}`}>
-      {team.logoUrl && <img src={team.logoUrl} alt="" className="w-8 h-8 object-contain" />}
+      {team.logoUrl && <img loading="lazy" decoding="async" src={team.logoUrl} alt="" className="w-8 h-8 object-contain" />}
       <div>
         <h4 className="text-xs font-black text-white uppercase tracking-wider">{team.name}</h4>
         {team.coach && <p className="text-[9px] text-white/30"><i className="fa-solid fa-user-tie mr-1"></i>{team.coach}</p>}
@@ -389,7 +389,7 @@ const ActaPartidoView: React.FC = () => {
             {/* Home */}
             <div className="flex-1 min-w-0 text-right flex items-center justify-end gap-3">
               <span className="truncate text-sm font-black text-white">{actaData.homeTeam.name}</span>
-              {actaData.homeTeam.logoUrl && <img src={actaData.homeTeam.logoUrl} alt="" className="w-12 h-12 object-contain shrink-0" />}
+              {actaData.homeTeam.logoUrl && <img loading="lazy" decoding="async" src={actaData.homeTeam.logoUrl} alt="" className="w-12 h-12 object-contain shrink-0" />}
             </div>
 
             {/* Score */}
@@ -401,7 +401,7 @@ const ActaPartidoView: React.FC = () => {
 
             {/* Away */}
             <div className="flex-1 min-w-0 text-left flex items-center gap-3">
-              {actaData.awayTeam.logoUrl && <img src={actaData.awayTeam.logoUrl} alt="" className="w-12 h-12 object-contain shrink-0" />}
+              {actaData.awayTeam.logoUrl && <img loading="lazy" decoding="async" src={actaData.awayTeam.logoUrl} alt="" className="w-12 h-12 object-contain shrink-0" />}
               <span className="truncate text-sm font-black text-white">{actaData.awayTeam.name}</span>
             </div>
           </div>

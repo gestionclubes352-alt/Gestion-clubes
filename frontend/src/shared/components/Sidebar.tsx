@@ -196,6 +196,37 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [internalCollapsed, externalCollapsed]);
 
+  // Con el drawer abierto en móvil se bloquea el scroll del fondo
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [isOpen]);
+
+  // Si la ventana pasa a tamaño de escritorio con el drawer abierto (el propio
+  // drawer queda oculto por `lg:hidden` pero seguiría bloqueando el scroll del
+  // body), lo cerramos para liberar el scroll.
+  useEffect(() => {
+    if (!isOpen || !onClose) return;
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (event.matches) onClose();
+    };
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
+  }, [isOpen, onClose]);
+
+  // Cerrar el drawer con la tecla Escape
+  useEffect(() => {
+    if (!isOpen || !onClose) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
   const handleItemClick = (section: string) => {
     onSectionChange(section);
     if (onClose) onClose();
@@ -215,13 +246,17 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`
-        ${isCollapsed ? 'w-[72px]' : 'w-[280px]'}
-        bg-[var(--sidebar-bg)] h-screen flex flex-col fixed left-0 top-0 
+      <aside
+        className={`
+        ${isCollapsed ? 'w-[72px]' : 'w-[280px] max-w-[85vw]'}
+        bg-[var(--sidebar-bg)] h-dvh flex flex-col fixed left-0 top-0
         overflow-hidden z-80 transition-all duration-300 ease-out
         border-r border-white/5
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      `}
+        // El drawer ocupa toda la altura: se respeta el notch y el indicador inferior
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         {/* Header / Logo */}
         <div 
           onClick={() => handleItemClick('CALENDARIO')} 
@@ -239,7 +274,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               group-hover:scale-105
               ${isCollapsed ? 'w-11 h-11' : 'w-11 h-11'}
             `}>
-              <img 
+              <img loading="lazy" decoding="async" 
                 src={selectedTeam.logoUrl} 
                 alt={`${selectedTeam.name} escudo`} 
                 className="max-w-full max-h-full object-contain"

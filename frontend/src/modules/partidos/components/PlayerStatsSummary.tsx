@@ -83,7 +83,10 @@ export const computeMatchStats = (report: MatchReport) => {
       }
       total += Math.max(0, end - interval.start);
     });
-    minutesByPlayer.set(playerId, total);
+    // Un jugador no puede haber jugado más minutos que la duración del partido
+    // (protege frente a datos inconsistentes, p. ej. un jugador registrado a
+    // la vez como titular y como entrada de un cambio).
+    minutesByPlayer.set(playerId, Math.min(total, MATCH_DURATION_MINUTES));
   });
 
   const goalsByPlayer = new Map<string, number>();
@@ -92,6 +95,14 @@ export const computeMatchStats = (report: MatchReport) => {
     .forEach(g => {
       const key = String(g.playerId);
       goalsByPlayer.set(key, (goalsByPlayer.get(key) || 0) + 1);
+    });
+
+  const goalsConcededByPlayer = new Map<string, number>();
+  (report.matchGoals || [])
+    .filter(g => g.side === 'CONTRA' && g.playerId !== undefined)
+    .forEach(g => {
+      const key = String(g.playerId);
+      goalsConcededByPlayer.set(key, (goalsConcededByPlayer.get(key) || 0) + 1);
     });
 
   const cardsByPlayer = new Map<string, { amarillas: number; rojas: number }>();
@@ -107,10 +118,11 @@ export const computeMatchStats = (report: MatchReport) => {
     ...starterIds,
     ...minutesByPlayer.keys(),
     ...goalsByPlayer.keys(),
+    ...goalsConcededByPlayer.keys(),
     ...cardsByPlayer.keys(),
   ]);
 
-  return { starterIds, minutesByPlayer, goalsByPlayer, cardsByPlayer, involvedIds };
+  return { starterIds, minutesByPlayer, goalsByPlayer, goalsConcededByPlayer, cardsByPlayer, involvedIds };
 };
 
 interface PlayerAggregate {
@@ -119,6 +131,7 @@ interface PlayerAggregate {
   starterCount: number;
   minutes: number;
   goals: number;
+  goalsConceded: number;
   yellowCards: number;
   redCards: number;
 }
@@ -212,11 +225,12 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
       if (!report) return;
       const stats = computeMatchStats(report);
       stats.involvedIds.forEach(key => {
-        const entry = acc.get(key) || { playerId: key, matchesPlayed: 0, starterCount: 0, minutes: 0, goals: 0, yellowCards: 0, redCards: 0 };
+        const entry = acc.get(key) || { playerId: key, matchesPlayed: 0, starterCount: 0, minutes: 0, goals: 0, goalsConceded: 0, yellowCards: 0, redCards: 0 };
         entry.matchesPlayed += 1;
         if (stats.starterIds.has(key)) entry.starterCount += 1;
         entry.minutes += stats.minutesByPlayer.get(key) ?? 0;
         entry.goals += stats.goalsByPlayer.get(key) ?? 0;
+        entry.goalsConceded += stats.goalsConcededByPlayer.get(key) ?? 0;
         const cards = stats.cardsByPlayer.get(key);
         entry.yellowCards += cards?.amarillas ?? 0;
         entry.redCards += cards?.rojas ?? 0;
@@ -331,6 +345,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.minutesPercent')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.starterPercent')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.goals')}</th>
+                  <th className="px-3 py-3 text-center">{t('playerStatsSummary.goalsConceded')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.yellowCards')}</th>
                   <th className="px-3 py-3 text-center">{t('playerStatsSummary.redCards')}</th>
                 </tr>
@@ -354,6 +369,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                       <td className="px-3 py-2 text-center font-bold">{minutesPercent}%</td>
                       <td className="px-3 py-2 text-center font-bold">{starterPercent}%</td>
                       <td className="px-3 py-2 text-center font-bold">{row.goals}</td>
+                      <td className="px-3 py-2 text-center font-bold">{row.goalsConceded}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.yellowCards}</td>
                       <td className="px-3 py-2 text-center font-bold">{row.redCards}</td>
                     </tr>

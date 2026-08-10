@@ -99,7 +99,7 @@ const ImportDataModal: React.FC<ImportDataModalProps> = ({ onClose, onImportComp
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
+      <div className="bg-white dark:bg-slate-800 rounded-xl w-full max-w-2xl max-h-[90dvh] overflow-hidden shadow-2xl">
         
         {/* Header */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 p-4 text-white">

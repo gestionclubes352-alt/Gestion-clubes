@@ -175,10 +175,6 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
             <line x1="2" y1="50" x2="98" y2="50" />
             <circle cx="50" cy="50" r="9" />
             <circle cx="50" cy="50" r="0.5" fill="#ffffff" stroke="none" />
-            <rect x="35" y="2" width="30" height="9" />
-            <path d="M 38 11 A 12 12 0 0 0 62 11" />
-            <rect x="35" y="89" width="30" height="9" />
-            <path d="M 38 89 A 12 12 0 0 1 62 89" />
           </g>
         </svg>
 
@@ -191,7 +187,7 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
           >
             <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-lg bg-slate-600 flex items-center justify-center">
               {photoUrl ? (
-                <img src={photoUrl} alt={playerName || ''} className="w-full h-full object-cover object-top" />
+                <img loading="lazy" decoding="async" src={photoUrl} alt={playerName || ''} className="w-full h-full object-cover object-top" />
               ) : (
                 <span className="text-white text-[10px] font-black">{initials}</span>
               )}

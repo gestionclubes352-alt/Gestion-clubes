@@ -5,13 +5,16 @@
  */
 
 import { supabase } from './supabaseClient';
+import { optimizeImageFile } from './imageOptimizer';
 
 const BUCKET = 'club-media';
 
 export async function uploadStaffPhoto(file: File, staffId: string, clubId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'jpg';
+  // Se reduce antes de subir: las fotos del móvil pesan varios MB y se muestran como avatar
+  const optimized = await optimizeImageFile(file, 'photo');
+  const ext = optimized.name.split('.').pop() || 'jpg';
   const path = `clubs/${clubId}/staff/${staffId}/profile.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
+  const { error } = await supabase.storage.from(BUCKET).upload(path, optimized, { upsert: true });
   if (error) throw error;
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;

@@ -1091,7 +1091,7 @@ const AIModeView: React.FC<AIModeViewProps> = ({ context }) => {
                             {msg.attachments.map((att, idx) => (
                               <div key={idx} className="relative">
                                 {att.type === 'image' && att.preview ? (
-                                  <img src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg border border-slate-200 dark:border-slate-600" />
+                                  <img loading="lazy" decoding="async" src={att.preview} alt={att.name} className="w-20 h-20 object-cover rounded-lg border border-slate-200 dark:border-slate-600" />
                                 ) : (
                                   <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-[var(--surface-2)] rounded-lg text-xs text-slate-600 dark:text-slate-300">
                                     <i className="fa-solid fa-file text-slate-400"></i>
@@ -1218,7 +1218,7 @@ const AIModeView: React.FC<AIModeViewProps> = ({ context }) => {
                     className="relative group flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-[var(--surface-1)] rounded-lg border border-slate-200 dark:border-[var(--border-soft)]"
                   >
                     {file.type === 'image' && file.preview ? (
-                      <img src={file.preview} alt={file.name} className="w-8 h-8 object-cover rounded" />
+                      <img loading="lazy" decoding="async" src={file.preview} alt={file.name} className="w-8 h-8 object-cover rounded" />
                     ) : (
                       <i className="fa-solid fa-file text-slate-400"></i>
                     )}

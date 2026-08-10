@@ -5,6 +5,7 @@
  */
 
 import { supabase } from './supabaseClient';
+import { optimizeImageFile, type ImagePreset } from './imageOptimizer';
 
 const BUCKET = 'club-media';
 
@@ -15,24 +16,30 @@ async function uploadToStorage(path: string, file: File): Promise<string> {
   return data.publicUrl;
 }
 
+/**
+ * Sube la imagen reducida. La extensión se toma del fichero ya optimizado para que
+ * el tipo del objeto en Storage coincida con su contenido real.
+ */
+async function uploadOptimized(pathPrefix: string, name: string, file: File, preset: ImagePreset): Promise<string> {
+  const optimized = await optimizeImageFile(file, preset);
+  const ext = optimized.name.split('.').pop() || 'jpg';
+  return uploadToStorage(`${pathPrefix}/${name}.${ext}`, optimized);
+}
+
 export async function uploadPlayerPhoto(file: File, playerId: string, clubId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'jpg';
-  return uploadToStorage(`clubs/${clubId}/players/${playerId}/profile.${ext}`, file);
+  return uploadOptimized(`clubs/${clubId}/players/${playerId}`, 'profile', file, 'photo');
 }
 
 export async function uploadTeamLogo(file: File, teamId: string, clubId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'png';
-  return uploadToStorage(`clubs/${clubId}/teams/${teamId}/logo.${ext}`, file);
+  return uploadOptimized(`clubs/${clubId}/teams/${teamId}`, 'logo', file, 'logo');
 }
 
 export async function uploadClubLogo(file: File, clubEntityId: string, clubId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'png';
-  return uploadToStorage(`clubs/${clubId}/clubes/${clubEntityId}/logo.${ext}`, file);
+  return uploadOptimized(`clubs/${clubId}/clubes/${clubEntityId}`, 'logo', file, 'logo');
 }
 
 export async function uploadTaskThumbnail(file: File, taskId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'png';
-  return uploadToStorage(`tasks/${taskId}/thumbnail.${ext}`, file);
+  return uploadOptimized(`tasks/${taskId}`, 'thumbnail', file, 'thumbnail');
 }
 
 export async function uploadMatchReportFile(file: File, matchId: string | number): Promise<string> {

@@ -130,7 +130,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
         return (
           <div className="flex items-center gap-3">
             {user.fotoUrl ? (
-              <img src={user.fotoUrl} alt={user.nombre} className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
+              <img loading="lazy" decoding="async" src={user.fotoUrl} alt={user.nombre} className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
             ) : (
               <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-semibold text-sm border border-slate-200">
                 {info.getValue().charAt(0).toUpperCase()}
@@ -196,7 +196,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
         return (
           <div className="flex items-center gap-2">
             {club.logoUrl ? (
-              <img src={club.logoUrl} alt={club.nombre} className="w-6 h-6 rounded object-contain" />
+              <img loading="lazy" decoding="async" src={club.logoUrl} alt={club.nombre} className="w-6 h-6 rounded object-contain" />
             ) : (
               <div className="w-6 h-6 rounded flex items-center justify-center text-[8px] font-black text-white bg-slate-400">
                 {club.nombre.charAt(0).toUpperCase()}

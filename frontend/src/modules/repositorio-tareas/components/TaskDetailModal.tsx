@@ -122,7 +122,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        className="w-full max-w-2xl max-h-[90dvh] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -199,7 +199,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
               <div className="border-2 border-dashed border-slate-300 rounded-xl p-4">
                 {previewUrl && imageMode === 'upload' ? (
                   <div className="relative">
-                    <img src={previewUrl} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
+                    <img loading="lazy" decoding="async" src={previewUrl} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
                     <button
                       type="button"
                       onClick={() => {

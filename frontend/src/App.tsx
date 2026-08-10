@@ -39,18 +39,19 @@ import { ClubesTable } from '@modules/clubes';
 import type { Club } from '@modules/clubes';
 
 // Modules - Entrenamientos
-import { CampogramaGrid, NewCampogramaModal, ExerciseDesigner } from '@modules/entrenamientos';
+import { CampogramaGrid, NewCampogramaModal } from '@modules/entrenamientos';
 import type { Campograma } from '@modules/entrenamientos';
 
 // Modules - Repositorio de Tareas
 import { TaskRepositoryView } from '@modules/repositorio-tareas';
 
 // Modules - Tactica
-import { TacticalBoard, PizarraTactica, getInitialPositions, remapPlayersToFormation } from '@modules/tactica';
+import { TacticalBoard, getInitialPositions, remapPlayersToFormation } from '@modules/tactica';
 import type { TacticalPosition } from '@modules/tactica';
 
 // Modules - Partidos
-import { LatestMatches, MatchReportView } from '@modules/partidos';
+// Import directo (no por el barrel) para que MatchReportView quede fuera del bundle inicial
+import LatestMatches from '@modules/partidos/components/LatestMatches';
 import type { Match } from '@modules/partidos';
 
 // Modules - Calendario
@@ -66,8 +67,12 @@ import { InjuriesView, MedicalHistoryView, MedicalCheckupsView, RehabilitationVi
 // Modules - Settings
 import { SettingsPage } from '@modules/settings';
 
-// Modules - AI Mode
-import { AIModeView } from '@modules/ai-mode';
+// Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
+// Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
+const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
+const ExerciseDesigner = React.lazy(() => import('@modules/entrenamientos/components/ExerciseDesigner'));
+const PizarraTactica = React.lazy(() => import('@modules/tactica/components/PizarraTactica'));
+const AIModeView = React.lazy(() => import('@modules/ai-mode/components/AIModeView'));
 
 
 
@@ -894,10 +899,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   // Margen dinámico según estado del sidebar
   return (
     <div className={`flex min-h-screen w-full overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'}`}>
-      {/* Botón pantalla completa, visible en toda la aplicación */}
+      {/* Menú lateral: solo como drawer en móvil/tablet (en escritorio se navega desde el header) */}
+      {!hideShellSidebar && (
+        <div className="lg:hidden">
+          <Sidebar
+            activeSection={activeSection}
+            onSectionChange={handleSectionChange}
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            isCollapsed={false}
+            userRole={userRole}
+          />
+        </div>
+      )}
+
+      {/* Botón pantalla completa: en móvil taparía la cabecera, y el header ya tiene el suyo */}
       <button
         onClick={handleFullscreen}
-        className="fixed top-4 right-4 z-50 bg-white border border-slate-200 shadow-md rounded-full p-2 hover:bg-slate-100 transition"
+        className="hidden lg:block fixed top-4 right-4 z-50 bg-white border border-slate-200 shadow-md rounded-full p-2 hover:bg-slate-100 transition"
         title={isFullscreen ? t('app.exitFullscreen') : t('app.fullscreen')}
       >
         {isFullscreen ? (
@@ -906,7 +925,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9V5h4m0 0v4m0-4h-4m-6 6v4H5m0 0v-4m0 4h4" /></svg>
         )}
       </button>
-      <main className={`flex-1 min-w-0 flex flex-col min-h-screen overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'} transition-all duration-300 ${!hideShellHeader ? 'pt-[72px] md:pt-[80px]' : ''}`}>
+      <main className={`flex-1 min-w-0 flex flex-col overflow-y-auto ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'} transition-all duration-300 ${!hideShellHeader ? 'app-header-offset' : ''}`}>
         {!hideShellHeader && (
           <Header
             onMenuClick={() => setIsSidebarOpen(true)}
@@ -918,6 +937,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           />
         )}
         {isAIMode ? (
+          <React.Suspense fallback={<LoadingScreen />}>
           <AIModeView
             context={{
               players: filteredSquadList,
@@ -932,9 +952,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               campogramas: filteredCampogramasList as any[],
             }}
           />
+          </React.Suspense>
         ) : (
-        <div className={`flex-1 min-h-0 overflow-y-auto w-full ${!hideShellSidebar ? 'px-4 pt-3 pb-24 md:px-6 md:pt-4 md:pb-8 lg:px-12 lg:pt-6 lg:pb-10' : ''} scrollbar-hide`}>
+        <>
+        {/* pb-24 hasta lg: la bottom nav es visible por debajo de 1024px y taparía el contenido */}
+        <div className={`flex-1 min-h-0 overflow-y-auto w-full ${!hideShellSidebar ? 'px-3 pt-3 pb-24 sm:px-4 md:px-6 md:pt-4 lg:px-12 lg:pt-6 lg:pb-10 pb-safe-nav' : ''} scrollbar-hide`}>
           {clubLoadError ? <ClubErrorScreen /> : isLoading ? <LoadingScreen /> : (
+            <React.Suspense fallback={<LoadingScreen />}>
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
@@ -1094,10 +1118,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/settings" element={userRole === 'Responsable' || userRole === 'Administrador' ? <SettingsPage /> : <Navigate to="/" replace />} />
               <Route path="*" element={<div className="p-20 text-center uppercase font-black text-slate-300">{t('app.pageNotFound')}</div>} />
             </Routes>
+            </React.Suspense>
           )}
         </div>
+        </>
         )}
       </main>
+
+      {/* Navegación inferior: acceso rápido a las secciones en móvil/tablet */}
+      {!hideShellSidebar && !isAIMode && (
+        <BottomNav
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          userRole={userRole}
+        />
+      )}
+
       {editingPlayer && <EditPlayerModal
         player={editingPlayer}
         clubId={currentTeam?.id || ''}

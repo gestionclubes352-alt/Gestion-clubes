@@ -99,7 +99,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onSectionChange, u
       {/* Panel expandido de "Más" */}
       {isMoreOpen && (
         <div className="fixed bottom-[4.5rem] left-0 right-0 z-[95] lg:hidden animate-slide-up">
-          <div className="mx-3 mb-2 bg-white dark:bg-[var(--surface-1)] rounded-2xl shadow-2xl border border-slate-200 dark:border-[var(--border-soft)] max-h-[60vh] overflow-y-auto">
+          <div className="mx-3 mb-2 bg-white dark:bg-[var(--surface-1)] rounded-2xl shadow-2xl border border-slate-200 dark:border-[var(--border-soft)] max-h-[60dvh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 bg-white dark:bg-[var(--surface-1)] px-5 pt-4 pb-2 border-b border-slate-100 dark:border-[var(--border-soft)]">
               <div className="flex items-center justify-between">

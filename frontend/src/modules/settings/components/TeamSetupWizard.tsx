@@ -549,7 +549,7 @@ export const TeamSetupWizard: React.FC = () => {
                 className="p-4 rounded-xl border-2 border-amber-200 bg-amber-50/50 hover:border-amber-500 hover:bg-amber-50 transition-all text-left group"
               >
                 <div className="flex items-center gap-3">
-                  <img src={ft.logoUrl} alt={ft.name} className="w-10 h-10 object-contain" />
+                  <img loading="lazy" decoding="async" src={ft.logoUrl} alt={ft.name} className="w-10 h-10 object-contain" />
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm text-slate-700 group-hover:text-amber-600 truncate">
                       {ft.name}
@@ -597,7 +597,7 @@ export const TeamSetupWizard: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     {league.logo && (
-                      <img src={league.logo} alt="" className="w-10 h-10 object-contain" />
+                      <img loading="lazy" decoding="async" src={league.logo} alt="" className="w-10 h-10 object-contain" />
                     )}
                     <div>
                       <div className="font-bold text-sm text-slate-700 group-hover:text-[var(--accent)]">
@@ -660,7 +660,7 @@ export const TeamSetupWizard: React.FC = () => {
                     className="p-4 rounded-xl border-2 border-slate-200 hover:border-[var(--accent)] hover:bg-red-50 transition-all text-left group"
                   >
                     <div className="flex items-center gap-3">
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={logoUrl}
                         alt={team.name}
                         className="w-11 h-11 object-contain flex-shrink-0"
@@ -714,7 +714,7 @@ export const TeamSetupWizard: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-4">
                 {(selectedFeatured?.logoUrl || selectedTeam?.logo) && (
-                  <img src={selectedFeatured?.logoUrl || selectedTeam?.logo} alt="" className="w-16 h-16 object-contain" />
+                  <img loading="lazy" decoding="async" src={selectedFeatured?.logoUrl || selectedTeam?.logo} alt="" className="w-16 h-16 object-contain" />
                 )}
                 <div>
                   <h4 className="font-bold text-xl text-slate-700">{selectedFeatured?.name || selectedTeam?.name}</h4>
@@ -785,7 +785,7 @@ export const TeamSetupWizard: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {group.members.map(player => (
                   <div key={player.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                    <img 
+                    <img loading="lazy" decoding="async" 
                       src={`https://images.fotmob.com/image_resources/playerimages/${player.id}.png`}
                       alt=""
                       className="w-8 h-8 rounded-full object-cover bg-slate-200"

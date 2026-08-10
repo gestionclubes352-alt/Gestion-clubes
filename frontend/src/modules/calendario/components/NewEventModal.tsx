@@ -224,7 +224,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4" onClick={onClose}>
       <div
-        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg p-5 sm:p-10 max-h-[90vh] overflow-y-auto relative animate-fade-in"
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg p-5 sm:p-10 max-h-[90dvh] overflow-y-auto relative animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} className="absolute right-4 top-4 sm:right-6 sm:top-6 text-slate-300 hover:text-red-500 transition text-xl">

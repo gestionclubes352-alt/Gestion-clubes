@@ -171,7 +171,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             ) : task.thumbnail ? (
               <div className="w-full max-h-full aspect-[105/68] rounded-md bg-[#2f5a30] overflow-hidden flex items-center justify-center">
-                <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
+                <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
             ) : (
               <div className={`w-full max-h-full aspect-[105/68] rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
@@ -497,7 +497,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       </div>
                     ) : task.thumbnail ? (
                       <div className="w-full aspect-[105/68] rounded-xl bg-[#2f5a30] overflow-hidden flex items-center justify-center border border-slate-100">
-                        <img src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
+                        <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
                       </div>
                     ) : (
                       <div className={`w-full aspect-[105/68] rounded-xl flex items-center justify-center text-white border border-slate-100 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
@@ -575,7 +575,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
       {pickerOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={() => setPickerOpen(false)}>
-          <div className="w-full max-w-lg max-h-[80vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-lg max-h-[80dvh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 p-5">
               <h4 className="text-[var(--accent)] font-black text-[28px]">{t('calendarView.repositoryPickerTitle')}</h4>
               <button onClick={() => setPickerOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -618,7 +618,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                           className="w-full flex items-center gap-3 rounded-lg border border-slate-100 hover:border-[var(--accent)]/40 hover:bg-slate-50 p-2.5 text-left transition-all"
                         >
                           {task.thumbnail ? (
-                            <img src={task.thumbnail} alt={task.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                            <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
                           ) : (
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${CATEGORY_COLORS[task.category]}`}>
                               <i className={`fa-solid ${CATEGORY_ICONS[task.category]}`}></i>
@@ -705,7 +705,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 />
               ) : fullscreenTask.thumbnail ? (
                 <div className="w-full aspect-[105/68] rounded-xl bg-[#2f5a30] overflow-hidden flex items-center justify-center shadow-2xl">
-                  <img src={fullscreenTask.thumbnail} alt={fullscreenTask.title} className="w-full h-full object-contain" />
+                  <img loading="lazy" decoding="async" src={fullscreenTask.thumbnail} alt={fullscreenTask.title} className="w-full h-full object-contain" />
                 </div>
               ) : (
                 <div

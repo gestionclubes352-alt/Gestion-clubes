@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
 import jsPDF from 'jspdf';
@@ -6,8 +6,10 @@ import html2canvas from 'html2canvas-pro';
 import { Player } from '../types';
 import type { CompetitionTeam } from '../../competicion/types';
 import type { CalendarEvent } from '../../calendario/types';
-import type { Match } from '@modules/partidos/types';
+import type { Match, MatchReport } from '@modules/partidos/types';
 import type { Club } from '@modules/clubes/types';
+import { computeMatchStats } from '../../partidos/components/PlayerStatsSummary';
+import { db } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import PlayerMatchBreakdown from './PlayerMatchBreakdown';
 import PlayerPositionMap from './PlayerPositionMap';
@@ -97,6 +99,42 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     const attended = sessions.filter(e => (e.attendance?.[pid] || 'Si') === 'Si').length;
     return { total, attended, absences: total - attended };
   }, [events, player.id]);
+
+  // Datos de partido reales, calculados a partir de las actas registradas (no editables a mano).
+  const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await db.match_reports.get();
+        if (!cancelled) setMatchReports((data as MatchReport[]) || []);
+      } catch (err) {
+        console.error('No se pudieron cargar los partes de partido', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const matchStats = useMemo(() => {
+    const pid = String(player.id);
+    const reportById = new Map(matchReports.map(r => [String(r.id), r]));
+    let partidosJugados = 0;
+    let minutos = 0;
+    let titular = 0;
+    let goles = 0;
+    (matches || []).forEach(match => {
+      const report = reportById.get(String(match.id));
+      if (!report) return;
+      const stats = computeMatchStats(report);
+      if (!stats.involvedIds.has(pid)) return;
+      partidosJugados += 1;
+      minutos += stats.minutesByPlayer.get(pid) ?? 0;
+      if (stats.starterIds.has(pid)) titular += 1;
+      goles += stats.goalsByPlayer.get(pid) ?? 0;
+    });
+    return { partidosJugados, minutos, titular, goles };
+  }, [matches, matchReports, player.id]);
+
   const modalRef = useRef<HTMLDivElement>(null);
 
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
@@ -184,6 +222,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
         id: resolvedId,
         dni: normalizePlayerId(String(formData.dni || '')) || undefined,
         fotoUrl: fotoUrl || '',
+        partidosJugados: matchStats.partidosJugados,
+        minutos: matchStats.minutos,
+        titular: matchStats.titular,
+        goles: matchStats.goles,
       }, originalId);
       onClose();
     } catch (err) {
@@ -296,7 +338,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   return (
     <div className="fixed inset-0 bg-black/50 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div ref={modalRef} className={`bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col transition-all duration-300 ${isFullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-5xl max-h-[95vh] sm:max-h-[85vh]'}`}>
+      <div ref={modalRef} className={`bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col transition-all duration-300 ${isFullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-5xl max-h-[95dvh] sm:max-h-[85dvh]'}`}>
         <div className="p-3 sm:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <h3 className="text-[var(--accent)] font-black text-lg sm:text-xl uppercase tracking-tighter">{t('editPlayer.title')}</h3>
@@ -325,7 +367,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   className="w-28 h-32 rounded-2xl border-2 border-dashed border-[var(--accent)]/20 flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all overflow-hidden group shadow-inner"
                 >
                   {preview ? (
-                    <img 
+                    <img loading="lazy" decoding="async" 
                       src={preview} 
                       alt="Preview" 
                       className="w-full h-full object-cover object-top group-hover:opacity-75 transition-opacity"
@@ -592,46 +634,34 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             )}
           </div>
 
-          {/* === DATOS DE PARTIDO en fila horizontal === */}
+          {/* === DATOS DE PARTIDO en fila horizontal (calculados a partir de las actas, no editables) === */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{t('editPlayer.matchData')}</span>
               <div className="flex-1 grid grid-cols-4 gap-2">
                 <div>
                   <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.matches')}</label>
-                  <input
-                    type="number"
-                    value={formData.partidosJugados || 0}
-                    onChange={(e) => handleChange('partidosJugados', parseInt(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-black text-[var(--accent)] text-center"
-                  />
+                  <div className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-black text-[var(--accent)] text-center">
+                    {matchStats.partidosJugados}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.minutes')}</label>
-                  <input
-                    type="number"
-                    value={formData.minutos || 0}
-                    onChange={(e) => handleChange('minutos', parseInt(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-black text-[var(--accent)] text-center"
-                  />
+                  <div className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-black text-[var(--accent)] text-center">
+                    {matchStats.minutos}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.starter')}</label>
-                  <input
-                    type="number"
-                    value={formData.titular || 0}
-                    onChange={(e) => handleChange('titular', parseInt(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-black text-[var(--accent)] text-center"
-                  />
+                  <div className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-black text-[var(--accent)] text-center">
+                    {matchStats.titular}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('players.goals')}</label>
-                  <input
-                    type="number"
-                    value={formData.goles || 0}
-                    onChange={(e) => handleChange('goles', parseInt(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-black text-[var(--accent)] text-center"
-                  />
+                  <div className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-black text-[var(--accent)] text-center">
+                    {matchStats.goles}
+                  </div>
                 </div>
               </div>
             </div>
@@ -639,10 +669,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
           {/* === GRÁFICAS DE PARTICIPACIÓN === */}
           <PlayerStatsCharts
-            partidosJugados={formData.partidosJugados}
-            minutos={formData.minutos}
-            titular={formData.titular}
-            goles={formData.goles}
+            partidosJugados={matchStats.partidosJugados}
+            minutos={matchStats.minutos}
+            titular={matchStats.titular}
+            goles={matchStats.goles}
             sesionesTotal={attendanceStats.total}
             sesionesAsistidas={attendanceStats.attended}
             sesionesAusencias={attendanceStats.absences}

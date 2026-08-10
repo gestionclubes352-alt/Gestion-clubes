@@ -629,6 +629,7 @@
     "minutesPercent": "% Min.",
     "starterPercent": "% Starter",
     "goals": "Goals",
+    "goalsConceded": "Goals Conceded",
     "yellowCards": "Yellow Cards",
     "redCards": "Red Cards",
     "viewTable": "Table",
@@ -1069,6 +1070,7 @@
       "goals": "Goals",
       "goalsFor": "Goals For",
       "goalsAgainst": "Goals Against",
+      "goalConceded": "Goal Conceded",
       "addGoal": "Add Goal",
       "goalSide": "For / Against",
       "scorer": "Scorer",
@@ -1107,5 +1109,17 @@
       "description": "Description / Notes",
       "descriptionPlaceholder": "Notes about the referee, style, criteria..."
     }
+  },
+  "pwa": {
+    "offline": "Offline — showing already loaded data",
+    "updateTitle": "Update available",
+    "updateBody": "A new version of the app is ready.",
+    "later": "Later",
+    "reload": "Update",
+    "installTitle": "Install Sport Management",
+    "installBody": "Add it to your home screen to open it like an app.",
+    "installIos": "Tap Share and then “Add to Home Screen”.",
+    "install": "Install",
+    "dismiss": "Close"
   }
 }

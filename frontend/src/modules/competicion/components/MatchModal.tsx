@@ -127,6 +127,16 @@ const MatchModal: React.FC<MatchModalProps> = ({
 
   const relevantRivals = rivalCatalog.filter(rival => configuredRivalIds.has(String(rival.id)));
 
+  // Si la competición solo tiene un equipo propio configurado, se autocompleta como Local
+  useEffect(() => {
+    if (formData.localTeam) return;
+    if (relevantOwnTeams.length !== 1) return;
+    const ownTeam = toTeamOption(relevantOwnTeams[0]);
+    setFormData(prev =>
+      prev.localTeam ? prev : { ...prev, localTeam: ownTeam.value, localTeamClubId: ownTeam.clubId || '' }
+    );
+  }, [relevantOwnTeams]);
+
   const teamOptions: EquipoOption[] = [
     ...relevantOwnTeams.map(toTeamOption),
     ...relevantRivals.map((rival): EquipoOption => ({ value: rival.nombre })),
@@ -196,7 +206,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[999] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90dvh]">
         {/* Header */}
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
@@ -216,7 +226,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 sm:p-8 space-y-6 max-h-[75vh] overflow-y-auto flex-1">
+        <div className="p-6 sm:p-8 space-y-6 max-h-[75dvh] overflow-y-auto flex-1">
           {/* Section: Información del Partido */}
           <div>
             <div className="flex items-center gap-2 mb-4">

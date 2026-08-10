@@ -108,7 +108,7 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
               )}
               <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {club.logoUrl ? (
-                  <img src={club.logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
+                  <img loading="lazy" decoding="async" src={club.logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
                 ) : (
                   <i className="fa-solid fa-shield-halved text-slate-300"></i>
                 )}

@@ -27,7 +27,7 @@ const SquadList: React.FC<SquadListProps> = ({ squad }) => {
                   {player.fotoUrl}
                 </div>
               ) : (
-                <img 
+                <img loading="lazy" decoding="async" 
                   src={player.fotoUrl} 
                   alt={player.nombre}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100"

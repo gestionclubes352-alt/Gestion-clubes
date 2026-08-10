@@ -168,7 +168,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         return (
           <div className={`w-9 h-9 rounded-xl overflow-hidden border-2 ${posStyle.border} bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-xs`}>
             {isImageUrl(player.fotoUrl) ? (
-              <img src={player.fotoUrl} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={player.fotoUrl} className="w-full h-full object-cover" />
             ) : (
               <span>{getInitials(player.nombre)}</span>
             )}
@@ -620,7 +620,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                         >
                           {/* Imagen o iniciales - ocupa todo el espacio disponible */}
                           {hasPhoto ? (
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={player.fotoUrl}
                               alt={player.nombre}
                               className="flex-1 w-full object-cover object-top group-hover:scale-110 transition-transform duration-500"

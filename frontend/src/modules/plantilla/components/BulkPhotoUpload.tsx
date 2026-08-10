@@ -132,7 +132,7 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
 
   return (
     <div className="fixed inset-0 bg-black/50 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col w-full max-w-3xl max-h-[95vh] sm:max-h-[85vh]">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col w-full max-w-3xl max-h-[95dvh] sm:max-h-[85dvh]">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <h3 className="text-[var(--accent)] font-black text-lg uppercase tracking-tighter">
@@ -181,7 +181,7 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
                     className="flex flex-wrap sm:flex-nowrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-2.5"
                   >
                     <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1 min-w-0">
-                      <img src={row.previewUrl} className="w-11 h-11 rounded-lg object-cover object-top border border-slate-200 shrink-0" />
+                      <img loading="lazy" decoding="async" src={row.previewUrl} className="w-11 h-11 rounded-lg object-cover object-top border border-slate-200 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] text-slate-400 truncate">{row.file.name}</p>
                         <select

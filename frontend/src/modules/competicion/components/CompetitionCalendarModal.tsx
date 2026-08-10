@@ -110,7 +110,7 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-        <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90dvh]">
           {/* Header */}
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
             <div>
@@ -134,7 +134,7 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
           </div>
 
           {/* Body */}
-          <div className="p-5 sm:p-8 space-y-6 max-h-[75vh] overflow-y-auto flex-1">
+          <div className="p-5 sm:p-8 space-y-6 max-h-[75dvh] overflow-y-auto flex-1">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                 <i className="fa-solid fa-spinner text-4xl mb-3 animate-spin"></i>

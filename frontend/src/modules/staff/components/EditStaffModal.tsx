@@ -70,7 +70,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, e
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90dvh]">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <h3 className="text-[var(--accent)] font-black text-xl uppercase tracking-tighter">
@@ -85,7 +85,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, e
           </button>
         </div>
 
-        <div className="p-5 sm:p-8 space-y-6 max-h-[70vh] overflow-y-auto flex-1">
+        <div className="p-5 sm:p-8 space-y-6 max-h-[70dvh] overflow-y-auto flex-1">
           {/* Foto de perfil */}
           <div className="flex flex-col items-center">
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">Foto</label>
@@ -102,7 +102,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, isNew, clubId, e
                 className="w-24 h-24 rounded-full border-[3px] border-dashed border-[#a73741] flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-all group overflow-hidden"
               >
                 {photoPreview ? (
-                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
+                  <img loading="lazy" decoding="async" src={photoPreview} alt="Preview" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
                 ) : (
                   <div className="w-full h-full bg-slate-100 flex items-center justify-center text-2xl font-black text-slate-400">
                     {getInitials(formData.nombre || '?')}

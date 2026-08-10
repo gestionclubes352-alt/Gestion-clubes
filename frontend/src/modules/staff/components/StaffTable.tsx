@@ -65,7 +65,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         return (
           <div className="w-9 h-9 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center font-semibold text-sm border border-slate-100 overflow-hidden">
             {hasImage ? (
-              <img src={member.foto_url} alt={member.nombre} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={member.foto_url} alt={member.nombre} className="w-full h-full object-cover" />
             ) : (
               <span>{initials}</span>
             )}
@@ -159,7 +159,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
           {clubFilter !== 'all' && (() => {
             const selTeam = teamsById.get(clubFilter);
             return selTeam?.logoUrl ? (
-              <img src={selTeam.logoUrl} alt={selTeam.nombre} className="w-6 h-6 rounded object-contain" />
+              <img loading="lazy" decoding="async" src={selTeam.logoUrl} alt={selTeam.nombre} className="w-6 h-6 rounded object-contain" />
             ) : null;
           })()}
         </div>

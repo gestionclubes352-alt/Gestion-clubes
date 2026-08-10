@@ -36,13 +36,13 @@ const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, clubName, on
   return (
     <div className="fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]"
+        className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90dvh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-slate-100 flex items-center gap-4 bg-slate-50">
           <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center font-black text-xl border border-slate-200 overflow-hidden shrink-0">
             {hasImage ? (
-              <img src={staff.foto_url} alt={staff.nombre} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={staff.foto_url} alt={staff.nombre} className="w-full h-full object-cover" />
             ) : (
               <span>{getInitials(staff.nombre)}</span>
             )}
@@ -60,7 +60,7 @@ const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, clubName, on
           </button>
         </div>
 
-        <div className="p-5 sm:p-8 max-h-[60vh] overflow-y-auto flex-1">
+        <div className="p-5 sm:p-8 max-h-[60dvh] overflow-y-auto flex-1">
           <DetailRow icon="fa-solid fa-phone" label={t('staffTable.phone')} value={staff.telefono} />
           <DetailRow icon="fa-solid fa-id-card" label={t('staffTable.dni')} value={staff.dni} />
           <DetailRow icon="fa-solid fa-envelope" label={t('staffTable.email')} value={staff.email} />

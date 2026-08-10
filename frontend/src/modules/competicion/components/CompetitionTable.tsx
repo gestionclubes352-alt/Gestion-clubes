@@ -324,7 +324,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                 <div className="px-3 py-3 flex items-center justify-center">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {group.logoUrl ? (
-                      <img src={group.logoUrl} alt={group.nombre} className="max-w-full max-h-full object-contain" />
+                      <img loading="lazy" decoding="async" src={group.logoUrl} alt={group.nombre} className="max-w-full max-h-full object-contain" />
                     ) : (
                       <i className="fa-solid fa-shield text-slate-300 text-xs"></i>
                     )}

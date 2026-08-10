@@ -105,7 +105,7 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90dvh]">
         {/* Header */}
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
@@ -118,7 +118,7 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
         </div>
 
         {/* Body */}
-        <div className="p-5 sm:p-8 space-y-6 max-h-[70vh] overflow-y-auto flex-1">
+        <div className="p-5 sm:p-8 space-y-6 max-h-[70dvh] overflow-y-auto flex-1">
           {/* Club */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">

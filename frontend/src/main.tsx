@@ -10,6 +10,7 @@ import { TeamProvider } from './context/TeamContext';
 import { TeamFilterProvider } from './context/TeamFilterContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { UndoRedoProvider } from './context/UndoRedoContext';
+import { PwaPrompts, registerServiceWorker } from './pwa';
 
 // Importar configuración de i18n (debe estar antes de renderizar)
 import './locales';
@@ -30,6 +31,7 @@ root.render(
               <DataSourceProvider>
                 <UndoRedoProvider>
                   <App />
+                  <PwaPrompts />
                 </UndoRedoProvider>
               </DataSourceProvider>
             </TeamFilterProvider>
@@ -39,3 +41,6 @@ root.render(
     </ThemeProvider>
   </React.StrictMode>
 );
+
+// PWA: instalación offline y actualizaciones (solo en producción)
+registerServiceWorker();

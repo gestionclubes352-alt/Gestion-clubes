@@ -10,7 +10,9 @@ import NewEventModal from './NewEventModal';
 import SessionTasksPanel from './SessionTasksPanel';
 import SessionAttendancePanel from './SessionAttendancePanel';
 import SessionAttendanceSummary from './SessionAttendanceSummary';
-import MatchReportView from '@modules/partidos/components/MatchReportView';
+// Carga diferida: el informe de partido es la vista más pesada de la app y solo
+// se abre al pinchar un partido, así que no debe viajar en el bundle inicial.
+const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
 
 interface CalendarViewProps {
   events: CalendarEvent[];
@@ -359,14 +361,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
 
   if (activeMatch) {
     return (
-      <MatchReportView
-        match={activeMatch}
-        onBack={() => setActiveMatch(null)}
-        ownClubId={ownClubId}
-        competitionTeams={competitionTeams}
-        onSave={(event) => { onSaveEvent(event); setActiveMatch(event); }}
-        onDelete={(id) => { onDeleteEvent(String(id)); setActiveMatch(null); }}
-      />
+      <React.Suspense fallback={
+        <div className="flex flex-col items-center justify-center py-32 gap-4">
+          <i className="fa-solid fa-spinner fa-spin text-4xl text-sport-primary"></i>
+        </div>
+      }>
+        <MatchReportView
+          match={activeMatch}
+          onBack={() => setActiveMatch(null)}
+          ownClubId={ownClubId}
+          competitionTeams={competitionTeams}
+          onSave={(event) => { onSaveEvent(event); setActiveMatch(event); }}
+          onDelete={(id) => { onDeleteEvent(String(id)); setActiveMatch(null); }}
+        />
+      </React.Suspense>
     );
   }
 

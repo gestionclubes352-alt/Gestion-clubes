@@ -89,6 +89,19 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
   const resolveClubLogo = (clubId?: string): string | undefined =>
     clubId ? clubLogoById.get(String(clubId)) : undefined;
+  const internalNameByFedName = useMemo(() => {
+    const map = new Map<string, string>();
+    competitionTeams.forEach((team) => {
+      const fedName = team.nombreEnFed?.trim().toLowerCase();
+      const internalName = (team.equipo || team.nombre || '').trim();
+      if (fedName && internalName) map.set(fedName, internalName);
+    });
+    return map;
+  }, [competitionTeams]);
+  const resolveTeamDisplayName = (teamName?: string): string => {
+    if (!teamName) return '';
+    return internalNameByFedName.get(teamName.trim().toLowerCase()) || teamName;
+  };
   const [activeView, setActiveView] = useState<'annual' | 'monthly' | 'weekly' | 'schedule'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
@@ -352,13 +365,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   {dayEvents.map(ev => {
                     const deleteColors = EVENT_DELETE_HOVER_COLORS[ev.type] || EVENT_DELETE_HOVER_COLORS.Otro;
                     const isMatch = ev.type === 'Partido';
+                    const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
+                    const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
                     return (
                       <div
                         key={ev.id}
                         draggable
                         className={`rounded-lg px-1.5 py-1.5 text-[11px] font-bold cursor-pointer group/ev transition-all opacity-100 hover:shadow-md border-2 ${EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : 'flex items-center gap-0.5'}`}
                         title={isMatch
-                          ? `${ev.time || ''} ${ev.localTeam || ''} vs ${ev.visitorTeam || ev.opponent || ''}`
+                          ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
                           : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                         onDragStart={(e) => {
                           e.dataTransfer!.effectAllowed = 'copy';
@@ -402,30 +417,30 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                               <div className="flex items-center gap-1">
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
                                   {resolveClubLogo(ev.localTeamClubId) ? (
-                                    <img src={resolveClubLogo(ev.localTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                    <img loading="lazy" decoding="async" src={resolveClubLogo(ev.localTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
                                   ) : (
                                     <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
                                       <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
                                     </div>
                                   )}
-                                  {resolveClubLabel(ev.localTeam, ev.localTeamClubId) && (
-                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(ev.localTeam, ev.localTeamClubId)}</span>
+                                  {resolveClubLabel(displayLocalTeam, ev.localTeamClubId) && (
+                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(displayLocalTeam, ev.localTeamClubId)}</span>
                                   )}
-                                  <span className="block truncate w-full text-xs leading-tight">{ev.localTeam}</span>
+                                  <span className="block truncate w-full text-xs leading-tight">{displayLocalTeam}</span>
                                 </div>
                                 <span className="flex-shrink-0 bg-red-600 text-white text-[10px] font-black leading-none px-2 py-1.5 rounded-full shadow-sm">VS</span>
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
                                   {resolveClubLogo(ev.visitorTeamClubId) ? (
-                                    <img src={resolveClubLogo(ev.visitorTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                    <img loading="lazy" decoding="async" src={resolveClubLogo(ev.visitorTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
                                   ) : (
                                     <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
                                       <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
                                     </div>
                                   )}
-                                  {resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId) && (
-                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(ev.visitorTeam, ev.visitorTeamClubId)}</span>
+                                  {resolveClubLabel(displayVisitorTeam, ev.visitorTeamClubId) && (
+                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(displayVisitorTeam, ev.visitorTeamClubId)}</span>
                                   )}
-                                  <span className="block truncate w-full text-xs leading-tight">{ev.visitorTeam}</span>
+                                  <span className="block truncate w-full text-xs leading-tight">{displayVisitorTeam}</span>
                                 </div>
                               </div>
                             ) : (
@@ -654,7 +669,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       </div>
 
       <div className="flex-1 w-full">
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[78vh] flex flex-col overflow-hidden">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[78dvh] flex flex-col overflow-hidden">
           <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between gap-3">
             <button
               onClick={() => {
@@ -717,7 +732,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl animate-fade-in"
+            className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white shadow-2xl animate-fade-in"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 p-6">

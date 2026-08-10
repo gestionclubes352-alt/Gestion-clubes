@@ -197,10 +197,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // Edición inline de una sustitución existente (tarjetas "Sistema tras cada cambio")
   const [editingSubstitutionId, setEditingSubstitutionId] = useState<string | null>(null);
   const [substitutionEditForm, setSubstitutionEditForm] = useState({ minute: '', playerOutId: '', playerInId: '' });
-  // Formulario "Añadir gol" en la pestaña Eventos
-  const [goalForm, setGoalForm] = useState<{ minute: string; side: 'FAVOR' | 'CONTRA'; playerId: string }>({ minute: '', side: 'FAVOR', playerId: '' });
-  // Formulario "Añadir tarjeta" en la pestaña Eventos
-  const [cardForm, setCardForm] = useState<{ minute: string; type: 'AMARILLA' | 'ROJA'; playerId: string }>({ minute: '', type: 'AMARILLA', playerId: '' });
 
   // Datos generales del partido (fecha, hora, club rival, competición, equipos, resultado)
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -704,6 +700,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     return squad.filter(p => !notConvocado.some(id => samePlayerId(id, p.id)));
   }, [squad, report.notConvocadoIds]);
 
+  // A diferencia de benchPlayers (solo quienes siguen disponibles en el banquillo),
+  // esta lista incluye también a los suplentes que ya han entrado, para poder
+  // seguir mostrando sus minutos jugados, goles y tarjetas en el panel de eventos.
+  const allSubstitutePlayers = useMemo(() => {
+    const startingIds = new Set(startingXIEntries.map(({ player }) => String(player.id)));
+    return convocadoPlayers
+      .filter(p => !startingIds.has(String(p.id)))
+      .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999));
+  }, [convocadoPlayers, startingXIEntries]);
+
   // Si todavía no se ha definido el once inicial en la pestaña Alineación,
   // no hay forma de distinguir quién está en el campo o en el banquillo:
   // se ofrece toda la plantilla convocada para no bloquear el registro de cambios.
@@ -738,7 +744,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       if (sub.playerInId === undefined) return;
       const key = String(sub.playerInId);
       if (map.has(key)) return;
-      let end = MATCH_DURATION_MINUTES;
+      // Si este suplente es a su vez sustituido más tarde (doble cambio), su
+      // intervalo termina en ese momento y no en el minuto 90.
+      const subOff = subs.find(s => samePlayerId(s.playerOutId, sub.playerInId) && s.minute > sub.minute);
+      let end = subOff ? subOff.minute : MATCH_DURATION_MINUTES;
       const red = redCardMinuteByPlayer.get(key);
       if (red !== undefined && red < end) end = red;
       map.set(key, { start: sub.minute, end: Math.max(sub.minute, end) });
@@ -750,7 +759,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // Minutos jugados por jugador (apartado Resumen): duración del intervalo anterior.
   const playerMinutesMap = useMemo(() => {
     const map = new Map<string, number>();
-    playerIntervalsMap.forEach((interval, key) => map.set(key, interval.end - interval.start));
+    playerIntervalsMap.forEach((interval, key) => map.set(key, Math.min(Math.max(0, interval.end - interval.start), MATCH_DURATION_MINUTES)));
     return map;
   }, [playerIntervalsMap]);
 
@@ -792,6 +801,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const goalsByPlayer = useMemo(() => {
     const map = new Map<string, number>();
     (report.matchGoals || []).filter(g => g.side === 'FAVOR' && g.playerId !== undefined).forEach(g => {
+      const key = String(g.playerId);
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return map;
+  }, [report.matchGoals]);
+
+  const goalsConcededByPlayer = useMemo(() => {
+    const map = new Map<string, number>();
+    (report.matchGoals || []).filter(g => g.side === 'CONTRA' && g.playerId !== undefined).forEach(g => {
       const key = String(g.playerId);
       map.set(key, (map.get(key) || 0) + 1);
     });
@@ -1184,48 +1202,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     cancelEditSubstitution();
   };
 
-  const addMatchGoal = () => {
-    if (!goalForm.minute) return;
-    const item: MatchGoal = {
-      id: crypto.randomUUID(),
-      minute: Number(goalForm.minute),
-      side: goalForm.side,
-      playerId: goalForm.side === 'FAVOR' && goalForm.playerId ? goalForm.playerId : undefined,
-    };
-    const next = { ...report, matchGoals: [...(report.matchGoals || []), item].sort((a, b) => a.minute - b.minute) };
-    setReport(next);
-    persistReport(next);
-    setGoalForm({ minute: '', side: 'FAVOR', playerId: '' });
-  };
-
-  const removeMatchGoal = (id: string) => {
-    if (!confirm(t('matchReport.matchEvents.confirmDeleteGoal'))) return;
-    const next = { ...report, matchGoals: (report.matchGoals || []).filter(g => g.id !== id) };
-    setReport(next);
-    persistReport(next);
-  };
-
-  const addMatchCard = () => {
-    if (!cardForm.minute || !cardForm.playerId) return;
-    const item: MatchCard = {
-      id: crypto.randomUUID(),
-      minute: Number(cardForm.minute),
-      type: cardForm.type,
-      playerId: cardForm.playerId,
-    };
-    const next = { ...report, matchCards: [...(report.matchCards || []), item].sort((a, b) => a.minute - b.minute) };
-    setReport(next);
-    persistReport(next);
-    setCardForm({ minute: '', type: 'AMARILLA', playerId: '' });
-  };
-
-  const removeMatchCard = (id: string) => {
-    if (!confirm(t('matchReport.matchEvents.confirmDeleteCard'))) return;
-    const next = { ...report, matchCards: (report.matchCards || []).filter(c => c.id !== id) };
-    setReport(next);
-    persistReport(next);
-  };
-
   const handlePlayerClickForEvent = (player: Player) => {
     setSelectedPlayerForEvent(player);
     setEventActionMenu({ type: null, minute: '' });
@@ -1243,10 +1219,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
     switch (eventActionMenu.type) {
       case 'GOL': {
+        const isGoalkeeper = selectedPlayerForEvent.posicion === 'Portero';
         const item: MatchGoal = {
           id: crypto.randomUUID(),
           minute,
-          side: 'FAVOR',
+          side: isGoalkeeper ? 'CONTRA' : 'FAVOR',
           playerId: selectedPlayerForEvent.id,
         };
         const next = { ...report, matchGoals: [...(report.matchGoals || []), item].sort((a, b) => a.minute - b.minute) };
@@ -1411,7 +1388,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       >
                         <div className={`relative w-10 h-10 rounded-full overflow-hidden shadow-md border-[3px] ${assignedPos ? 'border-amber-500 ring-2 ring-amber-200' : 'border-slate-300'} flex items-center justify-center bg-white`}>
                           {isValidPhoto ? (
-                            <img src={p.fotoUrl} alt={p.apodo || p.nombre} className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={p.fotoUrl} alt={p.apodo || p.nombre} className="w-full h-full object-cover" />
                           ) : (
                             <span className={`text-xs font-black ${assignedPos ? 'text-amber-600' : 'text-[#1e8449]'}`}>{p.dorsal ?? '-'}</span>
                           )}
@@ -1447,7 +1424,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         >
                           <div className="relative w-10 h-10 rounded-full overflow-hidden shadow border-2 border-slate-300 flex items-center justify-center bg-white">
                             {isValidPhoto ? (
-                              <img src={p.fotoUrl} alt={p.apodo || p.nombre} className="w-full h-full object-cover" />
+                              <img loading="lazy" decoding="async" src={p.fotoUrl} alt={p.apodo || p.nombre} className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-xs font-black text-slate-500">{p.dorsal ?? '-'}</span>
                             )}
@@ -1480,17 +1457,20 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   alert('Introduce el minuto del cambio de sistema antes de confirmar.');
                   return;
                 }
-                if (tempLineupPositions) {
-                  let next = { ...report, lineupPositions: tempLineupPositions };
-                  if (formationChanged) {
-                    const change: MatchFormationChange = {
-                      id: crypto.randomUUID(),
-                      minute: Number(windowPanelMinute),
-                      formation: report.formation || '4-3-3',
-                      positions: tempLineupPositions,
-                    };
-                    next = { ...next, formationChanges: [...(report.formationChanges || []), change] };
-                  }
+                // No se sobrescribe report.lineupPositions aquí: es el once inicial
+                // y debe permanecer inmutable. Las sustituciones ya se persisten al
+                // arrastrar (handleDropSubstitution) y los cambios de sistema quedan
+                // registrados en formationChanges con su propia foto de posiciones;
+                // sobrescribir lineupPositions hacía que jugadores que entraron como
+                // suplentes sustituyeran a los titulares reales en el once inicial.
+                if (formationChanged && tempLineupPositions) {
+                  const change: MatchFormationChange = {
+                    id: crypto.randomUUID(),
+                    minute: Number(windowPanelMinute),
+                    formation: report.formation || '4-3-3',
+                    positions: tempLineupPositions,
+                  };
+                  const next = { ...report, formationChanges: [...(report.formationChanges || []), change] };
                   setReport(next);
                   persistReport(next);
                 }
@@ -1590,6 +1570,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           {resolvedOnPitchPositions.map(({ player, x, y }) => {
             const isSelected = selectedPlayerForEvent?.id === player.id;
             const goals = goalsByPlayer.get(String(player.id)) ?? 0;
+            const conceded = goalsConcededByPlayer.get(String(player.id)) ?? 0;
             const cards = cardsByPlayer.get(String(player.id));
 
             return (
@@ -1609,10 +1590,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   >
                     {player.dorsal ?? '-'}
                   </button>
-                  {(goals > 0 || cards?.amarillas || cards?.rojas) && (
+                  {(goals > 0 || conceded > 0 || cards?.amarillas || cards?.rojas) && (
                     <div className="absolute -top-1 -right-1 flex items-center gap-0.5">
                       {goals > 0 && (
                         <span className="w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goals')}>
+                          <i className="fa-solid fa-futbol text-white text-[6px]"></i>
+                        </span>
+                      )}
+                      {conceded > 0 && (
+                        <span className="w-3 h-3 rounded-full bg-red-500 flex items-center justify-center shadow" title={t('matchReport.matchEvents.goalConceded')}>
                           <i className="fa-solid fa-futbol text-white text-[6px]"></i>
                         </span>
                       )}
@@ -1652,10 +1638,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleEventActionSelect('GOL')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-600 hover:bg-emerald-600/40"
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
+                    selectedPlayerForEvent.posicion === 'Portero'
+                      ? 'bg-red-600/20 text-red-600 hover:bg-red-600/40'
+                      : 'bg-emerald-600/20 text-emerald-600 hover:bg-emerald-600/40'
+                  }`}
                 >
                   <i className="fa-solid fa-futbol text-lg"></i>
-                  {t('matchReport.events.goal')}
+                  {selectedPlayerForEvent.posicion === 'Portero' ? t('matchReport.matchEvents.goalConceded') : t('matchReport.events.goal')}
                 </button>
 
                 <button
@@ -1800,10 +1790,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <div className="space-y-2 max-h-[700px] overflow-y-auto">
           <h4 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-2 sticky top-0 bg-white dark:bg-[#0f0f0f] py-1">Suplentes</h4>
           <div className="space-y-0.5">
-            {benchPlayers.length === 0 ? (
+            {allSubstitutePlayers.length === 0 ? (
               <p className="text-[13px] font-bold text-[var(--text-muted)] text-center py-2">{t('matchReport.generalData.noBenchYet')}</p>
             ) : (
-              benchPlayers.map(player => {
+              allSubstitutePlayers.map(player => {
                 const key = String(player.id);
                 const minutes = playerMinutesMap.get(key);
                 const played = minutes !== undefined;
@@ -2038,7 +2028,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <div className="flex flex-wrap gap-2">
           {images.map((src, index) => (
             <div key={index} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[var(--border-soft)] group">
-              <img
+              <img loading="lazy" decoding="async"
                 src={src}
                 alt=""
                 className="w-full h-full object-cover cursor-zoom-in"
@@ -3160,93 +3150,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </div>
         </div>
 
-        <div>
-          <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
-            <i className="fa-solid fa-futbol text-[var(--accent)]"></i>{t('matchReport.matchEvents.goals')}
-          </h3>
-          <div className="space-y-2 mb-4">
-            {(report.matchGoals || []).length === 0 ? (
-              <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.matchEvents.noGoals')}</p>
-            ) : (
-              [...(report.matchGoals || [])].sort((a, b) => a.minute - b.minute).map(goal => (
-                <div key={goal.id} className="flex items-center justify-between bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-3">
-                  <div className="flex items-center gap-3 text-xs font-bold text-[var(--text-strong)]">
-                    <span className={`px-2 py-1 rounded-lg text-white text-[10px] font-black ${goal.side === 'FAVOR' ? 'bg-emerald-600' : 'bg-red-600'}`}>{goal.minute}'</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{goal.side === 'FAVOR' ? t('matchReport.events.inFavor') : t('matchReport.events.against')}</span>
-                    <span>{goal.side === 'FAVOR' ? getPlayerLabel(goal.playerId) : t('matchReport.matchEvents.opponentGoal')}</span>
-                  </div>
-                  <button onClick={() => removeMatchGoal(goal.id)} className="text-[var(--text-muted)] hover:text-red-500 transition-all"><i className="fa-solid fa-trash-can text-xs"></i></button>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="flex flex-wrap items-end gap-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-4">
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
-              <input type="number" min={0} max={130} value={goalForm.minute} onChange={e => setGoalForm({ ...goalForm, minute: e.target.value })} className="w-20 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]" />
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.goalSide')}</label>
-              <select value={goalForm.side} onChange={e => setGoalForm({ ...goalForm, side: e.target.value as 'FAVOR' | 'CONTRA', playerId: '' })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
-                <option value="FAVOR">{t('matchReport.events.inFavor')}</option>
-                <option value="CONTRA">{t('matchReport.events.against')}</option>
-              </select>
-            </div>
-            {goalForm.side === 'FAVOR' && (
-              <div>
-                <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.scorer')}</label>
-                <select value={goalForm.playerId} onChange={e => setGoalForm({ ...goalForm, playerId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
-                  <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
-                  {convocadoPlayers.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-                </select>
-              </div>
-            )}
-            <button onClick={addMatchGoal} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"><i className="fa-solid fa-plus"></i>{t('matchReport.matchEvents.addGoal')}</button>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
-            <i className="fa-solid fa-square text-[var(--accent)]"></i>{t('matchReport.matchEvents.cards')}
-          </h3>
-          <div className="space-y-2 mb-4">
-            {(report.matchCards || []).length === 0 ? (
-              <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.matchEvents.noCards')}</p>
-            ) : (
-              [...(report.matchCards || [])].sort((a, b) => a.minute - b.minute).map(card => (
-                <div key={card.id} className="flex items-center justify-between bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-3">
-                  <div className="flex items-center gap-3 text-xs font-bold text-[var(--text-strong)]">
-                    <span className="px-2 py-1 rounded-lg bg-sport-primary text-white text-[10px] font-black">{card.minute}'</span>
-                    <i className={`fa-solid fa-square ${card.type === 'AMARILLA' ? 'text-amber-500' : 'text-red-600'}`}></i>
-                    <span>{getPlayerLabel(card.playerId)}</span>
-                  </div>
-                  <button onClick={() => removeMatchCard(card.id)} className="text-[var(--text-muted)] hover:text-red-500 transition-all"><i className="fa-solid fa-trash-can text-xs"></i></button>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="flex flex-wrap items-end gap-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-4 py-4">
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
-              <input type="number" min={0} max={130} value={cardForm.minute} onChange={e => setCardForm({ ...cardForm, minute: e.target.value })} className="w-20 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]" />
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.cardType')}</label>
-              <select value={cardForm.type} onChange={e => setCardForm({ ...cardForm, type: e.target.value as 'AMARILLA' | 'ROJA' })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
-                <option value="AMARILLA">{t('matchReport.matchEvents.yellowCard')}</option>
-                <option value="ROJA">{t('matchReport.matchEvents.redCard')}</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.events.player')}</label>
-              <select value={cardForm.playerId} onChange={e => setCardForm({ ...cardForm, playerId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
-                <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
-                {convocadoPlayers.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-              </select>
-            </div>
-            <button onClick={addMatchCard} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"><i className="fa-solid fa-plus"></i>{t('matchReport.matchEvents.addCard')}</button>
-          </div>
-        </div>
       </div>
     );
   };
@@ -3487,7 +3390,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       />
       {item.image && (
         <div className="aspect-video rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
-          <img
+          <img loading="lazy" decoding="async"
             src={item.image}
             alt={label}
             className="w-full h-full object-cover cursor-zoom-in"
@@ -3762,7 +3665,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <div key={player.id} className="flex items-center gap-3 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl p-3">
                 <div className="w-10 h-10 rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)] flex items-center justify-center text-[var(--text-muted)] font-black text-xs shrink-0">
                   {player.foto_url ? (
-                    <img src={player.foto_url} className="w-full h-full object-cover object-top" />
+                    <img loading="lazy" decoding="async" src={player.foto_url} className="w-full h-full object-cover object-top" />
                   ) : (
                     <span>{player.dorsal ?? '—'}</span>
                   )}
@@ -3793,10 +3696,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         >
           <i className="fa-solid fa-xmark"></i>
         </button>
-        <img
+        <img loading="lazy" decoding="async"
           src={abpPreviewImage}
           alt="ABP Preview"
-          className="max-h-[90vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+          className="max-h-[90dvh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
           onClick={() => setAbpPreviewImage(null)}
         />
       </div>
@@ -3831,7 +3734,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
     return (
       <div className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-4xl max-h-[90dvh] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-soft)] bg-[var(--surface-1)] shrink-0">
             <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">{label}</h2>
@@ -3856,7 +3759,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               />
               {item.image && (
                 <div className="aspect-video rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={item.image}
                     alt={label}
                     className="w-full h-full object-cover cursor-zoom-in"
@@ -4058,9 +3961,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             <i className="fa-solid fa-arrow-right-from-bracket"></i>{subOutMinute}'
                           </span>
                         )}
-                        {subOutMinute === undefined && (
-                          <span className="text-[var(--text-muted)] font-bold w-8 text-right shrink-0">{minutes}'</span>
-                        )}
+                        <span className="text-[var(--text-muted)] font-bold w-8 text-right shrink-0">{minutes}'</span>
                       </div>
                     );
                   })}
@@ -4598,7 +4499,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
       {selectedPlayerForModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>
-          <div className="bg-white dark:bg-[var(--surface-0)] rounded-t-3xl w-full max-h-[90vh] overflow-y-auto animate-slide-up" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-[var(--surface-0)] rounded-t-3xl w-full max-h-[90dvh] overflow-y-auto animate-slide-up" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 flex items-center justify-between p-6 border-b border-[var(--border-soft)] bg-white dark:bg-[var(--surface-0)]">
               <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">Ficha del Jugador</h2>
               <button
@@ -4614,7 +4515,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <div className="flex gap-6 items-start">
                 <div className="w-32 h-32 rounded-2xl overflow-hidden bg-[var(--surface-1)] flex items-center justify-center shrink-0">
                   {selectedPlayerForModal.fotoUrl && selectedPlayerForModal.fotoUrl.length > 1 ? (
-                    <img src={selectedPlayerForModal.fotoUrl} alt={selectedPlayerForModal.nombre} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={selectedPlayerForModal.fotoUrl} alt={selectedPlayerForModal.nombre} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-4xl font-black text-[var(--text-muted)]">{selectedPlayerForModal.nombre.slice(0, 2).toUpperCase()}</span>
                   )}
@@ -4765,7 +4666,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       {/* Modal para formaciones ampliadas */}
       {expandedFormation && (
         <div className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-5xl max-h-[90dvh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-soft)] bg-[var(--surface-1)] shrink-0">
               <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">

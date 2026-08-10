@@ -136,3 +136,145 @@ body {
 .prose-ai a:hover {
   text-decoration: underline;
 }
+
+/* ============================================================================
+   RESPONSIVE MÓVIL — capa global
+   Reglas transversales para que todas las páginas funcionen en móvil sin
+   tener que retocar cada componente una a una.
+   ============================================================================ */
+
+/* Ningún elemento debe provocar scroll horizontal de la página */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  /* Evita el rebote de la página al hacer scroll dentro de paneles */
+  overscroll-behavior-y: none;
+}
+
+/* Alto real del viewport en móvil (barra de direcciones incluida) */
+@supports (height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+/* Espacio para la bottom nav + safe area del dispositivo (solo por debajo de lg) */
+.pb-safe-nav {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  .pb-safe-nav {
+    padding-bottom: 2.5rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Las tablas no se comprimen: se desplazan horizontalmente dentro de su caja.
+     :has() aplica el scroll al contenedor directo de cualquier tabla, de modo que
+     también funciona en las vistas que no envuelven la tabla explícitamente. */
+  .table-shell,
+  div:has(> table),
+  div:has(> .table-shell) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  table {
+    min-width: max-content;
+  }
+
+  /* Cualquier contenedor con scroll horizontal se desplaza con inercia */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Nada puede desbordar el ancho de pantalla */
+  img,
+  video,
+  canvas,
+  svg,
+  iframe {
+    max-width: 100%;
+  }
+
+  /* Las palabras largas (emails, URLs, nombres de competición) no rompen el layout */
+  h1, h2, h3, h4, p, span, td, th, li, label {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 767px) {
+  /* iOS hace zoom al enfocar un campo con fuente < 16px */
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Zonas táctiles cómodas: mínimo recomendado 44px */
+  button,
+  [role='button'],
+  select,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+    min-height: 44px;
+  }
+
+  /* Los botones icono cuadrados conservan su tamaño */
+  button.w-8,
+  button.w-9,
+  button.w-10,
+  button.h-8,
+  button.h-9 {
+    min-height: unset;
+  }
+
+  /* Sin destello gris al tocar */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Modales y diálogos a pantalla casi completa, con scroll interno */
+  .modal-mobile-full {
+    max-height: calc(100dvh - 1.5rem);
+    width: 100%;
+    overflow-y: auto;
+  }
+}
+
+/* Elementos fijos al borde inferior (barras de acciones, navegación) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Cabecera fija: el contenido no debe quedar bajo el notch */
+.app-header-safe {
+  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+}
+
+/* Desplazamiento del contenido para compensar la cabecera fija + notch */
+.app-header-offset {
+  padding-top: calc(72px + env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+  .app-header-safe {
+    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  }
+
+  .app-header-offset {
+    padding-top: calc(80px + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* Impresión / exportación: sin barras de navegación */
+@media print {
+  header,
+  nav,
+  aside {
+    display: none !important;
+  }
+}

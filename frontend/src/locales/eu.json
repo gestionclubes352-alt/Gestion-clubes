@@ -629,6 +629,7 @@
     "minutesPercent": "% Min.",
     "starterPercent": "% Titular",
     "goals": "Golak",
+    "goalsConceded": "Jasotako Golak",
     "yellowCards": "T. Horiak",
     "redCards": "T. Gorriak",
     "viewTable": "Taula",
@@ -1057,6 +1058,7 @@
       "goals": "Golak",
       "goalsFor": "Alde Golak",
       "goalsAgainst": "Kontra Golak",
+      "goalConceded": "Gol Jasoa",
       "addGoal": "Gola Gehitu",
       "goalSide": "Alde / Kontra",
       "scorer": "Golgilea",
@@ -1095,5 +1097,17 @@
       "description": "Deskribapena / Oharrak",
       "descriptionPlaceholder": "Oharrak arbitroari buruz, estiloa, irizpidea..."
     }
+  },
+  "pwa": {
+    "offline": "Konexiorik gabe — kargatutako datuak erakusten",
+    "updateTitle": "Eguneraketa eskuragarri",
+    "updateBody": "Aplikazioaren bertsio berri bat dago.",
+    "later": "Geroago",
+    "reload": "Eguneratu",
+    "installTitle": "Instalatu Sport Management",
+    "installBody": "Gehitu hasierako pantailan aplikazio gisa irekitzeko.",
+    "installIos": "Sakatu Partekatu eta gero “Gehitu hasierako pantailan”.",
+    "install": "Instalatu",
+    "dismiss": "Itxi"
   }
 }

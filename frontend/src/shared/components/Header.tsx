@@ -129,9 +129,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
       : `${selectedTeams[0]} +${selectedTeams.length - 1}`;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[var(--surface-0)]/95 backdrop-blur-xl border-b border-slate-200 dark:border-[var(--border-soft)] px-3 md:px-4 lg:px-8 py-2 md:py-3 flex items-center justify-between shadow-sm transition-colors duration-300">
+    <header
+      className="app-header-safe fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[var(--surface-0)]/95 backdrop-blur-xl border-b border-slate-200 dark:border-[var(--border-soft)] px-2 sm:px-3 md:px-4 lg:px-8 py-2 md:py-3 flex items-center justify-between gap-2 shadow-sm transition-colors duration-300"
+    >
       {/* Lado izquierdo - Botón menú móvil */}
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-1.5 md:gap-4 min-w-0">
                 {/* Botón de vista completa - solo desktop */}
                 <button
                   onClick={() => {
@@ -165,14 +167,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
           <img
             src={clubLogo}
             alt={clubName}
+            width={36}
+            height={36}
+            decoding="async"
             className="w-8 h-8 md:w-9 md:h-9 object-contain drop-shadow-sm"
           />
-          <span className="text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-100 tracking-tight uppercase">
+          <span className="hidden sm:inline text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-100 tracking-tight uppercase">
             {clubName}
           </span>
         </button>
 
-        <div className="flex items-center gap-3 md:gap-4 ml-2 md:ml-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4 ml-1 sm:ml-2 md:ml-4">
           <button
             onClick={() => navigate('/')}
             className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl border transition-all ${
@@ -184,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             aria-label="HOME"
           >
             <i className="fa-solid fa-house text-sm"></i>
-            <span className="text-sm font-bold tracking-tight">HOME</span>
+            <span className="hidden md:inline text-sm font-bold tracking-tight">HOME</span>
           </button>
 
           <button
@@ -198,7 +203,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             aria-label="calendario"
           >
             <i className="fa-solid fa-calendar-days text-sm"></i>
-            <span className="text-sm font-bold tracking-tight">calendario</span>
+            <span className="hidden md:inline text-sm font-bold tracking-tight">calendario</span>
           </button>
         </div>
       </div>

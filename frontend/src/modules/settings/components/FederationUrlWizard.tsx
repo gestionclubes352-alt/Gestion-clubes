@@ -340,7 +340,7 @@ export const FederationUrlWizard: React.FC = () => {
           <div className="p-6 bg-white rounded-2xl border border-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-4">
-                <img
+                <img loading="lazy" decoding="async"
                   src={data.team.logoUrl}
                   alt=""
                   className="w-16 h-16 object-contain"
@@ -388,7 +388,7 @@ export const FederationUrlWizard: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {group.players.map(player => (
                   <div key={player.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={player.photoUrl}
                       alt=""
                       className="w-8 h-8 rounded-full object-cover bg-slate-200"

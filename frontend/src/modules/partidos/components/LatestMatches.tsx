@@ -315,7 +315,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                 <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
                   <p className="text-[5px] font-black text-slate-400 uppercase tracking-widest mb-0.5">LOCAL</p>
                   {localLogo && (
-                    <img src={localLogo} alt={localClubLabel} className="h-5 w-5 object-contain mb-0.5" />
+                    <img loading="lazy" decoding="async" src={localLogo} alt={localClubLabel} className="h-5 w-5 object-contain mb-0.5" />
                   )}
                   {localClubLabel && (
                     <p className="text-[5px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
@@ -350,7 +350,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                 <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
                   <p className="text-[5px] font-black text-slate-400 uppercase tracking-widest mb-0.5">VISITANTES</p>
                   {visitorLogo && (
-                    <img src={visitorLogo} alt={visitorClubLabel} className="h-5 w-5 object-contain mb-0.5" />
+                    <img loading="lazy" decoding="async" src={visitorLogo} alt={visitorClubLabel} className="h-5 w-5 object-contain mb-0.5" />
                   )}
                   {visitorClubLabel && (
                     <p className="text-[5px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">

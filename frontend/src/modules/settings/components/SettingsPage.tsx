@@ -53,8 +53,8 @@ const SettingsPage: React.FC = () => {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="border-b border-slate-200 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-4 mb-2">
+        <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
+          <div className="flex items-center gap-3 sm:gap-4 mb-2">
             <button
               onClick={() => navigate('/')}
               className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-[var(--accent)] transition-all shadow-sm"
@@ -62,15 +62,15 @@ const SettingsPage: React.FC = () => {
               <i className="fa-solid fa-arrow-left"></i>
             </button>
             <div>
-              <h1 className="text-3xl font-black text-slate-800">{t('settings.title')}</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-800">{t('settings.title')}</h1>
               <p className="text-slate-500 mt-1">{t('settings.subtitle')}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-8 safe-bottom">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Sidebar de tabs */}
           <nav className="lg:w-64 flex-shrink-0">
             <div className="lg:sticky lg:top-24 space-y-2">
@@ -98,7 +98,7 @@ const SettingsPage: React.FC = () => {
 
           {/* Contenido */}
           <main className="flex-1 min-w-0">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 lg:p-8">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 lg:p-8">
               {activeTab === 'general' && (
                 <div className="space-y-6">
                   <div className="border-b border-slate-200 pb-6">

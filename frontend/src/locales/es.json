@@ -629,6 +629,7 @@
     "minutesPercent": "% Min.",
     "starterPercent": "% Titular",
     "goals": "Goles",
+    "goalsConceded": "Goles Recibidos",
     "yellowCards": "T. Amarillas",
     "redCards": "T. Rojas",
     "viewTable": "Tabla",
@@ -1079,6 +1080,7 @@
       "goals": "Goles",
       "goalsFor": "Goles a Favor",
       "goalsAgainst": "Goles en Contra",
+      "goalConceded": "Gol Recibido",
       "addGoal": "Añadir Gol",
       "goalSide": "A favor / En contra",
       "scorer": "Autor del gol",
@@ -1117,5 +1119,17 @@
       "description": "Descripción / Notas",
       "descriptionPlaceholder": "Notas sobre el árbitro, estilo, criterio..."
     }
+  },
+  "pwa": {
+    "offline": "Sin conexión — mostrando datos ya cargados",
+    "updateTitle": "Actualización disponible",
+    "updateBody": "Hay una versión nueva de la aplicación.",
+    "later": "Más tarde",
+    "reload": "Actualizar",
+    "installTitle": "Instalar Sport Management",
+    "installBody": "Añádela a tu pantalla de inicio para abrirla como una app.",
+    "installIos": "Pulsa Compartir y luego “Añadir a pantalla de inicio”.",
+    "install": "Instalar",
+    "dismiss": "Cerrar"
   }
 }
