@@ -234,4 +234,4 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
   );
 };
 
-export default React.memo(PlayerStatsCharts);
+export default PlayerStatsCharts;
