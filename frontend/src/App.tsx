@@ -848,8 +848,38 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const MatchReportWrapper = () => {
     const { matchId } = useParams<{ matchId: string }>();
     const locState = useLocation().state as { from?: string } | null;
-    const match = filteredEventsList.find(e => String(e.id) === matchId);
-    if (!match) return <div className="p-20 text-center">{t('app.matchNotFound')}</div>;
+    const [loadedMatch, setLoadedMatch] = useState<CalendarEvent | null>(null);
+    const [matchLoadError, setMatchLoadError] = useState<boolean>(false);
+
+    // Buscar primero en la lista filtrada
+    const match = filteredEventsList.find(e => String(e.id) === matchId) || loadedMatch;
+
+    // Si no está en la lista, intentar cargarlo de la BD
+    useEffect(() => {
+      if (!match && matchId && !matchLoadError) {
+        (async () => {
+          try {
+            const loaded = await eventosCalendarioService.getById(matchId);
+            if (loaded) {
+              setLoadedMatch(loaded);
+            } else {
+              setMatchLoadError(true);
+            }
+          } catch (err) {
+            console.error('Error loading match:', err);
+            setMatchLoadError(true);
+          }
+        })();
+      }
+    }, [matchId, match, matchLoadError]);
+
+    if (!match) {
+      if (matchLoadError) {
+        return <div className="p-20 text-center text-slate-400 font-bold">{t('app.matchNotFound')}</div>;
+      }
+      return <LoadingScreen />;
+    }
+
     const backPath = locState?.from || '/partidos';
     return (
       <MatchReportView
