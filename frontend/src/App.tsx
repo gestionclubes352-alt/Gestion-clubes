@@ -849,41 +849,71 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const { matchId } = useParams<{ matchId: string }>();
     const locState = useLocation().state as { from?: string } | null;
     const [loadedMatch, setLoadedMatch] = useState<CalendarEvent | null>(null);
-    const [matchLoadError, setMatchLoadError] = useState<boolean>(false);
+    const [matchLoading, setMatchLoading] = useState(true);
+    const [matchLoadError, setMatchLoadError] = useState<string | null>(null);
 
-    // Buscar primero en la lista filtrada
-    const match = filteredEventsList.find(e => String(e.id) === matchId) || loadedMatch;
+    // Buscar en la lista filtrada
+    const match = filteredEventsList.find(e => String(e.id) === matchId);
 
-    // Si no está en la lista, intentar cargarlo de la BD
+    // Si no está en la lista, cargar de la BD
     useEffect(() => {
-      if (!match && matchId && !matchLoadError) {
-        (async () => {
-          try {
-            const loaded = await eventosCalendarioService.getById(matchId);
-            if (loaded) {
-              setLoadedMatch(loaded);
-            } else {
-              setMatchLoadError(true);
-            }
-          } catch (err) {
-            console.error('Error loading match:', err);
-            setMatchLoadError(true);
+      const loadMatch = async () => {
+        try {
+          if (match) {
+            setLoadedMatch(match);
+            setMatchLoadError(null);
+            setMatchLoading(false);
+            return;
           }
-        })();
-      }
-    }, [matchId, match, matchLoadError]);
 
-    if (!match) {
-      if (matchLoadError) {
-        return <div className="p-20 text-center text-slate-400 font-bold">{t('app.matchNotFound')}</div>;
-      }
+          if (!matchId) {
+            setMatchLoadError('No match ID provided');
+            setMatchLoading(false);
+            return;
+          }
+
+          const loaded = await eventosCalendarioService.getById(matchId);
+          setLoadedMatch(loaded);
+          setMatchLoadError(null);
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : 'Unknown error loading match';
+          console.error('[MatchReportWrapper] Error loading match:', err);
+          setMatchLoadError(errMsg);
+          setLoadedMatch(null);
+        } finally {
+          setMatchLoading(false);
+        }
+      };
+
+      loadMatch();
+    }, [matchId, match]);
+
+    const displayMatch = match || loadedMatch;
+
+    if (matchLoading) {
       return <LoadingScreen />;
+    }
+
+    if (matchLoadError || !displayMatch) {
+      return (
+        <div className="p-12 text-center space-y-4 max-w-md mx-auto">
+          <div className="text-4xl text-red-500">⚠️</div>
+          <p className="font-bold text-slate-700">{t('app.matchNotFound')}</p>
+          {matchLoadError && <p className="text-sm text-slate-500">{matchLoadError}</p>}
+          <button
+            onClick={() => navigate('/partidos')}
+            className="px-4 py-2 bg-sport-primary text-white rounded-lg text-sm font-bold"
+          >
+            Volver a Partidos
+          </button>
+        </div>
+      );
     }
 
     const backPath = locState?.from || '/partidos';
     return (
       <MatchReportView
-        match={match}
+        match={displayMatch}
         onBack={() => navigate(backPath)}
         ownClubId={currentTeam?.id || ''}
         competitionTeams={competitionTeams}
