@@ -31,7 +31,7 @@ export const competicionService = {
         nombre: competicion.nombre,
         tipo: competicion.tipo || 'Liga',
         categoria: competicion.categoria,
-        temporada: competicion.temporada || '25/26',
+        temporada: competicion.temporada || '26/27',
         numero_partes: competicion.numero_partes || 2,
         minutos_por_parte: competicion.minutos_por_parte || 45,
         total_minutos: competicion.total_minutos || 90,

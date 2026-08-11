@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Competicion, Equipo } from '@/shared/services/dataService';
 import { equiposService } from '@shared/services';
@@ -13,6 +13,7 @@ import SearchableSelect from '@shared/components/SearchableSelect';
 interface CompetitionConfig {
   id: string;
   nombre: string;
+  tipo: Competicion['tipo'];
   partes: number;
   minutosPorParte: number;
   equipoInternaId?: string;
@@ -23,6 +24,8 @@ interface CompetitionsConfigViewProps {
   misEquipos?: CompetitionTeam[];
 }
 
+const COMPETITION_TYPE_OPTIONS: Competicion['tipo'][] = ['Liga', 'Copa', 'Amistoso', 'Torneo'];
+
 const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [] }) => {
   const { t } = useTranslation();
   const { perfil } = useAuth();
@@ -31,6 +34,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [formData, setFormData] = useState<CompetitionConfig>({
     id: '',
     nombre: '',
+    tipo: 'Liga',
     partes: 2,
     minutosPorParte: 45,
   });
@@ -45,6 +49,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [equiposCompeticionActual, setEquiposCompeticionActual] = useState<EquipoRef[]>([]);
   const [loadingEquiposCompeticion, setLoadingEquiposCompeticion] = useState(false);
   const [equiposSelectorError, setEquiposSelectorError] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement | null>(null);
 
   // Cargar configuraciones desde Supabase
   useEffect(() => {
@@ -153,26 +158,36 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     }
   };
 
+  const scrollToForm = () => {
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   const handleAddNew = () => {
     setEditingId(null);
     setFormData({
       id: Date.now().toString(),
       nombre: '',
+      tipo: 'Liga',
       partes: 2,
       minutosPorParte: 45,
       equipoInternaId: '',
     });
     setIsAdding(true);
+    scrollToForm();
   };
 
   const handleEdit = async (competicion: CompetitionConfig) => {
     setFormData(competicion);
     setEditingId(competicion.id);
     setIsAdding(false);
+    scrollToForm();
     // Cargar el equipo interno si existe
     try {
       const teams = await competicionEquiposService.getTeamsByCompeticion(competicion.id);
-      const equipoInterno = teams.find(t => t.equipoId);
+      const internalTeamIds = new Set(equiposInternas.map(equipo => equipo.id));
+      const equipoInterno = teams.find(t => t.equipoId && internalTeamIds.has(t.equipoId));
       if (equipoInterno?.equipoId) {
         setFormData(prev => ({ ...prev, equipoInternaId: equipoInterno.equipoId }));
       }
@@ -200,8 +215,8 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       setLoading(true);
       const competicionData = {
         nombre: formData.nombre,
-        tipo: 'Liga' as const,
-        temporada: '25/26',
+        tipo: formData.tipo,
+        temporada: '26/27',
         numero_partes: formData.partes,
         minutos_por_parte: formData.minutosPorParte,
         total_minutos: formData.partes * formData.minutosPorParte,
@@ -217,15 +232,26 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       }
 
       // Guardar la relación con el equipo interno si se selecciona
-      if (competicionId && formData.equipoInternaId) {
-        await competicionEquiposService.setTeamsForCompeticion(competicionId, [
-          { equipoId: formData.equipoInternaId }
-        ]);
+      if (competicionId) {
+        if (editingId) {
+          const internalTeamIds = new Set(equiposInternas.map(equipo => equipo.id));
+          const currentTeams = await competicionEquiposService.getTeamsByCompeticion(competicionId);
+          const preservedTeams = currentTeams.filter(team => !team.equipoId || !internalTeamIds.has(team.equipoId));
+          const nextTeams = formData.equipoInternaId
+            ? [...preservedTeams, { equipoId: formData.equipoInternaId }]
+            : preservedTeams;
+
+          await competicionEquiposService.setTeamsForCompeticion(competicionId, nextTeams);
+        } else if (formData.equipoInternaId) {
+          await competicionEquiposService.setTeamsForCompeticion(competicionId, [
+            { equipoId: formData.equipoInternaId }
+          ]);
+        }
       }
 
       setEditingId(null);
       setIsAdding(false);
-      setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
+      setFormData({ id: '', nombre: '', tipo: 'Liga', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
 
       await loadCompeticiones();
       alert(editingId ? 'Competición actualizada correctamente' : 'Competición guardada correctamente');
@@ -246,7 +272,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     }
     setEditingId(null);
     setIsAdding(false);
-    setFormData({ id: '', nombre: '', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
+    setFormData({ id: '', nombre: '', tipo: 'Liga', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
   };
 
   const handleDelete = async (id: string) => {
@@ -288,7 +314,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
 
       {/* FORM - ADD/EDIT */}
       {(isAdding || editingId) && (
-        <div className="mb-8 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+        <div ref={formRef} className="mb-8 scroll-mt-24 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
           <h3 className="text-lg font-black text-slate-800 mb-4 uppercase tracking-tight">
             {editingId ? 'Editar Competición' : 'Nueva Competición'}
           </h3>
@@ -306,6 +332,24 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 placeholder="Ej: Liga Regular, Copa del Rey..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
               />
+            </div>
+
+            {/* Campo: Tipo */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                Tipo *
+              </label>
+              <select
+                value={formData.tipo}
+                onChange={e => setFormData({ ...formData, tipo: e.target.value as Competicion['tipo'] })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              >
+                {COMPETITION_TYPE_OPTIONS.map(tipo => (
+                  <option key={tipo} value={tipo}>
+                    {tipo}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Campo: Partes */}
@@ -400,13 +444,14 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       {/* TABLA DE COMPETICIONES */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <div className="min-w-[600px]">
+          <div className="min-w-[760px]">
             {/* Encabezado */}
             <div
               className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-              style={{ gridTemplateColumns: '1fr 100px 100px 120px 140px' }}
+              style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 140px' }}
             >
               <div className="px-6 py-4">Competición</div>
+              <div className="px-6 py-4 text-center">Tipo</div>
               <div className="px-6 py-4 text-center">Partes</div>
               <div className="px-6 py-4 text-center">Min/Parte</div>
               <div className="px-6 py-4 text-center">Total Minutos</div>
@@ -429,10 +474,15 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <div
                   key={comp.id}
                   className="grid items-center border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '1fr 100px 100px 120px 140px' }}
+                  style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 140px' }}
                 >
                   <div className="px-6 py-4">
                     <span className="font-semibold text-slate-800">{comp.nombre}</span>
+                  </div>
+                  <div className="px-6 py-4 text-center">
+                    <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wide">
+                      {comp.tipo || 'Liga'}
+                    </span>
                   </div>
                   <div className="px-6 py-4 text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-bold text-sm">
@@ -466,7 +516,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                       <i className="fa-solid fa-calendar-days text-[11px]"></i>
                     </button>
                     <button
-                      onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte })}
+                      onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, tipo: comp.tipo || 'Liga', partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte })}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
                       title="Editar"
                       disabled={loading}

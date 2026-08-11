@@ -124,7 +124,7 @@ const SettingsPage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        defaultValue="2025-2026"
+                        defaultValue="2026-2027"
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 outline-none transition-all"
                       />
                     </div>

@@ -7,6 +7,8 @@ import { clubesService } from '@shared/services';
 import type { EquipoRef } from '../services/competicionEquiposService';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
+const UNASSIGNED_CLUB_KEY = '__unassigned_club__';
+
 // NOTA: el catálogo de "equipos rivales" está deprecado para esta pantalla — ya no se pueden
 // añadir equipos nuevos por ese camino, solo equipos ya dados de alta en el sistema. Se mantiene
 // la lectura/eliminación de rivales ya guardados en competiciones antiguas por compatibilidad.
@@ -34,6 +36,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   const [selectedRivalIds, setSelectedRivalIds] = useState<Set<string>>(
     () => new Set(initialTeams.filter(t => t.equipoRivalId).map(t => t.equipoRivalId as string))
   );
+  const [selectedClubToAdd, setSelectedClubToAdd] = useState('');
   const [selectedToAdd, setSelectedToAdd] = useState('');
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -81,9 +84,9 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
     const grouped = new Map<string, CompetitionTeam[]>();
     allTeamsWithExtras.forEach(team => {
       if (selectedOwnIds.has(String(team.id))) return;
-      const clubId = String(team.clubId || '');
-      if (!grouped.has(clubId)) grouped.set(clubId, []);
-      grouped.get(clubId)!.push(team);
+      const clubKey = team.clubId != null && String(team.clubId) ? String(team.clubId) : UNASSIGNED_CLUB_KEY;
+      if (!grouped.has(clubKey)) grouped.set(clubKey, []);
+      grouped.get(clubKey)!.push(team);
     });
     // El club propio ("Equipo interno") siempre en primer lugar
     const ownClubIdStr = ownClubId ? String(ownClubId) : '';
@@ -95,6 +98,46 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
     });
     return entries;
   }, [allTeamsWithExtras, selectedOwnIds, ownClubId]);
+
+  const getClubLabel = (clubKey: string) => {
+    if (clubKey === UNASSIGNED_CLUB_KEY) return 'Sin club';
+    const clubName = clubNameById.get(clubKey);
+    if (ownClubId && clubKey === String(ownClubId)) return clubName ? `${clubName} (equipo interno)` : 'Equipo interno';
+    return clubName || 'Otro club';
+  };
+
+  const availableClubOptions = useMemo(
+    () => availableOwnTeamsByClub.map(([clubKey, teams]) => ({
+      clubKey,
+      label: getClubLabel(clubKey),
+      count: teams.length,
+    })),
+    [availableOwnTeamsByClub, clubNameById, ownClubId]
+  );
+
+  const selectedClubTeams = useMemo(
+    () => availableOwnTeamsByClub.find(([clubKey]) => clubKey === selectedClubToAdd)?.[1] || [],
+    [availableOwnTeamsByClub, selectedClubToAdd]
+  );
+
+  const dedupedSelectedClubTeams = useMemo(() => {
+    const seenNames = new Set<string>();
+    return selectedClubTeams.filter(team => {
+      const displayName = `${team.equipo || team.nombre}${team.etapa ? ` (${team.etapa})` : ''}`;
+      if (seenNames.has(displayName)) return false;
+      seenNames.add(displayName);
+      return true;
+    });
+  }, [selectedClubTeams]);
+
+  useEffect(() => {
+    if (!selectedClubToAdd) return;
+    const clubStillAvailable = availableOwnTeamsByClub.some(([clubKey, teams]) => clubKey === selectedClubToAdd && teams.length > 0);
+    if (!clubStillAvailable) {
+      setSelectedClubToAdd('');
+      setSelectedToAdd('');
+    }
+  }, [availableOwnTeamsByClub, selectedClubToAdd]);
 
   const emitChange = (ownIds: Set<string>, rivalIds: Set<string>) => {
     const teams: EquipoRef[] = [
@@ -181,6 +224,8 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   const handleClearAll = () => {
     setSelectedOwnIds(new Set());
     setSelectedRivalIds(new Set());
+    setSelectedClubToAdd('');
+    setSelectedToAdd('');
     onTeamsSelected([]);
   };
 
@@ -197,39 +242,48 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         </p>
       </div>
 
-      {/* Desplegable único: equipo interno, otros equipos del sistema y rivales del catálogo */}
+      {/* Alta desde el sistema: primero club y despues equipos de ese club */}
       <div>
         <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
           <i className="fa-solid fa-plus mr-1"></i>Añadir equipo
         </label>
-        <SearchableSelect
-          value={selectedToAdd}
-          onChange={(e) => handleSelectFromUnifiedDropdown(e.target.value)}
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
-        >
-          <option value="">Selecciona un equipo...</option>
-          {availableOwnTeamsByClub.map(([clubId, teams]) => {
-            const seenNames = new Set<string>();
-            const dedupedTeams = teams.filter(team => {
-              const displayName = `${team.equipo || team.nombre}${team.etapa ? ` (${team.etapa})` : ''}`;
-              if (seenNames.has(displayName)) return false;
-              seenNames.add(displayName);
-              return true;
-            });
-            return (
-              <optgroup
-                key={clubId}
-                label={clubId === String(ownClubId || '') ? 'Equipo interno' : (clubNameById.get(clubId) || 'Otro club')}
-              >
-                {dedupedTeams.map(team => (
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <SearchableSelect
+            value={selectedClubToAdd}
+            onChange={(e) => {
+              setSelectedClubToAdd(e.target.value);
+              setSelectedToAdd('');
+            }}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+          >
+            <option value="">Selecciona un club...</option>
+            {availableClubOptions.map(({ clubKey, label, count }) => (
+              <option key={clubKey} value={clubKey}>
+                {label} ({count})
+              </option>
+            ))}
+          </SearchableSelect>
+
+          <SearchableSelect
+            value={selectedToAdd}
+            onChange={(e) => handleSelectFromUnifiedDropdown(e.target.value)}
+            disabled={!selectedClubToAdd || dedupedSelectedClubTeams.length === 0}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] disabled:bg-slate-50 disabled:text-slate-400"
+          >
+            <option value="">
+              {selectedClubToAdd ? 'Selecciona un equipo...' : 'Primero selecciona un club...'}
+            </option>
+            {selectedClubToAdd && (
+              <optgroup label={getClubLabel(selectedClubToAdd)}>
+                {dedupedSelectedClubTeams.map(team => (
                   <option key={team.id} value={`team:${team.id}`}>
                     {team.equipo || team.nombre}{team.etapa ? ` (${team.etapa})` : ''}
                   </option>
                 ))}
               </optgroup>
-            );
-          })}
-        </SearchableSelect>
+            )}
+          </SearchableSelect>
+        </div>
       </div>
 
       {/* Dar de alta un club y equipo nuevos en el sistema */}

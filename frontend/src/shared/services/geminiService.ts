@@ -522,7 +522,7 @@ export class GeminiService {
     competition: string,
     options?: { forceRefresh?: boolean; season?: string }
   ): Promise<GeminiStandingsResult> {
-    const season = options?.season ?? '2025-2026';
+    const season = options?.season ?? '2026-2027';
     const cacheKey = `${GeminiService.STANDINGS_CACHE_KEY}${competition}_${season}`;
 
     // Comprobar cache (sessionStorage)

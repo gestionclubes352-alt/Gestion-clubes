@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import type { Player } from '@modules/plantilla';
+import type { MatchReport } from '@modules/partidos/types';
 import SearchableSelect from '@shared/components/SearchableSelect';
-import { getPlayerSessionAttendance, hasRecordedAttendance } from '../utils/attendance';
+import { db } from '@shared/services/dataService';
+import { getPlayerSessionAttendance, hasRecordedAttendance, isSelectiveAttendanceSession } from '../utils/attendance';
+import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
 
 interface GestionCalendarViewProps {
   events: CalendarEvent[];
@@ -88,6 +91,25 @@ const formatEventLabel = (time?: string, team?: string, fallbackTime = '--:--') 
   return team ? `${hour} - ${team}` : hour;
 };
 
+const getEventActivity = (event: CalendarEvent): string => {
+  if (event.type === 'Partido') {
+    return (event.competition || '').trim();
+  }
+
+  if (event.type === 'Sesión' || event.type === 'Entrenamiento') {
+    return (event.title || '').trim();
+  }
+
+  return '';
+};
+
+const normalizeTeamKey = (value?: string | number | null) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
 const generateUUID = (): string => {
   // Usar crypto.randomUUID si está disponible (navegadores modernos)
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -109,6 +131,26 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
   const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
+  const clubLogoByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, logoUrl?: string) => {
+      if (!name || !logoUrl) return;
+      map.set(normalizeFederationTeamName(name), logoUrl);
+    };
+
+    clubes.forEach((club) => {
+      register(club.nombre, club.logoUrl || getFederationTeamLogo(club.nombre));
+    });
+    competitionTeams.forEach((team) => {
+      const logoUrl = team.clubId != null
+        ? clubLogoById.get(String(team.clubId))
+        : undefined;
+      register(team.nombre, logoUrl);
+      register(team.nombreEnFed, logoUrl);
+    });
+
+    return map;
+  }, [clubes, competitionTeams, clubLogoById]);
   const clubNameByTeamName = useMemo(() => {
     const map = new Map<string, string>();
     competitionTeams.forEach((team) => {
@@ -122,6 +164,19 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
   const resolveClubLogo = (clubId?: string): string | undefined =>
     clubId ? clubLogoById.get(String(clubId)) : undefined;
+  const resolveTeamLogo = (clubId?: string, ...teamNames: Array<string | undefined>): string | undefined => {
+    const clubLogo = resolveClubLogo(clubId);
+    if (clubLogo) return clubLogo;
+
+    for (const teamName of teamNames) {
+      if (!teamName) continue;
+      const normalizedName = normalizeFederationTeamName(teamName);
+      const logoUrl = clubLogoByTeamName.get(normalizedName);
+      if (logoUrl) return logoUrl;
+    }
+
+    return undefined;
+  };
   const internalNameByFedName = useMemo(() => {
     const map = new Map<string, string>();
     competitionTeams.forEach((team) => {
@@ -172,6 +227,110 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     const canonical = ev.team && internalTeamCanonicalByName.get(ev.team.trim().toLowerCase());
     return canonical || ev.team;
   };
+
+  const teamAliasesByCompetitionTeamId = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    internalCompetitionTeams.forEach(team => {
+      const aliases = [team.id, team.equipo, team.nombre, team.nombreEnFed]
+        .map(normalizeTeamKey)
+        .filter(Boolean);
+      map.set(String(team.id), new Set(aliases));
+    });
+    return map;
+  }, [internalCompetitionTeams]);
+
+  const getPlayerTeamAliases = (player: Player) => {
+    const aliases = [player.equipoId, player.equipo, player.club]
+      .map(normalizeTeamKey)
+      .filter(Boolean);
+
+    if (player.equipoId) {
+      const teamAliases = teamAliasesByCompetitionTeamId.get(String(player.equipoId));
+      if (teamAliases) aliases.push(...teamAliases);
+    }
+
+    return new Set(aliases);
+  };
+
+  const getEventTeamAliases = (event: CalendarEvent) => {
+    const aliases = [
+      event.team,
+      event.nombreInterno,
+      event.localTeam,
+      event.visitorTeam,
+      getEventTeamKey(event),
+      resolveTeamDisplayName(event.team),
+      resolveTeamDisplayName(event.localTeam),
+      resolveTeamDisplayName(event.visitorTeam),
+    ]
+      .map(normalizeTeamKey)
+      .filter(Boolean);
+
+    return new Set(aliases);
+  };
+
+  const playerMatchesEventTeam = (event: CalendarEvent, player: Player) => {
+    const playerTeamAliases = getPlayerTeamAliases(player);
+    if (playerTeamAliases.size === 0) return true;
+
+    const eventTeamAliases = getEventTeamAliases(event);
+    if (eventTeamAliases.size === 0) return true;
+
+    return Array.from(playerTeamAliases).some(alias => eventTeamAliases.has(alias));
+  };
+
+  const samePlayerId = (a: string | number | undefined, b: string | number | undefined) =>
+    a !== undefined && b !== undefined && String(a) === String(b);
+
+  const reportHasParticipationData = (report: MatchReport) =>
+    (report.lineupPositions || []).some(pos => (pos.playerIds || []).length > 0) ||
+    (report.substitutions || []).some(sub => sub.playerInId !== undefined || sub.playerOutId !== undefined) ||
+    (report.matchGoals || []).some(goal => goal.playerId !== undefined) ||
+    (report.matchCards || []).some(card => card.playerId !== undefined) ||
+    (report.videoEvents || []).some(videoEvent => videoEvent.playerId !== undefined);
+
+  const playerParticipatesInMatchReport = (report: MatchReport, playerId: string | number) => {
+    if ((report.notConvocadoIds || []).some(id => samePlayerId(id, playerId))) return false;
+
+    return (
+      (report.lineupPositions || []).some(pos => (pos.playerIds || []).some(id => samePlayerId(id, playerId))) ||
+      (report.substitutions || []).some(sub => samePlayerId(sub.playerInId, playerId) || samePlayerId(sub.playerOutId, playerId)) ||
+      (report.matchGoals || []).some(goal => samePlayerId(goal.playerId, playerId)) ||
+      (report.matchCards || []).some(card => samePlayerId(card.playerId, playerId)) ||
+      (report.videoEvents || []).some(videoEvent => samePlayerId(videoEvent.playerId, playerId))
+    );
+  };
+
+  const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
+  const [matchReportsLoaded, setMatchReportsLoaded] = useState(false);
+  const matchReportById = useMemo(
+    () => new Map(matchReports.map(report => [String(report.id), report])),
+    [matchReports]
+  );
+
+  const playerParticipatesInEvent = (event: CalendarEvent, player: Player) => {
+    if (event.type === 'Partido') {
+      const report = matchReportById.get(String(event.id));
+      if (report) {
+        if ((report.notConvocadoIds || []).some(id => samePlayerId(id, player.id))) return false;
+        if (reportHasParticipationData(report)) return playerParticipatesInMatchReport(report, player.id);
+      }
+      return playerMatchesEventTeam(event, player);
+    }
+
+    if (hasRecordedAttendance(event)) {
+      const attendance = getPlayerSessionAttendance(event, player.id);
+      if (attendance.status !== undefined || isSelectiveAttendanceSession(event)) {
+        return attendance.counted && attendance.attended;
+      }
+    }
+
+    if (isSelectiveAttendanceSession(event)) {
+      return false;
+    }
+
+    return playerMatchesEventTeam(event, player);
+  };
   const [activeView, setActiveView] = useState<'annual' | 'monthly' | 'weekly' | 'schedule'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
@@ -179,11 +338,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
-  const [duplicateEvent, setDuplicateEvent] = useState<CalendarEvent | null>(null);
-  const [duplicateTargetDate, setDuplicateTargetDate] = useState<Date | null>(null);
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [playerFilter, setPlayerFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [activityFilter, setActivityFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
@@ -194,18 +352,73 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       const name = (team.equipo || team.nombre || '').trim();
       if (name) teams.add(name);
     });
-    events.forEach(ev => {
-      const key = getEventTeamKey(ev);
-      if (key) teams.add(key);
-    });
     return Array.from(teams).sort((a, b) => a.localeCompare(b));
-  }, [events, internalCompetitionTeams]);
+  }, [internalCompetitionTeams]);
 
   const availablePlayers = useMemo(() => {
+    const selectedTeamKey = normalizeTeamKey(teamFilter);
+    const selectedTeamIds = new Set<string>();
+    const selectedTeamNames = new Set<string>();
+
+    if (teamFilter !== 'all') {
+      selectedTeamNames.add(selectedTeamKey);
+      internalCompetitionTeams.forEach(team => {
+        const teamNames = [team.equipo, team.nombre, team.nombreEnFed]
+          .map(normalizeTeamKey)
+          .filter(Boolean);
+
+        if (teamNames.includes(selectedTeamKey)) {
+          selectedTeamIds.add(String(team.id));
+          teamNames.forEach(name => selectedTeamNames.add(name));
+        }
+      });
+    }
+
     return [...players]
       .filter(player => player.nombre || player.apodo)
+      .filter(player => {
+        if (teamFilter === 'all') return true;
+
+        const playerTeamId = player.equipoId ? String(player.equipoId) : '';
+        if (playerTeamId && selectedTeamIds.has(playerTeamId)) return true;
+
+        const playerTeamKey = normalizeTeamKey(player.equipo);
+        return Boolean(playerTeamKey && selectedTeamNames.has(playerTeamKey));
+      })
       .sort((a, b) => (a.apodo || a.nombre).localeCompare(b.apodo || b.nombre));
-  }, [players]);
+  }, [players, teamFilter, internalCompetitionTeams]);
+
+  useEffect(() => {
+    if (playerFilter === 'all') return;
+    if (!availablePlayers.some(player => String(player.id) === playerFilter)) {
+      setPlayerFilter('all');
+    }
+  }, [availablePlayers, playerFilter]);
+
+  useEffect(() => {
+    if (teamFilter !== 'all' && !availableTeams.includes(teamFilter)) {
+      setTeamFilter('all');
+    }
+  }, [availableTeams, teamFilter]);
+
+  useEffect(() => {
+    if (playerFilter === 'all' || matchReportsLoaded) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await db.match_reports.get();
+        if (!cancelled) setMatchReports((data as MatchReport[]) || []);
+      } catch (err) {
+        console.error('No se pudieron cargar los informes de partido para el filtro de jugador', err);
+        if (!cancelled) setMatchReports([]);
+      } finally {
+        if (!cancelled) setMatchReportsLoaded(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [playerFilter, matchReportsLoaded]);
 
   const availableTypes = useMemo(() => {
     const types = new Set<string>();
@@ -213,19 +426,41 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return Array.from(types).sort((a, b) => a.localeCompare(b));
   }, [events]);
 
+  const availableActivities = useMemo(() => {
+    if (typeFilter !== 'Partido' && typeFilter !== 'Sesión' && typeFilter !== 'Entrenamiento') {
+      return [];
+    }
+
+    const activities = new Set<string>();
+    events.forEach(ev => {
+      if (ev.type !== typeFilter) return;
+      const activity = getEventActivity(ev);
+      if (activity) activities.add(activity);
+    });
+
+    return Array.from(activities).sort((a, b) => a.localeCompare(b));
+  }, [events, typeFilter]);
+
+  useEffect(() => {
+    if (activityFilter === 'all') return;
+    if (!availableActivities.includes(activityFilter)) {
+      setActivityFilter('all');
+    }
+  }, [activityFilter, availableActivities]);
+
   const filteredEvents = useMemo(() => {
     const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
     const dateTo = filterDateTo ? new Date(filterDateTo) : null;
 
     return events.filter(ev => {
       if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
+      if (activityFilter !== 'all' && getEventActivity(ev) !== activityFilter) return false;
       if (teamFilter !== 'all') {
         if (getEventTeamKey(ev) !== teamFilter) return false;
       }
       if (playerFilter !== 'all') {
-        if (!hasRecordedAttendance(ev)) return false;
-        const attendance = getPlayerSessionAttendance(ev, playerFilter);
-        if (!attendance.counted || !attendance.attended) return false;
+        const selectedPlayer = players.find(player => String(player.id) === playerFilter);
+        if (!selectedPlayer || !playerParticipatesInEvent(ev, selectedPlayer)) return false;
       }
       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
       if (monthFilter !== 'all' && d.getMonth() !== Number(monthFilter)) return false;
@@ -237,7 +472,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       }
       return true;
     });
-  }, [events, teamFilter, playerFilter, typeFilter, monthFilter, filterDateFrom, filterDateTo]);
+  }, [events, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById]);
 
   const teamColorLegend = useMemo(() => {
     const keys = new Set<string>();
@@ -447,14 +682,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   !inMonth ? 'opacity-30' : ''
                 } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
                 onDragOver={(e) => {
+                  if (!date || draggedEvent?.type === 'Partido') return;
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'copy';
-                  if (date) setDragOverDate(date);
+                  setDragOverDate(date);
                 }}
                 onDragLeave={() => setDragOverDate(null)}
                 onDrop={(e) => {
                   e.preventDefault();
-                  if (draggedEvent && date) {
+                  if (draggedEvent && draggedEvent.type !== 'Partido' && date) {
                     const newEvent = { ...draggedEvent, id: generateUUID(), date };
                     onSaveEvent?.(newEvent);
                     setDraggedEvent(null);
@@ -482,15 +718,21 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     const isMatch = ev.type === 'Partido';
                     const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
                     const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
+                    const localLogo = resolveTeamLogo(ev.localTeamClubId, ev.localTeam, displayLocalTeam);
+                    const visitorLogo = resolveTeamLogo(ev.visitorTeamClubId, ev.visitorTeam, displayVisitorTeam);
                     return (
                       <div
                         key={ev.id}
-                        draggable
+                        draggable={!isMatch}
                         className={`rounded-lg px-1.5 py-1.5 text-[11px] font-bold cursor-pointer group/ev transition-all opacity-100 hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : 'flex items-center gap-0.5'}`}
                         title={isMatch
                           ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
                           : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                         onDragStart={(e) => {
+                          if (isMatch) {
+                            e.preventDefault();
+                            return;
+                          }
                           e.dataTransfer!.effectAllowed = 'copy';
                           e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
                           setDraggedEvent(ev);
@@ -531,8 +773,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                             {(ev.localTeam && ev.visitorTeam) ? (
                               <div className="flex items-center gap-1">
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
-                                  {resolveClubLogo(ev.localTeamClubId) ? (
-                                    <img loading="lazy" decoding="async" src={resolveClubLogo(ev.localTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                  {localLogo ? (
+                                    <img loading="lazy" decoding="async" src={localLogo} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
                                   ) : (
                                     <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
                                       <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
@@ -545,8 +787,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                 </div>
                                 <span className="flex-shrink-0 bg-red-600 text-white text-[10px] font-black leading-none px-2 py-1.5 rounded-full shadow-sm">VS</span>
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
-                                  {resolveClubLogo(ev.visitorTeamClubId) ? (
-                                    <img loading="lazy" decoding="async" src={resolveClubLogo(ev.visitorTeamClubId)} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                  {visitorLogo ? (
+                                    <img loading="lazy" decoding="async" src={visitorLogo} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
                                   ) : (
                                     <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
                                       <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
@@ -842,7 +1084,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   return (
     <div className="animate-fade-in flex h-full min-h-[calc(100vh-110px)] flex-col gap-4 pb-6">
       {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
-      <div className="flex items-center justify-between gap-3 px-1 flex-wrap">
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 -mx-2 px-3 py-2 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
         <div className="flex items-center gap-3 flex-wrap">
           <SearchableSelect
             value={teamFilter}
@@ -868,12 +1110,30 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           </SearchableSelect>
           <SearchableSelect
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(e) => {
+              setTypeFilter(e.target.value);
+              setActivityFilter('all');
+            }}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">{t('calendarView.filterAllEvents', 'Todos los eventos')}</option>
             {availableTypes.map(type => (
               <option key={type} value={type}>{type}</option>
+            ))}
+          </SearchableSelect>
+          <SearchableSelect
+            value={activityFilter}
+            onChange={(e) => setActivityFilter(e.target.value)}
+            disabled={availableActivities.length === 0}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 disabled:bg-slate-50 disabled:text-slate-400"
+          >
+            <option value="all">
+              {availableActivities.length === 0
+                ? t('calendarView.filterSelectEventType', 'Actividad')
+                : t('calendarView.filterAllActivities', 'Todas las actividades')}
+            </option>
+            {availableActivities.map(activity => (
+              <option key={activity} value={activity}>{activity}</option>
             ))}
           </SearchableSelect>
           <SearchableSelect
@@ -969,12 +1229,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       </div>
 
       {teamColorLegend.length > 0 && (
-        <div className="flex items-center gap-3 px-1 flex-wrap">
+        <div className="flex items-center gap-2 px-1 flex-wrap">
           {teamColorLegend.map(({ key, color }) => (
-            <span key={key} className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wide">
-              <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`}></span>
-              {key}
-            </span>
+            <span
+              key={key}
+              className={`w-2.5 h-2.5 rounded-full ${color.dot}`}
+              title={key}
+              aria-label={key}
+            ></span>
           ))}
         </div>
       )}
@@ -1134,51 +1396,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         </div>
       )}
 
-      {duplicateEvent && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-          onClick={() => setDuplicateEvent(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white shadow-2xl animate-fade-in p-6"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="mb-6">
-              <h3 className="text-lg font-black text-slate-900">Duplicar evento</h3>
-              <p className="text-sm text-slate-500 mt-1">{duplicateEvent.title}</p>
-            </div>
-
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {Array.from({ length: 30 }, (_, i) => {
-                const date = new Date(currentMonth);
-                date.setDate(date.getDate() + i);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      const newEvent = { ...duplicateEvent, id: generateUUID(), date };
-                      onSaveEvent?.(newEvent);
-                      setDuplicateEvent(null);
-                    }}
-                    className="w-full text-left px-4 py-3 rounded-lg border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all"
-                  >
-                    <p className="font-bold text-slate-700">
-                      {date.toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => setDuplicateEvent(null)}
-              className="mt-6 w-full px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

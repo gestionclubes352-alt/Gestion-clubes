@@ -44,11 +44,77 @@ type CompetitionSection =
   | 'cruzada'
   | 'extendida';
 
+type OfficialStandingRow = {
+  pos: number;
+  team: string;
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+};
+
+const HUESCA_JUVENIL_2627_TEAMS = [
+  'E.F.B. EJEA',
+  'CALAMOCHA-C.F.',
+  'AMISTAD-U.D.',
+  'ESTADIO MIRALBUENO EL OLIVAR',
+  'RACING CLUB ZARAGOZA',
+  'SANTO DOMINGO JUVENTUD C.F.',
+  'HERNAN CORTES JUNQUERA-C.F.',
+  'FRAGA-FUTBOL BASE',
+  'SAN GREGORIO ARRABAL-C.D.',
+  'IPC LA ESCUELA',
+  'REAL ZARAGOZA S.A.D.',
+  'HUESCA-S.D.',
+  'STADIUM CASABLANCA-C.D.',
+  'EBRO-C.D.',
+  'OLIVER-C.D.',
+  'MONTECARLO-U.D.',
+  'LA LITERA-ESCUELA DEP.',
+  'BALSAS PICARRAL-U.D.',
+];
+
+const HUESCA_JUVENIL_2627_STANDINGS: OfficialStandingRow[] = HUESCA_JUVENIL_2627_TEAMS.map((team, index) => ({
+  pos: index + 1,
+  team,
+  points: 0,
+  played: 0,
+  won: 0,
+  drawn: 0,
+  lost: 0,
+}));
+
+const HUESCA_JUVENIL_2627_FIXTURES = {
+  primera: [
+    { jornada: 1, fecha: '06/09/2026', local: 'E.F.B. EJEA', visitante: 'CALAMOCHA-C.F.', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'AMISTAD-U.D.', visitante: 'ESTADIO MIRALBUENO EL OLIVAR', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'RACING CLUB ZARAGOZA', visitante: 'SANTO DOMINGO JUVENTUD C.F.', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'HERNAN CORTES JUNQUERA-C.F.', visitante: 'FRAGA-FUTBOL BASE', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'SAN GREGORIO ARRABAL-C.D.', visitante: 'IPC LA ESCUELA', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'REAL ZARAGOZA S.A.D.', visitante: 'HUESCA-S.D.', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'STADIUM CASABLANCA-C.D.', visitante: 'EBRO-C.D.', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'OLIVER-C.D.', visitante: 'MONTECARLO-U.D.', resultado: 'vs' },
+    { jornada: 1, fecha: '06/09/2026', local: 'LA LITERA-ESCUELA DEP.', visitante: 'BALSAS PICARRAL-U.D.', resultado: 'vs' },
+  ],
+  segunda: [
+    { jornada: 18, fecha: '24/01/2027', local: 'ESTADIO MIRALBUENO EL OLIVAR', visitante: 'AMISTAD-U.D.', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'SANTO DOMINGO JUVENTUD C.F.', visitante: 'RACING CLUB ZARAGOZA', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'FRAGA-FUTBOL BASE', visitante: 'HERNAN CORTES JUNQUERA-C.F.', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'IPC LA ESCUELA', visitante: 'SAN GREGORIO ARRABAL-C.D.', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'HUESCA-S.D.', visitante: 'REAL ZARAGOZA S.A.D.', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'EBRO-C.D.', visitante: 'STADIUM CASABLANCA-C.D.', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'CALAMOCHA-C.F.', visitante: 'E.F.B. EJEA', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'MONTECARLO-U.D.', visitante: 'OLIVER-C.D.', resultado: 'vs' },
+    { jornada: 18, fecha: '24/01/2027', local: 'BALSAS PICARRAL-U.D.', visitante: 'LA LITERA-ESCUELA DEP.', resultado: 'vs' },
+  ],
+};
+
 /**
  * Datos oficiales de clasificación por club (teamId → standings data).
  * Cada club puede tener sus propios datos hardcodeados.
  */
-const OFFICIAL_STANDINGS_BY_CLUB: Record<string, ReadonlyArray<{ pos: number; team: string; points: number; played: number; won: number; drawn: number; lost: number }>> = {
+const OFFICIAL_STANDINGS_BY_CLUB: Record<string, ReadonlyArray<OfficialStandingRow>> = {
   'cd-derio': [
     { pos: 1, team: 'PORTUGALETE, C.', points: 59, played: 23, won: 19, drawn: 2, lost: 2 },
     { pos: 2, team: 'LEIOA, S.D.', points: 42, played: 23, won: 13, drawn: 3, lost: 7 },
@@ -155,13 +221,18 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/\s+/g, ' ');
 
 const buildOfficialStandings = (teams: CompetitionTeam[], clubId: string): StandingTeam[] => {
-  const officialData = OFFICIAL_STANDINGS_BY_CLUB[clubId];
+  let officialData = OFFICIAL_STANDINGS_BY_CLUB[clubId];
+  if (clubId === 'escuela-huesca' || clubId === 'escuela-huesca::Juvenil A') {
+    officialData = HUESCA_JUVENIL_2627_STANDINGS;
+  } else if (clubId.startsWith('escuela-huesca::')) {
+    officialData = [];
+  }
   if (!officialData) return []; // Este club no tiene datos oficiales hardcodeados
   const byName = new Map(teams.map(t => [normalizeTeam(t.nombre), t]));
   return officialData.map((row, i) => {
     const team = byName.get(normalizeTeam(row.team));
     const formOptions: ('W' | 'D' | 'L')[] = ['W', 'D', 'L'];
-    const form = Array.from({ length: 5 }, (_, idx) => formOptions[(row.pos + i + idx) % 3]);
+    const form = row.played === 0 ? [] : Array.from({ length: 5 }, (_, idx) => formOptions[(row.pos + i + idx) % 3]);
     return {
       pos: row.pos,
       team: team?.nombre || row.team,
@@ -368,6 +439,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
   const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData;
   const standings = hasOfficialData ? officialStandings : (hasAIData ? aiStandings : simulatedStandings);
   const isAISource = hasAIData && (geminiSource === 'gemini' || geminiSource === 'cache');
+  const isHuescaCurrentSeason = standingsKey === 'escuela-huesca' || standingsKey === 'escuela-huesca::Juvenil A';
+  const hasStarted = standings.some(row => row.played > 0);
+  const isPreseasonTable = hasOfficialData && !hasStarted;
 
   const columns = useMemo(() => [
     columnHelper.accessor('pos', {
@@ -416,9 +490,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          {row.original.form.map((result, i) => (
-            <FormBadge key={i} result={result} />
-          ))}
+          {row.original.form.length > 0
+            ? row.original.form.map((result, i) => (
+              <FormBadge key={i} result={result} />
+            ))
+            : <span className="text-xs font-bold text-slate-300">-</span>}
         </div>
       ),
     }),
@@ -503,6 +579,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
   ], []);
 
   const resultsData = useMemo(() => {
+    if (isHuescaCurrentSeason && isPreseasonTable) {
+      return HUESCA_JUVENIL_2627_FIXTURES[resultsLeg];
+    }
     const sorted = [...standings].sort((a, b) => a.pos - b.pos);
     const list = sorted.slice(0, Math.min(sorted.length, 12));
     return list.map((team, i) => {
@@ -516,9 +595,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
         resultado: `${homeGoals}-${awayGoals}`,
       };
     });
-  }, [standings, resultsLeg]);
+  }, [standings, resultsLeg, isHuescaCurrentSeason, isPreseasonTable]);
 
   const scorersData = useMemo<ScorerRow[]>(() => {
+    if (isPreseasonTable) return [];
     const clubScorers = OFFICIAL_SCORERS_BY_CLUB[standingsKey] || OFFICIAL_SCORERS_BY_CLUB[currentClubId];
     if (clubScorers && clubScorers.length > 0) {
       return clubScorers.map((row, i) => ({ ...row, pos: i + 1 }));
@@ -533,9 +613,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
         goles: Math.max(4, 18 - i - (row.pos % 4)),
         partidos: row.played,
       }));
-  }, [standings, currentClubId]);
+  }, [standings, currentClubId, standingsKey, isPreseasonTable]);
 
   const keepersData = useMemo(() => {
+    if (isPreseasonTable) return [];
     return [...standings]
       .sort((a, b) => (a.goalsAgainst || a.pos) - (b.goalsAgainst || b.pos))
       .slice(0, 10)
@@ -546,7 +627,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
         imbatido: Math.max(2, 11 - i),
         encajados: row.goalsAgainst,
       }));
-  }, [standings]);
+  }, [standings, isPreseasonTable]);
 
   const sectionTabs: Array<{ id: CompetitionSection; label: string; icon: string }> = [
     { id: 'clasificacion', label: 'Ver clasificación', icon: 'fa-list-ol' },
@@ -735,6 +816,12 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
         </p>
       )}
 
+      {isPreseasonTable && (
+        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest px-1 -mt-2">
+          Temporada 2026/2027 · primera jornada: 06/09/2026
+        </p>
+      )}
+
       {activeSection === 'clasificacion' && (
         <DataTable<StandingTeam>
           data={standings}
@@ -773,7 +860,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
           <div className="grid gap-2">
             {resultsData.map((match) => (
               <div key={`${match.jornada}-${match.local}`} className="grid grid-cols-[72px_1fr_auto_1fr] items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">J{match.jornada}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  J{match.jornada}{'fecha' in match ? ` · ${match.fecha}` : ''}
+                </span>
                 <div className="flex items-center gap-2 min-w-0 justify-end text-right">
                   <TeamName name={match.local} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate" />
                   <TeamCrest name={match.local} size="w-6 h-6" />
@@ -791,6 +880,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
 
       {activeSection === 'goleadores' && (
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
+          {scorersData.length === 0 && (
+            <div className="px-4 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">
+              Sin goleadores hasta el inicio de la temporada
+            </div>
+          )}
           {scorersData.map((row) => (
             <div key={row.pos} className="grid grid-cols-[44px_1fr_auto_90px] items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-b-0">
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
@@ -810,6 +904,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
 
       {activeSection === 'porteros' && (
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
+          {keepersData.length === 0 && (
+            <div className="px-4 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">
+              Sin porteros destacados hasta el inicio de la temporada
+            </div>
+          )}
           {keepersData.map((row) => (
             <div key={row.pos} className="grid grid-cols-[44px_1fr_auto] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0">
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
@@ -848,7 +947,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
                     if (rowIndex === colIndex) {
                       return <td key={`cell-${team.pos}-${rival.pos}`} className="text-center text-[10px] text-slate-300">-</td>;
                     }
-                    const cell = `${(team.pos + colIndex) % 4}-${(rival.pos + rowIndex) % 3}`;
+                    const cell = isPreseasonTable ? '-' : `${(team.pos + colIndex) % 4}-${(rival.pos + rowIndex) % 3}`;
                     return <td key={`cell-${team.pos}-${rival.pos}`} className="text-center text-[10px] font-bold text-slate-500">{cell}</td>;
                   })}
                 </tr>

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { EquipoInterno } from '../types';
 import EditEquipoInternoModal from './EditEquipoInternoModal';
+import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
 
 interface EquiposInternosViewProps {
   equipos: EquipoInterno[];
@@ -76,12 +77,14 @@ const EquiposInternosView: React.FC<EquiposInternosViewProps> = ({ equipos, club
       {/* GRID DE TARJETAS */}
       {filteredEquipos.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEquipos.map(equipo => (
+          {filteredEquipos.map(equipo => {
+            const logoUrl = equipo.logoUrl || getFederationTeamLogo(equipo.nombreEnFed) || getFederationTeamLogo(equipo.nombre);
+            return (
             <div key={String(equipo.id)} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {equipo.logoUrl ? (
-                    <img loading="lazy" decoding="async" src={equipo.logoUrl} alt={equipo.nombre} className="max-w-full max-h-full object-contain" />
+                  {logoUrl ? (
+                    <img loading="lazy" decoding="async" src={logoUrl} alt={equipo.nombre} className="max-w-full max-h-full object-contain" />
                   ) : (
                     <i className="fa-solid fa-shield text-slate-300 text-lg"></i>
                   )}
@@ -141,7 +144,8 @@ const EquiposInternosView: React.FC<EquiposInternosViewProps> = ({ equipos, club
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

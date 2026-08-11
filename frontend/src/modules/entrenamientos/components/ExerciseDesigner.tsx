@@ -8,6 +8,7 @@ import { db } from '@shared/services/dataService';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import type { Player } from '@modules/plantilla';
+import GoalFrame3D from './GoalFrame3D';
 
 const RESIZABLE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   zone: { width: 15, height: 15 },
@@ -58,9 +59,6 @@ const TEXT_SIZES: Record<SizePreset, number> = { S: 16, M: 22, L: 30, XL: 42 };
 const ELEMENT_SCALES: Record<SizePreset, number> = { S: 0.75, M: 1, L: 1.3, XL: 1.6 };
 const PITCH_3D_ROTATION_DEG = 40;
 const PLAYER_3D_BILLBOARD_TRANSFORM = `rotateX(-${PITCH_3D_ROTATION_DEG}deg)`;
-const GOAL_3D_HEIGHT_PX = 58;
-const GOAL_3D_BACK_HEIGHT_PX = 38;
-const GOAL_3D_TUBE_PX = 5;
 
 /** Color de las fichas colocadas a partir de un jugador real de la plantilla (distinto de la paleta genérica). */
 const SQUAD_PLAYER_COLOR = '#1d4ed8';
@@ -2182,104 +2180,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       </div>
                     ) : item.type === 'goal' ? (
                       is3DView ? (
-                        <div
-                          className={`relative h-full w-full overflow-visible drop-shadow-[0_18px_16px_rgba(0,0,0,0.42)] ${animationClass}`}
-                          style={{ transformStyle: 'preserve-3d' }}
-                        >
-                          <div
-                            className="absolute inset-x-[-5%] bottom-[-8px] h-[18px] rounded-full bg-black/35 blur-[7px]"
-                            style={{ transform: 'translateZ(-1px)' }}
-                          />
-
-                          <div
-                            className="absolute left-0 right-0 bottom-0 overflow-visible"
-                            style={{
-                              height: GOAL_3D_HEIGHT_PX,
-                              transform: 'translateZ(3px) rotateX(-90deg)',
-                              transformOrigin: 'bottom center',
-                              transformStyle: 'preserve-3d'
-                            }}
-                          >
-                            <div
-                              className="absolute left-0 top-0 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
-                              style={{
-                                width: GOAL_3D_TUBE_PX,
-                                height: GOAL_3D_HEIGHT_PX
-                              }}
-                            />
-                            <div
-                              className="absolute right-0 top-0 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
-                              style={{
-                                width: GOAL_3D_TUBE_PX,
-                                height: GOAL_3D_HEIGHT_PX
-                              }}
-                            />
-                            <div
-                              className="absolute left-0 right-0 top-0 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.85)]"
-                              style={{ height: GOAL_3D_TUBE_PX }}
-                            />
-                            <div className="absolute inset-x-[5px] top-[5px] bottom-0 border border-white/35 bg-white/[0.025] shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]" />
-                          </div>
-
-                          <div
-                            className="absolute inset-x-[5px] top-0 h-full border-x-[3px] border-t-[3px] border-white/70 bg-white/[0.03] shadow-[0_0_12px_rgba(255,255,255,0.2)]"
-                            style={{
-                              transform: 'translateZ(2px)',
-                              transformStyle: 'preserve-3d'
-                            }}
-                          >
-                            <div
-                              className="absolute inset-[4px] opacity-45"
-                              style={{
-                                backgroundImage:
-                                  'linear-gradient(to right, rgba(255,255,255,0.58) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.45) 1px, transparent 1px)',
-                                backgroundSize: '13px 13px'
-                              }}
-                            />
-                          </div>
-
-                          <div
-                            className="absolute left-0 top-0 rounded-full bg-white shadow-[0_0_9px_rgba(255,255,255,0.65)]"
-                            style={{
-                              width: GOAL_3D_TUBE_PX,
-                              height: '100%',
-                              transform: 'translateZ(3px)'
-                            }}
-                          />
-                          <div
-                            className="absolute right-0 top-0 rounded-full bg-white shadow-[0_0_9px_rgba(255,255,255,0.65)]"
-                            style={{
-                              width: GOAL_3D_TUBE_PX,
-                              height: '100%',
-                              transform: 'translateZ(3px)'
-                            }}
-                          />
-                          <div
-                            className="absolute left-0 right-0 top-0 rounded-full bg-white/95 shadow-[0_0_9px_rgba(255,255,255,0.58)]"
-                            style={{
-                              height: GOAL_3D_TUBE_PX,
-                              transform: 'translateZ(3px)'
-                            }}
-                          />
-
-                          <div
-                            className="absolute left-[5px] right-[5px] top-0 overflow-hidden border border-white/30 bg-white/[0.025]"
-                            style={{
-                              height: GOAL_3D_BACK_HEIGHT_PX,
-                              transform: `translateZ(${GOAL_3D_HEIGHT_PX - GOAL_3D_BACK_HEIGHT_PX}px) rotateX(-90deg)`,
-                              transformOrigin: 'top center'
-                            }}
-                          >
-                            <div
-                              className="absolute inset-0 opacity-35"
-                              style={{
-                                backgroundImage:
-                                  'linear-gradient(to right, rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.42) 1px, transparent 1px)',
-                                backgroundSize: '12px 12px'
-                              }}
-                            />
-                          </div>
-                        </div>
+                        <GoalFrame3D className={`drop-shadow-[0_18px_16px_rgba(0,0,0,0.42)] ${animationClass}`} />
                       ) : (
                         <div className={`relative h-full w-full border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors overflow-hidden ${animationClass}`}>
                         {showResizeHandles && (

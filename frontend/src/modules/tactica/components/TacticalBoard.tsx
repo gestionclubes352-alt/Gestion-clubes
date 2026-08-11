@@ -308,7 +308,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                             else onToggleConvocado(player.id, false, value);
                           }}
                           title="Convocatoria"
-                          className={`text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                          className={`w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                         >
                           <option value="convocado">Convocado</option>
                           {NOT_CONVOCADO_REASONS.map(r => (
@@ -368,7 +368,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           else onToggleConvocado(player.id, false, value);
                         }}
                         title="Convocatoria"
-                        className="text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none bg-white border-slate-200 text-slate-500"
+                        className="w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none bg-white border-slate-200 text-slate-500"
                       >
                         <option value="convocado">Convocado</option>
                         {NOT_CONVOCADO_REASONS.map(r => (

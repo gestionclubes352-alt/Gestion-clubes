@@ -12,10 +12,10 @@ import { LoginPage } from '@modules/auth';
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { Header, BottomNav, HomeSectionsView } from '@shared/components';
-import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService } from '@shared/services/dataService';
-import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal } from '@shared/services/dataService';
+import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService, competicionesService, calendarioCompeticionService } from '@shared/services/dataService';
+import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal, Competicion, CalendarioCompeticionPartido } from '@shared/services/dataService';
 import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
-import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES } from '@shared/constants';
+import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES, HUESCA_JUVENIL_2627_COMPETITION_TEAMS } from '@shared/constants';
 
 // Modules - Plantilla
 import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
@@ -33,6 +33,7 @@ import { authService } from '@shared/services/authService';
 // Modules - Competicion
 import { CompetitionTable, LeagueTable, CompetitionsConfigView } from '@modules/competicion';
 import type { CompetitionTeam } from '@modules/competicion';
+import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
 import { EquiposInternosView } from '@modules/equiposInternos';
 
 // Modules - Clubes
@@ -261,13 +262,93 @@ const MatchReportWrapper: React.FC<{
   );
 };
 
-const normalizeTeamName = (value: string) => value.trim().toLowerCase();
+const normalizeTeamName = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
 const EXCLUDED_TEAM_FILTER_OPTIONS = new Set(['escuela huesca']);
-const matchesSelectedTeams = (teamName: string | undefined, selectedTeams: string[]) => {
+const containsTeamWords = (value: string | undefined, teamValue: string | undefined) => {
+  const source = normalizeTeamName(value || '');
+  const target = normalizeTeamName(teamValue || '');
+  if (!source || !target) return false;
+  return target.split(' ').every(word => source.includes(word));
+};
+const matchesSelectedTeamNames = (teamNames: Array<string | undefined>, selectedTeams: string[]) => {
   if (!selectedTeams.length) return true;
-  if (!teamName) return false;
-  const normalized = normalizeTeamName(teamName);
-  return selectedTeams.some(team => normalizeTeamName(team) === normalized);
+  const selected = new Set(selectedTeams.map(normalizeTeamName));
+  return teamNames.some(teamName =>
+    typeof teamName === 'string' &&
+    teamName.trim().length > 0 &&
+    selected.has(normalizeTeamName(teamName))
+  );
+};
+const matchesSelectedTeams = (teamName: string | undefined, selectedTeams: string[]) =>
+  matchesSelectedTeamNames([teamName], selectedTeams);
+
+const eventMatchesSelectedTeams = (event: CalendarEvent, selectedTeams: string[], competitionTeams: CompetitionTeam[]) => {
+  if (!selectedTeams.length) return true;
+
+  const directFields = [event.team, event.nombreInterno, event.localTeam, event.visitorTeam];
+  if (matchesSelectedTeamNames(directFields, selectedTeams)) return true;
+
+  const selected = new Set(selectedTeams.map(normalizeTeamName));
+  const eventTeamKeys = directFields.map(value => normalizeTeamName(value || '')).filter(Boolean);
+  const eventClubIds = [event.localTeamClubId, event.visitorTeamClubId].filter(Boolean).map(String);
+
+  return competitionTeams.some((team) => {
+    const internalName = team.equipo || team.nombre || '';
+    if (!selected.has(normalizeTeamName(internalName))) return false;
+
+    const aliases = [team.equipo, team.nombreEnFed, team.nombre]
+      .map(value => normalizeTeamName(value || ''))
+      .filter(Boolean);
+    const directAliasMatch = eventTeamKeys.some(key => aliases.includes(key));
+    if (directAliasMatch) return true;
+
+    const clubIdMatch = team.clubId != null && eventClubIds.includes(String(team.clubId));
+    if (!clubIdMatch) return false;
+
+    const etapa = team.etapa || internalName.split(' ')[0];
+    return (
+      containsTeamWords(event.competition, team.competicion) ||
+      containsTeamWords(event.competition, internalName) ||
+      containsTeamWords(event.competition, etapa)
+    );
+  });
+};
+
+const matchTeamAliases = (team: CompetitionTeam) =>
+  (team.nombreEnFed || team.equipo
+    ? [team.nombreEnFed, team.equipo, ...fallbackFederationAliasesForInternalTeam(team.equipo)]
+    : [team.nombre])
+    .map(value => normalizeTeamName(value || ''))
+    .filter(Boolean);
+
+const FALLBACK_FEDERATION_ALIASES_BY_INTERNAL_TEAM: Record<string, string[]> = {
+  'juvenil a': ['IPC LA ESCUELA'],
+  'cadete a': ['HUESCA-S.D. ESCUELA DE FUTBOL'],
+};
+
+function fallbackFederationAliasesForInternalTeam(teamName: string | undefined): string[] {
+  return FALLBACK_FEDERATION_ALIASES_BY_INTERNAL_TEAM[normalizeTeamName(teamName || '')] || [];
+}
+
+const sideMatchesInternalTeamName = (sideName: string | undefined, internalTeamName: string | undefined) => {
+  const side = normalizeTeamName(sideName || '');
+  if (!side) return false;
+  return [internalTeamName, ...fallbackFederationAliasesForInternalTeam(internalTeamName)]
+    .map(value => normalizeTeamName(value || ''))
+    .filter(Boolean)
+    .includes(side);
+};
+
+const sideMatchesTeam = (sideName: string | undefined, team: CompetitionTeam) => {
+  const side = normalizeTeamName(sideName || '');
+  if (!side) return false;
+  return matchTeamAliases(team).some(alias => alias === side);
 };
 
 const App: React.FC = () => {
@@ -450,6 +531,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       setClubesList([]);
       setCampogramasList([]);
       setEventsList([]);
+      setCompeticionesList([]);
+      setCompetitionCalendarList([]);
       setActiveCampograma(null);
       setIsLoading(true);
       fetchData();
@@ -498,6 +581,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const [clubesList, setClubesList] = useState<Club[]>([]);
   const [campogramasList, setCampogramasList] = useState<Campograma[]>([]);
   const [eventsList, setEventsList] = useState<CalendarEvent[]>([]);
+  const [competicionesList, setCompeticionesList] = useState<Competicion[]>([]);
+  const [competitionCalendarList, setCompetitionCalendarList] = useState<CalendarioCompeticionPartido[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -509,18 +594,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const [showStatus, setShowStatus] = useState<string | null>(null);
 
   const teamFilterOptions = useMemo(() => {
+    const ownCompetitionTeamNames = competitionTeams
+      .filter(team => !currentTeam?.id || String(team.clubId ?? '') === String(currentTeam.id))
+      .map(team => team.equipo || team.nombre);
+    const ownSquadTeamNames = squadList
+      .filter(player => !currentTeam?.id || String(player.clubId ?? '') === String(currentTeam.id) || (!player.clubId && player.club === currentTeam.name))
+      .map(player => player.equipo);
+    const ownCampogramaTeamNames = campogramasList
+      .filter(campograma => !currentTeam?.id || String(campograma.clubId ?? '') === String(currentTeam.id) || (!campograma.clubId && campograma.club === currentTeam.name))
+      .map(campograma => campograma.equipo);
     const values = [
-      ...squadList.map(player => player.equipo),
-      ...usersList.map(user => (user as any).equipo),
-      ...competitionTeams.map(team => team.equipo),
-      ...campogramasList.map(campograma => campograma.equipo),
-      ...eventsList.map(event => event.team),
+      ...ownCompetitionTeamNames,
+      ...ownSquadTeamNames,
+      ...ownCampogramaTeamNames,
     ]
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       .map(value => value.trim())
       .filter(value => !EXCLUDED_TEAM_FILTER_OPTIONS.has(normalizeTeamName(value)));
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [squadList, usersList, competitionTeams, campogramasList, eventsList]);
+  }, [competitionTeams, squadList, campogramasList, currentTeam]);
 
   useEffect(() => {
     if (selectedTeams.length === 0) return;
@@ -658,11 +750,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     });
   };
 
+  const isCurrentCompetitionSeason = (season?: string | null) => {
+    if (!season) return false;
+    const normalized = season.replace(/\s/g, '').replace(/-/g, '/');
+    return normalized === '26/27' || normalized === '2026/2027';
+  };
+
   const fetchData = async (forceSync = false) => {
     if (forceSync) setIsSyncing(true);
 
     try {
-      const [pRes, cRes, uRes, eRes, ctRes, persRes, clRes] = await Promise.all([
+      const [pRes, cRes, uRes, eRes, ctRes, persRes, clRes, compRes, calCompRes] = await Promise.all([
         plantillasService.list(),
         db.campogramas.get(),
         usuariosService.list(),
@@ -670,6 +768,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         equiposService.list(),
         personalService.list(),
         clubesService.list(),
+        competicionesService.list(),
+        calendarioCompeticionService.list(),
       ]);
 
       // Lookups (equipo_id -> equipo, club_id -> club) para derivar nombres en jugadores
@@ -734,6 +834,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 
       // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
       setEventsList((eRes || []).map(eventRowToCalendarEvent));
+      setCompeticionesList((compRes || []) as Competicion[]);
+      setCompetitionCalendarList((calCompRes || []) as CalendarioCompeticionPartido[]);
 
       // Usuarios desde Supabase (acceso al sistema)
       const users: User[] = (uRes || []).map((u: Usuario): User => ({
@@ -754,20 +856,26 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       // Equipos desde Supabase, con fallback para CD Derio
       const ctFallback = currentTeam?.id === 'cd-derio'
         ? [...INITIAL_COMPETITION_TEAMS]
-        : [];
-      const mappedTeams: CompetitionTeam[] = (ctRes || []).map((e: Equipo): CompetitionTeam => ({
+        : currentTeam?.id === 'escuela-huesca'
+          ? [...HUESCA_JUVENIL_2627_COMPETITION_TEAMS]
+          : [];
+      const mappedTeamsRaw: CompetitionTeam[] = (ctRes || []).map((e: Equipo): CompetitionTeam => ({
         id: e.id,
         clubId: e.club_id,
         nombre: e.nombre,
         estadio: e.estadio || '',
         localidad: e.localidad || '',
-        logoUrl: e.logo_url || undefined,
+        logoUrl: e.logo_url || getFederationTeamLogo(e.nombre_en_fed) || getFederationTeamLogo(e.nombre) || undefined,
         equipo: e.sub_equipo,
         nombreEnFed: e.nombre_en_fed,
         etapa: e.categoria,
         competicion: e.competicion,
+        temporada: e.temporada,
         enlace: e.enlace,
       }));
+      const mappedTeams = currentTeam?.id === 'escuela-huesca'
+        ? mappedTeamsRaw.filter(team => isCurrentCompetitionSeason(team.temporada))
+        : mappedTeamsRaw;
       setCompetitionTeams(mergeWithConstants(mappedTeams, ctFallback, []));
 
       // Clubes desde Supabase, con fallback para Escuela Huesca
@@ -775,7 +883,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       const mappedClubes: Club[] = (clRes || []).map((c: DbClub): Club => ({
         id: c.id,
         nombre: c.nombre,
-        logoUrl: c.escudo_url || undefined,
+        logoUrl: c.escudo_url || getFederationTeamLogo(c.nombre) || undefined,
         localidad: c.ciudad,
       }));
       setClubesList(mergeWithConstants(mappedClubes, clFallback, []));
@@ -933,6 +1041,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [squadList, currentTeam]
   );
 
+  const filteredCurrentClubSquadList = useMemo(
+    () => currentClubSquadList.filter(player => matchesSelectedTeams(player.equipo, selectedTeams)),
+    [currentClubSquadList, selectedTeams]
+  );
+
   const filteredUsersList = useMemo(
     () => usersList.filter(user => matchesSelectedTeams((user as any).equipo, selectedTeams)),
     [usersList, selectedTeams]
@@ -949,6 +1062,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [competitionTeams, currentTeam?.id]
   );
 
+  const filteredMisClubCompetitionTeams = useMemo(
+    () => misClubCompetitionTeams.filter(team => matchesSelectedTeams(team.equipo || team.nombre, selectedTeams)),
+    [misClubCompetitionTeams, selectedTeams]
+  );
+
+  const filteredPersonalList = useMemo(() => {
+    if (!selectedTeams.length) return personalList;
+    const selected = new Set(selectedTeams.map(normalizeTeamName));
+    return personalList.filter(member => {
+      const equipoIds = (member as any).equipo_ids;
+      if (!Array.isArray(equipoIds) || equipoIds.length === 0) return false;
+      return equipoIds.some((id: string | number) => {
+        const team = competitionTeams.find(item => String(item.id) === String(id));
+        if (!team) return false;
+        return selected.has(normalizeTeamName(team.equipo || team.nombre || ''));
+      });
+    });
+  }, [personalList, selectedTeams, competitionTeams]);
+
   // Equipos del propio club (p.ej. para asignar personal): excluye equipos rivales de otros clubes.
   const ownClubCompetitionTeams = useMemo(
     () => misClubCompetitionTeams
@@ -962,12 +1094,122 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   );
 
   const filteredEventsList = useMemo(
-    () => eventsList.filter(event => matchesSelectedTeams(event.team, selectedTeams)),
-    [eventsList, selectedTeams]
+    () => eventsList.filter(event => eventMatchesSelectedTeams(event, selectedTeams, competitionTeams)),
+    [eventsList, selectedTeams, competitionTeams]
   );
 
+  const competitionsById = useMemo(
+    () => new Map(competicionesList.map(competition => [String(competition.id), competition])),
+    [competicionesList]
+  );
+
+  const clubIdByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, clubId?: string | number | null) => {
+      if (!name || clubId == null) return;
+      map.set(normalizeTeamName(name), String(clubId));
+    };
+
+    clubesList.forEach(club => register(club.nombre, club.id));
+    competitionTeams.forEach(team => {
+      register(team.nombre, team.clubId);
+      register(team.nombreEnFed, team.clubId);
+    });
+
+    return map;
+  }, [clubesList, competitionTeams]);
+
+  const ownCompetitionTeams = useMemo(
+    () => currentTeam
+      ? competitionTeams.filter(team => String(team.clubId ?? '') === String(currentTeam.id))
+      : competitionTeams,
+    [competitionTeams, currentTeam?.id]
+  );
+
+  const knownOwnInternalTeamNames = useMemo(() => {
+    const names = [
+      ...ownCompetitionTeams.map(team => team.equipo || team.nombre),
+      ...currentClubSquadList.map(player => player.equipo),
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(value => value.trim());
+    return Array.from(new Set(names));
+  }, [ownCompetitionTeams, currentClubSquadList]);
+
+  const matchIdentity = (match: Pick<Match, 'competition' | 'date' | 'localTeam' | 'visitorTeam' | 'jornada'>) =>
+    [
+      normalizeTeamName(match.competition || ''),
+      String(match.date || '').slice(0, 10),
+      normalizeTeamName(match.localTeam || ''),
+      normalizeTeamName(match.visitorTeam || ''),
+      normalizeTeamName(match.jornada || ''),
+    ].join('|');
+
+  const competitionCalendarMatchesList = useMemo(() => {
+    const selected = new Set(selectedTeams.map(normalizeTeamName));
+    const rows: Match[] = [];
+
+    competitionCalendarList.forEach(row => {
+      const competition = competitionsById.get(String(row.competicion_id));
+      const competitionName = competition?.nombre || 'Liga';
+      const matchingTeams = ownCompetitionTeams.filter(team => {
+        return sideMatchesTeam(row.equipo_local, team) || sideMatchesTeam(row.equipo_visitante, team);
+      });
+      const matchingInternalNames = new Map<string, { id: string; internalName: string; isLocal: boolean }>();
+
+      matchingTeams.forEach(team => {
+        const internalName = team.equipo || team.nombre || '';
+        if (selected.size > 0 && !selected.has(normalizeTeamName(internalName))) return;
+        matchingInternalNames.set(normalizeTeamName(internalName), {
+          id: String(team.id),
+          internalName,
+          isLocal: sideMatchesTeam(row.equipo_local, team),
+        });
+      });
+
+      const fallbackTeamNames = selected.size > 0 ? selectedTeams : knownOwnInternalTeamNames;
+      fallbackTeamNames.forEach(internalName => {
+        const normalizedInternalName = normalizeTeamName(internalName);
+        if (!normalizedInternalName || matchingInternalNames.has(normalizedInternalName)) return;
+
+        const isLocal = sideMatchesInternalTeamName(row.equipo_local, internalName);
+        const isVisitor = sideMatchesInternalTeamName(row.equipo_visitante, internalName);
+        if (!isLocal && !isVisitor) return;
+
+        matchingInternalNames.set(normalizedInternalName, {
+          id: `fallback-${normalizedInternalName}`,
+          internalName,
+          isLocal,
+        });
+      });
+
+      Array.from(matchingInternalNames.values()).forEach(({ id, internalName, isLocal }) => {
+        rows.push({
+          id: `competition-calendar:${row.id}:${id}`,
+          competition: competitionName,
+          date: row.fecha,
+          opponent: isLocal ? row.equipo_visitante : row.equipo_local,
+          status: row.resultado ? 'Finished' : 'Upcoming',
+          score: row.resultado || undefined,
+          jornada: String(row.jornada),
+          localTeam: row.equipo_local,
+          visitorTeam: row.equipo_visitante,
+          localTeamClubId: clubIdByTeamName.get(normalizeTeamName(row.equipo_local)),
+          visitorTeamClubId: clubIdByTeamName.get(normalizeTeamName(row.equipo_visitante)),
+          time: '',
+          location: '',
+          nombreInterno: internalName,
+          team: internalName,
+          readonly: true,
+        });
+      });
+    });
+
+    return rows;
+  }, [competitionCalendarList, competitionsById, ownCompetitionTeams, selectedTeams, knownOwnInternalTeamNames, clubIdByTeamName]);
+
   const filteredMatchesList = useMemo(() => {
-    return filteredEventsList
+    const eventMatches = filteredEventsList
       .filter(e => e.type === 'Partido')
       .map(e => ({
         id: e.id,
@@ -986,7 +1228,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         nombreInterno: e.nombreInterno,
         team: e.team
       } as Match));
-  }, [filteredEventsList]);
+    const eventMatchKeys = new Set(eventMatches.map(matchIdentity));
+    const derivedMatches = competitionCalendarMatchesList.filter(match => !eventMatchKeys.has(matchIdentity(match)));
+    return [...eventMatches, ...derivedMatches];
+  }, [filteredEventsList, competitionCalendarMatchesList]);
 
   // Componente de carga
   const LoadingScreen = () => (
@@ -1091,7 +1336,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/staff" element={
                 <StaffTable
-                  staff={personalList}
+                  staff={filteredPersonalList}
                   onEdit={staff => { setIsNewStaff(false); setEditingStaff(staff); }}
                   onDelete={async id => { try { await personalService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
                   onCreate={() => { const newStaff: Personal = { id: crypto.randomUUID(), nombre: '', cargo: '', club_id: currentTeam?.id || '', telefono: undefined, dni: undefined, foto_url: undefined }; setIsNewStaff(true); setEditingStaff(newStaff); }}
@@ -1162,7 +1407,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/equipos-internos" element={
                 <EquiposInternosView
-                  equipos={misClubCompetitionTeams}
+                  equipos={filteredMisClubCompetitionTeams}
                   clubId={currentTeam?.id || ''}
                   onEdit={async t => {
                     const exists = competitionTeams.some(existing => String(existing.id) === String(t.id));
@@ -1209,7 +1454,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     <TacticalBoard
                       formacion={activeCampograma.formacion}
                       positions={activeCampograma.positions || []}
-                      squad={squadList}
+                      squad={filteredSquadList}
                       notConvocadoIds={[]}
                       onAssignPlayer={handleAssignPlayer}
                       onRemovePlayer={handleRemovePlayer}
@@ -1233,10 +1478,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
-                <CalendarView events={filteredEventsList} squad={currentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
+                <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} players={currentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -1271,7 +1516,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} />
               } />
-              <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={misClubCompetitionTeams} />} />
+              <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
@@ -1467,4 +1712,3 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 };
 
 export default App;
-

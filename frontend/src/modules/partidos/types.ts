@@ -20,6 +20,7 @@ export interface Match {
   location?: string;
   nombreInterno?: string;
   team?: string;
+  readonly?: boolean;
 }
 
 export interface VideoEvent {

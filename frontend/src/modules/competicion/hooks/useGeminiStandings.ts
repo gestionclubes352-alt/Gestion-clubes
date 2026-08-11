@@ -12,7 +12,7 @@ export interface UseGeminiStandingsOptions {
   teamName: string;
   /** Nombre de la competición (ej: "Tercera RFEF") */
   competition: string;
-  /** Temporada (ej: "2025-2026") */
+  /** Temporada (ej: "2026-2027") */
   season?: string;
   /** Si se habilita la carga automática al montar */
   autoFetch?: boolean;
@@ -50,7 +50,7 @@ export interface UseGeminiStandingsReturn {
 export const useGeminiStandings = ({
   teamName,
   competition,
-  season = '2025-2026',
+  season = '2026-2027',
   autoFetch = true,
 }: UseGeminiStandingsOptions): UseGeminiStandingsReturn => {
   const [standings, setStandings] = useState<GeminiStandingRow[]>([]);

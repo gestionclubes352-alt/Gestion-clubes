@@ -73,6 +73,27 @@ export const HUESCA_JUVENIL_COMPETITION_TEAMS: CompetitionTeam[] = [
   { id: 'hj-13', clubId: 'huesca-sd', nombre: 'HUESCA-S.D.', estadio: 'Por definir', localidad: 'Huesca', equipo: 'Juvenil A' },
 ];
 
+export const HUESCA_JUVENIL_2627_COMPETITION_TEAMS: CompetitionTeam[] = [
+  { id: 'huesca-2627-01', nombre: 'E.F.B. EJEA', estadio: 'Por definir', localidad: 'Ejea de los Caballeros', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-02', nombre: 'CALAMOCHA-C.F.', estadio: 'Por definir', localidad: 'Calamocha', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-03', nombre: 'AMISTAD-U.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-04', nombre: 'ESTADIO MIRALBUENO EL OLIVAR', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-05', nombre: 'RACING CLUB ZARAGOZA', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-06', nombre: 'SANTO DOMINGO JUVENTUD C.F.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-07', nombre: 'HERNAN CORTES JUNQUERA-C.F.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-08', nombre: 'FRAGA-FUTBOL BASE', estadio: 'Por definir', localidad: 'Fraga', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-09', nombre: 'SAN GREGORIO ARRABAL-C.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-10', nombre: 'IPC LA ESCUELA', estadio: 'Por definir', localidad: 'Huesca', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-11', nombre: 'REAL ZARAGOZA S.A.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-12', nombre: 'HUESCA-S.D.', clubId: 'huesca-sd', estadio: 'Por definir', localidad: 'Huesca', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-13', nombre: 'STADIUM CASABLANCA-C.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-14', nombre: 'EBRO-C.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-15', nombre: 'OLIVER-C.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-16', nombre: 'MONTECARLO-U.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-17', nombre: 'LA LITERA-ESCUELA DEP.', estadio: 'Por definir', localidad: 'Tamarite de Litera', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+  { id: 'huesca-2627-18', nombre: 'BALSAS PICARRAL-U.D.', estadio: 'Por definir', localidad: 'Zaragoza', equipo: 'Juvenil A', competicion: 'LIGA NACIONAL JUVENIL, Grupo 6', temporada: '26/27' },
+];
+
 /**
  * Equipo propio de Escuela Huesca → Cadete A, vinculado al club HUESCA-S.D.
  */

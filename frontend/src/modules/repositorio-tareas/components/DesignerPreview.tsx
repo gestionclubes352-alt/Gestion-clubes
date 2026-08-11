@@ -3,6 +3,7 @@ import type { DesignerItem } from '@modules/entrenamientos/types';
 import type { FieldStructure } from '../types';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
+import GoalFrame3D from '@modules/entrenamientos/components/GoalFrame3D';
 
 interface DesignerPreviewProps {
   items: DesignerItem[];
@@ -129,6 +130,26 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
         if (item.type === 'goal') {
           const width = `${item.width || 16}%`;
           const height = `${item.height || 8}%`;
+
+          if (is3D) {
+            return (
+              <div
+                key={item.id}
+                className="absolute overflow-visible"
+                style={{
+                  left: x,
+                  top: y,
+                  width,
+                  height,
+                  transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg) translateZ(8px)`,
+                  transformStyle: 'preserve-3d',
+                }}
+              >
+                <GoalFrame3D compact />
+              </div>
+            );
+          }
+
           return (
             <div
               key={item.id}

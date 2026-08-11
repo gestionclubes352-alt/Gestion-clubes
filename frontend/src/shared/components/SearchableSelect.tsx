@@ -205,7 +205,13 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full z-[1000] mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div
+          className="absolute right-0 top-full z-[1000] mt-1 w-max overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+          style={{
+            minWidth: 'max(12rem, 100%)',
+            maxWidth: 'min(22rem, calc(100vw - 2rem))',
+          }}
+        >
           <div className="relative border-b border-slate-100">
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400" aria-hidden="true"></i>
             <input
@@ -250,7 +256,7 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
                           : 'text-slate-700 hover:bg-slate-50'
                       } disabled:cursor-not-allowed disabled:opacity-45`}
                     >
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{option.label}</span>
                       {option.value === selectedValue && (
                         <i className="fa-solid fa-check text-[10px] text-blue-600" aria-hidden="true"></i>
                       )}

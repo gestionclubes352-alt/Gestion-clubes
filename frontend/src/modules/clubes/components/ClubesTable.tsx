@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Club } from '../types';
 import EditClubModal from './EditClubModal';
+import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
 
 interface ClubesTableProps {
   clubes: Club[];
@@ -116,6 +117,7 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredClubes.map((club) => {
             const isMyClub = clubId && String(club.id) === String(clubId);
+            const logoUrl = club.logoUrl || getFederationTeamLogo(club.nombre);
             return (
               <div
                 key={String(club.id)}
@@ -131,8 +133,8 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
                   </div>
                 )}
                 <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {club.logoUrl ? (
-                    <img loading="lazy" decoding="async" src={club.logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
+                  {logoUrl ? (
+                    <img loading="lazy" decoding="async" src={logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
                   ) : (
                     <i className="fa-solid fa-shield-halved text-slate-300"></i>
                   )}
@@ -188,6 +190,7 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
             <tbody>
               {filteredClubes.map((club) => {
                 const isMyClub = clubId && String(club.id) === String(clubId);
+                const logoUrl = club.logoUrl || getFederationTeamLogo(club.nombre);
                 return (
                   <tr
                     key={String(club.id)}
@@ -197,8 +200,8 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
                   >
                     <td className="px-4 py-2">
                       <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
-                        {club.logoUrl ? (
-                          <img loading="lazy" decoding="async" src={club.logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
+                        {logoUrl ? (
+                          <img loading="lazy" decoding="async" src={logoUrl} alt={club.nombre} className="max-w-full max-h-full object-contain" />
                         ) : (
                           <i className="fa-solid fa-shield-halved text-slate-300 text-xs"></i>
                         )}

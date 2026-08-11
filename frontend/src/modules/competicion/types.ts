@@ -16,6 +16,8 @@ export interface CompetitionTeam {
   etapa?: string;
   /** Nombre de la competición en la que participa. */
   competicion?: string;
+  /** Temporada de la competicion (ej: '26/27' o '2026/2027'). */
+  temporada?: string;
   /** URL del enlace a la competición/federación. */
   enlace?: string;
 }

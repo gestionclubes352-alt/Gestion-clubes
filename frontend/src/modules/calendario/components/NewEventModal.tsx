@@ -210,14 +210,9 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
         .filter((team) => String(team.clubId) === String(ownClubId))
         .map(toTeamOption)
         .filter((option) => option.value.trim().length > 0)
-    : teamOptions;
+    : [];
 
-  const matchOwnTeamOptions = teamOptions.filter((option) =>
-    allCompetitionTeams.some(team =>
-      String(team.clubId ?? '') === String(option.clubId ?? '') &&
-      (team.equipo || team.nombre || '') === option.value
-    )
-  );
+  const matchOwnTeamOptions = subTeamOptions;
 
   const handleCreateTeamForCompetition = async ({ value, club }: { value: string; club?: string }): Promise<EquipoOption> => {
     if (!selectedCompetitionId) throw new Error('Selecciona una competición antes de añadir equipos');

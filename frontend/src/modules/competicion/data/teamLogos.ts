@@ -17,6 +17,19 @@ const FEDERATION_TEAM_LOGOS: Record<string, string> = {
   'MONTECARLO-U.D.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Equipos/00100_0000041121_ESCUDITO2.jpg',
   'LA LITERA-ESCUELA DEP.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000157222_ESCUDO_E.D._LA_LITERA.jpg',
   'BALSAS PICARRAL-U.D.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000391775_escudo.jpg',
+  'PE\u00d1AS OSCENSES-C.D. Aramovil': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000080862_penas_oscenses_2.jpg',
+  'PE\u00d1AS OSCENSES-C.D.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000080862_penas_oscenses_2.jpg',
+  'HUESCA-S.D. ESCUELA DE FUTBOL': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000225155_EFH_Logo_66.png',
+  'MONZON FUTBOL BASE - Mallazo': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000139369_escudocolorfaf.jpg',
+  'MONZON FUTBOL BASE': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000139369_escudocolorfaf.jpg',
+  'ALMUDEVAR A.D.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000040474_ESCUDO%20ALMUDEVAR.jpg',
+  'BARBASTRO-U.D.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000400603_Escudo_02.png',
+  'SOBRARBE-ESCUELA DEP.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000315862_logo_escuela.jpg',
+  'HUESCA INTERNATIONAL FOOTBALL ACADEMY "A"': 'https://files.futbolaragon.com/pnfg/img/web_responsive_2/ESP/escudo_sm_resultados_.jpg',
+  'HUESCA INTERNATIONAL FOOTBALL ACADEMY': 'https://files.futbolaragon.com/pnfg/img/web_responsive_2/ESP/escudo_sm_resultados_.jpg',
+  'JACETANO-C.F. Arok Sport': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000314482_logo_Jacetano_nuevo.png',
+  'JACETANO-C.F.': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000314482_logo_Jacetano_nuevo.png',
+  'BINEFAR-FUTBOL BASE': 'https://ffaragon.filesnovanet.es/pnfg/pimg/Clubes/00100_0000460195_Logo_Club.jpg',
 };
 
 export const normalizeFederationTeamName = (name: string) =>

@@ -61,103 +61,20 @@ const EditEquipoInternoModal: React.FC<EditEquipoInternoModalProps> = ({ equipo,
             />
           </div>
 
-          {/* Etapa y Equipo Interno */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Etapa
-              </label>
-              <SearchableSelect
-                value={formData.etapa || ''}
-                onChange={(e) => setFormData({ ...formData, etapa: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              >
-                <option value="">-- Sin etapa --</option>
-                {ETAPAS.map(etapa => (
-                  <option key={etapa} value={etapa}>{etapa}</option>
-                ))}
-              </SearchableSelect>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Equipo Interno
-              </label>
-              <input
-                type="text"
-                value={formData.equipo || ''}
-                onChange={(e) => setFormData({ ...formData, equipo: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-                placeholder="Ej: A, B, C..."
-              />
-            </div>
-          </div>
-
-          {/* Equipo Fed */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-              Nombre en Federación
+              Etapa / Categoría
             </label>
-            <input
-              type="text"
-              value={formData.nombreEnFed || ''}
-              onChange={(e) => setFormData({ ...formData, nombreEnFed: e.target.value })}
+            <SearchableSelect
+              value={formData.etapa || ''}
+              onChange={(e) => setFormData({ ...formData, etapa: e.target.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              placeholder="Ej: IPC LA ESCUELA"
-            />
-          </div>
-
-          {/* Escudo */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-              Escudo (URL)
-            </label>
-            <input
-              type="text"
-              value={formData.logoUrl || ''}
-              onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              placeholder="https://..."
-            />
-          </div>
-
-          {/* Estadio y Localidad */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Estadio / Campo
-              </label>
-              <input
-                type="text"
-                value={formData.estadio || ''}
-                onChange={(e) => setFormData({ ...formData, estadio: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Localidad
-              </label>
-              <input
-                type="text"
-                value={formData.localidad || ''}
-                onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              />
-            </div>
-          </div>
-
-          {/* Enlace */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-              Enlace (federación / competición)
-            </label>
-            <input
-              type="text"
-              value={formData.enlace || ''}
-              onChange={(e) => setFormData({ ...formData, enlace: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              placeholder="https://..."
-            />
+            >
+              <option value="">-- Sin etapa --</option>
+              {ETAPAS.map(etapa => (
+                <option key={etapa} value={etapa}>{etapa}</option>
+              ))}
+            </SearchableSelect>
           </div>
         </div>
 

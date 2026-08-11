@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { AttendanceStatus, CalendarEvent, SessionTask } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
+import type { Club } from '@modules/clubes/types';
 import type { Player } from '@modules/plantilla';
 import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
@@ -12,6 +13,7 @@ import SessionAttendancePanel from './SessionAttendancePanel';
 import SessionAttendanceSummary from './SessionAttendanceSummary';
 import { getAttendanceSessionScope, isSelectiveAttendanceSession, normalizeAttendanceForEvent } from '../utils/attendance';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
 // Carga diferida: el informe de partido es la vista más pesada de la app y solo
 // se abre al pinchar un partido, así que no debe viajar en el bundle inicial.
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
@@ -23,6 +25,7 @@ interface CalendarViewProps {
   onDeleteEvent: (id: string) => void;
   onEditEvent?: (event: CalendarEvent) => void;
   competitionTeams?: CompetitionTeam[];
+  clubes?: Club[];
   ownClubId?: string;
 }
 
@@ -37,7 +40,7 @@ const getDefaultTrainingEvent = (events: CalendarEvent[]): CalendarEvent | null 
   return trainings[0] ?? null;
 };
 
-const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveEvent, onDeleteEvent, onEditEvent, competitionTeams, ownClubId }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveEvent, onDeleteEvent, onEditEvent, competitionTeams, clubes = [], ownClubId }) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -102,6 +105,54 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     () => new Set(availableTeams.map(team => team.trim().toLowerCase())),
     [availableTeams]
   );
+
+  const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
+
+  const clubLogoByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, logoUrl?: string) => {
+      if (!name || !logoUrl) return;
+      map.set(normalizeFederationTeamName(name), logoUrl);
+    };
+
+    clubes.forEach(club => {
+      register(club.nombre, club.logoUrl || getFederationTeamLogo(club.nombre));
+    });
+    competitionTeams?.forEach(team => {
+      const logoUrl = team.clubId != null
+        ? clubLogoById.get(String(team.clubId))
+        : undefined;
+      register(team.nombre, logoUrl);
+      register(team.nombreEnFed, logoUrl);
+    });
+
+    return map;
+  }, [clubes, competitionTeams, clubLogoById]);
+
+  const resolveTeamLogo = (teamName?: string | null, clubId?: string | null): string | undefined => {
+    if (clubId) {
+      const clubLogo = clubLogoById.get(String(clubId));
+      if (clubLogo) return clubLogo;
+    }
+    if (!teamName) return undefined;
+    return clubLogoByTeamName.get(normalizeFederationTeamName(teamName));
+  };
+
+  const MatchTeamMini: React.FC<{ name: string; clubId?: string }> = ({ name, clubId }) => {
+    const logoUrl = resolveTeamLogo(name, clubId);
+    return (
+      <span className="flex min-w-0 flex-col items-center text-center">
+        <span className="mb-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/80 shadow-sm ring-1 ring-black/5">
+          {logoUrl ? (
+            <img loading="lazy" decoding="async" src={logoUrl} alt="" className="h-full w-full object-contain" />
+          ) : (
+            <i className="fa-solid fa-shield-halved text-[8px] opacity-40"></i>
+          )}
+        </span>
+        <span className="truncate block w-full">{name}</span>
+      </span>
+    );
+  };
 
   const sessionDefaultLabel = t('calendarView.sessionDefault');
   const getSessionTypeLabel = (event: CalendarEvent) => (event.title || event.type || sessionDefaultLabel).trim();
@@ -1049,10 +1100,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                             <div className="flex flex-col gap-0.5 p-0.5 w-full" onClick={() => handleEventClick(ev)}>
                               <div className="text-[9px] font-bold leading-tight">{ev.time}</div>
                               {(ev.localTeam && ev.visitorTeam) ? (
-                                <div className="text-[8px] font-semibold leading-tight">
-                                  <span className="truncate block">{ev.localTeam}</span>
+                                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-[8px] font-semibold leading-tight">
+                                  <MatchTeamMini name={ev.localTeam} clubId={ev.localTeamClubId} />
                                   <span className="text-red-700 font-black">VS</span>
-                                  <span className="truncate block">{ev.visitorTeam}</span>
+                                  <MatchTeamMini name={ev.visitorTeam} clubId={ev.visitorTeamClubId} />
                                 </div>
                               ) : (
                                 <div className="text-[8px] font-semibold leading-tight truncate">
