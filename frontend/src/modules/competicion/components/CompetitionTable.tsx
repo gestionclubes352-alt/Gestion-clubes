@@ -4,6 +4,7 @@ import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
 import EditTeamModal from './EditTeamModal';
 import { getTeamConfig } from '@shared/services/dataService';
+import { getFederationTeamLogo } from '../data/teamLogos';
 
 interface CompetitionTableProps {
   teams: CompetitionTeam[];
@@ -47,7 +48,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
       const club = t.clubId != null ? clubById.get(String(t.clubId)) : undefined;
       const key = club ? String(club.id) : `__sin_club__${t.nombre.trim().toUpperCase()}`;
       const displayNombre = club ? club.nombre : t.nombre;
-      const displayLogo = club?.logoUrl || t.logoUrl;
+      const displayLogo = club?.logoUrl || t.logoUrl || getFederationTeamLogo(t.nombreEnFed) || getFederationTeamLogo(t.nombre);
       if (!map.has(key)) {
         map.set(key, { nombre: displayNombre, logoUrl: displayLogo, equipos: [], isOwn: !!clubId && String(t.clubId) === String(clubId) });
       }

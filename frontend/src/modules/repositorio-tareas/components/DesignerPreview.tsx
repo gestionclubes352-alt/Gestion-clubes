@@ -8,6 +8,7 @@ interface DesignerPreviewProps {
   items: DesignerItem[];
   /** Estructura de campo con la que se guardó la tarea (por defecto 'libre', sin líneas de campo) */
   fieldStructure?: FieldStructure;
+  is3D?: boolean;
   className?: string;
 }
 
@@ -21,7 +22,10 @@ const FIELD_BACKGROUND = {
   backgroundBlendMode: 'soft-light, multiply, normal',
 } as const;
 
-const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure = 'libre', className = '' }) => {
+const PITCH_3D_ROTATION_DEG = 40;
+const PLAYER_3D_BILLBOARD_TRANSFORM = `rotateX(-${PITCH_3D_ROTATION_DEG}deg)`;
+
+const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure = 'libre', is3D = false, className = '' }) => {
   const sortedItems = [...(items || [])].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
   const isHalfField = fieldStructure === 'ataque' || fieldStructure === 'defensa';
 
@@ -134,7 +138,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 top: y,
                 width,
                 height,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`,
               }}
             />
           );
@@ -144,20 +148,28 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
           return (
             <div
               key={item.id}
-              className="absolute rounded-full border-[1.5px] border-white flex items-center justify-center"
+              className="absolute"
               style={{
                 left: x,
                 top: y,
                 width: '5%',
-                height: '5%',
-                backgroundColor: item.color || '#ffffff',
                 transform: `translate(-50%, -50%) scale(${item.scale || 1})`,
+                transformStyle: 'preserve-3d',
                 aspectRatio: '1 / 1',
               }}
             >
-              <span className="text-[6px] font-black text-white leading-none">
-                {item.type.replace('player-', '')}
-              </span>
+              <div
+                className="flex h-full w-full items-center justify-center rounded-full border-[1.5px] border-white"
+                style={{
+                  backgroundColor: item.color || '#ffffff',
+                  transform: is3D ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
+                  transformStyle: 'preserve-3d',
+                }}
+              >
+                <span className="text-[6px] font-black text-white leading-none">
+                  {item.type.replace('player-', '')}
+                </span>
+              </div>
             </div>
           );
         }
@@ -223,7 +235,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
               style={{
                 left: x,
                 top: y,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) scale(${item.scale || 1})`,
               }}
             >
               <SlalomPoleIcon size={12} />
@@ -242,7 +254,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 width: '8px',
                 height: '8px',
                 backgroundColor: item.color || '#e2e8f0',
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`,
               }}
             />
           );

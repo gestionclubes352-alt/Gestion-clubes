@@ -42,6 +42,18 @@ export const competicionEquiposService = {
     }));
   },
 
+  async addTeamToCompeticion(competicionId: string, team: EquipoRef): Promise<void> {
+    const { error } = await supabase
+      .from('competicion_equipos')
+      .insert({
+        competicion_id: competicionId,
+        equipo_id: team.equipoId || null,
+        equipo_rival_id: team.equipoRivalId || null,
+      });
+
+    if (error && error.code !== '23505') throw error;
+  },
+
   /**
    * Reemplaza todos los equipos (propios y rivales) de una competición.
    * Primero elimina los existentes y luego inserta la nueva lista.

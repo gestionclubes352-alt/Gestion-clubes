@@ -39,7 +39,7 @@ export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 
       const cx = (item.x / 100) * width;
       const cy = (item.y / 100) * height;
       const isPlayer = item.type.startsWith('player-');
-      const isCone = item.type === 'cone';
+      const isCone = item.type === 'cone' || item.type === 'slalom';
 
       if (item.type === 'zone') {
         const w = ((item.width || 15) / 100) * width;
@@ -52,12 +52,17 @@ export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 
       } else if (item.type === 'goal') {
         const w = ((item.width || 16) / 100) * width;
         const h = ((item.height || 8) / 100) * height;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(((item.rotation || 0) * Math.PI) / 180);
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
-        ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+        ctx.strokeRect(-w / 2, -h / 2, w, h);
+        ctx.restore();
         ctx.lineWidth = 1.5;
       } else if (isPlayer || isCone) {
-        const radius = isPlayer ? 6 : 4;
+        const scale = item.scale || 1;
+        const radius = (isPlayer ? 6 : 4) * scale;
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fillStyle = item.color || '#ffffff';

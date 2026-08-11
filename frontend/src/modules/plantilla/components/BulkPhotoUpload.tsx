@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
 import { Player } from '../types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface BulkPhotoUploadProps {
   squad: Player[];
@@ -184,7 +185,7 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
                       <img loading="lazy" decoding="async" src={row.previewUrl} className="w-11 h-11 rounded-lg object-cover object-top border border-slate-200 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] text-slate-400 truncate">{row.file.name}</p>
-                        <select
+                        <SearchableSelect
                           value={row.playerId}
                           disabled={row.status === 'uploading' || row.status === 'done'}
                           onChange={e => setRowPlayer(row.key, e.target.value)}
@@ -197,7 +198,7 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
                               {p.nombre}
                             </option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 ml-auto sm:ml-0">

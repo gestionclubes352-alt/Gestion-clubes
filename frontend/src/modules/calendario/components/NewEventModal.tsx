@@ -4,9 +4,10 @@ import type { CalendarEvent, EventType, EventFormData } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import EquipoSelect, { type EquipoOption } from '../../../shared/components/EquipoSelect';
-import { clubesService, equiposRivalesService } from '@shared/services';
+import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
-import type { Competicion, EquipoRival } from '@shared/services/dataService';
+import type { Competicion, Equipo, EquipoRival } from '@shared/services/dataService';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const toLocalDateString = (d: Date): string => {
   const year = d.getFullYear();
@@ -55,6 +56,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
   const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
   const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
+  const [createdCompetitionTeams, setCreatedCompetitionTeams] = useState<CompetitionTeam[]>([]);
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -128,10 +130,24 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   }, [initialDate, currentEvent]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'competition') {
+      setFormData({
+        ...formData,
+        competition: value,
+        team: '',
+        localTeam: '',
+        visitorTeam: '',
+        localTeamClubId: '',
+        visitorTeamClubId: '',
+        nombreInterno: '',
+      });
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
-  // Resolver el id de la competición seleccionada (el <select> guarda el nombre, no el id)
+  // Resolver el id de la competición seleccionada (el selector guarda el nombre, no el id)
   const selectedCompetitionId = useMemo(() => {
     const found = competitions.find(c => c.nombre === formData.competition);
     return found?.id;
@@ -167,9 +183,17 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
   // Si la competición seleccionada tiene equipos configurados, mostrar solo esos (propios + rivales de catálogo);
   // si no hay competición seleccionada o no tiene equipos configurados, mostrar todos como fallback.
-  const relevantOwnTeams = configuredOwnTeamIds && configuredOwnTeamIds.size > 0
-    ? competitionTeams.filter((team) => configuredOwnTeamIds.has(String(team.id)))
-    : competitionTeams;
+  const allCompetitionTeams = useMemo(() => {
+    const seen = new Set(competitionTeams.map(team => String(team.id)));
+    return [
+      ...competitionTeams,
+      ...createdCompetitionTeams.filter(team => !seen.has(String(team.id))),
+    ];
+  }, [competitionTeams, createdCompetitionTeams]);
+
+  const relevantOwnTeams = selectedCompetitionId && configuredOwnTeamIds
+    ? allCompetitionTeams.filter((team) => configuredOwnTeamIds.has(String(team.id)))
+    : [];
 
   const relevantRivals = configuredRivalIds.size > 0
     ? rivalCatalog.filter((rival) => configuredRivalIds.has(String(rival.id)))
@@ -182,11 +206,67 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
   // Para sesiones (entrenamientos propios) solo tiene sentido elegir entre los equipos del propio club
   const subTeamOptions: EquipoOption[] = ownClubId
-    ? competitionTeams
+    ? allCompetitionTeams
         .filter((team) => String(team.clubId) === String(ownClubId))
         .map(toTeamOption)
         .filter((option) => option.value.trim().length > 0)
     : teamOptions;
+
+  const matchOwnTeamOptions = teamOptions.filter((option) =>
+    allCompetitionTeams.some(team =>
+      String(team.clubId ?? '') === String(option.clubId ?? '') &&
+      (team.equipo || team.nombre || '') === option.value
+    )
+  );
+
+  const handleCreateTeamForCompetition = async ({ value, club }: { value: string; club?: string }): Promise<EquipoOption> => {
+    if (!selectedCompetitionId) throw new Error('Selecciona una competición antes de añadir equipos');
+    const clubName = club?.trim();
+    const teamName = value.trim();
+    if (!clubName || !teamName) throw new Error('Indica club y equipo');
+
+    let dbClub = clubs.find((item) => item.nombre.trim().toLowerCase() === clubName.toLowerCase());
+    if (!dbClub) {
+      const createdClub = await clubesService.create({ nombre: clubName } as any);
+      dbClub = { id: createdClub.id, nombre: createdClub.nombre };
+      setClubs(prev => [...prev, dbClub as Club]);
+    }
+
+    const createdEquipo = await equiposService.create({
+      club_id: String(dbClub.id),
+      nombre: clubName,
+      sub_equipo: teamName,
+      competicion: formData.competition,
+    } as Partial<Equipo>);
+
+    const newTeam: CompetitionTeam = {
+      id: createdEquipo.id,
+      clubId: createdEquipo.club_id,
+      nombre: createdEquipo.nombre,
+      estadio: createdEquipo.estadio || '',
+      localidad: createdEquipo.localidad || '',
+      logoUrl: createdEquipo.logo_url || undefined,
+      equipo: createdEquipo.sub_equipo,
+      nombreEnFed: createdEquipo.nombre_en_fed,
+      etapa: createdEquipo.categoria,
+      competicion: createdEquipo.competicion,
+      enlace: createdEquipo.enlace,
+    };
+
+    await competicionEquiposService.addTeamToCompeticion(selectedCompetitionId, { equipoId: String(newTeam.id) });
+    setCreatedCompetitionTeams(prev => [...prev, newTeam]);
+    setConfiguredOwnTeamIds(prev => {
+      const next = new Set(prev ?? []);
+      next.add(String(newTeam.id));
+      return next;
+    });
+
+    return {
+      value: newTeam.equipo || newTeam.nombre,
+      club: clubName,
+      clubId: String(newTeam.clubId ?? ''),
+    };
+  };
 
   const handleSubmit = () => {
     if (!typeSelected) return;
@@ -286,7 +366,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
             <div className="space-y-4">
               {typeSelected === 'Sesión' ? (
-                <select
+                <SearchableSelect
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
@@ -294,9 +374,10 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                 >
                   <option value="">{t('newEvent.sessionType')}</option>
                   <option value="Sesión equipo">{t('newEvent.teamSession')}</option>
+                  <option value="Sesión grupal">{t('newEvent.groupSession')}</option>
                   <option value="Sesión individual">{t('newEvent.individualSession')}</option>
                   <option value="Gym">{t('newEvent.gym')}</option>
-                </select>
+                </SearchableSelect>
               ) : typeSelected !== 'Partido' ? (
                 <input
                   name="title"
@@ -314,12 +395,16 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                     <EquipoSelect
                       value={formData.team}
                       onChange={(team) => setFormData({ ...formData, team })}
-                      extraTeams={subTeamOptions}
+                      extraTeams={matchOwnTeamOptions}
                       placeholder={t('newEvent.teamPlaceholder')}
+                      useDefaultTeams={false}
+                      onCreateOption={handleCreateTeamForCompetition}
+                      addNewMode="clubTeam"
+                      addLabel="+ Añadir club y equipo..."
                       className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
                     />
                   </div>
-                  <select
+                  <SearchableSelect
                     name="sessionNumber"
                     value={formData.sessionNumber}
                     onChange={handleChange}
@@ -331,7 +416,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                         {n}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
               )}
 
@@ -354,7 +439,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
               {typeSelected === 'Partido' && (
                 <>
-                  <select
+                  <SearchableSelect
                     name="competition"
                     value={formData.competition}
                     onChange={handleChange}
@@ -367,7 +452,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       </option>
                     ))}
                     <option value="Amistoso">{t('newEvent.friendly')}</option>
-                  </select>
+                  </SearchableSelect>
                 </>
               )}
 
@@ -392,7 +477,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <select
+                    <SearchableSelect
                       name="jornada"
                       value={formData.jornada}
                       onChange={handleChange}
@@ -405,20 +490,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                           {i + 1}
                         </option>
                       ))}
-                    </select>
-                    <select
+                    </SearchableSelect>
+                    <SearchableSelect
                       name="nombreInterno"
                       value={formData.nombreInterno}
                       onChange={handleChange}
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
                     >
                       <option value="" disabled hidden>Nombre interno</option>
-                      {subTeamOptions.map((option) => (
+                      {matchOwnTeamOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.value}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>
                   <div className="grid grid-cols-2 gap-4 mt-1">
@@ -428,6 +513,10 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       onChange={(team, clubId) => setFormData({ ...formData, localTeam: team, localTeamClubId: clubId || '' })}
                       extraTeams={teamOptions}
                       placeholder={t('newEvent.homeTeam')}
+                      useDefaultTeams={false}
+                      onCreateOption={handleCreateTeamForCompetition}
+                      addNewMode="clubTeam"
+                      addLabel="+ Añadir club y equipo..."
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                     <EquipoSelect
@@ -436,6 +525,10 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       onChange={(team, clubId) => setFormData({ ...formData, visitorTeam: team, visitorTeamClubId: clubId || '' })}
                       extraTeams={teamOptions}
                       placeholder={t('newEvent.awayTeam')}
+                      useDefaultTeams={false}
+                      onCreateOption={handleCreateTeamForCompetition}
+                      addNewMode="clubTeam"
+                      addLabel="+ Añadir club y equipo..."
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                   </div>

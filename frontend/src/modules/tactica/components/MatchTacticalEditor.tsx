@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MatchTacticalChange } from '../types/match-changes';
 import { FormationName, FORMATIONS } from '../types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface Player {
   id: string | number;
@@ -162,7 +163,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
             <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               Jugador que Entra
             </label>
-            <select
+            <SearchableSelect
               value={playerInId}
               onChange={(e) => {
                 setPlayerInId(e.target.value);
@@ -180,7 +181,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
                   {p.nombre} {p.dorsal ? `(${p.dorsal})` : ''}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
             {errors.playerIn && <p className="mt-1 text-xs text-red-500">{errors.playerIn}</p>}
           </div>
         )}
@@ -190,7 +191,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
             <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               Jugador que Sale
             </label>
-            <select
+            <SearchableSelect
               value={playerOutId}
               onChange={(e) => {
                 setPlayerOutId(e.target.value);
@@ -208,7 +209,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
                   {p.name} {p.dorsal ? `(${p.dorsal})` : ''}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
             {errors.playerOut && <p className="mt-1 text-xs text-red-500">{errors.playerOut}</p>}
           </div>
         )}
@@ -218,7 +219,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
             <label className="block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               Nueva Formación
             </label>
-            <select
+            <SearchableSelect
               value={newFormation}
               onChange={(e) => {
                 setNewFormation(e.target.value);
@@ -235,7 +236,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
                   {f}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
             {errors.formation && <p className="mt-1 text-xs text-red-500">{errors.formation}</p>}
           </div>
         )}

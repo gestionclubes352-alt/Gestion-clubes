@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
 import type { Club, Equipo } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
@@ -36,6 +37,9 @@ const MY_KEEPER_COLOR = '#e91e63';
 const RIVAL_KEEPER_COLOR = '#fdd835';
 const PANEL_COLORS = ['#d32f2f', '#1976d2', '#ffffff'];
 const FRAME_DURATION_MS = 1200;
+const PITCH_ASPECT = 105 / 68;
+const FIELD_LINE_EDGE_PERCENT = 2.6;
+const PITCH_PLAYER_3D_LIFT_PX = 2;
 const FIELD_BACKGROUND = {
   backgroundColor: '#2d7a34',
   backgroundImage: [
@@ -77,16 +81,44 @@ type AssignableEntity = { id: string; nombre: string; apodo?: string };
 
 type TeamKey = 'my' | 'rival';
 
+const mapSquadPlayer = (row: {
+  id: string;
+  nombre: string;
+  apodo?: string;
+  dorsal?: number;
+  posicion?: string;
+  foto_url?: string;
+}): SquadPlayer => ({
+  id: row.id,
+  nombre: row.nombre,
+  apodo: row.apodo,
+  dorsal: row.dorsal,
+  posicion: row.posicion,
+  fotoUrl: row.foto_url,
+});
+
+const sortPlayers = <T extends { nombre: string; dorsal?: number }>(players: T[]) => (
+  [...players].sort((a, b) => {
+    if (a.dorsal != null && b.dorsal != null && a.dorsal !== b.dorsal) return a.dorsal - b.dorsal;
+    if (a.dorsal != null && b.dorsal == null) return -1;
+    if (a.dorsal == null && b.dorsal != null) return 1;
+    return a.nombre.localeCompare(b.nombre, 'es');
+  })
+);
+
 interface PizarraTacticaProps {
   /** Id del club propio (currentTeam.id) — cualquier otro equipo/club se trata como rival. */
   ownClubId?: string;
 }
 
 const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
+  const pitchStageRef = useRef<HTMLElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
+  const [pitchStageSize, setPitchStageSize] = useState({ width: 0, height: 0 });
   const [squad, setSquad] = useState<SquadPlayer[]>([]);
   const [myTeams, setMyTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
   const [selectedMyTeamId, setSelectedMyTeamId] = useState('');
+  const [isMySquadLoading, setIsMySquadLoading] = useState(false);
   const [rivalPlayers, setRivalPlayers] = useState<RivalPlayer[]>([]);
   const [rivalTeams, setRivalTeams] = useState<(Equipo & { clubNombre?: string })[]>([]);
   const [rivalClubs, setRivalClubs] = useState<Club[]>([]);
@@ -109,7 +141,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [frames, setFrames] = useState<PitchPlayer[][]>([[]]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const mode = 'Normal';
+  const [is3DView, setIs3DView] = useState(false);
+  const mode = is3DView ? 'Vista 3D' : 'Normal';
   const [myTeamColor, setMyTeamColor] = useState(MY_TEAM_COLOR);
   const [rivalTeamColor, setRivalTeamColor] = useState(RIVAL_TEAM_COLOR);
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
@@ -134,7 +167,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const draggingId = useRef<string | null>(null);
   const draggingIds = useRef<string[]>([]);
-  const draggingOffset = useRef({ x: 0, y: 0 });
   const draggingStart = useRef({ x: 0, y: 0 });
   const draggingStartPercent = useRef({ x: 0, y: 0 });
   const draggingOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -154,31 +186,55 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   useEffect(() => {
     (async () => {
       try {
-        const [equiposRows, plantillaRows] = await Promise.all([equiposService.list(), plantillasService.list()]);
+        const equiposRows = await equiposService.list();
 
         const myTeamsFiltered = ownClubId
           ? equiposRows.filter(e => String(e.club_id) === String(ownClubId))
           : [];
 
-        setMyTeams(myTeamsFiltered.sort((a, b) => (a.sub_equipo || a.nombre).localeCompare(b.sub_equipo || b.nombre, 'es')));
+        const sortedMyTeams = myTeamsFiltered.sort((a, b) => (a.sub_equipo || a.nombre).localeCompare(b.sub_equipo || b.nombre, 'es'));
+        setMyTeams(sortedMyTeams);
 
-        if (myTeamsFiltered.length > 0 && !selectedMyTeamId) {
-          setSelectedMyTeamId(String(myTeamsFiltered[0].id));
-        }
-
-        setSquad(plantillaRows.map(row => ({
-          id: row.id,
-          nombre: row.nombre,
-          apodo: row.apodo,
-          dorsal: row.dorsal,
-          posicion: row.posicion,
-          fotoUrl: row.foto_url,
-        })));
+        setSelectedMyTeamId(prev => {
+          if (prev && sortedMyTeams.some(team => String(team.id) === prev)) return prev;
+          return sortedMyTeams.length > 0 ? String(sortedMyTeams[0].id) : '';
+        });
       } catch (err) {
-        console.error('No se pudo cargar la plantilla', err);
+        console.error('No se pudieron cargar mis equipos', err);
+        setMyTeams([]);
+        setSelectedMyTeamId('');
       }
     })();
   }, [ownClubId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedMyTeamId) {
+      setSquad([]);
+      setSelectedSquadPlayerId(null);
+      return;
+    }
+
+    setIsMySquadLoading(true);
+    setSquad([]);
+    setSelectedSquadPlayerId(null);
+    plantillasService.list({ equipo_id: selectedMyTeamId })
+      .then(rows => {
+        if (cancelled) return;
+        setSquad(sortPlayers(rows.map(mapSquadPlayer)));
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.error('No se pudo cargar la plantilla de mi equipo', err);
+        setSquad([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsMySquadLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedMyTeamId]);
 
   useEffect(() => {
     (async () => {
@@ -218,7 +274,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     if (!equipoId) return;
     try {
       const rows = await plantillasService.list({ equipo_id: equipoId });
-      setRivalPlayers(rows.map(row => ({ id: row.id, nombre: row.nombre, dorsal: row.dorsal })));
+      setRivalPlayers(sortPlayers(rows.map(row => ({ id: row.id, nombre: row.nombre, dorsal: row.dorsal }))));
     } catch (err) {
       console.error('No se pudo cargar la plantilla rival', err);
     }
@@ -260,6 +316,50 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     }, FRAME_DURATION_MS);
     return () => clearInterval(interval);
   }, [isPlaying, frames.length]);
+
+  useEffect(() => {
+    const node = pitchStageRef.current;
+    if (!node) return;
+
+    const updateStageSize = () => {
+      const rect = node.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      setPitchStageSize(prev => (
+        prev.width === width && prev.height === height ? prev : { width, height }
+      ));
+    };
+
+    updateStageSize();
+    const observer = new ResizeObserver(updateStageSize);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const pitchFrameSize = useMemo(() => {
+    if (!pitchStageSize.width || !pitchStageSize.height) return null;
+
+    const horizontalPadding = is3DView ? 34 : 18;
+    const verticalPadding = is3DView ? 28 : 18;
+    const availableWidth = Math.max(260, pitchStageSize.width - horizontalPadding);
+    const availableHeight = Math.max(220, pitchStageSize.height - verticalPadding);
+
+    if (is3DView) {
+      const projectedHeightFactor = 0.74;
+      const widthForHeight = (availableHeight / projectedHeightFactor) * PITCH_ASPECT;
+      const width = Math.min(availableWidth, widthForHeight);
+      return {
+        width: `${Math.round(width)}px`,
+        height: `${Math.round(width / PITCH_ASPECT)}px`,
+      };
+    }
+
+    const width = Math.min(availableWidth, availableHeight * PITCH_ASPECT);
+    return {
+      width: `${Math.round(width)}px`,
+      height: `${Math.round(width / PITCH_ASPECT)}px`,
+    };
+  }, [is3DView, pitchStageSize.height, pitchStageSize.width]);
 
   const rectIntersects = useCallback(
     (a: { left: number; right: number; top: number; bottom: number }, b: { left: number; right: number; top: number; bottom: number }) =>
@@ -312,6 +412,23 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     };
   }, []);
 
+  const clampPitchPlayerPosition = useCallback((player: PitchPlayer, x: number, y: number) => {
+    const rect = pitchRef.current?.getBoundingClientRect();
+    const displaySize = (player.number === 1 ? 44 : 40) * playerScale;
+    const fallbackMargin = player.number === 1 ? 4 : 3.6;
+    const horizontalMargin = rect?.width ? (displaySize / 2 / rect.width) * 100 : fallbackMargin;
+    const verticalMargin = rect?.height ? (displaySize / 2 / rect.height) * 100 : fallbackMargin;
+    const minX = FIELD_LINE_EDGE_PERCENT + horizontalMargin;
+    const maxX = 100 - FIELD_LINE_EDGE_PERCENT - horizontalMargin;
+    const minY = FIELD_LINE_EDGE_PERCENT + verticalMargin;
+    const maxY = 100 - FIELD_LINE_EDGE_PERCENT - verticalMargin;
+
+    return {
+      x: Math.min(maxX, Math.max(minX, x)),
+      y: Math.min(maxY, Math.max(minY, y)),
+    };
+  }, [playerScale]);
+
   const getPlayerBounds = useCallback((player: PitchPlayer) => {
     const halfSize = player.number === 1 ? 3.8 : 3.4;
     return {
@@ -334,6 +451,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const handlePointerDown = useCallback((event: React.PointerEvent, id: string) => {
     if (isPlaying) return;
+
+    if (drawingMode && !is3DView) {
+      const start = getPitchPercentPoint(event.clientX, event.clientY);
+      if (!start) return;
+      event.stopPropagation();
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      clearPitchSelection();
+      setSelectedArrowId(null);
+      setDrawStart(start);
+      setIsDrawingArrow(true);
+      document.body.style.cursor = 'crosshair';
+      document.body.style.userSelect = 'none';
+      return;
+    }
+
     const player = pitchPlayers.find(p => p.id === id);
     if (!player || !pitchRef.current) return;
     const rect = pitchRef.current.getBoundingClientRect();
@@ -359,10 +491,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     setSelectedPitchIds(nextSelectedIds);
-  }, [isPlaying, pitchPlayers, selectedPitchIds]);
+  }, [clearPitchSelection, drawingMode, getPitchPercentPoint, isPlaying, is3DView, pitchPlayers, selectedPitchIds]);
 
   const handlePitchPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (draggingId.current || isPlaying) return;
+    if (draggingId.current || isPlaying || is3DView) return;
 
     const isClickOnSvgElement = (e.target as any)?.tagName?.toLowerCase() === 'g' ||
                                  (e.target as any)?.tagName?.toLowerCase() === 'line' ||
@@ -417,7 +549,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'crosshair';
     e.currentTarget.setPointerCapture(e.pointerId);
-  }, [getPitchPercentPoint, isPlaying, drawingMode, getArrowAtPoint]);
+  }, [getPitchPercentPoint, isPlaying, is3DView, drawingMode, getArrowAtPoint]);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -500,10 +632,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           if (!idsToMove.includes(player.id)) return player;
           const start = dragStartPositions.current[player.id];
           if (!start) return player;
+          const nextPosition = clampPitchPlayerPosition(player, start.x + deltaX, start.y + deltaY);
           return {
             ...player,
-            x: Math.min(97, Math.max(3, start.x + deltaX)),
-            y: Math.min(97, Math.max(3, start.y + deltaY)),
+            ...nextPosition,
           };
         }));
       });
@@ -584,7 +716,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('mouseup', onPointerUp);
     };
-  }, [clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId]);
+  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId]);
 
   const groupedSquad = useMemo(() => {
     const buckets: Record<string, SquadPlayer[]> = {
@@ -652,6 +784,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   };
 
   const selectedSquadPlayer = selectedSquadPlayerId ? squad.find(p => p.id === selectedSquadPlayerId) : null;
+  const selectedMyTeam = selectedMyTeamId ? myTeams.find(team => String(team.id) === selectedMyTeamId) : null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-white text-slate-800 dark:bg-[#121212] dark:text-slate-100">
@@ -681,7 +814,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1a1a1a] dark:shadow-none">
               <div className="flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                 <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
-                MI EQUIPO
+                MIS EQUIPOS
                 <button
                   type="button"
                   onClick={() => setShowMyTeam(v => !v)}
@@ -694,9 +827,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
               <div className="mt-4">
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                  Elige equipo
+                  Mis equipos
                 </label>
-                <select
+                <SearchableSelect
                   value={selectedMyTeamId}
                   onChange={e => setSelectedMyTeamId(e.target.value)}
                   className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
@@ -705,20 +838,20 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   {myTeams.map(team => (
                     <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
 
               <div className="mt-4">
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   Formación
                 </label>
-                <select
+                <SearchableSelect
                   value={myFormation}
                   onChange={e => setMyFormation(e.target.value)}
                   className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
                 >
                   {Object.keys(FORMATIONS).map(form => <option key={form} value={form}>{form}</option>)}
-                </select>
+                </SearchableSelect>
               </div>
 
               <div className="mt-4">
@@ -753,7 +886,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 </button>
               </div>
 
-              <select
+              <SearchableSelect
                 value={selectedRivalClubId}
                 onChange={e => handleSelectRivalClub(e.target.value)}
                 className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
@@ -762,9 +895,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 {rivalClubs.map(club => (
                   <option key={club.id} value={club.id}>{club.nombre}</option>
                 ))}
-              </select>
+              </SearchableSelect>
 
-              <select
+              <SearchableSelect
                 value={selectedRivalTeamId}
                 onChange={e => handleSelectRivalTeam(e.target.value)}
                 disabled={!selectedRivalClubId}
@@ -776,15 +909,15 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 {rivalTeamsForSelectedClub.map(team => (
                   <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
                 ))}
-              </select>
+              </SearchableSelect>
 
-              <select
+              <SearchableSelect
                 value={rivalFormation}
                 onChange={e => setRivalFormation(e.target.value)}
                 className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
               >
                 {Object.keys(FORMATIONS).map(form => <option key={form} value={form}>{form}</option>)}
-              </select>
+              </SearchableSelect>
 
               <div className="mt-4 flex items-center gap-3">
                 {PANEL_COLORS.map(color => (
@@ -964,6 +1097,27 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             {mode}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIs3DView(value => !value);
+              setDrawingMode(false);
+              setIsDrawingArrow(false);
+              setDrawStart(null);
+              setSelectedArrowId(null);
+              clearPitchSelection();
+            }}
+            className={`flex h-8 shrink-0 items-center gap-2 rounded-md border px-3 text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
+              is3DView
+                ? 'border-sky-400/30 bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+            }`}
+            title={is3DView ? 'Volver a vista normal' : 'Activar vista 3D'}
+            aria-pressed={is3DView}
+          >
+            <i className="fa-solid fa-cube text-[12px]" />
+            3D
+          </button>
           <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[140px] md:max-w-[260px]">
             {frames.map((_, i) => (
               <button
@@ -997,11 +1151,33 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
         <div className="min-h-0 flex-1 px-4 py-3 md:px-5">
           <div className="grid h-full min-h-0 grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <section className="min-h-0">
+            <section
+              ref={pitchStageRef}
+              className={`min-h-0 transition-colors duration-500 ${
+                is3DView
+                  ? 'flex items-center justify-center overflow-hidden bg-[#07140d] px-0 py-2'
+                  : 'flex items-center justify-center overflow-hidden p-2'
+              }`}
+              style={is3DView ? { perspective: '1400px', perspectiveOrigin: '50% 28%' } : undefined}
+            >
               <div
                 ref={pitchRef}
-                className="relative h-full min-h-[420px] md:min-h-[620px] overflow-hidden rounded-[14px] border border-slate-200 shadow-sm dark:border-white/10"
-                style={FIELD_BACKGROUND}
+                className={`relative rounded-[14px] border transition-all duration-500 ease-out dark:border-white/10 ${
+                  is3DView
+                    ? 'overflow-visible border-emerald-100/70 shadow-[0_58px_90px_rgba(0,0,0,0.58)]'
+                    : 'overflow-hidden border-slate-200 shadow-sm'
+                }`}
+                style={{
+                  ...FIELD_BACKGROUND,
+                  width: pitchFrameSize?.width ?? (is3DView ? '100%' : '100%'),
+                  height: pitchFrameSize?.height ?? '100%',
+                  maxWidth: is3DView ? 'none' : '100%',
+                  maxHeight: is3DView ? 'none' : '100%',
+                  aspectRatio: '105 / 68',
+                  transform: is3DView ? 'translateY(-7%) rotateX(42deg) scale(1)' : 'none',
+                  transformOrigin: '50% 50%',
+                  transformStyle: 'preserve-3d',
+                }}
                 onPointerDown={handlePitchPointerDown}
                 onClick={() => {
                   if (suppressNextPitchClickRef.current) {
@@ -1011,11 +1187,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   clearPitchSelection();
                 }}
               >
+                {is3DView && (
+                  <>
+                    <div className="pointer-events-none absolute -inset-10 -z-30 rounded-[28px] bg-[radial-gradient(ellipse_at_center,rgba(27,92,54,0.40),rgba(5,12,8,0.84)_68%)]" />
+                    <div className="pointer-events-none absolute -bottom-7 left-4 right-4 -z-20 h-8 rounded-b-[18px] border-x border-b border-emerald-900/70 bg-[#102c1b] shadow-[0_24px_32px_rgba(0,0,0,0.42)]" />
+                    <div className="pointer-events-none absolute -left-4 bottom-1 top-6 -z-20 w-5 skew-y-[-12deg] rounded-l-md bg-[#153b22]" />
+                    <div className="pointer-events-none absolute -right-4 bottom-1 top-6 -z-20 w-5 skew-y-[12deg] rounded-r-md bg-[#0d2618]" />
+                    <div className="pointer-events-none absolute inset-0 z-[2] rounded-[14px] bg-[linear-gradient(115deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.03)_26%,transparent_48%,rgba(0,0,0,0.18)_100%)]" />
+                  </>
+                )}
                 <svg
                   className="absolute inset-0 h-full w-full opacity-95 pointer-events-none"
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
                   aria-hidden="true"
+                  style={is3DView ? { transform: 'translateZ(5px)' } : undefined}
                 >
                   <g fill="none" stroke="#ffffff" strokeOpacity="0.95" strokeWidth="0.16">
                     <rect x="2.6" y="2.6" width="94.8" height="94.8" rx="1.6" />
@@ -1032,10 +1218,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 </svg>
 
                 <svg
-                  className="absolute inset-0 h-full w-full"
+                  className="pointer-events-none absolute inset-0 h-full w-full"
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
                   aria-hidden="true"
+                  style={is3DView ? { transform: 'translateZ(10px)' } : undefined}
                 >
                   {arrows.map(arrow => {
                     const isSelected = arrow.id === selectedArrowId;
@@ -1050,6 +1237,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       <g
                         key={arrow.id}
                         onMouseDown={(e: React.MouseEvent) => {
+                          if (is3DView || drawingMode) return;
                           e.stopPropagation();
                           const svg = (e.currentTarget as any).ownerSVGElement;
                           if (!svg) return;
@@ -1070,7 +1258,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           document.body.style.cursor = 'grabbing';
                           document.body.style.userSelect = 'none';
                         }}
-                        style={{ cursor: 'grab', pointerEvents: 'auto' }}
+                        style={{ cursor: drawingMode ? 'crosshair' : 'grab', pointerEvents: drawingMode ? 'none' : 'auto' }}
                       >
                         <line
                           x1={arrow.x1}
@@ -1080,13 +1268,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           stroke={arrow.color}
                           strokeWidth={isSelected ? 0.8 : 0.4}
                           strokeOpacity="0.9"
-                          style={{ pointerEvents: 'auto' }}
+                          style={{ pointerEvents: drawingMode ? 'none' : 'auto' }}
                         />
                         <polygon
                           points={`${arrow.x2},${arrow.y2} ${headX1},${headY1} ${headX2},${headY2}`}
                           fill={arrow.color}
                           fillOpacity="0.9"
-                          style={{ pointerEvents: 'auto' }}
+                          style={{ pointerEvents: drawingMode ? 'none' : 'auto' }}
                         />
                         {isSelected && (
                           <circle cx={arrow.x1} cy={arrow.y1} r="2" fill={arrow.color} fillOpacity="0.6" style={{ pointerEvents: 'none' }} />
@@ -1138,7 +1326,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       style={{
                         left: `${player.x}%`,
                         top: `${player.y}%`,
-                        transform: 'translate(-50%, -50%)',
+                        transform: is3DView ? `translate(-50%, -50%) translateZ(${PITCH_PLAYER_3D_LIFT_PX}px)` : 'translate(-50%, -50%)',
+                        transformStyle: 'preserve-3d',
+                        cursor: isPlaying ? 'default' : isDragging ? 'grabbing' : 'grab',
+                        touchAction: 'none',
                         zIndex: isDragging ? 9999 : isSelected ? 50 : 20,
                         transition: isDragging
                           ? 'none'
@@ -1153,6 +1344,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       onClick={e => {
                         e.stopPropagation();
                         if (isPlaying) return;
+                        if (is3DView) return;
                         if (suppressNextPitchClickRef.current) {
                           suppressNextPitchClickRef.current = false;
                           return;
@@ -1176,10 +1368,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           style={{ bottom: `${displaySize / 2 + 8}px` }}
                           onClick={e => e.stopPropagation()}
                         >
-                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, x: Math.max(3, p.x - 2) } : p)); }}>
+                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, ...clampPitchPlayerPosition(p, p.x - 2, p.y) } : p)); }}>
                             <i className="fa-solid fa-magnifying-glass-plus text-[9px]" />
                           </button>
-                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, x: Math.min(97, p.x + 2) } : p)); }}>
+                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, ...clampPitchPlayerPosition(p, p.x + 2, p.y) } : p)); }}>
                             <i className="fa-solid fa-magnifying-glass-minus text-[9px]" />
                           </button>
                         </div>
@@ -1192,7 +1384,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           height: displaySize,
                           backgroundColor: player.color,
                           borderColor: 'rgba(255,255,255,0.4)',
-                          boxShadow: isDragging ? '0 14px 24px rgba(0,0,0,0.35)' : '0 8px 18px rgba(0,0,0,0.35)',
+                          boxShadow: is3DView
+                            ? '0 2px 3px rgba(0,0,0,0.28), inset 0 8px 14px rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.24)'
+                            : isDragging
+                              ? '0 14px 24px rgba(0,0,0,0.35)'
+                              : '0 8px 18px rgba(0,0,0,0.35)',
                         }}
                       >
                         {showPlayerNumbers && (
@@ -1266,7 +1462,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
                     }`}
                   >
-                    MI EQUIPO
+                    MIS EQUIPOS
                   </button>
                   <button
                     type="button"
@@ -1281,13 +1477,43 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   </button>
                 </div>
 
+                {assignTab === 'my' && (
+                  <div className="mt-4 space-y-3 pb-4 border-b border-slate-200 dark:border-white/10">
+                    <div>
+                      <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                        Mis equipos
+                      </label>
+                      <SearchableSelect
+                        value={selectedMyTeamId}
+                        onChange={e => setSelectedMyTeamId(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                      >
+                        <option value="">Selecciona tu equipo</option>
+                        {myTeams.map(team => (
+                          <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+                        ))}
+                      </SearchableSelect>
+                    </div>
+
+                    {selectedMyTeamId && (
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 dark:border-red-500/20 dark:bg-red-500/10">
+                        <p className="text-[11px] font-black text-[var(--accent)] dark:text-red-300">
+                          {isMySquadLoading
+                            ? 'Cargando jugadores...'
+                            : `${squad.length} jugador${squad.length === 1 ? '' : 'es'} ${selectedMyTeam ? `de ${selectedMyTeam.sub_equipo || selectedMyTeam.nombre}` : 'cargados'}`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {assignTab === 'rival' && (
                   <div className="mt-4 space-y-3 pb-4 border-b border-slate-200 dark:border-white/10">
                     <div>
                       <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                         Club Rival
                       </label>
-                      <select
+                      <SearchableSelect
                         value={selectedRivalClubId}
                         onChange={e => handleSelectRivalClub(e.target.value)}
                         className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
@@ -1296,14 +1522,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         {rivalClubs.map(club => (
                           <option key={club.id} value={club.id}>{club.nombre}</option>
                         ))}
-                      </select>
+                      </SearchableSelect>
                     </div>
 
                     <div>
                       <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                         Equipo Rival
                       </label>
-                      <select
+                      <SearchableSelect
                         value={selectedRivalTeamId}
                         onChange={e => handleSelectRivalTeam(e.target.value)}
                         disabled={!selectedRivalClubId}
@@ -1315,7 +1541,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         {rivalTeamsForSelectedClub.map(team => (
                           <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
                         ))}
-                      </select>
+                      </SearchableSelect>
                     </div>
 
                     {selectedRivalTeamId && rivalPlayers.length > 0 && (
@@ -1371,6 +1597,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     </div>
                   </div>
                 ))}
+
+                {assignTab === 'my' && !isMySquadLoading && groupedSquad.length === 0 && (
+                  <div className="rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-[13px] text-slate-400 dark:border-white/10 dark:text-slate-500">
+                    {selectedMyTeamId
+                      ? 'Este equipo no tiene jugadores dados de alta en plantilla'
+                      : 'Selecciona uno de tus equipos para ver sus jugadores'}
+                  </div>
+                )}
 
                 {assignTab === 'rival' && (
                   <div>

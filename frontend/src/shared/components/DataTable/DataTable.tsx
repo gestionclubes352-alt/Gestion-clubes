@@ -13,6 +13,7 @@ import {
   type Row,
   type Table,
 } from '@tanstack/react-table';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 // ============================================================================
 // TYPES
@@ -248,7 +249,7 @@ function Pagination<T>({ table, pageSizeOptions }: { table: Table<T>; pageSizeOp
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-[var(--border-soft)] bg-[var(--surface-1)]">
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <span className="font-medium">Mostrar</span>
-        <select
+        <SearchableSelect
           value={pageSize}
           onChange={e => table.setPageSize(Number(e.target.value))}
           className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer hover:border-[var(--surface-3)] transition-colors"
@@ -256,7 +257,7 @@ function Pagination<T>({ table, pageSizeOptions }: { table: Table<T>; pageSizeOp
           {pageSizeOptions.map(size => (
             <option key={size} value={size}>{size}</option>
           ))}
-        </select>
+        </SearchableSelect>
         <span className="text-slate-400">
           · <span className="font-semibold text-slate-600">{start}–{end}</span> de <span className="font-semibold text-slate-600">{totalRows}</span>
         </span>

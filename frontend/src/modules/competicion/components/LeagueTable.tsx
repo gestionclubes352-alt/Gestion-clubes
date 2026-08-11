@@ -5,6 +5,7 @@ import type { CompetitionTeam } from '../types';
 import { getTeamConfig } from '@shared/services/dataService';
 import { useGeminiStandings } from '../hooks/useGeminiStandings';
 import { useTeam } from '@context/TeamContext';
+import { getFederationTeamLogo } from '../data/teamLogos';
 
 interface StandingTeam {
   pos: number;
@@ -165,7 +166,7 @@ const buildOfficialStandings = (teams: CompetitionTeam[], clubId: string): Stand
       pos: row.pos,
       team: team?.nombre || row.team,
       localidad: team?.localidad || '',
-      logoUrl: team?.logoUrl,
+      logoUrl: team?.logoUrl || getFederationTeamLogo(row.team),
       played: row.played,
       won: row.won,
       drawn: row.drawn,
@@ -213,7 +214,7 @@ const generateStandingsFromTeams = (teams: CompetitionTeam[], myTeamName: string
       pos: 0,
       team: team.nombre,
       localidad: team.localidad || '',
-      logoUrl: team.logoUrl,
+      logoUrl: team.logoUrl || getFederationTeamLogo(team.nombreEnFed) || getFederationTeamLogo(team.nombre),
       played,
       won,
       drawn,
@@ -254,6 +255,19 @@ const TeamName: React.FC<{ name: string; myTeam: string; className?: string }> =
   return (
     <span className={`${className} ${isMine ? '!text-[var(--accent)] !font-black' : ''}`}>
       {name}
+    </span>
+  );
+};
+
+const TeamCrest: React.FC<{ name: string; logoUrl?: string; size?: string }> = ({ name, logoUrl, size = 'w-7 h-7' }) => {
+  const resolvedLogoUrl = logoUrl || getFederationTeamLogo(name);
+  return (
+    <span className={`${size} rounded-lg bg-white border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0`}>
+      {resolvedLogoUrl ? (
+        <img loading="lazy" decoding="async" src={resolvedLogoUrl} alt={name} className="max-w-full max-h-full object-contain" />
+      ) : (
+        <i className="fa-solid fa-shield text-slate-300 text-[10px]"></i>
+      )}
     </span>
   );
 };
@@ -343,6 +357,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
       goalsAgainst: row.goalsAgainst,
       points: row.points,
       form: row.form,
+      logoUrl: getFederationTeamLogo(row.team),
     }));
   }, [geminiStandings]);
 
@@ -362,7 +377,12 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
     }),
     columnHelper.accessor('team', {
       header: 'Equipo',
-      cell: info => <TeamName name={info.getValue()} myTeam={resolvedMyTeam} className="text-sm font-medium text-slate-700" />,
+      cell: info => (
+        <div className="flex items-center gap-2 min-w-0">
+          <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} />
+          <TeamName name={info.getValue()} myTeam={resolvedMyTeam} className="text-sm font-medium text-slate-700 truncate" />
+        </div>
+      ),
     }),
     columnHelper.accessor('points', {
       header: 'Pts',
@@ -429,7 +449,12 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
     }),
     columnHelper.accessor('team', {
       header: 'Equipo',
-      cell: info => <TeamName name={info.getValue()} myTeam={resolvedMyTeam} className="text-sm font-medium text-slate-700" />,
+      cell: info => (
+        <div className="flex items-center gap-2 min-w-0">
+          <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} />
+          <TeamName name={info.getValue()} myTeam={resolvedMyTeam} className="text-sm font-medium text-slate-700 truncate" />
+        </div>
+      ),
     }),
     columnHelper.accessor('played', {
       header: 'PJ',
@@ -749,9 +774,15 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
             {resultsData.map((match) => (
               <div key={`${match.jornada}-${match.local}`} className="grid grid-cols-[72px_1fr_auto_1fr] items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">J{match.jornada}</span>
-                <TeamName name={match.local} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate" />
+                <div className="flex items-center gap-2 min-w-0 justify-end text-right">
+                  <TeamName name={match.local} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate" />
+                  <TeamCrest name={match.local} size="w-6 h-6" />
+                </div>
                 <span className="px-2 py-1 rounded-md bg-slate-800 text-white text-xs font-black tabular-nums">{match.resultado}</span>
-                <TeamName name={match.visitante} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate text-right" />
+                <div className="flex items-center gap-2 min-w-0">
+                  <TeamCrest name={match.visitante} size="w-6 h-6" />
+                  <TeamName name={match.visitante} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate" />
+                </div>
               </div>
             ))}
           </div>
@@ -765,7 +796,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.jugador}</p>
-                <TeamName name={row.equipo} myTeam={resolvedMyTeam} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <TeamCrest name={row.equipo} size="w-5 h-5" />
+                  <TeamName name={row.equipo} myTeam={resolvedMyTeam} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                </div>
               </div>
               <span className="text-[11px] font-bold text-slate-500 tabular-nums whitespace-nowrap">{row.partidos} PJ</span>
               <span className="justify-self-end text-sm font-black text-emerald-600">{row.goles} goles</span>
@@ -781,7 +815,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.portero}</p>
-                <TeamName name={row.equipo} myTeam={resolvedMyTeam} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <TeamCrest name={row.equipo} size="w-5 h-5" />
+                  <TeamName name={row.equipo} myTeam={resolvedMyTeam} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-sm font-black text-sky-600">{row.imbatido} imbatidos</p>

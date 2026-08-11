@@ -5,6 +5,7 @@ import type { Club } from '@modules/clubes/types';
 import type { CompetitionTeam } from '../types';
 import { clubesService } from '@shared/services';
 import type { EquipoRef } from '../services/competicionEquiposService';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 // NOTA: el catálogo de "equipos rivales" está deprecado para esta pantalla — ya no se pueden
 // añadir equipos nuevos por ese camino, solo equipos ya dados de alta en el sistema. Se mantiene
@@ -201,7 +202,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
         <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
           <i className="fa-solid fa-plus mr-1"></i>Añadir equipo
         </label>
-        <select
+        <SearchableSelect
           value={selectedToAdd}
           onChange={(e) => handleSelectFromUnifiedDropdown(e.target.value)}
           className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
@@ -228,7 +229,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
               </optgroup>
             );
           })}
-        </select>
+        </SearchableSelect>
       </div>
 
       {/* Dar de alta un club y equipo nuevos en el sistema */}

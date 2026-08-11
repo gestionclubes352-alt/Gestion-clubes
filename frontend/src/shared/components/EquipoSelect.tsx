@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 /** Opciones base que siempre aparecen en el desplegable de equipos */
 const DEFAULT_EQUIPOS = [
@@ -22,6 +23,11 @@ export interface EquipoOption {
   clubId?: string;
 }
 
+export interface CreateEquipoOptionInput {
+  value: string;
+  club?: string;
+}
+
 /** Clave única de una opción: el nombre del equipo por sí solo puede repetirse entre clubes distintos */
 const optionKey = (opt: EquipoOption) => `${opt.clubId ?? ''}::${opt.value}`;
 
@@ -36,6 +42,10 @@ interface EquipoSelectProps {
   placeholder?: string;
   /** clubId actualmente asociado a `value`, para preseleccionar la opción correcta cuando hay equipos homónimos de distintos clubes */
   selectedClubId?: string;
+  useDefaultTeams?: boolean;
+  onCreateOption?: (input: CreateEquipoOptionInput) => void | EquipoOption | Promise<void | EquipoOption>;
+  addNewMode?: 'team' | 'clubTeam';
+  addLabel?: string;
 }
 
 const EquipoSelect: React.FC<EquipoSelectProps> = ({
@@ -45,9 +55,16 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   className = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer',
   placeholder = 'Seleccionar...',
   selectedClubId,
+  useDefaultTeams = true,
+  onCreateOption,
+  addNewMode = 'team',
+  addLabel = '+ Añadir nuevo equipo...',
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newClubName, setNewClubName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const normalizedTeams = useMemo(
     () => extraTeams
@@ -67,12 +84,41 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
     const seen = new Map<string, EquipoOption>();
     normalizedTeams.forEach(t => { const key = optionKey(t); if (!seen.has(key)) seen.set(key, t); });
     // Sin equipos dados de alta todavía: ofrecer catálogo genérico como punto de partida
-    if (seen.size === 0) DEFAULT_EQUIPOS.forEach(t => { const opt = { value: t }; seen.set(optionKey(opt), opt); });
+    if (seen.size === 0 && useDefaultTeams) DEFAULT_EQUIPOS.forEach(t => { const opt = { value: t }; seen.set(optionKey(opt), opt); });
     // Si el valor actual no está en la lista, añadirlo (con su clubId conocido, si lo hay)
     const currentOpt = { value, clubId: selectedClubId };
     if (value && !seen.has(optionKey(currentOpt))) seen.set(optionKey(currentOpt), currentOpt);
     return Array.from(seen.values());
-  }, [normalizedTeams, value, selectedClubId]);
+  }, [normalizedTeams, value, selectedClubId, useDefaultTeams]);
+
+  const resetAddForm = () => {
+    setIsAdding(false);
+    setNewName('');
+    setNewClubName('');
+    setCreateError(null);
+  };
+
+  const handleCreate = async () => {
+    const teamName = newName.trim();
+    const clubName = newClubName.trim();
+    if (!teamName || (addNewMode === 'clubTeam' && !clubName)) return;
+    setCreateError(null);
+    try {
+      setIsCreating(true);
+      if (onCreateOption) {
+        const created = await onCreateOption({ value: teamName, club: addNewMode === 'clubTeam' ? clubName : undefined });
+        if (created) onChange(created.value, created.clubId);
+      } else {
+        onChange(teamName);
+      }
+      resetAddForm();
+    } catch (err) {
+      console.error('Error creating team option:', err);
+      setCreateError(err instanceof Error ? err.message : 'Error al crear el equipo');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const groupedOptions = useMemo(() => {
     if (!hasClubInfo) return null;
@@ -99,51 +145,63 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
 
   if (isAdding) {
     return (
-      <div className="flex gap-2">
-        <input
-          type="text"
-          autoFocus
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && newName.trim()) {
-              onChange(newName.trim());
-              setIsAdding(false);
-              setNewName('');
-            } else if (e.key === 'Escape') {
-              setIsAdding(false);
-              setNewName('');
-            }
-          }}
-          placeholder="Nombre del equipo..."
-          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (newName.trim()) {
-              onChange(newName.trim());
-              setIsAdding(false);
-              setNewName('');
-            }
-          }}
-          className="px-3 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black"
-        >
-          <i className="fa-solid fa-check"></i>
-        </button>
-        <button
-          type="button"
-          onClick={() => { setIsAdding(false); setNewName(''); }}
-          className="px-3 py-2.5 bg-slate-200 text-slate-600 rounded-xl text-xs font-black"
-        >
-          <i className="fa-solid fa-xmark"></i>
-        </button>
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          {addNewMode === 'clubTeam' && (
+            <input
+              type="text"
+              autoFocus
+              value={newClubName}
+              onChange={(e) => setNewClubName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') resetAddForm();
+              }}
+              placeholder="Club..."
+              disabled={isCreating}
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 disabled:opacity-50"
+            />
+          )}
+          <input
+            type="text"
+            autoFocus={addNewMode === 'team'}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleCreate();
+              } else if (e.key === 'Escape') {
+                resetAddForm();
+              }
+            }}
+            placeholder="Nombre del equipo..."
+            disabled={isCreating}
+            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={!newName.trim() || (addNewMode === 'clubTeam' && !newClubName.trim()) || isCreating}
+            className="px-3 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black disabled:opacity-40"
+          >
+            <i className={`fa-solid ${isCreating ? 'fa-spinner animate-spin' : 'fa-check'}`}></i>
+          </button>
+          <button
+            type="button"
+            onClick={resetAddForm}
+            disabled={isCreating}
+            className="px-3 py-2.5 bg-slate-200 text-slate-600 rounded-xl text-xs font-black disabled:opacity-40"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        {createError && <p className="text-[10px] font-semibold text-red-600">{createError}</p>}
       </div>
     );
   }
 
   return (
-    <select
+    <SearchableSelect
       value={selectedKey}
       onChange={(e) => {
         if (e.target.value === '__ADD_NEW__') {
@@ -169,8 +227,8 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
         : options.map(team => (
           <option key={optionKey(team)} value={optionKey(team)}>{team.value}</option>
         ))}
-      <option value="__ADD_NEW__">+ Añadir nuevo equipo...</option>
-    </select>
+      <option value="__ADD_NEW__">{addLabel}</option>
+    </SearchableSelect>
   );
 };
 

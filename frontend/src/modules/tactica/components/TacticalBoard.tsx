@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { TacticalPosition } from '../types';
 import type { Player } from '@modules/plantilla';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const NOT_CONVOCADO_REASONS: Array<{ value: string; label: string }> = [
   { value: 'decision_tecnica', label: 'Decisión técnica' },
@@ -298,7 +299,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-slate-300'} text-[10px] flex-shrink-0`}></i>
                       </button>
                       {showConvocadoControl && (
-                        <select
+                        <SearchableSelect
                           value="convocado"
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
@@ -313,7 +314,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           {NOT_CONVOCADO_REASONS.map(r => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                       )}
                     </div>
                   );
@@ -359,7 +360,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           )}
                         </div>
                       </div>
-                      <select
+                      <SearchableSelect
                         value={notConvocadoReasons[String(player.id)] || 'decision_tecnica'}
                         onChange={(e) => {
                           const value = e.target.value;
@@ -373,7 +374,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         {NOT_CONVOCADO_REASONS.map(r => (
                           <option key={r.value} value={r.value}>{r.label}</option>
                         ))}
-                      </select>
+                      </SearchableSelect>
                     </div>
                   );
                 })}

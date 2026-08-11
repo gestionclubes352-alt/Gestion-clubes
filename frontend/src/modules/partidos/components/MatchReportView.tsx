@@ -19,6 +19,7 @@ import { uploadMatchReportFile } from '@shared/services/photoService';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -1691,7 +1692,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
-                  <select
+                  <SearchableSelect
                     value={eventActionMenu.playerInId || ''}
                     onChange={e => setEventActionMenu({ ...eventActionMenu, playerInId: e.target.value })}
                     className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
@@ -1699,7 +1700,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   >
                     <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
                     {benchPlayers.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 <div>
@@ -2835,7 +2836,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
             <div className="flex items-center gap-2">
                 <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">{t('matchReport.events.player')}</span>
-                <select
+                <SearchableSelect
                   value={playerFilter}
                   onChange={(e) => setPlayerFilter(e.target.value === 'ALL' ? 'ALL' : e.target.value)}
                   className="flex-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-slate-700 dark:text-white/80 outline-none"
@@ -2846,7 +2847,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       {player.dorsal ? `${player.dorsal} - ` : ''}{player.apodo || player.nombre}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
                 {['ALL', ...eventButtons.map(btn => btn.id)].map(f => (
@@ -2961,7 +2962,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                     </div>
                                     <div>
                                         <label className="text-[9px] font-black text-[var(--text-muted)] uppercase">{t('matchReport.editForm.player')}</label>
-                                        <select
+                                        <SearchableSelect
                                           value={editForm.playerId}
                                           onChange={(e) => setEditForm({ ...editForm, playerId: e.target.value === '' ? '' : e.target.value })}
                                           className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-[var(--text-strong)] outline-none focus:border-red-500"
@@ -2972,12 +2973,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                               {player.dorsal ? `${player.dorsal} - ` : ''}{player.apodo || player.nombre}
                                             </option>
                                           ))}
-                                        </select>
+                                        </SearchableSelect>
                                     </div>
                                     {report.videoEvents?.find(x => x.id === ev.id)?.type === 'GOL' && (
                                       <div>
                                         <label className="text-[9px] font-black text-[var(--text-muted)] uppercase">{t('matchReport.editForm.goalLabel')}</label>
-                                        <select
+                                        <SearchableSelect
                                           value={editForm.goalSide}
                                           onChange={(e) => setEditForm({ ...editForm, goalSide: e.target.value as any })}
                                           className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-[var(--text-strong)] outline-none focus:border-red-500"
@@ -2985,7 +2986,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                           <option value="" className="text-black">{t('matchReport.editForm.undefined')}</option>
                                           <option value="FAVOR" className="text-black">{t('matchReport.editForm.inFavor')}</option>
                                           <option value="CONTRA" className="text-black">{t('matchReport.editForm.against')}</option>
-                                        </select>
+                                        </SearchableSelect>
                                       </div>
                                     )}
                                     <div className="flex justify-end gap-2">
@@ -3115,17 +3116,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerOut')}</label>
-                          <select value={substitutionEditForm.playerOutId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerOutId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
+                          <SearchableSelect value={substitutionEditForm.playerOutId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerOutId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
                             <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
                             {playerOutOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-                          </select>
+                          </SearchableSelect>
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
-                          <select value={substitutionEditForm.playerInId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerInId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
+                          <SearchableSelect value={substitutionEditForm.playerInId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerInId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
                             <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
                             {playerInOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
-                          </select>
+                          </SearchableSelect>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -4389,7 +4390,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
             <i className="fa-solid fa-trophy mr-2"></i>{t('newEvent.competition')}
           </label>
-          <select
+          <SearchableSelect
             value={dgForm.competition}
             onChange={(e) => setDgForm({ ...dgForm, competition: e.target.value })}
             className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
@@ -4401,7 +4402,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </option>
             ))}
             <option value="Amistoso">{t('newEvent.friendly')}</option>
-          </select>
+          </SearchableSelect>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -4420,7 +4421,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
               <i className="fa-solid fa-hashtag mr-2"></i>{t('newEvent.matchday')}
             </label>
-            <select
+            <SearchableSelect
               value={dgForm.jornada}
               onChange={(e) => setDgForm({ ...dgForm, jornada: e.target.value })}
               className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
@@ -4432,7 +4433,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   {i + 1}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </div>
         </div>
 

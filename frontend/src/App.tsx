@@ -926,6 +926,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [squadList, selectedTeams]
   );
 
+  const currentClubSquadList = useMemo(
+    () => currentTeam
+      ? squadList.filter(player => String(player.clubId ?? '') === String(currentTeam.id) || (!player.clubId && player.club === currentTeam.name))
+      : squadList,
+    [squadList, currentTeam]
+  );
+
   const filteredUsersList = useMemo(
     () => usersList.filter(user => matchesSelectedTeams((user as any).equipo, selectedTeams)),
     [usersList, selectedTeams]
@@ -1226,10 +1233,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
-                <CalendarView events={filteredEventsList} squad={filteredSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
+                <CalendarView events={filteredEventsList} squad={currentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
-                <GestionCalendarView events={filteredEventsList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+                <GestionCalendarView events={filteredEventsList} players={currentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/partidos" element={
                 <LatestMatches
@@ -1460,6 +1467,4 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 };
 
 export default App;
-
-
 

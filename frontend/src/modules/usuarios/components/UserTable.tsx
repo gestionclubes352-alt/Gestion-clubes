@@ -14,6 +14,7 @@ import type { DataTableAction } from '../../../shared/components/DataTable';
 import { User } from '../types';
 import { useTranslation } from 'react-i18next';
 import type { Club } from '@modules/clubes';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface UserTableProps {
   users: User[];
@@ -284,7 +285,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <select
+                  <SearchableSelect
                     value={approveRole[pu.id] || 'Tecnico'}
                     onChange={(e) => setApproveRole(prev => ({ ...prev, [pu.id]: e.target.value as Exclude<User['rol'], 'Pendiente'> }))}
                     className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-black text-slate-700 uppercase appearance-none flex-1 sm:flex-initial sm:w-32"
@@ -292,7 +293,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
                     <option value="Tecnico">{t('userTable.roleTechnician')}</option>
                     <option value="Administrador">{t('users.admin')}</option>
                     <option value="Responsable">{t('userTable.roleResponsable')}</option>
-                  </select>
+                  </SearchableSelect>
 
                   <button
                     onClick={() => handleApprove(pu)}

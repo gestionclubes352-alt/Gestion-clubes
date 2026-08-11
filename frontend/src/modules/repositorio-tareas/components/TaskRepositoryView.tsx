@@ -147,12 +147,21 @@ const TaskRepositoryView: React.FC = () => {
       onClick={() => setPreviewTask(task)}
       className="group relative bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
     >
-      {/* Edit / delete actions */}
+      {/* Duplicate / edit / delete actions */}
       <div className="absolute top-1.5 right-1.5 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); handleDuplicate(task); }}
+          className="w-6 h-6 rounded-full bg-black/50 hover:bg-blue-600 text-white flex items-center justify-center transition-colors"
+          title={t('taskRepository.duplicate')}
+          aria-label={t('taskRepository.duplicate')}
+        >
+          <i className="fa-solid fa-copy text-[10px]"></i>
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); openEdit(task); }}
           className="w-6 h-6 rounded-full bg-black/50 hover:bg-[var(--accent)] text-white flex items-center justify-center transition-colors"
           title={t('common.edit')}
+          aria-label={t('common.edit')}
         >
           <i className="fa-solid fa-pen text-[10px]"></i>
         </button>
@@ -160,6 +169,7 @@ const TaskRepositoryView: React.FC = () => {
           onClick={(e) => { e.stopPropagation(); confirmDelete(task); }}
           className="w-6 h-6 rounded-full bg-black/50 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
           title={t('common.delete')}
+          aria-label={t('common.delete')}
         >
           <i className="fa-solid fa-trash text-[10px]"></i>
         </button>
@@ -186,6 +196,7 @@ const TaskRepositoryView: React.FC = () => {
 
   // ─── Full task preview modal ───
   const TaskPreviewModal: React.FC<{ task: TrainingTask; onClose: () => void }> = ({ task, onClose }) => {
+    const [is3DPreview, setIs3DPreview] = useState(false);
     const hasDesignerSnapshot = task.designerSnapshot && task.designerSnapshot.length > 0;
 
     return (
@@ -202,8 +213,39 @@ const TaskRepositoryView: React.FC = () => {
 
           {/* Designer preview or thumbnail */}
           {hasDesignerSnapshot ? (
-            <div className="shrink-0 p-6 bg-slate-50">
-              <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="max-w-full" />
+            <div className={`relative shrink-0 overflow-hidden p-6 transition-colors duration-500 ${is3DPreview ? 'bg-[#050607]' : 'bg-slate-50'}`}>
+              <button
+                type="button"
+                onClick={() => setIs3DPreview(value => !value)}
+                className={`absolute left-3 top-3 z-10 flex h-9 items-center gap-2 rounded-xl border px-3 text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${
+                  is3DPreview
+                    ? 'border-blue-400/30 bg-blue-600 text-white shadow-blue-600/25'
+                    : 'border-white/80 bg-white/90 text-slate-700 hover:bg-white'
+                }`}
+                title={is3DPreview ? 'Volver a vista 2D' : 'Ver tarea en 3D'}
+                aria-pressed={is3DPreview}
+              >
+                <i className="fa-solid fa-cube text-[12px]"></i>
+                {is3DPreview ? '2D' : '3D'}
+              </button>
+              {is3DPreview && (
+                <div className="pointer-events-none absolute left-1/2 top-[64%] h-[22%] w-[82%] -translate-x-1/2 rounded-full bg-black/80 blur-3xl" />
+              )}
+              <div
+                className={`relative transition-all duration-500 ${is3DPreview ? 'px-2 py-9' : ''}`}
+                style={is3DPreview ? { perspective: '1150px' } : undefined}
+              >
+                <div
+                  className="transition-transform duration-500"
+                  style={is3DPreview ? {
+                    transform: 'translateY(-6%) rotateX(40deg) scale(0.98)',
+                    transformOrigin: 'center center',
+                    transformStyle: 'preserve-3d',
+                  } : undefined}
+                >
+                  <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} is3D={is3DPreview} className="max-w-full shadow-2xl" />
+                </div>
+              </div>
             </div>
           ) : task.thumbnail ? (
             <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="h-80 w-full object-cover shrink-0" />

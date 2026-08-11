@@ -5,6 +5,7 @@ import { db, plantillasService, getTeamConfig } from '@shared/services/dataServi
 import type { Jugador } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemsDataSummary from './SystemsDataSummary';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const getMyTeamName = (): string => {
   try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -251,33 +252,33 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterTeam')}
           </label>
-          <select
+          <SearchableSelect
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL}>{t('playerStatsSummary.allTeams')}</option>
             {teamOptions.map(name => <option key={name} value={name}>{name}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterCompetition')}
           </label>
-          <select
+          <SearchableSelect
             value={competitionFilter}
             onChange={(e) => setCompetitionFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL}>{t('playerStatsSummary.allCompetitions')}</option>
             {competitionOptions.map(name => <option key={name} value={name}>{name}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterMatch')}
           </label>
-          <select
+          <SearchableSelect
             value={matchFilter}
             onChange={(e) => setMatchFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
@@ -288,7 +289,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                 {new Date(m.date).toLocaleDateString()} · {m.localTeam || '—'} vs {m.visitorTeam || '—'}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </div>
       </div>
 

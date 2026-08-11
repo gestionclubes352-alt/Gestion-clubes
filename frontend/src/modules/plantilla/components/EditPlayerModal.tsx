@@ -6,11 +6,13 @@ import html2canvas from 'html2canvas-pro';
 import { Player } from '../types';
 import type { CompetitionTeam } from '../../competicion/types';
 import type { CalendarEvent } from '../../calendario/types';
+import { getAttendanceSessionScope, getPlayerSessionAttendance, hasRecordedAttendance } from '../../calendario/utils/attendance';
 import type { Match, MatchReport } from '@modules/partidos/types';
 import type { Club } from '@modules/clubes/types';
 import { computeMatchStats } from '../../partidos/components/PlayerStatsSummary';
 import { db } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
 const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
@@ -47,6 +49,13 @@ const getBirthYear = (fecha?: string): number | undefined => {
   const match = (fecha || '').match(/^(\d{4})-\d{2}-\d{2}$/);
   return match ? parseInt(match[1], 10) : undefined;
 };
+
+const normalizeTeamKey = (value?: string | number | null): string =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toLowerCase();
 
 const createCompressedPhotoDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -95,11 +104,81 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   const attendanceStats = useMemo(() => {
     const pid = String(player.id);
-    const sessions = (events || []).filter(e => e.attendance && Object.keys(e.attendance).length > 0);
-    const total = sessions.length;
-    const attended = sessions.filter(e => (e.attendance?.[pid] || 'Si') === 'Si').length;
-    return { total, attended, absences: total - attended };
-  }, [events, player.id]);
+    const teamNameByKey = new Map<string, string>();
+
+    equipos.forEach((team) => {
+      const label = team.equipo || team.nombre || 'Sin equipo';
+      [team.id, team.equipo, team.nombre, team.nombreEnFed]
+        .filter((value): value is string | number => value !== undefined && value !== null && String(value).trim().length > 0)
+        .forEach((value) => {
+          const key = normalizeTeamKey(value);
+          if (key && !teamNameByKey.has(key)) teamNameByKey.set(key, label);
+        });
+    });
+
+    const resolveSessionTeam = (team?: string) => {
+      const raw = (team || '').trim();
+      if (!raw) return 'Sin equipo';
+      return teamNameByKey.get(normalizeTeamKey(raw)) || raw;
+    };
+
+    const stats = (events || []).filter(hasRecordedAttendance).reduce((acc, session) => {
+      const sessionTeam = resolveSessionTeam(session.team);
+      const teamKey = normalizeTeamKey(sessionTeam) || 'sin-equipo';
+      const teamStats = acc.byTeam[teamKey] ?? {
+        team: sessionTeam,
+        scheduled: 0,
+        total: 0,
+        attended: 0,
+        absences: 0,
+      };
+      acc.byTeam[teamKey] = teamStats;
+
+      teamStats.scheduled += 1;
+      acc.equipoTotal += 1;
+      const result = getPlayerSessionAttendance(session, pid);
+      if (!result.counted) return acc;
+
+      const scope = getAttendanceSessionScope(session);
+      const scopeStats = scope === 'individual'
+        ? acc.individual
+        : scope === 'group'
+        ? acc.group
+        : acc.team;
+
+      acc.total += 1;
+      scopeStats.total += 1;
+      teamStats.total += 1;
+
+      if (result.attended) {
+        acc.attended += 1;
+        scopeStats.attended += 1;
+        teamStats.attended += 1;
+      } else {
+        const reason = result.status || 'Otro';
+        acc.absences += 1;
+        scopeStats.absences += 1;
+        teamStats.absences += 1;
+        acc.absenceReasons[reason] = (acc.absenceReasons[reason] || 0) + 1;
+      }
+      return acc;
+    }, {
+      equipoTotal: 0,
+      total: 0,
+      attended: 0,
+      absences: 0,
+      team: { total: 0, attended: 0, absences: 0 },
+      group: { total: 0, attended: 0, absences: 0 },
+      individual: { total: 0, attended: 0, absences: 0 },
+      absenceReasons: {} as Record<string, number>,
+      byTeam: {} as Record<string, { team: string; scheduled: number; total: number; attended: number; absences: number }>,
+    });
+
+    return {
+      ...stats,
+      byTeam: Object.values(stats.byTeam).sort((a, b) => b.scheduled - a.scheduled || a.team.localeCompare(b.team)),
+    };
+  }, [equipos, events, player.id]);
 
   // Datos de partido reales, calculados a partir de las actas registradas (no editables a mano).
   const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
@@ -476,7 +555,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('common.status')}</label>
-                <select
+                <SearchableSelect
                   value={formData.estado || 'APTO'}
                   onChange={(e) => handleChange('estado', e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -484,7 +563,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   <option value="APTO">{t('editPlayer.fit')} {'\u{1F7E2}'}</option>
                   <option value="LESIONADO">{t('editPlayer.injured')} {'\u{1F534}'}</option>
                   <option value="OTRO">{t('editPlayer.otherStatus')} {'\u{1F7E0}'}</option>
-                </select>
+                </SearchableSelect>
               </div>
             </div>
           </div>
@@ -493,7 +572,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{isHuesca ? t('editPlayer.demarcation', 'Demarcación') : t('common.position')}</label>
-              <select
+              <SearchableSelect
                 value={formData.posicion}
                 onChange={(e) => handleChange('posicion', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -518,11 +597,11 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     <option value="Delantero">{t('players.forward')}</option>
                   </>
                 )}
-              </select>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.otherDemarcation', 'Otra Demarcación')}</label>
-              <select
+              <SearchableSelect
                 value={formData.otraDemarcacion || ''}
                 onChange={(e) => handleChange('otraDemarcacion' as keyof Player, e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -547,12 +626,12 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     <option value="Delantero">{t('players.forward')}</option>
                   </>
                 )}
-              </select>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{isHuesca ? t('common.position') : t('editPlayer.tacticalRole')}</label>
               {isHuesca ? (
-                <select
+                <SearchableSelect
                   value={formData.posicionJuego}
                   onChange={(e) => handleChange('posicionJuego', e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -571,7 +650,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   <option value="Extremo Izdo">Extremo Izdo</option>
                   <option value="Media punta">Media punta</option>
                   <option value="Delantero">Delantero</option>
-                </select>
+                </SearchableSelect>
               ) : (
                 <input 
                   type="text" 
@@ -585,7 +664,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.otherPosition', 'Otra Posición')}</label>
               {isHuesca ? (
-                <select
+                <SearchableSelect
                   value={formData.otraPosicion || ''}
                   onChange={(e) => handleChange('otraPosicion' as keyof Player, e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -604,7 +683,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   <option value="Extremo Izdo">Extremo Izdo</option>
                   <option value="Media punta">Media punta</option>
                   <option value="Delantero">Delantero</option>
-                </select>
+                </SearchableSelect>
               ) : (
                 <input 
                   type="text" 
@@ -617,7 +696,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.laterality')}</label>
-              <select
+              <SearchableSelect
                 value={formData.perfil}
                 onChange={(e) => handleChange('perfil', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -625,11 +704,11 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 <option value="D">{t('editPlayer.rightFootLabel', 'Diestro')}</option>
                 <option value="I">{t('editPlayer.leftFootLabel', 'Zurdo')}</option>
                 <option value="A">{t('editPlayer.bothFeetLabel', 'Ambas')}</option>
-              </select>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.stage', 'Etapa')}</label>
-              <select
+              <SearchableSelect
                 value={formData.etapa || ''}
                 onChange={(e) => handleChange('etapa' as keyof Player, e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -641,7 +720,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 <option value="Infantil">Infantil</option>
                 <option value="Alevín">Alevín</option>
                 <option value="Benjamín">Benjamín</option>
-              </select>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.team')}</label>
@@ -651,7 +730,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   Crea antes un equipo en la sección Equipos.
                 </div>
               ) : (
-                <select
+                <SearchableSelect
                   value={formData.equipoId || ''}
                   onChange={(e) => handleEquipoSelect(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
@@ -662,7 +741,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                       {eq.nombre}{eq.equipo ? ` — ${eq.equipo}` : ''}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               )}
             </div>
             <div>
@@ -732,6 +811,12 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             sesionesTotal={attendanceStats.total}
             sesionesAsistidas={attendanceStats.attended}
             sesionesAusencias={attendanceStats.absences}
+            sesionesEquipoTotal={attendanceStats.equipoTotal}
+            sesionesEquipo={attendanceStats.team}
+            sesionesGrupales={attendanceStats.group}
+            sesionesIndividuales={attendanceStats.individual}
+            sesionesPorEquipo={attendanceStats.byTeam}
+            motivosAusencia={attendanceStats.absenceReasons}
             totalTeamMatches={matchStats.totalTeamMatches}
             totalTeamMinutes={matchStats.totalTeamMinutes}
             playerAvailableMatches={matchStats.playerAvailableMatches}

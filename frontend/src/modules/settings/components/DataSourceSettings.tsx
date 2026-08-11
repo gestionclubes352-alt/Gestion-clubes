@@ -7,6 +7,7 @@ import { useDataSource, DataSourceType, DataSourceOption } from '@context/index'
 import { googleSheetsService, extractSpreadsheetId, db } from '@shared/services';
 import type { SheetPreview, ImportableTable, SheetImportResult } from '@shared/services';
 import { migrateLocalStorageToFirestore, countFirestoreDocs, type MigrationResult } from '@shared/services/migrateToFirestore';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 type ImportMode = 'add' | 'replace' | 'sync';
 
@@ -308,7 +309,7 @@ const DataSourceSettings: React.FC = () => {
                 {/* Selector de tipo */}
                 <div className="flex flex-wrap items-center gap-4">
                   <label className="text-sm font-semibold text-slate-600">Importar como:</label>
-                  <select
+                  <SearchableSelect
                     value={sheetTableOverride}
                     onChange={(e) => setSheetTableOverride(e.target.value as ImportableTable)}
                     className="px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -319,7 +320,7 @@ const DataSourceSettings: React.FC = () => {
                     <option value="competition_teams">Equipos</option>
                     <option value="events">Eventos / Calendario</option>
                     <option value="matches">Partidos</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 {/* Selector de modo de importación */}

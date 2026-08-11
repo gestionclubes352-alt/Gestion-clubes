@@ -8,6 +8,7 @@ import { CompetitionTeam } from '../types';
 import CompetitionCalendarModal from './CompetitionCalendarModal';
 import CompetitionTeamsSelector from './CompetitionTeamsSelector';
 import { useAuth } from '@/context/AuthContext';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface CompetitionConfig {
   id: string;
@@ -327,7 +328,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                 Equipo Interno
               </label>
-              <select
+              <SearchableSelect
                 value={formData.equipoInternaId || ''}
                 onChange={e => setFormData({ ...formData, equipoInternaId: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
@@ -338,7 +339,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                     {equipo.equipo || equipo.etapa || equipo.nombre}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* Campo: Minutos por Parte */}

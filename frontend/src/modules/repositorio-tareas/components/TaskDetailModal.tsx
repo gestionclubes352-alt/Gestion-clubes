@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { TrainingTask, TaskCategory } from '../types';
 import { TASK_CATEGORIES, CATEGORY_ICONS, CATEGORY_COLORS } from '../types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface TaskDetailModalProps {
   task: TrainingTask | null;
@@ -163,7 +164,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">
               {t('taskRepository.category')}
             </label>
-            <select
+            <SearchableSelect
               value={form.category}
               onChange={e => set('category', e.target.value as TaskCategory)}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 bg-white"
@@ -173,7 +174,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
                   {c}
                 </option>
               ))}
-            </select>
+            </SearchableSelect>
           </div>
 
           {/* Imagen/Diagrama */}

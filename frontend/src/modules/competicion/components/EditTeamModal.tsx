@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface EditTeamModalProps {
   team: CompetitionTeam;
@@ -138,7 +139,7 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
                 Etapa
               </label>
-              <select
+              <SearchableSelect
                 value={formData.etapa || ''}
                 onChange={(e) => setFormData({ ...formData, etapa: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
@@ -151,7 +152,7 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
                 <option value="Alevín">Alevín</option>
                 <option value="Benjamín">Benjamín</option>
                 <option value="Prebenjamín">Prebenjamín</option>
-              </select>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">

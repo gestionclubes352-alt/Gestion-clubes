@@ -11,6 +11,7 @@ import {
   type GeminiMatchResult,
   type GeminiMatchActa,
 } from '@shared/services/geminiActasService';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 // ============================================================================
 // SUB-COMPONENTES
@@ -262,7 +263,7 @@ const ActasPage: React.FC = () => {
 
         {/* Selectores */}
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <SearchableSelect
             value={selectedSeason.label}
             onChange={(e) => changeSeason(e.target.value)}
             className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-3 py-2 text-[11px] text-slate-300 outline-none cursor-pointer hover:bg-slate-800 transition-all font-semibold"
@@ -272,7 +273,7 @@ const ActasPage: React.FC = () => {
                 {s.label}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
 
           <button
             onClick={() => navigateJornada(-1)}
@@ -282,7 +283,7 @@ const ActasPage: React.FC = () => {
             <i className="fa-solid fa-chevron-left text-[10px]"></i>
           </button>
 
-          <select
+          <SearchableSelect
             value={currentJornada}
             onChange={(e) => goToJornada(parseInt(e.target.value, 10))}
             className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-3 py-2 text-[11px] text-slate-300 outline-none cursor-pointer hover:bg-slate-800 transition-all font-semibold min-w-[100px] text-center"
@@ -290,7 +291,7 @@ const ActasPage: React.FC = () => {
             {Array.from({ length: 38 }, (_, i) => i + 1).map(j => (
               <option key={j} value={j} className="bg-slate-900">Jornada {j}</option>
             ))}
-          </select>
+          </SearchableSelect>
 
           <button
             onClick={() => navigateJornada(1)}

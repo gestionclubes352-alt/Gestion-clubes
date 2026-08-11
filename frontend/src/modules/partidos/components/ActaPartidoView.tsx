@@ -10,6 +10,7 @@ import {
   type RfefJornadaMatch,
   type ActaPartido,
 } from '@shared/services/rfefActasService';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 // ============================================================================
 // SUB-COMPONENTES
@@ -288,7 +289,7 @@ const ActaPartidoView: React.FC = () => {
         </div>
 
         {/* Selector rápido de jornada */}
-        <select
+        <SearchableSelect
           value={currentJornada}
           onChange={(e) => goToJornada(parseInt(e.target.value, 10))}
           className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-white/60 outline-none cursor-pointer hover:bg-white/10 transition-all shrink-0"
@@ -296,7 +297,7 @@ const ActaPartidoView: React.FC = () => {
           {Array.from({ length: totalJornadas }, (_, i) => i + 1).map(j => (
             <option key={j} value={j} className="bg-[#1a1a1a]">J{j}</option>
           ))}
-        </select>
+        </SearchableSelect>
       </div>
 
       {/* Panel de ajustes (colapsable) */}

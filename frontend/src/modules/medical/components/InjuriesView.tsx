@@ -3,6 +3,7 @@ import * as injuryService from '../../../shared/services/injuryService';
 import { db } from '../../../shared/services/dataService';
 import { useTranslation } from 'react-i18next';
 import type { Injury, InjurySeverity, InjuryStatus, BodyPart } from '../types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const severityColor: Record<InjurySeverity, string> = {
   'LEVE': 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
@@ -148,7 +149,7 @@ const InjuriesView: React.FC = () => {
             {initial ? t('medical.editInjury', 'Editar Lesión') : t('medical.newInjury', 'Nueva Lesión')}
           </h3>
           <div className="grid grid-cols-1 gap-4">
-            <select
+            <SearchableSelect
               value={form.playerId || ''}
               onChange={handlePlayerSelect}
               className="border rounded-lg px-3 py-2 w-full"
@@ -163,8 +164,8 @@ const InjuriesView: React.FC = () => {
                   </option>
                 ))
               }
-            </select>
-            <select
+            </SearchableSelect>
+            <SearchableSelect
               name="type"
               value={form.type || ''}
               onChange={handleChange}
@@ -208,8 +209,8 @@ const InjuriesView: React.FC = () => {
                 <option value="Conmoción cerebral">Conmoción cerebral</option>
                 <option value="Otro">Otro</option>
               </optgroup>
-            </select>
-            <select
+            </SearchableSelect>
+            <SearchableSelect
               name="bodyPart"
               value={form.bodyPart || ''}
               onChange={handleChange}
@@ -261,8 +262,8 @@ const InjuriesView: React.FC = () => {
                 <option value="FASCIA_PLANTAR">Fascia plantar</option>
               </optgroup>
               <option value="OTRO">Otro</option>
-            </select>
-            <select
+            </SearchableSelect>
+            <SearchableSelect
               name="severity"
               value={form.severity || ''}
               onChange={handleChange}
@@ -272,8 +273,8 @@ const InjuriesView: React.FC = () => {
               <option value="LEVE">Leve</option>
               <option value="MODERADA">Moderada</option>
               <option value="GRAVE">Grave</option>
-            </select>
-            <select
+            </SearchableSelect>
+            <SearchableSelect
               name="status"
               value={form.status || ''}
               onChange={handleChange}
@@ -283,7 +284,7 @@ const InjuriesView: React.FC = () => {
               <option value="ACTIVA">Activa</option>
               <option value="EN_REHABILITACIÓN">En Rehabilitación</option>
               <option value="RECUPERADO">Recuperado</option>
-            </select>
+            </SearchableSelect>
             <input
               name="estimatedReturn"
               type="date"

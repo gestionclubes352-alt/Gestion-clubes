@@ -51,7 +51,16 @@ const TEXT_COLORS = [
   '#8b5cf6',
 ];
 
-const TEXT_SIZES: Record<'S' | 'M' | 'L' | 'XL', number> = { S: 16, M: 22, L: 30, XL: 42 };
+type SizePreset = 'S' | 'M' | 'L' | 'XL';
+
+const SIZE_PRESETS: SizePreset[] = ['S', 'M', 'L', 'XL'];
+const TEXT_SIZES: Record<SizePreset, number> = { S: 16, M: 22, L: 30, XL: 42 };
+const ELEMENT_SCALES: Record<SizePreset, number> = { S: 0.75, M: 1, L: 1.3, XL: 1.6 };
+const PITCH_3D_ROTATION_DEG = 40;
+const PLAYER_3D_BILLBOARD_TRANSFORM = `rotateX(-${PITCH_3D_ROTATION_DEG}deg)`;
+const GOAL_3D_HEIGHT_PX = 58;
+const GOAL_3D_BACK_HEIGHT_PX = 38;
+const GOAL_3D_TUBE_PX = 5;
 
 /** Color de las fichas colocadas a partir de un jugador real de la plantilla (distinto de la paleta genérica). */
 const SQUAD_PLAYER_COLOR = '#1d4ed8';
@@ -72,6 +81,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [frames, setFrames] = useState<DesignerItem[][]>([[]]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [is3DView, setIs3DView] = useState(false);
   const [frameDuration] = useState(2000);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   /** Tras guardar una tarea creada desde una sesión, mostramos un banner persistente
@@ -126,6 +136,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   }, []);
 
   const items = frames[currentFrameIndex];
+  const modeLabel = is3DView ? 'Vista 3D' : 'Normal';
 
   const cloneFrames = (value: DesignerItem[][]) => value.map(frame => frame.map(item => ({ ...item })));
 
@@ -194,9 +205,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const getPitchPercentPoint = useCallback((clientX: number, clientY: number) => {
     const rect = pitchRef.current?.getBoundingClientRect();
     if (!rect) return null;
+    const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
     return {
-      x: ((clientX - rect.left) / rect.width) * 100,
-      y: ((clientY - rect.top) / rect.height) * 100,
+      x: clampPercent(((clientX - rect.left) / rect.width) * 100),
+      y: clampPercent(((clientY - rect.top) / rect.height) * 100),
     };
   }, []);
 
@@ -224,13 +236,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectedPanelOpen, setIsSelectedPanelOpen] = useState(false);
-  const [windowMoveEnabled, setWindowMoveEnabled] = useState(true);
   const [activeStructure, setActiveStructure] = useState('campo-total');
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
   const [orientationModeEnabled, setOrientationModeEnabled] = useState(false);
   const [playerSource, setPlayerSource] = useState<'generico' | 'plantilla'>('generico');
+  const [playerSize, setPlayerSize] = useState<SizePreset>('M');
+  const [coneSize, setConeSize] = useState<SizePreset>('M');
+  const [materialSize, setMaterialSize] = useState<SizePreset>('M');
   const [textDraft, setTextDraft] = useState('Texto');
-  const [textSize, setTextSize] = useState<'S' | 'M' | 'L' | 'XL'>('M');
+  const [textSize, setTextSize] = useState<SizePreset>('M');
   const [textColor, setTextColor] = useState('#ffffff');
   
   const [showStructure, setShowStructure] = useState(true);
@@ -248,7 +262,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [initialResizeData, setInitialResizeData] = useState({ x: 0, y: 0, w: 0, h: 0, itemX: 0, itemY: 0 });
   
+  const canvasRef = useRef<HTMLDivElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   // Refs for high-performance drag (avoid state re-renders during movement)
   const draggingRef = useRef<string | null>(null);
@@ -569,12 +585,13 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying) return;
     if (!selectedTool) { clearSelection(); return; }
     
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const point = getPitchPercentPoint(e.clientX, e.clientY);
+    if (!point) return;
+    const { x, y } = point;
     
     const isCone = selectedTool.startsWith('cone-');
     const isPlayer = selectedTool.startsWith('player-');
+    const isMaterial = tools.material.some(material => material.id === selectedTool);
     
     let baseZ = 0;
     if (isPlayer) baseZ = 1000;
@@ -597,10 +614,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     const squadPlayer = isSquadPlayer
       ? squad.find(p => String(p.id) === selectedTool.replace('player-real-', ''))
       : undefined;
-  const newItem: DesignerItem = {
+    const newItem: DesignerItem = {
       id: Math.random().toString(),
       type: isCone ? 'cone' : selectedTool,
-      x, y, rotation: 0, scale: 1, locked: false,
+      x,
+      y,
+      rotation: 0,
+      scale: isPlayer ? ELEMENT_SCALES[playerSize] : isCone ? ELEMENT_SCALES[coneSize] : isMaterial ? ELEMENT_SCALES[materialSize] : 1,
+      locked: false,
       zIndex: nextZ,
       color: coneColor || tools.jugadores.find(p => p.id === selectedTool)?.color || (squadPlayer ? SQUAD_PLAYER_COLOR : undefined) || (isText ? textColor : undefined),
       icon: [...tools.anotacion, ...tools.material].find(t => t.id === selectedTool)?.icon,
@@ -629,6 +650,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   };
 
   const handlePitchPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (is3DView && !selectedTool) return;
     if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying) return;
     if (selectedTool && selectedTool !== 'zone' && !selectedTool?.startsWith('arrow-')) return;
     const start = getPitchPercentPoint(e.clientX, e.clientY);
@@ -668,8 +690,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       return;
     }
 
-    if (!windowMoveEnabled) return;
-
     selectionRef.current = {
       active: true,
       startX: start.x,
@@ -699,8 +719,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     e.preventDefault();
     if (resizingId || rotatingId || isPlaying) return;
     if (item.locked) { selectItemOnly(item.id); return; }
-    const rect = pitchRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const start = getPitchPercentPoint(e.clientX, e.clientY);
+    if (!start) return;
 
     // Capture pointer for reliable tracking (touch + mouse)
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -710,10 +730,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     draggingIdsRef.current = selectedIds.includes(item.id) && selectedIds.length > 1 ? selectedIds : [item.id];
     hasDragged.current = false;
     dragStartPos.current = { x: e.clientX, y: e.clientY };
-    dragStartPercentRef.current = {
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100
-    };
+    dragStartPercentRef.current = start;
     dragStartPositionsRef.current = Object.fromEntries(
       draggingIdsRef.current.map(id => {
         const currentItem = items.find(entry => entry.id === id);
@@ -729,7 +746,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     } else {
       selectItemOnly(item.id);
     }
-  }, [resizingId, rotatingId, isPlaying, items, selectedIds, selectItemIds, selectItemOnly]);
+  }, [resizingId, rotatingId, isPlaying, getPitchPercentPoint, items, selectedIds, selectItemIds, selectItemOnly]);
 
   const handleRotateStart = useCallback((e: React.PointerEvent, item: DesignerItem) => {
     e.stopPropagation();
@@ -766,9 +783,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
       if (arrowCreationRef.current?.active && pitchRef.current) {
-        const rect = pitchRef.current.getBoundingClientRect();
-        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
-        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+        const point = getPitchPercentPoint(e.clientX, e.clientY);
+        if (!point) return;
+        const currentX = point.x;
+        const currentY = point.y;
         arrowCreationRef.current.endX = currentX;
         arrowCreationRef.current.endY = currentY;
         setArrowCreationLine({
@@ -781,9 +799,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       }
 
       if (zoneCreationRef.current?.active && pitchRef.current) {
-        const rect = pitchRef.current.getBoundingClientRect();
-        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
-        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+        const point = getPitchPercentPoint(e.clientX, e.clientY);
+        if (!point) return;
+        const currentX = point.x;
+        const currentY = point.y;
         const dx = e.clientX - dragStartPos.current.x;
         const dy = e.clientY - dragStartPos.current.y;
 
@@ -803,9 +822,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       }
 
       if (selectionRef.current?.active && pitchRef.current) {
-        const rect = pitchRef.current.getBoundingClientRect();
-        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
-        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+        const point = getPitchPercentPoint(e.clientX, e.clientY);
+        if (!point) return;
+        const currentX = point.x;
+        const currentY = point.y;
         const dx = e.clientX - dragStartPos.current.x;
         const dy = e.clientY - dragStartPos.current.y;
 
@@ -841,11 +861,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(() => {
         if (!pitchRef.current || !draggingRef.current) return;
-        const rect = pitchRef.current.getBoundingClientRect();
-        const currentPercent = {
-          x: ((e.clientX - rect.left) / rect.width) * 100,
-          y: ((e.clientY - rect.top) / rect.height) * 100,
-        };
+        const currentPercent = getPitchPercentPoint(e.clientX, e.clientY);
+        if (!currentPercent) return;
         const deltaX = currentPercent.x - dragStartPercentRef.current.x;
         const deltaY = currentPercent.y - dragStartPercentRef.current.y;
         const idsToMove = draggingIdsRef.current.length > 0 ? draggingIdsRef.current : [draggingRef.current];
@@ -991,7 +1008,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       window.removeEventListener('pointercancel', onPointerUp);
       cancelAnimationFrame(rafId.current);
     };
-  }, [clearSelection, getItemBounds, rectIntersects, selectItemIds, selectItemOnly]);
+  }, [clearSelection, getItemBounds, getPitchPercentPoint, rectIntersects, selectItemIds, selectItemOnly]);
 
   // Separate resize listeners (keep existing logic, only active when resizing)
   useEffect(() => {
@@ -1051,9 +1068,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       if (!pitchRef.current) return;
       const item = itemsRef.current.find(i => i.id === rotatingId);
       if (!item) return;
-      const rect = pitchRef.current.getBoundingClientRect();
-      const centerX = rect.left + (item.x / 100) * rect.width;
-      const centerY = rect.top + (item.y / 100) * rect.height;
+      const itemElement = pitchRef.current.querySelector<HTMLElement>(`[data-item-root="${rotatingId}"]`);
+      const itemRect = itemElement?.getBoundingClientRect();
+      const pitchRect = pitchRef.current.getBoundingClientRect();
+      const centerX = itemRect ? itemRect.left + itemRect.width / 2 : pitchRect.left + (item.x / 100) * pitchRect.width;
+      const centerY = itemRect ? itemRect.top + itemRect.height / 2 : pitchRect.top + (item.y / 100) * pitchRect.height;
       const dx = e.clientX - centerX;
       const dy = e.clientY - centerY;
       const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
@@ -1080,6 +1099,26 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    const node = canvasRef.current;
+    if (!node) return;
+
+    const updateCanvasSize = () => {
+      const rect = node.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      setCanvasSize(prev => (
+        prev.width === width && prev.height === height ? prev : { width, height }
+      ));
+    };
+
+    updateCanvasSize();
+    const observer = new ResizeObserver(updateCanvasSize);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const selectedItem = selectedIds.length === 1 ? items.find(i => i.id === selectedId) : null;
   const getResizableDimensions = (item: DesignerItem) => {
     const fallback = RESIZABLE_DEFAULT_SIZES[item.type];
@@ -1089,11 +1128,57 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     };
   };
   const canResizeItem = (item: DesignerItem) => item.type === 'zone' || item.type === 'goal';
+  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'goal' || item.type === 'fence';
   const getPitchMeters = () =>
     (activeStructure === 'ataque' || activeStructure === 'defensa')
       ? { width: 68, height: 52.5 }
       : { width: 105, height: 68 };
+  const pitchAspectValue = (activeStructure === 'ataque' || activeStructure === 'defensa') ? 68 / 52.5 : 105 / 68;
+  const pitchAspectRatio = (activeStructure === 'ataque' || activeStructure === 'defensa') ? '68 / 52.5' : '105 / 68';
+  const pitchCanvasWidth = useMemo(() => {
+    if (!canvasSize.width || !canvasSize.height) return undefined;
+
+    const horizontalMargin = is3DView ? 24 : 16;
+    const verticalMargin = is3DView ? 42 : 16;
+    const availableWidth = Math.max(160, canvasSize.width - horizontalMargin);
+    const availableHeight = Math.max(120, canvasSize.height - verticalMargin);
+    const projectedHeightFactor = is3DView ? 0.72 : 1;
+    const widthByHeight = (availableHeight / projectedHeightFactor) * pitchAspectValue;
+    const width = Math.min(availableWidth, widthByHeight);
+
+    return `${Math.max(Math.min(260, availableWidth), Math.floor(width))}px`;
+  }, [canvasSize.height, canvasSize.width, is3DView, pitchAspectValue]);
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+  const isPlayerItem = (item?: DesignerItem | null) => !!item?.type?.startsWith('player-');
+  const isConeItem = (item?: DesignerItem | null) => item?.type === 'cone' || item?.type === 'slalom';
+  const isMaterialItem = (item?: DesignerItem | null) =>
+    !!item && tools.material.some(material => material.id === item.type);
+  const getSizePresetForScale = (scale = 1): SizePreset =>
+    SIZE_PRESETS.reduce((closest, size) => (
+      Math.abs(ELEMENT_SCALES[size] - scale) < Math.abs(ELEMENT_SCALES[closest] - scale) ? size : closest
+    ), 'M' as SizePreset);
+  const selectedElementSize = selectedItem ? getSizePresetForScale(selectedItem.scale) : 'M';
+  const applyPlayerSize = (size: SizePreset) => {
+    setPlayerSize(size);
+    if (isPlayerItem(selectedItem)) {
+      pushHistoryNow();
+      updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+    }
+  };
+  const applyConeSize = (size: SizePreset) => {
+    setConeSize(size);
+    if (isConeItem(selectedItem)) {
+      pushHistoryNow();
+      updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+    }
+  };
+  const applyMaterialSize = (size: SizePreset) => {
+    setMaterialSize(size);
+    if (isMaterialItem(selectedItem)) {
+      pushHistoryNow();
+      updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+    }
+  };
   const resizeHandles = [
     { id: 'nw', shape: 'corner' as const, className: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize' },
     { id: 'ne', shape: 'corner' as const, className: 'top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize' },
@@ -1175,60 +1260,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     updateFrames(items.filter(i => i.id !== selectedId));
     clearSelection();
   };
-  const NUDGE_STEP = 2;
-  const nudgeSelectedItem = (dx: number, dy: number) => {
-    if (!selectedItem) return;
-    pushHistoryNow();
-    updateSelectedItem({
-      x: clamp(selectedItem.x + dx, 2, 98),
-      y: clamp(selectedItem.y + dy, 2, 98),
-    });
-  };
 
   return (
     <div className="relative flex min-h-[calc(100vh-60px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl animate-fade-in lg:h-[calc(100vh-60px)] lg:flex-row">
       <aside className="flex w-full flex-col gap-6 overflow-y-visible border-b border-slate-200 bg-[#f1f5f9] p-4 scrollbar-hide sm:p-5 lg:w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:overflow-y-auto">
-        <div className="flex flex-col gap-3">
-          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2">ACCIONES</h4>
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm("¿Borrar todo?")) {
-                  pushHistoryNow();
-                  setFrames([[]]);
-                  setCurrentFrameIndex(0);
-                }
-              }}
-              className="bg-slate-50 text-red-600 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-slate-100 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-            >
-              <i className="fa-solid fa-trash-can"></i> Limpiar
-            </button>
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={historyCount === 0}
-              className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${historyCount === 0 ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
-            >
-              <i className="fa-solid fa-rotate-left"></i> Deshacer
-            </button>
-            <button
-              type="button"
-              onClick={() => setWindowMoveEnabled(v => !v)}
-              className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${
-                windowMoveEnabled
-                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-              aria-pressed={windowMoveEnabled}
-              title="Permite dibujar una ventana con el ratón sobre el campo para seleccionar y mover varios elementos a la vez"
-            >
-              <i className="fa-solid fa-vector-square"></i>
-              {windowMoveEnabled ? 'Mover con ventana ON' : 'Mover con ventana OFF'}
-            </button>
-          </div>
-        </div>
-
         <div className="flex flex-col gap-3">
           <button onClick={() => setShowStructure(!showStructure)} className="flex justify-between items-center px-2 w-full">
             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">ESTRUCTURA</h4>
@@ -1278,13 +1313,32 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
                 aria-pressed={orientationModeEnabled}
-                title="Muestra una flecha de orientación en cada jugador; arrástrala con el ratón para girarla"
+                title="Muestra una flecha de orientación en jugadores, vallas y porterías; arrástrala con el ratón para girarla"
               >
                 <i className="fa-solid fa-compass"></i>
                 Orientaciones
               </button>
             </div>
           </div>
+          {showPlayers && (
+            <div className="grid grid-cols-4 gap-1.5">
+              {SIZE_PRESETS.map((size) => {
+                const activeSize = isPlayerItem(selectedItem) ? selectedElementSize : playerSize;
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => applyPlayerSize(size)}
+                    className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                    aria-label={`Tamano de jugador ${size}`}
+                    title={`Tamano de jugador ${size}`}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {showPlayers && squad.length > 0 && (
             <div className="grid grid-cols-2 gap-1.5">
               <button
@@ -1356,13 +1410,32 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showCones ? '' : '-rotate-90'}`}></i>
           </button>
           {showCones && (
-            <div className="grid grid-cols-4 gap-2 px-1">
-              {tools.conos.map((cone) => (
-                <button key={cone.id} onClick={() => setSelectedTool(selectedTool === cone.id ? null : cone.id)} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border bg-[#121212] ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#f1f5f9] scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
-                  <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[20px]" style={{ borderBottomColor: cone.color }}></div>
-                  <div className="w-6 h-1 bg-white/40 rounded-full mt-1"></div>
-                </button>
-              ))}
+            <div className="flex flex-col gap-2 px-1">
+              <div className="grid grid-cols-4 gap-1.5">
+                {SIZE_PRESETS.map((size) => {
+                  const activeSize = isConeItem(selectedItem) ? selectedElementSize : coneSize;
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => applyConeSize(size)}
+                      className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                      aria-label={`Tamano de cono ${size}`}
+                      title={`Tamano de cono ${size}`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {tools.conos.map((cone) => (
+                  <button key={cone.id} onClick={() => setSelectedTool(selectedTool === cone.id ? null : cone.id)} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border bg-[#121212] ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#f1f5f9] scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
+                    <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[20px]" style={{ borderBottomColor: cone.color }}></div>
+                    <div className="w-6 h-1 bg-white/40 rounded-full mt-1"></div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1393,7 +1466,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                   />
                   <div className="grid grid-cols-4 gap-1.5">
-                    {(['S', 'M', 'L', 'XL'] as const).map((size) => (
+                    {SIZE_PRESETS.map((size) => (
                       <button
                         key={size}
                         type="button"
@@ -1492,18 +1565,37 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showMaterial ? '' : '-rotate-90'}`}></i>
           </button>
           {showMaterial && (
-            <div className="grid grid-cols-2 gap-2 px-1">
-              {tools.material.map((m) => (
-                <button key={m.id} onClick={() => setSelectedTool(selectedTool === m.id ? null : m.id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
-                  {m.id === 'slalom'
-                    ? <SlalomPoleIcon size={28} />
-                    : m.id === 'ball'
-                    ? <SoccerBallIcon size={14} />
-                    : <i className={`fa-solid ${m.icon} text-lg ${selectedTool === m.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
-                  }
-                  <span className="text-[9px] font-black uppercase tracking-tight">{m.label}</span>
-                </button>
-              ))}
+            <div className="flex flex-col gap-2 px-1">
+              <div className="grid grid-cols-4 gap-1.5">
+                {SIZE_PRESETS.map((size) => {
+                  const activeSize = isMaterialItem(selectedItem) ? selectedElementSize : materialSize;
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => applyMaterialSize(size)}
+                      className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                      aria-label={`Tamano de material ${size}`}
+                      title={`Tamano de material ${size}`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {tools.material.map((m) => (
+                  <button key={m.id} onClick={() => setSelectedTool(selectedTool === m.id ? null : m.id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
+                    {m.id === 'slalom'
+                      ? <SlalomPoleIcon size={28} />
+                      : m.id === 'ball'
+                      ? <SoccerBallIcon size={14} />
+                      : <i className={`fa-solid ${m.icon} text-lg ${selectedTool === m.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
+                    }
+                    <span className="text-[9px] font-black uppercase tracking-tight">{m.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1576,8 +1668,33 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             <i className="fa-solid fa-plus text-[12px]" />
           </button>
           <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px]">
-            Normal
+            {modeLabel}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next3DView = !is3DView;
+              setIs3DView(next3DView);
+              if (next3DView) {
+                setIsPlaying(false);
+                setSelectedTool(null);
+                setArrowCreationLine(null);
+                setZoneCreationBox(null);
+                setSelectionBox(null);
+                clearSelection();
+              }
+            }}
+            className={`flex h-8 shrink-0 items-center gap-2 rounded-md border px-3 text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+              is3DView
+                ? 'border-blue-400/30 bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+            title={is3DView ? 'Volver a vista normal' : 'Activar vista 3D'}
+            aria-pressed={is3DView}
+          >
+            <i className="fa-solid fa-cube text-[12px]" />
+            Vista 3D
+          </button>
           <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[140px] md:max-w-[260px]">
             {frames.map((_, i) => (
               <button
@@ -1608,32 +1725,79 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           >
             <i className="fa-solid fa-trash-can text-[12px]" />
           </button>
+          <div className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("¿Borrar todo?")) {
+                  pushHistoryNow();
+                  setFrames([[]]);
+                  setCurrentFrameIndex(0);
+                }
+              }}
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-red-100 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-50"
+            >
+              <i className="fa-solid fa-trash-can text-[11px]" />
+              Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={historyCount === 0}
+              className={`flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-[10px] font-black uppercase tracking-widest transition-all ${historyCount === 0 ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+            >
+              <i className="fa-solid fa-rotate-left text-[11px]" />
+              Deshacer
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 min-h-0 flex gap-2 p-2 relative overflow-hidden bg-slate-50">
+        <div className={`flex-1 min-h-0 flex gap-2 p-2 relative overflow-hidden transition-colors duration-500 ${is3DView ? 'bg-[#050607]' : 'bg-slate-50'}`}>
           <div className="flex-[1.35] min-w-0 min-h-0 flex flex-col items-start gap-2">
-            <div className="relative w-full flex-1 min-h-0 flex items-start justify-start p-0">
+            <div
+              ref={canvasRef}
+              className={`relative w-full flex-1 min-h-0 flex overflow-hidden ${
+                is3DView
+                  ? 'items-center justify-center px-2 py-5 md:px-8 md:py-8'
+                  : 'items-center justify-center p-2'
+              }`}
+              style={is3DView ? { perspective: '1150px' } : undefined}
+            >
+              {is3DView && (
+                <div className="pointer-events-none absolute left-1/2 top-[61%] h-[24%] w-[78%] -translate-x-1/2 rounded-full bg-black/80 blur-3xl" />
+              )}
               <div
                 ref={pitchRef}
-                className="max-w-full max-h-full rounded-3xl relative border-[12px] border-[#ffffff22] cursor-crosshair overflow-visible shadow-[0_40px_100px_rgba(0,0,0,0.3)] transition-all duration-500 origin-center ml-0"
+                className={`max-w-full max-h-full relative overflow-visible transition-all duration-500 origin-center ml-0 ${
+                  is3DView
+                    ? `rounded-[10px] border border-white/20 ${selectedTool ? 'cursor-crosshair' : 'cursor-default'} shadow-[0_46px_95px_rgba(0,0,0,0.8)]`
+                    : 'rounded-3xl border-[12px] border-[#ffffff22] cursor-crosshair shadow-[0_40px_100px_rgba(0,0,0,0.3)]'
+                }`}
                 onPointerDown={handlePitchPointerDown}
                 onClick={handlePitchBackgroundClick}
                 style={{
                   ...FIELD_BACKGROUND,
-                  aspectRatio: activeStructure === 'libre'
-                    ? '105 / 68'
-                    : activeStructure === 'campo-total'
-                      ? '105 / 68'
-                    : (activeStructure === 'ataque' || activeStructure === 'defensa')
-                      ? '68 / 52.5'
-                      : '3 / 4',
+                  aspectRatio: pitchAspectRatio,
                   height: 'auto',
-                  width: '100%',
+                  width: pitchCanvasWidth ?? (is3DView ? 'min(94%, 980px)' : '100%'),
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  transform: is3DView ? `translateY(-8%) rotateX(${PITCH_3D_ROTATION_DEG}deg) scale(1.04)` : undefined,
+                  transformOrigin: 'center center',
+                  transformStyle: 'preserve-3d',
                 }}
               >
+                {is3DView && (
+                  <div
+                    className="pointer-events-none absolute inset-0 rounded-[inherit]"
+                    style={{
+                      background: 'radial-gradient(circle at 24% 38%, rgba(88, 170, 85, 0.30), transparent 28%), radial-gradient(circle at 78% 42%, rgba(106, 196, 94, 0.22), transparent 26%), linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.12))',
+                    }}
+                  />
+                )}
                 {activeStructure !== 'libre' && (
                   <svg
-                    className="absolute pointer-events-none opacity-35"
+                    className={`absolute pointer-events-none ${is3DView ? 'opacity-60' : 'opacity-35'}`}
                     style={{ top: '4%', left: '4%', width: '92%', height: '92%', overflow: 'visible' }}
                     viewBox={
                       activeStructure === 'ataque' ? '0 0 68 52.5'
@@ -1689,7 +1853,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                   </svg>
                 )}
 
-                {selectionBox && selectionRef.current?.moved && (
+                {!is3DView && selectionBox && selectionRef.current?.moved && (
                   <div
                     className="absolute z-[8] pointer-events-none border border-dashed border-white/80 bg-white/10 backdrop-blur-[1px]"
                     style={{
@@ -1762,13 +1926,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       draggingIdsRef.current = selectedIds.includes(item.id) && selectedIds.length > 1 ? selectedIds : [item.id];
                       hasDragged.current = false;
                       dragStartPos.current = { x: e.clientX, y: e.clientY };
-                      const rect = pitchRef.current?.getBoundingClientRect();
-                      if (rect) {
-                        dragStartPercentRef.current = {
-                          x: ((e.clientX - rect.left) / rect.width) * 100,
-                          y: ((e.clientY - rect.top) / rect.height) * 100
-                        };
-                      }
+                      dragStartPercentRef.current = getPitchPercentPoint(e.clientX, e.clientY) ?? dragStartPercentRef.current;
                       dragStartPositionsRef.current = Object.fromEntries(
                         draggingIdsRef.current.map(id => {
                           const currentItem = items.find(entry => entry.id === id);
@@ -1840,7 +1998,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     const itemWidth = size.width ? `${size.width}%` : 'auto';
                     const itemHeight = size.height ? `${size.height}%` : 'auto';
                     const isItemSelected = selectedIds.includes(item.id);
-                    const showResizeHandles = selectedId === item.id && selectedIds.length === 1 && isResizable && !item.locked;
+                    const showResizeHandles = !is3DView && selectedId === item.id && selectedIds.length === 1 && isResizable && !item.locked;
                     const animationClass = getDesignerItemAnimationClass(item.animation);
 
                     return (
@@ -1863,13 +2021,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       left: `${item.x}%`,
                       top: `${item.y}%`,
                       zIndex: item.zIndex,
-                      transform: `${item.type === 'zone' ? 'none' : 'translate(-50%, -50%)'} rotate(${item.rotation}deg) scale(${item.scale})`,
+                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${item.scale})`.trim(),
+                      transformStyle: 'preserve-3d',
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
                       height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
                       pointerEvents: (item.type === 'zone' && !isItemSelected) ? 'none' : 'auto'
                     }}
                   >
-                    {resizingId === item.id && (
+                    {resizingId === item.id && item.type !== 'goal' && (
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 whitespace-nowrap pointer-events-none z-20">
                         <div className="rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
                           {Math.round(size.width ?? 0)}% × {Math.round(size.height ?? 0)}%
@@ -1879,7 +2038,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         </div>
                       </div>
                     )}
-                    {isResizable && (isItemSelected || resizingId === item.id) && (() => {
+                    {isResizable && item.type !== 'goal' && (isItemSelected || resizingId === item.id) && (() => {
                       const pitchMeters = getPitchMeters();
                       const widthMeters = ((size.width ?? 0) / 100) * pitchMeters.width;
                       const heightMeters = ((size.height ?? 0) / 100) * pitchMeters.height;
@@ -2022,7 +2181,107 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         )}
                       </div>
                     ) : item.type === 'goal' ? (
-                      <div className={`relative h-full w-full border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors overflow-hidden ${animationClass}`}>
+                      is3DView ? (
+                        <div
+                          className={`relative h-full w-full overflow-visible drop-shadow-[0_18px_16px_rgba(0,0,0,0.42)] ${animationClass}`}
+                          style={{ transformStyle: 'preserve-3d' }}
+                        >
+                          <div
+                            className="absolute inset-x-[-5%] bottom-[-8px] h-[18px] rounded-full bg-black/35 blur-[7px]"
+                            style={{ transform: 'translateZ(-1px)' }}
+                          />
+
+                          <div
+                            className="absolute left-0 right-0 bottom-0 overflow-visible"
+                            style={{
+                              height: GOAL_3D_HEIGHT_PX,
+                              transform: 'translateZ(3px) rotateX(-90deg)',
+                              transformOrigin: 'bottom center',
+                              transformStyle: 'preserve-3d'
+                            }}
+                          >
+                            <div
+                              className="absolute left-0 top-0 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                              style={{
+                                width: GOAL_3D_TUBE_PX,
+                                height: GOAL_3D_HEIGHT_PX
+                              }}
+                            />
+                            <div
+                              className="absolute right-0 top-0 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                              style={{
+                                width: GOAL_3D_TUBE_PX,
+                                height: GOAL_3D_HEIGHT_PX
+                              }}
+                            />
+                            <div
+                              className="absolute left-0 right-0 top-0 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.85)]"
+                              style={{ height: GOAL_3D_TUBE_PX }}
+                            />
+                            <div className="absolute inset-x-[5px] top-[5px] bottom-0 border border-white/35 bg-white/[0.025] shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]" />
+                          </div>
+
+                          <div
+                            className="absolute inset-x-[5px] top-0 h-full border-x-[3px] border-t-[3px] border-white/70 bg-white/[0.03] shadow-[0_0_12px_rgba(255,255,255,0.2)]"
+                            style={{
+                              transform: 'translateZ(2px)',
+                              transformStyle: 'preserve-3d'
+                            }}
+                          >
+                            <div
+                              className="absolute inset-[4px] opacity-45"
+                              style={{
+                                backgroundImage:
+                                  'linear-gradient(to right, rgba(255,255,255,0.58) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.45) 1px, transparent 1px)',
+                                backgroundSize: '13px 13px'
+                              }}
+                            />
+                          </div>
+
+                          <div
+                            className="absolute left-0 top-0 rounded-full bg-white shadow-[0_0_9px_rgba(255,255,255,0.65)]"
+                            style={{
+                              width: GOAL_3D_TUBE_PX,
+                              height: '100%',
+                              transform: 'translateZ(3px)'
+                            }}
+                          />
+                          <div
+                            className="absolute right-0 top-0 rounded-full bg-white shadow-[0_0_9px_rgba(255,255,255,0.65)]"
+                            style={{
+                              width: GOAL_3D_TUBE_PX,
+                              height: '100%',
+                              transform: 'translateZ(3px)'
+                            }}
+                          />
+                          <div
+                            className="absolute left-0 right-0 top-0 rounded-full bg-white/95 shadow-[0_0_9px_rgba(255,255,255,0.58)]"
+                            style={{
+                              height: GOAL_3D_TUBE_PX,
+                              transform: 'translateZ(3px)'
+                            }}
+                          />
+
+                          <div
+                            className="absolute left-[5px] right-[5px] top-0 overflow-hidden border border-white/30 bg-white/[0.025]"
+                            style={{
+                              height: GOAL_3D_BACK_HEIGHT_PX,
+                              transform: `translateZ(${GOAL_3D_HEIGHT_PX - GOAL_3D_BACK_HEIGHT_PX}px) rotateX(-90deg)`,
+                              transformOrigin: 'top center'
+                            }}
+                          >
+                            <div
+                              className="absolute inset-0 opacity-35"
+                              style={{
+                                backgroundImage:
+                                  'linear-gradient(to right, rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.42) 1px, transparent 1px)',
+                                backgroundSize: '12px 12px'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`relative h-full w-full border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors overflow-hidden ${animationClass}`}>
                         {showResizeHandles && (
                           <>
                             {resizeHandles.map(handle => (
@@ -2051,7 +2310,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                             ))}
                           </>
                         )}
-                      </div>
+                        </div>
+                      )
                     ) : item.type === 'cone' ? (
                       <div className={`flex flex-col items-center ${animationClass}`}>
                         <div className="w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-b-[24px] drop-shadow-xl" style={{ borderBottomColor: item.color }}></div>
@@ -2084,7 +2344,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       <div className={`absolute pointer-events-none select-none ${animationClass}`} />
                     ) : item.type?.startsWith('player-') ? (
                       <div
-                        style={{ backgroundColor: item.color || SQUAD_PLAYER_COLOR }}
+                        style={{
+                          backgroundColor: item.color || SQUAD_PLAYER_COLOR,
+                          transform: is3DView ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
+                          transformStyle: 'preserve-3d',
+                        }}
                         className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
                       >
                         {item.playerId !== undefined ? (
@@ -2106,7 +2370,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     ) : (
                       <i className={`fa-solid ${item.icon} text-3xl text-white drop-shadow-lg ${animationClass}`}></i>
                     )}
-                    {item.type?.startsWith('player-') && orientationModeEnabled && (
+                    {!is3DView && canOrientItem(item) && orientationModeEnabled && (
                       <svg
                         width="80"
                         height="80"
@@ -2129,16 +2393,34 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         )}
                       </svg>
                     )}
-                    {item.type?.startsWith('player-') && orientationModeEnabled && isItemSelected && (
+                    {!is3DView && canOrientItem(item) && orientationModeEnabled && isItemSelected && (
                       <div
                         data-orientation-handle="true"
                         onPointerDown={(e) => handleRotateStart(e, item)}
                         className="absolute left-1/2 top-1/2 z-20 flex h-8 w-8 cursor-grab items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg active:cursor-grabbing"
                         style={{ transform: 'translate(-50%, calc(-50% - 28px))' }}
-                        title="Arrastra para orientar al jugador"
+                        title={item.type === 'goal' ? 'Arrastra para orientar la portería' : item.type === 'fence' ? 'Arrastra para orientar la valla' : 'Arrastra para orientar al jugador'}
                       >
                         <i className="fa-solid fa-rotate text-sm"></i>
                       </div>
+                    )}
+                    {!is3DView && (item.type === 'goal' || item.type === 'fence') && isItemSelected && !item.locked && (
+                      <button
+                        type="button"
+                        data-orientation-handle="true"
+                        onPointerDown={(e) => {
+                          handleRotateStart(e, item);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
+                        style={{ transform: 'translate(60%, 60%)' }}
+                        title={item.type === 'goal' ? 'Arrastra para girar la portería' : 'Arrastra para girar la valla'}
+                        aria-label={item.type === 'goal' ? 'Girar portería manualmente' : 'Girar valla manualmente'}
+                      >
+                        <i className="fa-solid fa-rotate-right text-sm"></i>
+                      </button>
                     )}
                     {item.playerId !== undefined && item.playerName && (
                       <div className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-black uppercase text-white shadow-lg">
@@ -2169,7 +2451,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                   </div>
                     );
                   })()
-                ))}                {selectedItem && selectedPanelStyle && isSelectedPanelOpen && (
+                ))}                {!is3DView && selectedItem && selectedPanelStyle && isSelectedPanelOpen && (
                   <div className="pointer-events-none absolute inset-0 z-[10000]">
                     <div
                       data-selected-panel="true"
@@ -2231,34 +2513,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         </button>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Posición</span>
-                          <span className="text-[10px] font-black text-red-400">{Math.round(selectedItem.x)}%, {Math.round(selectedItem.y)}%</span>
-                        </div>
-                        <div className="mx-auto grid w-fit grid-cols-3 gap-1.5">
-                          <span />
-                          <button onClick={() => nudgeSelectedItem(0, -NUDGE_STEP)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover arriba" aria-label="Mover arriba">
-                            <i className="fa-solid fa-arrow-up text-xs"></i>
-                          </button>
-                          <span />
-                          <button onClick={() => nudgeSelectedItem(-NUDGE_STEP, 0)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover a la izquierda" aria-label="Mover a la izquierda">
-                            <i className="fa-solid fa-arrow-left text-xs"></i>
-                          </button>
-                          <span className="flex h-9 w-9 items-center justify-center text-slate-600">
-                            <i className="fa-solid fa-up-down-left-right text-xs"></i>
-                          </span>
-                          <button onClick={() => nudgeSelectedItem(NUDGE_STEP, 0)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover a la derecha" aria-label="Mover a la derecha">
-                            <i className="fa-solid fa-arrow-right text-xs"></i>
-                          </button>
-                          <span />
-                          <button onClick={() => nudgeSelectedItem(0, NUDGE_STEP)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition-all hover:bg-white/10" title="Mover abajo" aria-label="Mover abajo">
-                            <i className="fa-solid fa-arrow-down text-xs"></i>
-                          </button>
-                          <span />
-                        </div>
-                      </div>
-
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                           <div className="mb-2 flex items-center justify-between">
@@ -2284,6 +2538,26 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                             <span className="text-[10px] font-black text-red-400">{selectedScaleLabel}</span>
                           </div>
                           <input type="range" min="0.5" max="3" step="0.1" value={selectedItem.scale} onChange={(e) => updateSelectedItem({ scale: parseFloat(e.target.value) })} onMouseDown={beginHistorySnapshot} onMouseUp={commitHistorySnapshot} onTouchStart={beginHistorySnapshot} onTouchEnd={commitHistorySnapshot} className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer" />
+                          {(isPlayerItem(selectedItem) || isConeItem(selectedItem) || isMaterialItem(selectedItem)) && (
+                            <div className="mt-3 grid grid-cols-4 gap-2">
+                              {SIZE_PRESETS.map((size) => (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  onClick={() => {
+                                    pushHistoryNow();
+                                    updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+                                    if (isPlayerItem(selectedItem)) setPlayerSize(size);
+                                    if (isConeItem(selectedItem)) setConeSize(size);
+                                    if (isMaterialItem(selectedItem)) setMaterialSize(size);
+                                  }}
+                                  className={`rounded-xl border px-2 py-1 text-[9px] font-black uppercase tracking-widest transition-all ${selectedElementSize === size ? 'border-red-500 bg-red-500 text-white' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'}`}
+                                >
+                                  {size}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -2359,7 +2633,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                           />
                           <span className="mb-2 block text-[8px] font-black uppercase tracking-widest text-slate-500">Tamaño</span>
                           <div className="mb-3 grid grid-cols-4 gap-2">
-                            {(['S', 'M', 'L', 'XL'] as const).map((size) => (
+                            {SIZE_PRESETS.map((size) => (
                               <button
                                 key={size}
                                 onClick={() => { pushHistoryNow(); updateSelectedItem({ fontSize: TEXT_SIZES[size] }); }}

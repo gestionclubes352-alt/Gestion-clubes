@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { User } from '../types';
 import { uploadStaffPhoto } from '../../../shared/services/staffPhotoService';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface EditUserModalProps {
   user: User;
@@ -152,7 +153,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.systemRole')}</label>
-              <select
+              <SearchableSelect
                 value={formData.rol}
                 onChange={(e) => setFormData({...formData, rol: e.target.value as User['rol']})}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
@@ -160,18 +161,18 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
                 <option value="Responsable">{t('editUser.roleResponsable')}</option>
                 <option value="Administrador">{t('editUser.roleAdmin')}</option>
                 <option value="Tecnico">{t('editUser.roleTechnician')}</option>
-              </select>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('common.status')}</label>
-              <select
+              <SearchableSelect
                 value={formData.estado}
                 onChange={(e) => setFormData({...formData, estado: e.target.value as User['estado']})}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
               >
                 <option value="Activo">{t('common.active')}</option>
                 <option value="Inactivo">{t('common.inactive')}</option>
-              </select>
+              </SearchableSelect>
             </div>
           </div>
         </div>

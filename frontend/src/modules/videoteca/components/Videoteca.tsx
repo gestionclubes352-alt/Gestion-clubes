@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VideoItem, DetectionEvent, DetectionType } from '../types';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 declare global {
   interface Window {
@@ -241,7 +242,7 @@ const Videoteca: React.FC = () => {
             onChange={(e) => setNewVideoDuration(e.target.value)}
             className="px-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20"
           />
-          <select
+          <SearchableSelect
             value={newVideoCategory}
             onChange={(e) => setNewVideoCategory(e.target.value as VideoItem['category'])}
             className="px-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20"
@@ -249,7 +250,7 @@ const Videoteca: React.FC = () => {
             <option value="PARTIDO">{t('videos.categoryMatch')}</option>
             <option value="ENTRENAMIENTO">{t('videos.categoryTraining')}</option>
             <option value="TACTICA">{t('videos.categoryTactics')}</option>
-          </select>
+          </SearchableSelect>
           <input
             type="url"
             placeholder={t('videos.vimeoUrl')}

@@ -7,6 +7,7 @@ import type { Club } from '@modules/clubes';
 import type { StaffMember } from '../types';
 import type { Personal } from '@shared/services/dataService';
 import StaffDetailModal from './StaffDetailModal';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 interface StaffTableProps {
   staff: Personal[];
@@ -143,7 +144,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Equipo:</span>
           <div className="relative">
-            <select
+            <SearchableSelect
               value={clubFilter}
               onChange={e => setClubFilter(e.target.value)}
               disabled={!isAdmin}
@@ -152,7 +153,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
               {clubes.map(club => (
                 <option key={club.id} value={String(club.id)}>{club.nombre}</option>
               ))}
-            </select>
+            </SearchableSelect>
             <i className="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
           </div>
           {/* Badge con logo del club seleccionado */}

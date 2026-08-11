@@ -3,6 +3,7 @@ import { Competicion, CalendarioCompeticionPartido, calendarioCompeticionService
 import type { CompetitionTeam } from '../types';
 import MatchModal, { type MatchFormData } from './MatchModal';
 import type { Partido } from '@/shared/services/dataService';
+import { getFederationTeamLogo, normalizeFederationTeamName } from '../data/teamLogos';
 
 interface CompetitionCalendarModalProps {
   competicion: Competicion;
@@ -63,6 +64,48 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
 
   const esDestacado = (nombreEquipo: string) =>
     !!equipoDestacado && nombreEquipo.trim().toUpperCase() === equipoDestacado.trim().toUpperCase();
+
+  const logoByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, logoUrl?: string) => {
+      if (!name || !logoUrl) return;
+      map.set(normalizeFederationTeamName(name), logoUrl);
+    };
+
+    competitionTeams.forEach(team => {
+      const logoUrl = team.logoUrl || getFederationTeamLogo(team.nombreEnFed) || getFederationTeamLogo(team.nombre);
+      register(team.nombre, logoUrl);
+      register(team.nombreEnFed, logoUrl);
+      register(team.equipo, logoUrl);
+    });
+
+    return map;
+  }, [competitionTeams]);
+
+  const getTeamLogo = (teamName: string) =>
+    logoByTeamName.get(normalizeFederationTeamName(teamName)) || getFederationTeamLogo(teamName);
+
+  const TeamWithCrest: React.FC<{ name: string; highlighted: boolean; side: 'local' | 'visitor' }> = ({ name, highlighted, side }) => {
+    const logoUrl = getTeamLogo(name);
+    const nameClass = highlighted ? 'font-black text-red-600' : 'text-slate-700';
+    const image = (
+      <span className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+        {logoUrl ? (
+          <img loading="lazy" decoding="async" src={logoUrl} alt={name} className="max-w-full max-h-full object-contain" />
+        ) : (
+          <i className="fa-solid fa-shield text-slate-300 text-xs"></i>
+        )}
+      </span>
+    );
+
+    return (
+      <div className={`flex items-center gap-2 min-w-0 ${side === 'local' ? 'justify-end text-right' : 'justify-start text-left'}`}>
+        {side === 'local' && <span className={`truncate ${nameClass}`}>{name}</span>}
+        {image}
+        {side === 'visitor' && <span className={`truncate ${nameClass}`}>{name}</span>}
+      </div>
+    );
+  };
 
   const handleOpenMatchModal = () => {
     console.log('Opening match modal');
@@ -167,19 +210,15 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
                           className="grid items-center px-4 py-3 border-b border-slate-100 last:border-b-0 text-sm"
                           style={{ gridTemplateColumns: '1fr auto 1fr' }}
                         >
-                          <span
-                            className={`text-right pr-3 ${localDestacado ? 'font-black text-red-600' : 'text-slate-700'}`}
-                          >
-                            {p.equipo_local}
-                          </span>
+                          <div className="pr-3 min-w-0">
+                            <TeamWithCrest name={p.equipo_local} highlighted={localDestacado} side="local" />
+                          </div>
                           <span className="px-2 text-[10px] font-black text-slate-400 uppercase">
                             {p.resultado || 'vs'}
                           </span>
-                          <span
-                            className={`text-left pl-3 ${visitanteDestacado ? 'font-black text-red-600' : 'text-slate-700'}`}
-                          >
-                            {p.equipo_visitante}
-                          </span>
+                          <div className="pl-3 min-w-0">
+                            <TeamWithCrest name={p.equipo_visitante} highlighted={visitanteDestacado} side="visitor" />
+                          </div>
                         </div>
                       );
                     })}

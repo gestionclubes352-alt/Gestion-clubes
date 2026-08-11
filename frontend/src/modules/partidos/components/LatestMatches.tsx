@@ -5,11 +5,12 @@ import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import { getTeamConfig } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 const getMyClubIdsForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
   const ids = new Set<string>();
   competitionTeams
-    .filter(team => team.competicion === competition && team.clubId)
+    .filter(team => isSameCompetition(team.competicion, competition) && team.clubId)
     .forEach(team => {
       if (team.clubId) ids.add(String(team.clubId));
     });
@@ -23,19 +24,34 @@ const getMyTeamNamesForCompetition = (competition: string, competitionTeams: Com
   names.add('juvenil a');
 
   competitionTeams
-    .filter(team => team.competicion === competition)
+    .filter(team => isSameCompetition(team.competicion, competition))
     .forEach(team => {
-      if (team.nombreEnFed) names.add(team.nombreEnFed.toLowerCase());
-      if (team.nombre) names.add(team.nombre.toLowerCase());
-      if (team.equipo) names.add(team.equipo.toLowerCase());
+      if (team.nombreEnFed) names.add(normalizeTeamKey(team.nombreEnFed));
+      if (team.nombre) names.add(normalizeTeamKey(team.nombre));
+      if (team.equipo) names.add(normalizeTeamKey(team.equipo));
     });
   return names;
 };
 
 const isMyTeam = (name: string, myTeamNames: Set<string> | undefined): boolean => {
   if (!myTeamNames || myTeamNames.size === 0) return false;
-  return myTeamNames.has(name.toLowerCase());
+  return myTeamNames.has(normalizeTeamKey(name));
 };
+
+const normalizeTeamKey = (value: string | undefined) =>
+  (value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+
+const isSameCompetition = (teamCompetition: string | undefined, matchCompetition: string | undefined) => {
+  if (!teamCompetition || !matchCompetition) return false;
+  return normalizeTeamKey(teamCompetition) === normalizeTeamKey(matchCompetition);
+};
+
+const internalNameOfTeam = (team: CompetitionTeam) => (team.equipo || team.nombre || '').trim();
 
 // El equipo "propio" de un partido es el que coincide con nuestros equipos en esa competición.
 const ownTeamNameOf = (match: Match, competitionTeams: CompetitionTeam[]): string => {
@@ -119,18 +135,41 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     ownCompetitionTeams.forEach((team) => {
       const canonical = (team.equipo || team.nombre || '').trim();
       if (!canonical) return;
-      map.set(canonical.toLowerCase(), canonical);
-      const fedName = team.nombreEnFed?.trim().toLowerCase();
+      map.set(normalizeTeamKey(canonical), canonical);
+      const fedName = normalizeTeamKey(team.nombreEnFed);
       if (fedName) map.set(fedName, canonical);
     });
     return map;
   }, [ownCompetitionTeams]);
 
+  const findInternalNameForCandidate = (match: Match, candidate?: string): string | undefined => {
+    const key = normalizeTeamKey(candidate);
+    if (!key) return undefined;
+
+    const competitionTeams = ownCompetitionTeams.filter((team) => isSameCompetition(team.competicion, match.competition));
+    const pools = competitionTeams.length > 0 ? [competitionTeams, ownCompetitionTeams] : [ownCompetitionTeams];
+
+    for (const pool of pools) {
+      const byInternalOrFed = pool.find((team) =>
+        [team.equipo, team.nombreEnFed].map(normalizeTeamKey).includes(key)
+      );
+      if (byInternalOrFed) return internalNameOfTeam(byInternalOrFed);
+
+      const byClubName = pool.filter((team) => normalizeTeamKey(team.nombre) === key);
+      if (byClubName.length === 1) return internalNameOfTeam(byClubName[0]);
+    }
+
+    return internalNameByFedName.get(key);
+  };
+
   const resolveEquipoInterno = (match: Match): string => {
-    if (match.team) return match.team;
-    if (match.nombreInterno) return match.nombreInterno;
     const own = ownTeamNameOf(match, competitionTeams);
-    return internalNameByFedName.get(own.trim().toLowerCase()) || own;
+    const candidates = [match.nombreInterno, match.team, match.localTeam, match.visitorTeam, own];
+    for (const candidate of candidates) {
+      const mapped = findInternalNameForCandidate(match, candidate);
+      if (mapped) return mapped;
+    }
+    return match.nombreInterno || match.team || own;
   };
 
   const matchesByCompetitionAndTeam = useMemo(
@@ -262,53 +301,53 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             Equipo Interno
           </label>
-          <select
+          <SearchableSelect
             value={equipoInternoFilter}
             onChange={(e) => setEquipoInternoFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos los equipos</option>
             {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterTeam')}
           </label>
-          <select
+          <SearchableSelect
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>{t('playerStatsSummary.allTeams')}</option>
             {teamOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterCompetition')}
           </label>
-          <select
+          <SearchableSelect
             value={competitionFilter}
             onChange={(e) => setCompetitionFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>{t('playerStatsSummary.allCompetitions')}</option>
             {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('matchesList.filterJornada')}
           </label>
-          <select
+          <SearchableSelect
             value={jornadaFilter}
             onChange={(e) => setJornadaFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>{t('matchesList.allJornadas')}</option>
             {jornadaOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
       </div>
 

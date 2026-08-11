@@ -6,6 +6,7 @@ import EquipoSelect, { type EquipoOption } from '@shared/components/EquipoSelect
 import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
 import { competicionEquiposService } from '../services/competicionEquiposService';
 import { useAuth } from '@/context/AuthContext';
+import SearchableSelect from '@shared/components/SearchableSelect';
 
 export interface MatchFormData {
   id?: string;
@@ -64,7 +65,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
   const [equiposInternos, setEquiposInternos] = useState<CompetitionTeam[]>([]);
 
-  // Resolver el id de la competición seleccionada (por nombre, ya que el <select> guarda el nombre)
+  // Resolver el id de la competición seleccionada (por nombre, ya que el selector guarda el nombre)
   const selectedCompetitionId = useMemo(() => {
     if (competitionId) return competitionId;
     const found = competitions.find(c => c.nombre === formData.competition);
@@ -302,7 +303,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
                   <i className="fa-solid fa-trophy mr-1"></i>Competición
                 </label>
-                <select
+                <SearchableSelect
                   name="competition"
                   value={formData.competition}
                   onChange={handleChange}
@@ -314,7 +315,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                       {comp.nombre}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
 
               {/* Ubicación */}
@@ -337,7 +338,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
                   <i className="fa-solid fa-list-ol mr-1"></i>Jornada
                 </label>
-                <select
+                <SearchableSelect
                   name="jornada"
                   value={formData.jornada}
                   onChange={handleChange}
@@ -350,7 +351,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                       {i + 1}
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
 
               {/* Nombre Interno */}
@@ -358,7 +359,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
                   <i className="fa-solid fa-people-group mr-1"></i>Nombre Interno
                 </label>
-                <select
+                <SearchableSelect
                   name="nombreInterno"
                   value={formData.nombreInterno}
                   onChange={handleChange}
@@ -373,7 +374,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                       </option>
                     );
                   })}
-                </select>
+                </SearchableSelect>
               </div>
             </div>
           </div>

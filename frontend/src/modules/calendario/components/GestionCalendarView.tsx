@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
+import type { Player } from '@modules/plantilla';
+import SearchableSelect from '@shared/components/SearchableSelect';
+import { getPlayerSessionAttendance, hasRecordedAttendance } from '../utils/attendance';
 
 interface GestionCalendarViewProps {
   events: CalendarEvent[];
@@ -12,6 +15,7 @@ interface GestionCalendarViewProps {
   onSaveEvent?: (event: CalendarEvent) => void;
   competitionTeams?: CompetitionTeam[];
   clubes?: Club[];
+  players?: Player[];
   ownClubId?: string;
 }
 
@@ -97,7 +101,7 @@ const generateUUID = (): string => {
   });
 };
 
-const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], ownClubId }) => {
+const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], players = [], ownClubId }) => {
   const { t, i18n } = useTranslation();
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNames = t('calendarView.daysAbbr', { returnObjects: true }) as string[];
@@ -151,10 +155,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     });
     return map;
   }, [internalCompetitionTeams]);
-  const internalTeamNames = useMemo(
-    () => new Set(internalTeamCanonicalByName.keys()),
-    [internalTeamCanonicalByName]
-  );
   const getEventTeamKey = (ev: CalendarEvent): string | undefined => {
     if (ev.type === 'Partido') {
       const candidates = [
@@ -182,8 +182,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [duplicateEvent, setDuplicateEvent] = useState<CalendarEvent | null>(null);
   const [duplicateTargetDate, setDuplicateTargetDate] = useState<Date | null>(null);
   const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [playerFilter, setPlayerFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [onlyInternalTeams, setOnlyInternalTeams] = useState(true);
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
@@ -194,14 +194,18 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       const name = (team.equipo || team.nombre || '').trim();
       if (name) teams.add(name);
     });
-    if (!onlyInternalTeams) {
-      events.forEach(ev => {
-        const key = getEventTeamKey(ev);
-        if (key) teams.add(key);
-      });
-    }
+    events.forEach(ev => {
+      const key = getEventTeamKey(ev);
+      if (key) teams.add(key);
+    });
     return Array.from(teams).sort((a, b) => a.localeCompare(b));
-  }, [events, internalCompetitionTeams, onlyInternalTeams]);
+  }, [events, internalCompetitionTeams]);
+
+  const availablePlayers = useMemo(() => {
+    return [...players]
+      .filter(player => player.nombre || player.apodo)
+      .sort((a, b) => (a.apodo || a.nombre).localeCompare(b.apodo || b.nombre));
+  }, [players]);
 
   const availableTypes = useMemo(() => {
     const types = new Set<string>();
@@ -215,12 +219,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
     return events.filter(ev => {
       if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
-      if (onlyInternalTeams) {
-        const key = getEventTeamKey(ev);
-        if (!key || !internalTeamNames.has(key.trim().toLowerCase())) return false;
-      }
       if (teamFilter !== 'all') {
         if (getEventTeamKey(ev) !== teamFilter) return false;
+      }
+      if (playerFilter !== 'all') {
+        if (!hasRecordedAttendance(ev)) return false;
+        const attendance = getPlayerSessionAttendance(ev, playerFilter);
+        if (!attendance.counted || !attendance.attended) return false;
       }
       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
       if (monthFilter !== 'all' && d.getMonth() !== Number(monthFilter)) return false;
@@ -232,7 +237,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       }
       return true;
     });
-  }, [events, teamFilter, typeFilter, onlyInternalTeams, internalTeamNames, monthFilter, filterDateFrom, filterDateTo]);
+  }, [events, teamFilter, playerFilter, typeFilter, monthFilter, filterDateFrom, filterDateTo]);
 
   const teamColorLegend = useMemo(() => {
     const keys = new Set<string>();
@@ -839,7 +844,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
       <div className="flex items-center justify-between gap-3 px-1 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
-          <select
+          <SearchableSelect
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
@@ -848,20 +853,20 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             {availableTeams.map(team => (
               <option key={team} value={team}>{team}</option>
             ))}
-          </select>
-          <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={onlyInternalTeams}
-              onChange={(e) => {
-                setOnlyInternalTeams(e.target.checked);
-                setTeamFilter('all');
-              }}
-              className="rounded border-slate-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
-            />
-            {t('calendarView.filterOnlyInternalTeams', 'Solo equipos internos')}
-          </label>
-          <select
+          </SearchableSelect>
+          <SearchableSelect
+            value={playerFilter}
+            onChange={(e) => setPlayerFilter(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">{t('calendarView.filterAllPlayers', 'Jugadores')}</option>
+            {availablePlayers.map(player => (
+              <option key={player.id} value={String(player.id)}>
+                {player.dorsal ? `${player.dorsal} - ` : ''}{player.apodo || player.nombre}
+              </option>
+            ))}
+          </SearchableSelect>
+          <SearchableSelect
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
@@ -870,8 +875,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             {availableTypes.map(type => (
               <option key={type} value={type}>{type}</option>
             ))}
-          </select>
-          <select
+          </SearchableSelect>
+          <SearchableSelect
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
@@ -880,7 +885,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             {monthNames.map((name, index) => (
               <option key={name} value={String(index)}>{name}</option>
             ))}
-          </select>
+          </SearchableSelect>
           <div className="flex items-center gap-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
             <input

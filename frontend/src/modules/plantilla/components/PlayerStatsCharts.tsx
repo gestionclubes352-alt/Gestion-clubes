@@ -9,11 +9,28 @@ interface PlayerStatsChartsProps {
   sesionesTotal?: number;
   sesionesAsistidas?: number;
   sesionesAusencias?: number;
+  sesionesEquipoTotal?: number;
+  sesionesEquipo?: SessionAttendanceBreakdown;
+  sesionesGrupales?: SessionAttendanceBreakdown;
+  sesionesIndividuales?: SessionAttendanceBreakdown;
+  sesionesPorEquipo?: SessionTeamAttendanceBreakdown[];
+  motivosAusencia?: Record<string, number>;
   // Datos sobre disponibilidad y comparativa con el equipo
   totalTeamMatches?: number;
   totalTeamMinutes?: number;
   playerAvailableMatches?: number;
   estado?: 'APTO' | 'LESIONADO' | 'OTRO';
+}
+
+interface SessionAttendanceBreakdown {
+  total: number;
+  attended: number;
+  absences: number;
+}
+
+interface SessionTeamAttendanceBreakdown extends SessionAttendanceBreakdown {
+  team: string;
+  scheduled: number;
 }
 
 const MINUTES_PER_MATCH = 90;
@@ -26,6 +43,12 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
   sesionesTotal = 0,
   sesionesAsistidas = 0,
   sesionesAusencias = 0,
+  sesionesEquipoTotal = 0,
+  sesionesEquipo,
+  sesionesGrupales,
+  sesionesIndividuales,
+  sesionesPorEquipo = [],
+  motivosAusencia = {},
   totalTeamMatches = 0,
   totalTeamMinutes = 0,
   playerAvailableMatches = 0,
@@ -34,8 +57,16 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
   const { t } = useTranslation();
 
   const asistenciaPct = sesionesTotal > 0 ? Math.round((sesionesAsistidas / sesionesTotal) * 100) : 0;
+  const asistenciaEquipoPct = sesionesEquipoTotal > 0 ? Math.round((sesionesAsistidas / sesionesEquipoTotal) * 100) : 0;
   const asistenciaBarPct = sesionesTotal > 0 ? (sesionesAsistidas / sesionesTotal) * 100 : 0;
   const ausenciaBarPct = sesionesTotal > 0 ? (sesionesAusencias / sesionesTotal) * 100 : 0;
+  const attendanceScopeRows = [
+    { key: 'team', label: t('editPlayer.teamSessions', 'Equipo'), stats: sesionesEquipo },
+    { key: 'group', label: t('editPlayer.groupSessions', 'Grupales'), stats: sesionesGrupales },
+    { key: 'individual', label: t('editPlayer.individualSessions', 'Individuales'), stats: sesionesIndividuales },
+  ].filter((row): row is { key: string; label: string; stats: SessionAttendanceBreakdown } => Boolean(row.stats && row.stats.total > 0));
+  const sessionTeamRows = sesionesPorEquipo.filter(row => row.scheduled > 0 || row.total > 0);
+  const absenceReasonRows = Object.entries(motivosAusencia).filter(([, count]) => count > 0);
 
   const partidos = Math.max(0, partidosJugados || 0);
   const minutosJugados = Math.max(0, minutos || 0);
@@ -163,7 +194,7 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
         </span>
       </div>
 
-      {sesionesTotal > 0 && (
+      {(sesionesEquipoTotal > 0 || sesionesTotal > 0) && (
         <div className="mt-3 pt-3 border-t border-slate-200">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -175,6 +206,24 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
               <span className="text-red-500">{sesionesAusencias}</span>
               <span className="text-slate-400 font-semibold"> ({sesionesTotal})</span>
             </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+            <div className="bg-white border border-slate-200 rounded-xl px-3 py-2">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('editPlayer.attendedSessions', 'Sesiones acudidas')}</p>
+              <p className="text-lg font-black text-emerald-600">{sesionesAsistidas}</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl px-3 py-2">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('editPlayer.teamTotalSessions', 'Sesiones equipo')}</p>
+              <p className="text-lg font-black text-slate-700">{sesionesEquipoTotal}</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl px-3 py-2">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('editPlayer.teamAttendancePct', '% asistencia equipo')}</p>
+              <p className="text-lg font-black text-[var(--accent)]">{asistenciaEquipoPct}%</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl px-3 py-2">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('editPlayer.countedSessions', 'Contabilizadas')}</p>
+              <p className="text-lg font-black text-slate-700">{sesionesTotal}</p>
+            </div>
           </div>
           <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden flex gap-0.5">
             {asistenciaBarPct > 0 && (
@@ -204,9 +253,61 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
                   : 'bg-red-50 text-red-600 border border-red-200'
               }`}
             >
-              {asistenciaPct}%
+              {asistenciaPct}% {t('editPlayer.countedShort', 'cont.')}
             </span>
           </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {attendanceScopeRows.map(({ key, label, stats }) => (
+              <div key={key} className="bg-white border border-slate-200 rounded-xl px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
+                  <span className="text-[11px] font-black text-slate-700">{stats.attended}/{stats.total}</span>
+                </div>
+                {stats.absences > 0 && (
+                  <p className="mt-1 text-[10px] font-bold text-red-500">{t('editPlayer.absent', 'Ausencias')}: {stats.absences}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          {sessionTeamRows.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                {t('editPlayer.sessionsByTeam', 'Sesiones por equipo')}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {sessionTeamRows.map((stats) => (
+                  <div key={stats.team} className="bg-white border border-slate-200 rounded-xl px-3 py-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="min-w-0 text-[10px] font-black text-slate-700 uppercase tracking-widest break-words">{stats.team}</span>
+                      <span className="shrink-0 text-[11px] font-black text-slate-700">
+                        <span className="text-emerald-600">{stats.attended}</span>
+                        <span className="text-slate-300"> / </span>
+                        <span className="text-red-500">{stats.absences}</span>
+                        <span className="text-slate-400 font-semibold"> ({stats.total})</span>
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-bold text-slate-400">
+                      {t('editPlayer.teamTotalSessions', 'Sesiones equipo')}: {stats.scheduled}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {absenceReasonRows.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                {t('editPlayer.absenceReasons', 'Motivos de ausencia')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {absenceReasonRows.map(([reason, count]) => (
+                  <span key={reason} className="px-2.5 py-1 rounded-lg bg-red-50 border border-red-100 text-[10px] font-black text-red-600">
+                    {reason}: {count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
