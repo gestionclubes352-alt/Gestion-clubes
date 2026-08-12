@@ -55,7 +55,7 @@ export const getPlayerSessionAttendance = (
 
   const resolvedStatus = status || 'Si';
   return {
-    counted: true,
+    counted: resolvedStatus !== 'Otro Equipo',
     attended: resolvedStatus === 'Si',
     status: resolvedStatus,
   };

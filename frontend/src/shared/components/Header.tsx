@@ -11,6 +11,7 @@ import { useTeam } from '@context/TeamContext';
 import { useTeamFilter } from '@context/TeamFilterContext';
 import { useTheme } from '@context/ThemeContext';
 import LanguageSelector from './LanguageSelector';
+import { compareEquipoNames } from './EquipoSelect';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -120,7 +121,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
       }
       return map;
     }, new Map<string, string>()).values()
-  ).sort((a, b) => a.localeCompare(b, 'es'));
+  ).sort(compareEquipoNames);
   const hasTeamOptions = sortedTeamOptions.length > 1;
   const activeTeamLabel = selectedTeams.length === 0
     ? t('playerTable.allTeams', 'Todos los equipos')

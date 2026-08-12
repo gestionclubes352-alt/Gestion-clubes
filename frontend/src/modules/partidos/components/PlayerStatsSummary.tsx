@@ -238,11 +238,13 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
         acc.set(key, entry);
       });
     });
-    return Array.from(acc.values()).sort((a, b) => {
-      const playerA = squadById.get(a.playerId);
-      const playerB = squadById.get(b.playerId);
-      return (playerA?.dorsal ?? 999) - (playerB?.dorsal ?? 999);
-    });
+    return Array.from(acc.values())
+      .filter(a => squadById.has(a.playerId))
+      .sort((a, b) => {
+        const playerA = squadById.get(a.playerId);
+        const playerB = squadById.get(b.playerId);
+        return (playerA?.dorsal ?? 999) - (playerB?.dorsal ?? 999);
+      });
   }, [filteredMatches, reportById, squadById]);
 
   return (

@@ -267,10 +267,10 @@ const idToSeed = (id: number | string): number => {
 const generateStandingsFromTeams = (teams: CompetitionTeam[], myTeamName: string): StandingTeam[] => {
   if (teams.length === 0) return [];
 
-  const standings = teams.map(team => {
-    const seed = idToSeed(team.id) * 7 + 3;
+  const standings = teams.map((team, index) => {
+    const seed = idToSeed(team.id || team.nombre || index.toString()) * 7 + 3 + index * 11;
     const isMyTeam = team.nombre.toLowerCase().includes(myTeamName.toLowerCase());
-    
+
     const played = 18;
     const won = isMyTeam ? 9 : Math.max(1, Math.min(14, (seed % 13) + 1));
     const drawn = Math.max(0, Math.min(played - won, (seed % 7)));
@@ -279,7 +279,7 @@ const generateStandingsFromTeams = (teams: CompetitionTeam[], myTeamName: string
     const goalsAgainst = lost * 2 + drawn + Math.floor((seed + 3) % 5);
     const points = won * 3 + drawn;
     const formOptions: ('W' | 'D' | 'L')[] = ['W', 'D', 'L'];
-    const form: ('W' | 'D' | 'L')[] = Array.from({ length: 5 }, (_, i) => formOptions[(seed + i) % 3]);
+    const form: ('W' | 'L' | 'D')[] = Array.from({ length: 5 }, (_, i) => formOptions[(seed + i) % 3]);
 
     return {
       pos: 0,

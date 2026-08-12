@@ -11,6 +11,7 @@ import { LoginPage } from '@modules/auth';
 
 // Shared
 import Sidebar from '@shared/components/Sidebar';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { Header, BottomNav, HomeSectionsView } from '@shared/components';
 import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService, competicionesService, calendarioCompeticionService } from '@shared/services/dataService';
 import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal, Competicion, CalendarioCompeticionPartido } from '@shared/services/dataService';
@@ -171,7 +172,8 @@ const MatchReportWrapper: React.FC<{
   competitionTeams: CompetitionTeam[];
   onSave: (event: CalendarEvent) => void | Promise<void>;
   onDelete: (id: string | number) => void | Promise<void>;
-}> = ({ filteredEventsList, currentTeamId, competitionTeams, onSave, onDelete }) => {
+  onTeamCreated?: () => void;
+}> = ({ filteredEventsList, currentTeamId, competitionTeams, onSave, onDelete, onTeamCreated }) => {
   const { t } = useTranslation();
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
@@ -256,6 +258,7 @@ const MatchReportWrapper: React.FC<{
           competitionTeams={competitionTeams}
           onSave={onSave}
           onDelete={onDelete}
+          onTeamCreated={onTeamCreated}
         />
       </React.Suspense>
     </ErrorBoundary>
@@ -611,7 +614,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       .map(value => value.trim())
       .filter(value => !EXCLUDED_TEAM_FILTER_OPTIONS.has(normalizeTeamName(value)));
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'es'));
+    return Array.from(new Set(values)).sort(compareEquipoNames);
   }, [competitionTeams, squadList, campogramasList, currentTeam]);
 
   useEffect(() => {
@@ -723,9 +726,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     const baseId = fallbackId !== undefined && fallbackId !== null && String(fallbackId).trim() !== ''
       ? String(fallbackId)
       : String(player.id ?? '');
+    // Usar DNI si es válido; si no, usar ID existente; si no hay, generar UUID
+    const finalId = dni || baseId || crypto.randomUUID();
     return {
       ...player,
-      id: dni || baseId,
+      id: finalId,
       dni: dni || undefined,
     };
   };
@@ -1339,7 +1344,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => { const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' }); await db.players.upsert(toSave); setSquadList(prev => { const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id)); if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl); return [toSave, ...prev]; }); }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
+                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                  try {
+                    if (!p.equipoId) throw new Error('Debes seleccionar un equipo');
+                    if (!p.dni && !p.id) throw new Error('El jugador debe tener un DNI o ID válido');
+                    const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });
+                    if (!toSave.id) throw new Error('No se pudo generar un ID válido para el jugador');
+                    await db.players.upsert(toSave);
+                    setSquadList(prev => {
+                      const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id));
+                      if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl);
+                      return [toSave, ...prev];
+                    });
+                    console.log('✓ Jugador guardado:', toSave);
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : 'Error desconocido al guardar el jugador';
+                    console.error('✗ Error guardando jugador:', msg);
+                    alert(`Error al guardar: ${msg}`);
+                  }
+                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
               } />
               <Route path="/staff" element={
                 <StaffTable
@@ -1526,13 +1549,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   competitionTeams={competitionTeams}
                   onSave={handleSaveEvent}
                   onDelete={handleDeleteEvent}
+                  onTeamCreated={fetchData}
                 />
               } />
               <Route path="/videoteca" element={<Videoteca />} />
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} />
               } />
-              <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} />} />
+              <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
@@ -1723,8 +1747,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el personal');
         }
       }} />}
-      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
-      {showNewModal && <NewEventModal initialDate={newModalInitialDate ?? new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); setNewModalInitialDate(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />}
+      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchData} />}
+      {showNewModal && <NewEventModal initialDate={newModalInitialDate ?? new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); setNewModalInitialDate(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchData} />}
       {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
       {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
 

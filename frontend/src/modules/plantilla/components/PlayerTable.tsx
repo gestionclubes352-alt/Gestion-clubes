@@ -4,6 +4,7 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '../../../shared/components/DataTable';
 import type { DataTableAction } from '../../../shared/components/DataTable';
 import { useIsMobile } from '@shared/hooks/useIsMobile';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { Player } from '../types';
 
 interface PlayerTableProps {
@@ -85,7 +86,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         teamMap.set(key, rawTeam);
       }
     });
-    return Array.from(teamMap.values()).sort((a, b) => a.localeCompare(b, 'es'));
+    return Array.from(teamMap.values()).sort(compareEquipoNames);
   }, [baseSquad]);
 
   // Clubes únicos disponibles (dentro de la pestaña activa) — útil sobre todo en "Equipos Rivales",
@@ -137,7 +138,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   const switchTab = (tab: 'mis' | 'rivales') => {
     setActiveTab(tab);
     setFilterClub('TODOS');
-    setFilterTeam('TODOS');
+    if (tab === 'rivales') setFilterTeam('TODOS');
     setFilterStatus('TODOS');
   };
 
@@ -237,13 +238,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       size: 120,
       cell: info => textCell(info.getValue()),
     }),
-    // 9. Competición
-    columnHelper.accessor('competicion', {
-      header: t('playerTable.competition', 'Competición'),
-      size: 140,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 10. Club
+    // 9. Club
     columnHelper.accessor('club', {
       header: t('playerTable.club', 'Club'),
       size: 130,
@@ -296,36 +291,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       size: 100,
       cell: info => textCell(info.getValue()),
     }),
-    columnHelper.accessor('nombrePila', {
-      header: t('playerTable.firstName', 'Nombre Pila'),
-      size: 120,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('primerApellido', {
-      header: t('playerTable.lastName1', '1er Apellido'),
-      size: 120,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('segundoApellido', {
-      header: t('playerTable.lastName2', '2º Apellido'),
-      size: 120,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('dni', {
-      header: t('playerTable.dni', 'DNI'),
-      size: 100,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('otraDemarcacion', {
-      header: t('playerTable.otherPosition', 'Otra Demarcación'),
-      size: 140,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('otraPosicion', {
-      header: t('playerTable.otherRole', 'Otra Posición'),
-      size: 130,
-      cell: info => textCell(info.getValue()),
-    }),
     columnHelper.accessor('telefono', {
       header: t('playerTable.phone', 'Teléfono'),
       size: 110,
@@ -335,15 +300,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       header: t('playerTable.email', 'Correo'),
       size: 180,
       cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('enlace', {
-      header: t('playerTable.link', 'Enlace'),
-      size: 140,
-      cell: info => {
-        const val = info.getValue();
-        if (!val) return <span className="text-slate-300">—</span>;
-        return <a href={val} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs underline truncate max-w-[130px] block">{val}</a>;
-      },
     }),
   ], []);
 
@@ -486,13 +442,13 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             )}
 
             {/* Separador */}
-            {availableTeams.length > 1 && (
+            {availableTeams.length > 1 && activeTab === 'mis' && (
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
             )}
             </div>
 
-            {/* Filtro de equipos */}
-            {availableTeams.length > 1 && (
+            {/* Filtro de equipos (solo en pestaña "mis") */}
+            {availableTeams.length > 1 && activeTab === 'mis' && (
               <>
                 {['TODOS', ...availableTeams].map((team) => (
                   <button

@@ -22,11 +22,13 @@ interface CompetitionConfig {
 interface CompetitionsConfigViewProps {
   /** Equipos propios del club (con nombreEnFed) para resaltar el equipo correcto en cada calendario de competición. */
   misEquipos?: CompetitionTeam[];
+  /** Notifica al resto de la app (App.tsx) que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
+  onDataChanged?: () => void;
 }
 
 const COMPETITION_TYPE_OPTIONS: Competicion['tipo'][] = ['Liga', 'Copa', 'Amistoso', 'Torneo'];
 
-const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [] }) => {
+const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [], onDataChanged }) => {
   const { t } = useTranslation();
   const { perfil } = useAuth();
   const [competiciones, setCompeticiones] = useState<Competicion[]>([]);
@@ -49,6 +51,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [equiposCompeticionActual, setEquiposCompeticionActual] = useState<EquipoRef[]>([]);
   const [loadingEquiposCompeticion, setLoadingEquiposCompeticion] = useState(false);
   const [equiposSelectorError, setEquiposSelectorError] = useState<string | null>(null);
+  const [equiposPorCompeticion, setEquiposPorCompeticion] = useState<Map<string, number>>(new Map());
   const formRef = useRef<HTMLDivElement | null>(null);
 
   // Cargar configuraciones desde Supabase
@@ -70,6 +73,19 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       setCompeticiones(competicionesData);
       setTodosLosEquipos(equiposData);
       setEquiposInternas(equiposInternasData);
+
+      // Cargar el conteo de equipos para cada competición
+      const counts = new Map<string, number>();
+      await Promise.all(competicionesData.map(async comp => {
+        try {
+          const teams = await competicionEquiposService.getTeamsByCompeticion(comp.id);
+          counts.set(comp.id, teams.length);
+        } catch (err) {
+          console.error(`Error loading teams for competition ${comp.id}:`, err);
+          counts.set(comp.id, 0);
+        }
+      }));
+      setEquiposPorCompeticion(counts);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cargar datos';
       setError(errorMsg);
@@ -77,6 +93,13 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     } finally {
       setLoading(false);
     }
+  };
+
+  // Se llama cuando alguno de los modales hijos da de alta un club/equipo nuevo sobre la marcha,
+  // para que el catálogo de equipos de esta vista y el resto de la app (App.tsx) se refresquen.
+  const handleTeamCreated = () => {
+    loadAllTeams().then(setTodosLosEquipos);
+    onDataChanged?.();
   };
 
   const loadAllTeams = async (): Promise<CompetitionTeam[]> => {
@@ -149,6 +172,19 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       setError(null);
       const data = await competicionService.listCompeticiones();
       setCompeticiones(data);
+
+      // Cargar el conteo de equipos para cada competición
+      const counts = new Map<string, number>();
+      for (const comp of data) {
+        try {
+          const teams = await competicionEquiposService.getTeamsByCompeticion(comp.id);
+          counts.set(comp.id, teams.length);
+        } catch (err) {
+          console.error(`Error loading teams for competition ${comp.id}:`, err);
+          counts.set(comp.id, 0);
+        }
+      }
+      setEquiposPorCompeticion(counts);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cargar competiciones';
       setError(errorMsg);
@@ -254,6 +290,17 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       setFormData({ id: '', nombre: '', tipo: 'Liga', partes: 2, minutosPorParte: 45, equipoInternaId: '' });
 
       await loadCompeticiones();
+
+      // Recargar el conteo de equipos después de guardar
+      if (competicionId) {
+        try {
+          const teams = await competicionEquiposService.getTeamsByCompeticion(competicionId);
+          setEquiposPorCompeticion(prev => new Map(prev).set(competicionId, teams.length));
+        } catch (err) {
+          console.error('Error reloading team count:', err);
+        }
+      }
+
       alert(editingId ? 'Competición actualizada correctamente' : 'Competición guardada correctamente');
     } catch (error) {
       console.error('Error al guardar competición:', error);
@@ -448,13 +495,14 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
             {/* Encabezado */}
             <div
               className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-              style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 140px' }}
+              style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 120px 140px' }}
             >
               <div className="px-6 py-4">Competición</div>
               <div className="px-6 py-4 text-center">Tipo</div>
               <div className="px-6 py-4 text-center">Partes</div>
               <div className="px-6 py-4 text-center">Min/Parte</div>
               <div className="px-6 py-4 text-center">Total Minutos</div>
+              <div className="px-6 py-4 text-center">Equipos Añadidos</div>
               <div className="px-6 py-4 text-right">Acciones</div>
             </div>
 
@@ -474,7 +522,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <div
                   key={comp.id}
                   className="grid items-center border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 140px' }}
+                  style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 120px 140px' }}
                 >
                   <div className="px-6 py-4">
                     <span className="font-semibold text-slate-800">{comp.nombre}</span>
@@ -496,6 +544,12 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-bold">
                       <i className="fa-solid fa-clock text-[10px]"></i>
                       {comp.total_minutos} min
+                    </span>
+                  </div>
+                  <div className="px-6 py-4 text-center">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
+                      <i className="fa-solid fa-people-group text-[10px]"></i>
+                      {equiposPorCompeticion.get(comp.id) || 0}
                     </span>
                   </div>
                   <div className="px-6 py-4 flex items-center justify-end gap-2">
@@ -554,6 +608,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
           competitionTeams={misEquipos}
           allCompetitions={competiciones}
           onClose={() => setCalendarioCompeticion(null)}
+          onTeamCreated={handleTeamCreated}
         />
       )}
 
@@ -598,9 +653,13 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                   allTeams={todosLosEquipos}
                   ownClubId={perfil?.club_id}
                   initialTeams={equiposCompeticionActual}
+                  onTeamCreated={handleTeamCreated}
                   onTeamsSelected={(teams) => {
                     setEquiposSelectorError(null);
-                    competicionEquiposService.setTeamsForCompeticion(competicionSeleccionada.id, teams).catch(err => {
+                    competicionEquiposService.setTeamsForCompeticion(competicionSeleccionada.id, teams).then(() => {
+                      // Actualizar el conteo de equipos
+                      setEquiposPorCompeticion(prev => new Map(prev).set(competicionSeleccionada.id, teams.length));
+                    }).catch(err => {
                       console.error('Error saving teams:', err);
                       const msg = err instanceof Error ? err.message : 'Error al guardar los equipos';
                       setEquiposSelectorError(msg);

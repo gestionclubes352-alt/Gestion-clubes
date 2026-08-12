@@ -603,7 +603,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </SearchableSelect>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.otherDemarcation', 'Otra Demarcación')}</label>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.concretePosition', 'Posición Concreta')}</label>
               <SearchableSelect
                 value={formData.otraDemarcacion || ''}
                 onChange={(e) => handleChange('otraDemarcacion' as keyof Player, e.target.value)}
@@ -613,89 +613,72 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 {isHuesca ? (
                   <>
                     <option value="Portero">Portero</option>
-                    <option value="Lateral">Lateral</option>
-                    <option value="Central">Central</option>
+                    <option value="Lateral Dcho">Lateral Dcho</option>
+                    <option value="Lateral Izdo">Lateral Izdo</option>
+                    <option value="Central Dcho">Central Dcho</option>
+                    <option value="Central Izdo">Central Izdo</option>
                     <option value="Pivote">Pivote</option>
                     <option value="Media punta">Media punta</option>
-                    <option value="Interior">Interior</option>
-                    <option value="Extremo">Extremo</option>
+                    <option value="Interior Dcho">Interior Dcho</option>
+                    <option value="Interior Izdo">Interior Izdo</option>
+                    <option value="Extremo Dcho">Extremo Dcho</option>
+                    <option value="Extremo Izdo">Extremo Izdo</option>
                     <option value="Delantero">Delantero</option>
                   </>
                 ) : (
                   <>
                     <option value="Portero">{t('players.goalkeeper')}</option>
-                    <option value="Defensa">{t('players.defender')}</option>
-                    <option value="Medio">{t('players.midfielder')}</option>
+                    <option value="Lateral Dcho">Lateral Dcho</option>
+                    <option value="Lateral Izdo">Lateral Izdo</option>
+                    <option value="Central Dcho">Central Dcho</option>
+                    <option value="Central Izdo">Central Izdo</option>
+                    <option value="Pivote">Pivote</option>
+                    <option value="Media punta">Media punta</option>
+                    <option value="Interior Dcho">Interior Dcho</option>
+                    <option value="Interior Izdo">Interior Izdo</option>
+                    <option value="Extremo Dcho">Extremo Dcho</option>
+                    <option value="Extremo Izdo">Extremo Izdo</option>
                     <option value="Delantero">{t('players.forward')}</option>
                   </>
                 )}
               </SearchableSelect>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{isHuesca ? t('common.position') : t('editPlayer.tacticalRole')}</label>
-              {isHuesca ? (
-                <SearchableSelect
-                  value={formData.posicionJuego}
-                  onChange={(e) => handleChange('posicionJuego', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-                >
-                  <option value="">–</option>
-                  <option value="Portero">Portero</option>
-                  <option value="Lateral Dcho">Lateral Dcho</option>
-                  <option value="Lateral Izdo">Lateral Izdo</option>
-                  <option value="Central Dcho">Central Dcho</option>
-                  <option value="Central Izdo">Central Izdo</option>
-                  <option value="Medio centro 6">Medio centro 6</option>
-                  <option value="Medio centro 8">Medio centro 8</option>
-                  <option value="Interior Dcho">Interior Dcho</option>
-                  <option value="Interior Izdo">Interior Izdo</option>
-                  <option value="Extremo Dcho">Extremo Dcho</option>
-                  <option value="Extremo Izdo">Extremo Izdo</option>
-                  <option value="Media punta">Media punta</option>
-                  <option value="Delantero">Delantero</option>
-                </SearchableSelect>
-              ) : (
-                <input 
-                  type="text" 
-                  value={formData.posicionJuego} 
-                  onChange={(e) => handleChange('posicionJuego', e.target.value.toUpperCase())}
-                  placeholder={t('editPlayer.tacticalRolePlaceholder')}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)] uppercase" 
-                />
-              )}
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.otherPosition', 'Otra Posición')}</label>
+              <SearchableSelect
+                value={formData.posicionJuego || ''}
+                onChange={(e) => handleChange('posicionJuego', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+              >
+                <option value="">–</option>
+                <option value="Portero">{t('players.goalkeeper')}</option>
+                <option value="Defensa">{t('players.defender')}</option>
+                <option value="Medio">{t('players.midfielder')}</option>
+                <option value="Delantero">{t('players.forward')}</option>
+              </SearchableSelect>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.otherPosition', 'Otra Posición')}</label>
-              {isHuesca ? (
-                <SearchableSelect
-                  value={formData.otraPosicion || ''}
-                  onChange={(e) => handleChange('otraPosicion' as keyof Player, e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-                >
-                  <option value="">–</option>
-                  <option value="Portero">Portero</option>
-                  <option value="Lateral Dcho">Lateral Dcho</option>
-                  <option value="Lateral Izdo">Lateral Izdo</option>
-                  <option value="Central Dcho">Central Dcho</option>
-                  <option value="Central Izdo">Central Izdo</option>
-                  <option value="Medio centro 6">Medio centro 6</option>
-                  <option value="Medio centro 8">Medio centro 8</option>
-                  <option value="Interior Dcho">Interior Dcho</option>
-                  <option value="Interior Izdo">Interior Izdo</option>
-                  <option value="Extremo Dcho">Extremo Dcho</option>
-                  <option value="Extremo Izdo">Extremo Izdo</option>
-                  <option value="Media punta">Media punta</option>
-                  <option value="Delantero">Delantero</option>
-                </SearchableSelect>
-              ) : (
-                <input 
-                  type="text" 
-                  value={formData.otraPosicion || ''} 
-                  onChange={(e) => handleChange('otraPosicion' as keyof Player, e.target.value.toUpperCase())}
-                  placeholder="–"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)] uppercase" 
-                />
-              )}
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.concreteOtherPosition', 'Otra Posición Concreta')}</label>
+              <SearchableSelect
+                value={formData.otraPosicion || ''}
+                onChange={(e) => handleChange('otraPosicion' as keyof Player, e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+              >
+                <option value="">–</option>
+                <option value="Portero">Portero</option>
+                <option value="Lateral Dcho">Lateral Dcho</option>
+                <option value="Lateral Izdo">Lateral Izdo</option>
+                <option value="Central Dcho">Central Dcho</option>
+                <option value="Central Izdo">Central Izdo</option>
+                <option value="Medio centro 6">Medio centro 6</option>
+                <option value="Medio centro 8">Medio centro 8</option>
+                <option value="Interior Dcho">Interior Dcho</option>
+                <option value="Interior Izdo">Interior Izdo</option>
+                <option value="Extremo Dcho">Extremo Dcho</option>
+                <option value="Extremo Izdo">Extremo Izdo</option>
+                <option value="Media punta">Media punta</option>
+                <option value="Delantero">Delantero</option>
+              </SearchableSelect>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.laterality')}</label>
@@ -790,9 +773,12 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                       return a.localeCompare(b);
                     });
 
+                    const seniorOrder = ['Primer Equipo', 'Filial', 'F'];
                     return sortedCategories.map(category => {
                       const teams = (teamsMap.get(category) || [])
-                        .sort((a, b) => a.label.localeCompare(b.label));
+                        .sort((a, b) => category === 'Senior'
+                          ? seniorOrder.indexOf(a.label) - seniorOrder.indexOf(b.label)
+                          : a.label.localeCompare(b.label));
                       return (
                         <optgroup key={category} label={category}>
                           {teams.map(team => (

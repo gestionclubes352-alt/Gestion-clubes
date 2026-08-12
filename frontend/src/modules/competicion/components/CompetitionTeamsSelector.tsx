@@ -21,6 +21,8 @@ interface CompetitionTeamsSelectorProps {
   /** Equipos (propios y rivales de catálogo) ya guardados para esta competición */
   initialTeams?: EquipoRef[];
   onTeamsSelected: (teams: EquipoRef[]) => void;
+  /** Notifica al resto de la app que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
+  onTeamCreated?: () => void;
 }
 
 const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
@@ -29,6 +31,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   ownClubId,
   initialTeams = [],
   onTeamsSelected,
+  onTeamCreated,
 }) => {
   const [selectedOwnIds, setSelectedOwnIds] = useState<Set<string>>(
     () => new Set(initialTeams.filter(t => t.equipoId).map(t => t.equipoId as string))
@@ -80,6 +83,19 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
   const teamById = useMemo(() => new Map(allTeamsWithExtras.map(t => [String(t.id), t])), [allTeamsWithExtras]);
   const rivalById = useMemo(() => new Map(rivalCatalog.map(r => [String(r.id), r])), [rivalCatalog]);
 
+  // Clubes que ya tienen algún equipo dado de alta en esta competición (propio o rival de catálogo),
+  // para poder priorizarlos en el selector de "añadir equipo" antes que el resto de la base de datos.
+  const clubsAlreadyInCompetition = useMemo(() => {
+    const set = new Set<string>();
+    allTeamsWithExtras.forEach(team => {
+      if (selectedOwnIds.has(String(team.id)) && team.clubId != null) set.add(String(team.clubId));
+    });
+    rivalCatalog.forEach(rival => {
+      if (selectedRivalIds.has(String(rival.id)) && rival.club_id != null) set.add(String(rival.club_id));
+    });
+    return set;
+  }, [allTeamsWithExtras, selectedOwnIds, rivalCatalog, selectedRivalIds]);
+
   const availableOwnTeamsByClub = useMemo(() => {
     const grouped = new Map<string, CompetitionTeam[]>();
     allTeamsWithExtras.forEach(team => {
@@ -88,16 +104,21 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
       if (!grouped.has(clubKey)) grouped.set(clubKey, []);
       grouped.get(clubKey)!.push(team);
     });
-    // El club propio ("Equipo interno") siempre en primer lugar
+    // Orden: 1º el club propio ("Equipo interno"), 2º el resto de clubes que ya participan
+    // en esta competición, 3º el resto de clubes de la base de datos general.
     const ownClubIdStr = ownClubId ? String(ownClubId) : '';
     const entries = Array.from(grouped.entries());
     entries.sort((a, b) => {
-      if (a[0] === ownClubIdStr) return -1;
-      if (b[0] === ownClubIdStr) return 1;
+      const aOwn = a[0] === ownClubIdStr;
+      const bOwn = b[0] === ownClubIdStr;
+      if (aOwn !== bOwn) return aOwn ? -1 : 1;
+      const aIn = clubsAlreadyInCompetition.has(a[0]);
+      const bIn = clubsAlreadyInCompetition.has(b[0]);
+      if (aIn !== bIn) return aIn ? -1 : 1;
       return 0;
     });
     return entries;
-  }, [allTeamsWithExtras, selectedOwnIds, ownClubId]);
+  }, [allTeamsWithExtras, selectedOwnIds, ownClubId, clubsAlreadyInCompetition]);
 
   const getClubLabel = (clubKey: string) => {
     if (clubKey === UNASSIGNED_CLUB_KEY) return 'Sin club';
@@ -106,13 +127,30 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
     return clubName || 'Otro club';
   };
 
+  const getTeamDisplayName = (team: CompetitionTeam): string => {
+    const teamName = team.equipo || team.nombre;
+    const clubId = String(team.clubId);
+    const clubName = clubNameById.get(clubId);
+    if (clubName) {
+      return `${clubName} - ${teamName}${team.etapa ? ` (${team.etapa})` : ''}`;
+    }
+    return `${teamName}${team.etapa ? ` (${team.etapa})` : ''}`;
+  };
+
+  const getClubGroupLabel = (clubKey: string): string => {
+    if (ownClubId && clubKey === String(ownClubId)) return 'Tu club';
+    if (clubsAlreadyInCompetition.has(clubKey)) return 'Ya en esta competición';
+    return 'Resto de clubes (base de datos)';
+  };
+
   const availableClubOptions = useMemo(
     () => availableOwnTeamsByClub.map(([clubKey, teams]) => ({
       clubKey,
       label: getClubLabel(clubKey),
+      group: getClubGroupLabel(clubKey),
       count: teams.length,
     })),
-    [availableOwnTeamsByClub, clubNameById, ownClubId]
+    [availableOwnTeamsByClub, clubNameById, ownClubId, clubsAlreadyInCompetition]
   );
 
   const selectedClubTeams = useMemo(
@@ -213,6 +251,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
       emitChange(newSelected, selectedRivalIds);
       setNewClubName('');
       setNewTeamName('');
+      onTeamCreated?.();
     } catch (err) {
       console.error('Error creating club/team:', err);
       setCreateTeamError(err instanceof Error ? err.message : 'Error al dar de alta el club/equipo');
@@ -257,10 +296,14 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
           >
             <option value="">Selecciona un club...</option>
-            {availableClubOptions.map(({ clubKey, label, count }) => (
-              <option key={clubKey} value={clubKey} data-searchable={label}>
-                {label} ({count})
-              </option>
+            {Array.from(new Set(availableClubOptions.map(o => o.group))).map((group) => (
+              <optgroup key={group} label={group}>
+                {availableClubOptions.filter(o => o.group === group).map(({ clubKey, label, count }) => (
+                  <option key={clubKey} value={clubKey} data-searchable={label}>
+                    {label} ({count})
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </SearchableSelect>
 
@@ -276,8 +319,8 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
             {selectedClubToAdd && (
               <optgroup label={getClubLabel(selectedClubToAdd)}>
                 {dedupedSelectedClubTeams.map(team => (
-                  <option key={team.id} value={`team:${team.id}`} data-searchable={team.equipo || team.nombre}>
-                    {team.equipo || team.nombre}{team.etapa ? ` (${team.etapa})` : ''}
+                  <option key={team.id} value={`team:${team.id}`} data-searchable={getTeamDisplayName(team)}>
+                    {getTeamDisplayName(team)}
                   </option>
                 ))}
               </optgroup>
@@ -360,16 +403,9 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
                 const team = teamById.get(teamId);
                 return (
                   <div key={`team-${teamId}`} className="flex items-center justify-between p-2 rounded-lg bg-white">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-700">
-                        {team ? (team.equipo || team.nombre) : teamId}
-                      </span>
-                      {team?.etapa && (
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {team.etapa}
-                        </span>
-                      )}
-                    </div>
+                    <span className="text-sm font-semibold text-slate-700">
+                      {team ? getTeamDisplayName(team) : teamId}
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleToggleOwnTeam(teamId)}

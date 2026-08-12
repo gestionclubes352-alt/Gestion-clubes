@@ -6,6 +6,7 @@ import type { Club } from '@modules/clubes/types';
 import type { Player } from '@modules/plantilla';
 import type { MatchReport } from '@modules/partidos/types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { db } from '@shared/services/dataService';
 import { getPlayerSessionAttendance, hasRecordedAttendance, isSelectiveAttendanceSession } from '../utils/attendance';
 import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
@@ -390,7 +391,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       const name = (team.equipo || team.nombre || '').trim();
       if (name) teams.add(name);
     });
-    return Array.from(teams).sort((a, b) => a.localeCompare(b));
+    return Array.from(teams).sort(compareEquipoNames);
   }, [internalCompetitionTeams]);
 
   const availablePlayers = useMemo(() => {

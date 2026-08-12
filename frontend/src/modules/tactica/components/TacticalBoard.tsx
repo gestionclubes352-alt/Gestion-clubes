@@ -10,6 +10,7 @@ const NOT_CONVOCADO_REASONS: Array<{ value: string; label: string }> = [
   { value: 'sancion_federativa', label: 'Sanción federativa' },
   { value: 'sancion_interna', label: 'Sanción interna' },
   { value: 'otro', label: 'Otro' },
+  { value: 'otro_equipo', label: 'Otro equipo' },
 ];
 
 interface TacticalBoardProps {
@@ -317,7 +318,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                             else onToggleConvocado(player.id, false, value);
                           }}
                           title="Convocatoria"
-                          className={`w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                          className={`w-24 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                         >
                           <option value="convocado">Convocado</option>
                           {NOT_CONVOCADO_REASONS.map(r => (
@@ -404,7 +405,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                             else onToggleConvocado(player.id, false, value);
                           }}
                           title="Convocatoria"
-                          className={`w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-orange-50 border-orange-200 text-orange-600'}`}
+                          className={`w-24 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-orange-50 border-orange-200 text-orange-600'}`}
                         >
                           <option value="convocado">Convocado</option>
                           {NOT_CONVOCADO_REASONS.map(r => (
@@ -472,7 +473,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         }}
                         onClick={(e) => e.stopPropagation()}
                         title="Convocatoria"
-                        className="w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none bg-white border-slate-200 text-slate-500"
+                        className="w-24 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none bg-white border-slate-200 text-slate-500"
                       >
                         <option value="convocado">Convocado</option>
                         {NOT_CONVOCADO_REASONS.map(r => (

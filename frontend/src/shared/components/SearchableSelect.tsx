@@ -45,23 +45,29 @@ const parseOption = (child: React.ReactElement<any>, group?: string): ParsedOpti
 const parseOptions = (children: React.ReactNode): ParsedOption[] => {
   const parsed: ParsedOption[] = [];
 
-  React.Children.forEach(children, child => {
+  const processChild = (child: any, group?: string): void => {
     if (!React.isValidElement<any>(child)) return;
 
+    // Maneja Fragments (destructuring automático)
+    const isFragment = child.type === React.Fragment || child.type === Symbol.for('react.fragment');
+    if (isFragment) {
+      React.Children.forEach(child.props.children, (c) => processChild(c, group));
+      return;
+    }
+
     if (child.type === 'optgroup') {
-      const group = String(child.props.label ?? '');
+      const grp = String(child.props.label ?? '');
       React.Children.forEach(child.props.children, optionChild => {
-        if (!React.isValidElement<any>(optionChild)) return;
-        const option = parseOption(optionChild, group);
-        if (option) parsed.push(option);
+        processChild(optionChild, grp);
       });
       return;
     }
 
-    const option = parseOption(child);
+    const option = parseOption(child, group);
     if (option) parsed.push(option);
-  });
+  };
 
+  React.Children.forEach(children, child => processChild(child));
   return parsed;
 };
 
@@ -161,6 +167,15 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
     return groups;
   }, [filteredOptions]);
 
+  const getDropdownPosition = () => {
+    if (!rootRef.current) return { top: 0, left: 0 };
+    const rect = rootRef.current.getBoundingClientRect();
+    return {
+      top: rect.bottom + window.scrollY,
+      left: Math.max(0, rect.right - 300 + window.scrollX),
+    };
+  };
+
   return (
     <div ref={rootRef} className={`relative min-w-0 ${getLayoutClassName(className)}`}>
       <select
@@ -206,12 +221,16 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
         <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true"></i>
       </button>
 
-      {isOpen && (
+      {isOpen && (() => {
+        const pos = getDropdownPosition();
+        return (
         <div
-          className="absolute right-0 top-full z-[1000] mt-1 w-max overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+          className="fixed z-[2000] mt-1 w-max overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
           style={{
-            minWidth: 'max(12rem, 100%)',
-            maxWidth: 'min(22rem, calc(100vw - 2rem))',
+            top: `${pos.top}px`,
+            left: `${pos.left}px`,
+            minWidth: '8rem',
+            maxWidth: 'min(16rem, calc(100vw - 2rem))',
           }}
         >
           <div className="relative border-b border-slate-100">
@@ -233,14 +252,14 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
             />
           </div>
 
-          <div role="listbox" className="max-h-96 overflow-y-auto py-1">
+          <div role="listbox" className="max-h-56 overflow-y-auto py-1">
             {optionGroups.length === 0 ? (
-              <div className="px-3 py-3 text-sm font-semibold text-slate-400">Sin resultados</div>
+              <div className="px-3 py-2 text-sm font-semibold text-slate-400">Sin resultados</div>
             ) : (
               optionGroups.map((group, groupIndex) => (
                 <div key={`${group.label ?? 'root'}-${groupIndex}`}>
                   {group.label && (
-                    <div className="px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <div className="px-3 pb-0.5 pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
                       {group.label}
                     </div>
                   )}
@@ -252,7 +271,7 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
                       aria-selected={option.value === selectedValue}
                       disabled={option.disabled}
                       onClick={() => handleSelect(option)}
-                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold transition-colors ${
+                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm font-bold transition-colors ${
                         option.value === selectedValue
                           ? 'bg-blue-50 text-blue-700'
                           : 'text-slate-700 hover:bg-slate-50'
@@ -269,7 +288,8 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

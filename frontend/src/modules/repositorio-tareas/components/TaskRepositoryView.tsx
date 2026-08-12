@@ -241,21 +241,51 @@ const TaskRepositoryView: React.FC = () => {
   // ─── Full task preview modal ───
   const TaskPreviewModal: React.FC<{ task: TrainingTask; onClose: () => void; onTaskUpdate?: (task: TrainingTask) => void }> = ({ task, onClose, onTaskUpdate }) => {
     const [is3DPreview, setIs3DPreview] = useState(false);
-    const [localTask, setLocalTask] = useState(task);
+    const [localTask] = useState(task);
+    const [rotationAngle, setRotationAngle] = useState(0);
+    const [isRotating, setIsRotating] = useState(false);
+    const [rotationStartAngle, setRotationStartAngle] = useState(0);
+    const rotationRef = React.useRef<HTMLDivElement>(null);
+
     const hasDesignerSnapshot = localTask.designerSnapshot && localTask.designerSnapshot.length > 0;
 
-    const handleRotateInModal = async () => {
-      if (!localTask.designerSnapshot || localTask.designerSnapshot.length === 0) return;
-      const rotatedSnapshot = localTask.designerSnapshot.map(item => rotateDesignerItem(item));
-      const updatedTask: TrainingTask = {
-        ...localTask,
-        designerSnapshot: rotatedSnapshot,
-        updatedAt: new Date().toISOString(),
-      };
-      setLocalTask(updatedTask);
-      await db.task_templates.upsert(updatedTask);
-      onTaskUpdate?.(updatedTask);
+    const getAngleBetweenPoints = (cx: number, cy: number, x: number, y: number) => {
+      return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
     };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if (!rotationRef.current) return;
+      const rect = rotationRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const angle = getAngleBetweenPoints(centerX, centerY, e.clientX, e.clientY);
+      setRotationStartAngle(angle - rotationAngle);
+      setIsRotating(true);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isRotating || !rotationRef.current) return;
+      const rect = rotationRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const angle = getAngleBetweenPoints(centerX, centerY, e.clientX, e.clientY);
+      setRotationAngle(angle - rotationStartAngle);
+    };
+
+    const handleMouseUp = () => {
+      setIsRotating(false);
+    };
+
+    React.useEffect(() => {
+      if (isRotating) {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+        };
+      }
+    }, [isRotating, rotationStartAngle, rotationAngle]);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -271,7 +301,11 @@ const TaskRepositoryView: React.FC = () => {
 
           {/* Designer preview or thumbnail */}
           {hasDesignerSnapshot ? (
-            <div className={`relative shrink-0 overflow-hidden p-6 transition-colors duration-500 ${is3DPreview ? 'bg-[#050607]' : 'bg-slate-50'}`}>
+            <div
+              className={`relative shrink-0 overflow-hidden p-6 transition-colors duration-500 ${is3DPreview ? 'bg-[#050607]' : 'bg-slate-50'} ${isRotating ? 'cursor-grabbing' : 'cursor-grab'}`}
+              onMouseDown={handleMouseDown}
+              ref={rotationRef}
+            >
               <button
                 type="button"
                 onClick={() => setIs3DPreview(value => !value)}
@@ -286,6 +320,9 @@ const TaskRepositoryView: React.FC = () => {
                 <i className="fa-solid fa-cube text-[12px]"></i>
                 {is3DPreview ? '2D' : '3D'}
               </button>
+              <div className="absolute right-3 top-3 z-10 text-[9px] font-black uppercase tracking-widest text-slate-400 pointer-events-none">
+                Arrastra para rotar
+              </div>
               {is3DPreview && (
                 <div className="pointer-events-none absolute left-1/2 top-[64%] h-[22%] w-[82%] -translate-x-1/2 rounded-full bg-black/80 blur-3xl" />
               )}
@@ -294,12 +331,15 @@ const TaskRepositoryView: React.FC = () => {
                 style={is3DPreview ? { perspective: '1150px' } : undefined}
               >
                 <div
-                  className="transition-transform duration-500"
+                  className={`transition-transform ${isRotating ? '' : 'duration-500'}`}
                   style={is3DPreview ? {
-                    transform: 'translateY(-6%) rotateX(40deg) scale(0.98)',
+                    transform: `rotate(${rotationAngle}deg) translateY(-6%) rotateX(40deg) scale(0.98)`,
                     transformOrigin: 'center center',
                     transformStyle: 'preserve-3d',
-                  } : undefined}
+                  } : {
+                    transform: `rotate(${rotationAngle}deg)`,
+                    transformOrigin: 'center center',
+                  }}
                 >
                   <DesignerPreview items={localTask.designerSnapshot} fieldStructure={localTask.fieldStructure} is3D={is3DPreview} className="max-w-full shadow-2xl" />
                 </div>
@@ -327,9 +367,6 @@ const TaskRepositoryView: React.FC = () => {
             <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
               <button onClick={() => { openInDesigner(localTask); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-chess-board"></i> {t('taskRepository.openDesigner')}
-              </button>
-              <button onClick={handleRotateInModal} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-purple-600 hover:bg-purple-50 flex items-center gap-1.5 transition-colors">
-                <i className="fa-solid fa-rotate-right"></i> Rotar
               </button>
               <button onClick={() => { handleDuplicate(localTask); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-copy"></i> {t('taskRepository.duplicate')}

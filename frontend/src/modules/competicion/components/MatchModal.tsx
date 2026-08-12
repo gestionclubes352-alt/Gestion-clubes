@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { CompetitionTeam } from '../types';
 import type { Club } from '@modules/clubes/types';
-import type { EquipoRival } from '@/shared/services/dataService';
-import EquipoSelect, { type EquipoOption } from '@shared/components/EquipoSelect';
+import type { Equipo, EquipoRival } from '@/shared/services/dataService';
+import EquipoSelect, { type EquipoOption, compareEquipoNames } from '@shared/components/EquipoSelect';
 import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
 import { competicionEquiposService } from '../services/competicionEquiposService';
 import { useAuth } from '@/context/AuthContext';
@@ -30,6 +30,8 @@ interface MatchModalProps {
   onSave: (match: MatchFormData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onClose: () => void;
+  /** Notifica al resto de la app que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
+  onTeamCreated?: () => void;
 }
 
 const MatchModal: React.FC<MatchModalProps> = ({
@@ -41,6 +43,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
   onSave,
   onDelete,
   onClose,
+  onTeamCreated,
 }) => {
   const { perfil } = useAuth();
   const [formData, setFormData] = useState<MatchFormData>({
@@ -61,7 +64,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
   const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
-  const [equiposInternos, setEquiposInternos] = useState<CompetitionTeam[]>([]);
+  const [allEquiposCatalog, setAllEquiposCatalog] = useState<CompetitionTeam[]>([]);
   const [dynamicCompetitionTeams, setDynamicCompetitionTeams] = useState<CompetitionTeam[]>([]);
 
   // Resolver el id de la competición seleccionada (por nombre, ya que el selector guarda el nombre)
@@ -96,13 +99,11 @@ const MatchModal: React.FC<MatchModalProps> = ({
   }, []);
 
   useEffect(() => {
-    const loadEquiposInternos = async () => {
-      if (!perfil?.club_id) {
-        setEquiposInternos([]);
-        return;
-      }
+    // Catálogo completo de equipos ya dados de alta en el sistema (de cualquier club), para poder
+    // buscarlos como rival/local aunque todavía no estén adheridos a la competición seleccionada.
+    const loadAllEquipos = async () => {
       try {
-        const data = await equiposService.list({ club_id: perfil.club_id });
+        const data = await equiposService.list();
         const teams = (data || []).map((e: any): CompetitionTeam => ({
           id: e.id,
           clubId: e.club_id,
@@ -116,13 +117,13 @@ const MatchModal: React.FC<MatchModalProps> = ({
           competicion: e.competicion,
           enlace: e.enlace,
         }));
-        setEquiposInternos(teams);
+        setAllEquiposCatalog(teams);
       } catch (err) {
-        console.error('Error loading internal teams:', err);
+        console.error('Error loading equipos catalog:', err);
       }
     };
-    loadEquiposInternos();
-  }, [perfil?.club_id]);
+    loadAllEquipos();
+  }, []);
 
   useEffect(() => {
     if (!selectedCompetitionId) {
@@ -137,12 +138,12 @@ const MatchModal: React.FC<MatchModalProps> = ({
         setConfiguredOwnTeamIds(new Set(teams.filter(t => t.equipoId).map(t => t.equipoId as string)));
         setConfiguredRivalIds(new Set(teams.filter(t => t.equipoRivalId).map(t => t.equipoRivalId as string)));
 
-        // Cargar los equipos internos de la competición seleccionada
+        // Cargar los equipos (de cualquier club) ya adheridos a la competición seleccionada
         const ownTeamIds = teams
           .filter(t => t.equipoId)
           .map(t => t.equipoId as string);
 
-        const competitionTeamsForSelection = equiposInternos.filter(team =>
+        const competitionTeamsForSelection = allEquiposCatalog.filter(team =>
           ownTeamIds.includes(String(team.id))
         );
         setDynamicCompetitionTeams(competitionTeamsForSelection);
@@ -154,7 +155,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
       }
     };
     loadTeams();
-  }, [selectedCompetitionId, equiposInternos]);
+  }, [selectedCompetitionId, allEquiposCatalog]);
 
   const clubNameById = new Map(clubs.map(club => [String(club.id), club.nombre]));
 
@@ -163,10 +164,14 @@ const MatchModal: React.FC<MatchModalProps> = ({
     return name.replace(/\s*\([^)]*\)\s*$/g, '').trim();
   };
 
-  const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
+  // Grupo destacado en el desplegable para los equipos ya adheridos a la competición seleccionada
+  const COMPETITION_GROUP = 'Equipos de la competición';
+
+  const toTeamOption = (team: CompetitionTeam, group?: string): EquipoOption => ({
     value: team.equipo || team.nombre || '',
     club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
     clubId: team.clubId != null ? String(team.clubId) : undefined,
+    group,
   });
 
   // Usar los equipos dinámicos cargados para la competición seleccionada
@@ -181,6 +186,19 @@ const MatchModal: React.FC<MatchModalProps> = ({
       nombre: cleanTeamName(rival.nombre),
     }));
 
+  // Resto del catálogo (equipos de cualquier club ya guardados en el sistema) que todavía no
+  // está adherido a la competición seleccionada — se puede buscar por club/equipo y añadir directamente.
+  const relevantOwnIds = new Set(relevantOwnTeams.map(team => String(team.id)));
+  const restOwnTeams = allEquiposCatalog.filter(team => !relevantOwnIds.has(String(team.id)));
+
+  const configuredOrRelevantRivalIds = new Set([
+    ...Array.from(configuredRivalIds),
+    ...relevantRivals.map(rival => String(rival.id)),
+  ]);
+  const restRivals = rivalCatalog
+    .filter(rival => !configuredOrRelevantRivalIds.has(String(rival.id)))
+    .map(rival => ({ ...rival, nombre: cleanTeamName(rival.nombre) }));
+
   // Si la competición solo tiene un equipo propio configurado, se autocompleta como Local
   useEffect(() => {
     if (formData.localTeam) return;
@@ -191,9 +209,32 @@ const MatchModal: React.FC<MatchModalProps> = ({
     );
   }, [relevantOwnTeams]);
 
+  const sortedOwnTeams = useMemo(
+    () => [...relevantOwnTeams].sort((a, b) => compareEquipoNames(a.equipo || a.nombre || '', b.equipo || b.nombre || '')),
+    [relevantOwnTeams]
+  );
+
+  const sortedRivals = useMemo(
+    () => [...relevantRivals].sort((a, b) => compareEquipoNames(a.nombre, b.nombre)),
+    [relevantRivals]
+  );
+
+  const sortedRestOwnTeams = useMemo(
+    () => [...restOwnTeams].sort((a, b) => compareEquipoNames(a.equipo || a.nombre || '', b.equipo || b.nombre || '')),
+    [restOwnTeams]
+  );
+
   const teamOptions: EquipoOption[] = [
-    ...relevantOwnTeams.map(toTeamOption),
-    ...relevantRivals.map((rival): EquipoOption => ({ value: rival.nombre })),
+    // 1º: equipos ya adheridos a la competición (ordenados por categoría)
+    ...sortedOwnTeams.map((team) => toTeamOption(team, COMPETITION_GROUP)),
+    ...sortedRivals.map((rival): EquipoOption => ({ value: rival.nombre, group: COMPETITION_GROUP })),
+    // 2º: resto de clubes/equipos guardados en el sistema, agrupados por club para buscarlos
+    ...sortedRestOwnTeams.map((team) => toTeamOption(team, team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined)),
+    ...restRivals.map((rival): EquipoOption => ({
+      value: rival.nombre,
+      club: rival.club_id != null ? clubNameById.get(String(rival.club_id)) : undefined,
+      group: rival.club_id != null ? clubNameById.get(String(rival.club_id)) : undefined,
+    })),
   ].filter(option => option.value.trim().length > 0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -260,29 +301,68 @@ const MatchModal: React.FC<MatchModalProps> = ({
 
   const handleCreateEquipo = async (input: { value: string; club?: string }) => {
     try {
-      // Si no hay club especificado, no podemos crear un equipo rival
-      if (!input.club) {
+      const clubName = input.club?.trim();
+      const teamName = input.value.trim();
+      if (!clubName) {
         setError('Debes especificar un club para crear un nuevo equipo');
         return null;
       }
+      if (!selectedCompetitionId) {
+        setError('Selecciona una competición antes de añadir equipos');
+        return null;
+      }
 
-      // Crear nuevo equipo rival
-      const newRival = await equiposRivalesService.create({
-        nombre: input.value,
+      // Da de alta el club (si no existe todavía) y el equipo en el sistema
+      let dbClub = clubs.find(c => c.nombre.trim().toLowerCase() === clubName.toLowerCase());
+      if (!dbClub) {
+        const createdClub = await clubesService.create({ nombre: clubName } as any);
+        dbClub = createdClub as Club;
+        setClubs(prev => [...prev, dbClub as Club]);
+      }
+
+      const createdEquipo = await equiposService.create({
+        club_id: String(dbClub.id),
+        nombre: clubName,
+        sub_equipo: teamName,
         competicion: formData.competition || undefined,
+      } as Partial<Equipo>);
+
+      // Lo añade directamente a la competición actual
+      await competicionEquiposService.addTeamToCompeticion(selectedCompetitionId, {
+        equipoId: String(createdEquipo.id),
       });
 
-      if (newRival && typeof newRival === 'object' && 'id' in newRival) {
-        return {
-          value: newRival.nombre || input.value,
-          club: input.club,
-        };
-      }
-      return null;
+      const newTeam: CompetitionTeam = {
+        id: createdEquipo.id,
+        clubId: createdEquipo.club_id,
+        nombre: createdEquipo.nombre,
+        estadio: createdEquipo.estadio || '',
+        localidad: createdEquipo.localidad || '',
+        logoUrl: createdEquipo.logo_url || undefined,
+        equipo: createdEquipo.sub_equipo,
+        nombreEnFed: createdEquipo.nombre_en_fed,
+        etapa: createdEquipo.categoria,
+        competicion: createdEquipo.competicion,
+        enlace: createdEquipo.enlace,
+      };
+      setDynamicCompetitionTeams(prev => [...prev, newTeam]);
+      setAllEquiposCatalog(prev => [...prev, newTeam]);
+      setConfiguredOwnTeamIds(prev => {
+        const next = new Set(prev ?? []);
+        next.add(String(newTeam.id));
+        return next;
+      });
+      onTeamCreated?.();
+
+      return {
+        value: newTeam.equipo || newTeam.nombre,
+        club: clubName,
+        clubId: String(newTeam.clubId ?? ''),
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al crear el equipo';
       setError(msg);
-      console.error('Error creating rival team:', err);
+      console.error('Error creating team:', err);
       throw err;
     }
   };

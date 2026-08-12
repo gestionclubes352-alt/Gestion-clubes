@@ -12,6 +12,8 @@ interface CompetitionCalendarModalProps {
   competitionTeams?: CompetitionTeam[];
   allCompetitions?: Competicion[];
   onClose: () => void;
+  /** Notifica al resto de la app que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
+  onTeamCreated?: () => void;
 }
 
 const formatFecha = (isoDate: string) => {
@@ -25,6 +27,7 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
   competitionTeams = [],
   allCompetitions = [],
   onClose,
+  onTeamCreated,
 }) => {
   const [partidos, setPartidos] = useState<CalendarioCompeticionPartido[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,6 +243,7 @@ const CompetitionCalendarModal: React.FC<CompetitionCalendarModalProps> = ({
           competitions={allCompetitions}
           onSave={handleSaveMatch}
           onDelete={handleDeleteMatch}
+          onTeamCreated={onTeamCreated}
           onClose={() => {
             setMatchModalOpen(false);
             setEditingMatch(null);

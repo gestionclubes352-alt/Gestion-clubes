@@ -5,7 +5,7 @@ import type { TacticalPosition } from '@modules/tactica';
 import { getInitialPositions } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
 import type { CompetitionTeam } from '@modules/competicion';
-import { competicionService } from '@modules/competicion';
+import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
 import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
 import type { Equipo, Jugador, Club, Competicion } from '@shared/services/dataService';
@@ -64,6 +64,8 @@ interface MatchReportViewProps {
   competitionTeams?: CompetitionTeam[];
   onSave?: (event: CalendarEvent) => void;
   onDelete?: (id: string | number) => void;
+  /** Notifica al resto de la app que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
+  onTeamCreated?: () => void;
 }
 
 const timeToSeconds = (time: string): number => {
@@ -186,7 +188,7 @@ function findTeamByName<T>(teams: T[], wantedNames: string[], getName: (t: T) =>
   return partial || null;
 }
 
-const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], onSave, onDelete }) => {
+const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], onSave, onDelete, onTeamCreated }) => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('DATOS GENERALES');
   const [isSaving, setIsSaving] = useState(false);
@@ -251,16 +253,80 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
   const localClubLabel = resolveClubLabel(match.localTeam, match.localTeamClubId);
   const visitorClubLabel = resolveClubLabel(match.visitorTeam, match.visitorTeamClubId);
+
+  // Equipos dados de alta sobre la marcha desde esta misma pantalla (club+equipo nuevo), para
+  // que aparezcan en los desplegables inmediatamente sin esperar a que el padre refresque.
+  const [createdCompetitionTeams, setCreatedCompetitionTeams] = useState<CompetitionTeam[]>([]);
+  const allTeamsForSelectors = useMemo(() => {
+    const seen = new Set(competitionTeams.map(team => String(team.id)));
+    return [...competitionTeams, ...createdCompetitionTeams.filter(team => !seen.has(String(team.id)))];
+  }, [competitionTeams, createdCompetitionTeams]);
+
+  const selectedCompetitionId = useMemo(
+    () => competitions.find(c => c.nombre === dgForm.competition)?.id,
+    [competitions, dgForm.competition]
+  );
+
   const teamOptions = useMemo(
-    () => competitionTeams
+    () => allTeamsForSelectors
       .map(team => ({
         value: team.equipo || team.nombre || '',
         club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
         clubId: team.clubId != null ? String(team.clubId) : undefined,
       }))
       .filter(option => option.value.trim().length > 0),
-    [competitionTeams, clubNameById]
+    [allTeamsForSelectors, clubNameById]
   );
+
+  const handleCreateTeamForCompetition = async ({ value, club }: { value: string; club?: string }) => {
+    const clubName = club?.trim();
+    const teamName = value.trim();
+    if (!clubName || !teamName) throw new Error('Indica club y equipo');
+
+    let dbClub = clubs.find(c => c.nombre.trim().toLowerCase() === clubName.toLowerCase());
+    if (!dbClub) {
+      const createdClub = await clubesService.create({ nombre: clubName } as any);
+      dbClub = createdClub as Club;
+      setClubs(prev => [...prev, dbClub as Club]);
+    }
+
+    const createdEquipo = await equiposService.create({
+      club_id: String(dbClub.id),
+      nombre: clubName,
+      sub_equipo: teamName,
+      competicion: dgForm.competition || undefined,
+    } as Partial<Equipo>);
+
+    if (selectedCompetitionId) {
+      try {
+        await competicionEquiposService.addTeamToCompeticion(selectedCompetitionId, { equipoId: String(createdEquipo.id) });
+      } catch (err) {
+        console.error('Error adding team to competition:', err);
+      }
+    }
+
+    const newTeam: CompetitionTeam = {
+      id: createdEquipo.id,
+      clubId: createdEquipo.club_id,
+      nombre: createdEquipo.nombre,
+      estadio: createdEquipo.estadio || '',
+      localidad: createdEquipo.localidad || '',
+      logoUrl: createdEquipo.logo_url || undefined,
+      equipo: createdEquipo.sub_equipo,
+      nombreEnFed: createdEquipo.nombre_en_fed,
+      etapa: createdEquipo.categoria,
+      competicion: createdEquipo.competicion,
+      enlace: createdEquipo.enlace,
+    };
+    setCreatedCompetitionTeams(prev => [...prev, newTeam]);
+    onTeamCreated?.();
+
+    return {
+      value: newTeam.equipo || newTeam.nombre,
+      club: clubName,
+      clubId: String(newTeam.clubId ?? ''),
+    };
+  };
 
   const handleSaveDatosGenerales = () => {
     if (!onSave) return;
@@ -4587,6 +4653,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             onChange={(value) => setDgForm({ ...dgForm, nombreInterno: value })}
             extraTeams={teamOptions}
             placeholder="Selecciona equipo interno"
+            useDefaultTeams={false}
+            onCreateOption={handleCreateTeamForCompetition}
+            addNewMode="clubTeam"
+            addLabel="+ Añadir club y equipo..."
             className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)] appearance-none cursor-pointer"
           />
         </div>
@@ -4606,6 +4676,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 onChange={(team, clubId) => setDgForm({ ...dgForm, localTeam: team, localTeamClubId: clubId || '' })}
                 extraTeams={teamOptions}
                 placeholder={t('newEvent.homeTeam')}
+                useDefaultTeams={false}
+                onCreateOption={handleCreateTeamForCompetition}
+                addNewMode="clubTeam"
+                addLabel="+ Añadir club y equipo..."
                 className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
@@ -4619,6 +4693,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 onChange={(team, clubId) => setDgForm({ ...dgForm, visitorTeam: team, visitorTeamClubId: clubId || '' })}
                 extraTeams={teamOptions}
                 placeholder={t('newEvent.awayTeam')}
+                useDefaultTeams={false}
+                onCreateOption={handleCreateTeamForCompetition}
+                addNewMode="clubTeam"
+                addLabel="+ Añadir club y equipo..."
                 className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] appearance-none cursor-pointer focus:outline-none focus:border-[var(--accent)]"
               />
             </div>

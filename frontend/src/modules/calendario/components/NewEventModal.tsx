@@ -35,6 +35,8 @@ interface NewEventModalProps {
   event?: CalendarEvent | null;
   /** Club del usuario actual: restringe el selector de equipo de las sesiones a los equipos propios */
   ownClubId?: string;
+  /** Notifica al resto de la app que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
+  onTeamCreated?: () => void;
 }
 
 const NewEventModal: React.FC<NewEventModalProps> = ({
@@ -47,6 +49,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   editEvent,
   event,
   ownClubId,
+  onTeamCreated,
 }) => {
   const { t } = useTranslation();
   const currentEvent = editEvent ?? event ?? null;
@@ -175,10 +178,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
   const clubNameById = new Map(clubs.map((club) => [String(club.id), club.nombre]));
 
-  const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
+  // Grupo destacado en el desplegable para los equipos ya adheridos a la competición seleccionada
+  const COMPETITION_GROUP = 'Equipos de la competición';
+
+  const toTeamOption = (team: CompetitionTeam, group?: string): EquipoOption => ({
     value: team.equipo || team.nombre || '',
     club: team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined,
     clubId: team.clubId != null ? String(team.clubId) : undefined,
+    group,
+  });
+
+  const toRivalOption = (rival: EquipoRival, group?: string): EquipoOption => ({
+    value: rival.nombre,
+    club: rival.club_id != null ? clubNameById.get(String(rival.club_id)) : undefined,
+    group,
   });
 
   // Si la competición seleccionada tiene equipos configurados, mostrar solo esos (propios + rivales de catálogo);
@@ -199,9 +212,21 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     ? rivalCatalog.filter((rival) => configuredRivalIds.has(String(rival.id)))
     : [];
 
+  // Resto del catálogo (clubes y equipos ya guardados en el sistema) que todavía no está
+  // adherido a la competición seleccionada — se puede buscar por club/equipo y añadir directamente.
+  const restOwnTeams = selectedCompetitionId && configuredOwnTeamIds
+    ? allCompetitionTeams.filter((team) => !configuredOwnTeamIds.has(String(team.id)))
+    : allCompetitionTeams;
+
+  const restRivals = rivalCatalog.filter((rival) => !configuredRivalIds.has(String(rival.id)));
+
   const teamOptions: EquipoOption[] = [
-    ...relevantOwnTeams.map(toTeamOption),
-    ...relevantRivals.map((rival): EquipoOption => ({ value: rival.nombre })),
+    // 1º: equipos ya adheridos a la competición
+    ...relevantOwnTeams.map((team) => toTeamOption(team, COMPETITION_GROUP)),
+    ...relevantRivals.map((rival) => toRivalOption(rival, COMPETITION_GROUP)),
+    // 2º: resto de clubes/equipos guardados en el sistema, agrupados por club para buscarlos
+    ...restOwnTeams.map((team) => toTeamOption(team, team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined)),
+    ...restRivals.map((rival) => toRivalOption(rival, rival.club_id != null ? clubNameById.get(String(rival.club_id)) : undefined)),
   ].filter((option) => option.value.trim().length > 0);
 
   // Para sesiones (entrenamientos propios) solo tiene sentido elegir entre los equipos del propio club
@@ -255,6 +280,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       next.add(String(newTeam.id));
       return next;
     });
+    onTeamCreated?.();
 
     return {
       value: newTeam.equipo || newTeam.nombre,
@@ -289,7 +315,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       localTeamClubId: formData.localTeamClubId || undefined,
       visitorTeamClubId: formData.visitorTeamClubId || undefined,
       score: formData.score || undefined,
-      nombreInterno: formData.nombreInterno || undefined,
+      nombreInterno: formData.team || undefined,
     };
 
     onSave(nextEvent);
@@ -471,35 +497,20 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <SearchableSelect
-                      name="jornada"
-                      value={formData.jornada}
-                      onChange={handleChange}
-                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
-                    >
-                      <option value="">{t('newEvent.matchday')}</option>
-                      <option value="-">-</option>
-                      {Array.from({ length: 38 }, (_, i) => (
-                        <option key={i + 1} value={String(i + 1)}>
-                          {i + 1}
-                        </option>
-                      ))}
-                    </SearchableSelect>
-                    <SearchableSelect
-                      name="nombreInterno"
-                      value={formData.nombreInterno}
-                      onChange={handleChange}
-                      className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
-                    >
-                      <option value="" disabled hidden>Nombre interno</option>
-                      {matchOwnTeamOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.value}
-                        </option>
-                      ))}
-                    </SearchableSelect>
-                  </div>
+                  <SearchableSelect
+                    name="jornada"
+                    value={formData.jornada}
+                    onChange={handleChange}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                  >
+                    <option value="">{t('newEvent.matchday')}</option>
+                    <option value="-">-</option>
+                    {Array.from({ length: 38 }, (_, i) => (
+                      <option key={i + 1} value={String(i + 1)}>
+                        {i + 1}
+                      </option>
+                    ))}
+                  </SearchableSelect>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>
                   <div className="grid grid-cols-2 gap-4 mt-1">
                     <EquipoSelect
