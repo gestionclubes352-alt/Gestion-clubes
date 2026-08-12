@@ -19,7 +19,6 @@ export interface MatchFormData {
   visitorTeam: string;
   localTeamClubId?: string;
   visitorTeamClubId?: string;
-  nombreInterno?: string;
 }
 
 interface MatchModalProps {
@@ -54,7 +53,6 @@ const MatchModal: React.FC<MatchModalProps> = ({
     visitorTeam: match?.visitorTeam || '',
     localTeamClubId: match?.localTeamClubId || '',
     visitorTeamClubId: match?.visitorTeamClubId || '',
-    nombreInterno: match?.nombreInterno || '',
   });
 
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -64,6 +62,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
   const [equiposInternos, setEquiposInternos] = useState<CompetitionTeam[]>([]);
+  const [dynamicCompetitionTeams, setDynamicCompetitionTeams] = useState<CompetitionTeam[]>([]);
 
   // Resolver el id de la competición seleccionada (por nombre, ya que el selector guarda el nombre)
   const selectedCompetitionId = useMemo(() => {
@@ -129,6 +128,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
     if (!selectedCompetitionId) {
       setConfiguredOwnTeamIds(null);
       setConfiguredRivalIds(new Set());
+      setDynamicCompetitionTeams([]);
       return;
     }
     const loadTeams = async () => {
@@ -136,16 +136,32 @@ const MatchModal: React.FC<MatchModalProps> = ({
         const teams = await competicionEquiposService.getTeamsByCompeticion(selectedCompetitionId);
         setConfiguredOwnTeamIds(new Set(teams.filter(t => t.equipoId).map(t => t.equipoId as string)));
         setConfiguredRivalIds(new Set(teams.filter(t => t.equipoRivalId).map(t => t.equipoRivalId as string)));
+
+        // Cargar los equipos internos de la competición seleccionada
+        const ownTeamIds = teams
+          .filter(t => t.equipoId)
+          .map(t => t.equipoId as string);
+
+        const competitionTeamsForSelection = equiposInternos.filter(team =>
+          ownTeamIds.includes(String(team.id))
+        );
+        setDynamicCompetitionTeams(competitionTeamsForSelection);
       } catch (err) {
         console.error('Error loading configured teams:', err);
         setConfiguredOwnTeamIds(null);
         setConfiguredRivalIds(new Set());
+        setDynamicCompetitionTeams([]);
       }
     };
     loadTeams();
-  }, [selectedCompetitionId]);
+  }, [selectedCompetitionId, equiposInternos]);
 
   const clubNameById = new Map(clubs.map(club => [String(club.id), club.nombre]));
+
+  const cleanTeamName = (name: string): string => {
+    // Remover patrones como "(ef huesca)", "(ef-huesca)", etc.
+    return name.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+  };
 
   const toTeamOption = (team: CompetitionTeam): EquipoOption => ({
     value: team.equipo || team.nombre || '',
@@ -153,12 +169,17 @@ const MatchModal: React.FC<MatchModalProps> = ({
     clubId: team.clubId != null ? String(team.clubId) : undefined,
   });
 
-  // Si hay equipos propios configurados para esta competición, filtrar solo esos; si no, mostrar todos
-  const relevantOwnTeams = configuredOwnTeamIds && configuredOwnTeamIds.size > 0
-    ? competitionTeams.filter(team => configuredOwnTeamIds.has(String(team.id)))
+  // Usar los equipos dinámicos cargados para la competición seleccionada
+  const relevantOwnTeams = dynamicCompetitionTeams.length > 0
+    ? dynamicCompetitionTeams
     : competitionTeams;
 
-  const relevantRivals = rivalCatalog.filter(rival => configuredRivalIds.has(String(rival.id)));
+  const relevantRivals = rivalCatalog
+    .filter(rival => configuredRivalIds.has(String(rival.id)))
+    .map(rival => ({
+      ...rival,
+      nombre: cleanTeamName(rival.nombre),
+    }));
 
   // Si la competición solo tiene un equipo propio configurado, se autocompleta como Local
   useEffect(() => {
@@ -234,6 +255,35 @@ const MatchModal: React.FC<MatchModalProps> = ({
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleCreateEquipo = async (input: { value: string; club?: string }) => {
+    try {
+      // Si no hay club especificado, no podemos crear un equipo rival
+      if (!input.club) {
+        setError('Debes especificar un club para crear un nuevo equipo');
+        return null;
+      }
+
+      // Crear nuevo equipo rival
+      const newRival = await equiposRivalesService.create({
+        nombre: input.value,
+        competicion: formData.competition || undefined,
+      });
+
+      if (newRival && typeof newRival === 'object' && 'id' in newRival) {
+        return {
+          value: newRival.nombre || input.value,
+          club: input.club,
+        };
+      }
+      return null;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear el equipo';
+      setError(msg);
+      console.error('Error creating rival team:', err);
+      throw err;
     }
   };
 
@@ -353,29 +403,6 @@ const MatchModal: React.FC<MatchModalProps> = ({
                   ))}
                 </SearchableSelect>
               </div>
-
-              {/* Nombre Interno */}
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  <i className="fa-solid fa-people-group mr-1"></i>Nombre Interno
-                </label>
-                <SearchableSelect
-                  name="nombreInterno"
-                  value={formData.nombreInterno}
-                  onChange={handleChange}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
-                >
-                  <option value="">Selecciona equipo interno</option>
-                  {equiposInternos.map(equipo => {
-                    const nombre = equipo.equipo || equipo.etapa || equipo.nombre;
-                    return (
-                      <option key={equipo.id} value={nombre}>
-                        {nombre}
-                      </option>
-                    );
-                  })}
-                </SearchableSelect>
-              </div>
             </div>
           </div>
 
@@ -400,8 +427,12 @@ const MatchModal: React.FC<MatchModalProps> = ({
                     setFormData({ ...formData, localTeam: team, localTeamClubId: clubId || '' })
                   }
                   extraTeams={teamOptions}
+                  useDefaultTeams={false}
                   placeholder="Selecciona equipo local"
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[var(--accent)]"
+                  onCreateOption={handleCreateEquipo}
+                  addNewMode="clubTeam"
+                  addLabel="+ Añadir club y equipo..."
                 />
               </div>
               <div>
@@ -415,8 +446,12 @@ const MatchModal: React.FC<MatchModalProps> = ({
                     setFormData({ ...formData, visitorTeam: team, visitorTeamClubId: clubId || '' })
                   }
                   extraTeams={teamOptions}
+                  useDefaultTeams={false}
                   placeholder="Selecciona equipo visitante"
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[var(--accent)]"
+                  onCreateOption={handleCreateEquipo}
+                  addNewMode="clubTeam"
+                  addLabel="+ Añadir club y equipo..."
                 />
               </div>
             </div>
