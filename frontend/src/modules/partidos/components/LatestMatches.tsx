@@ -6,6 +6,7 @@ import type { Club } from '@modules/clubes/types';
 import { getTeamConfig } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
 
 const getMyClubIdsForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
   const ids = new Set<string>();
@@ -109,43 +110,15 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const [jornadaFilter, setJornadaFilter] = useState<string>(ALL_FILTER);
   const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
 
-  const competitionOptions = useMemo(() => {
-    const names = new Set<string>();
-    matches.forEach((m) => { if (m.competition) names.add(m.competition); });
-    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matches]);
-
-  // La competición es el filtro "raíz": equipo y equipo interno se acotan a ella.
-  const matchesByCompetition = useMemo(
-    () => (competitionFilter === ALL_FILTER ? matches : matches.filter((m) => m.competition === competitionFilter)),
-    [matches, competitionFilter]
-  );
-
   // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
   const ownCompetitionTeams = useMemo(
     () => (ownClubId ? competitionTeams.filter((team) => String(team.clubId) === String(ownClubId)) : []),
     [competitionTeams, ownClubId]
   );
 
-  const equipoInternoOptions = useMemo(() => {
-    const names = new Map<string, string>();
-    // Catálogo de nuestros equipos (Juvenil A, Juvenil B...), igual que en el selector del informe de partido.
-    const addName = (name?: string) => {
-      const value = name?.trim();
-      const key = normalizeTeamKey(value);
-      if (value && key && !names.has(key)) names.set(key, value);
-    };
-
-    ownCompetitionTeams.forEach((team) => addName(internalNameOfTeam(team)));
-    matchesByCompetition.forEach((m) => {
-      addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
-      addName(isLikelyInternalTeamName(m.team) ? m.team : undefined);
-    });
-    return Array.from(names.values()).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [ownCompetitionTeams, matchesByCompetition]);
-
   // Mapa nombreEnFed -> nombre interno canónico (p.ej. "juvenil a" de la federación -> "Juvenil A"),
   // para poder resolver el equipo interno de partidos de liga que no tienen nombreInterno rellenado a mano.
+  // Se calcula primero porque lo usa resolveEquipoInterno.
   const internalNameByFedName = useMemo(() => {
     const map = new Map<string, string>();
     ownCompetitionTeams.forEach((team) => {
@@ -157,6 +130,42 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     });
     return map;
   }, [ownCompetitionTeams]);
+
+  // Equipo Interno es el filtro raíz: se calcula a partir de TODOS los matches y los equipos propios
+  const equipoInternoOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    const addName = (name?: string) => {
+      const value = name?.trim();
+      const key = normalizeTeamKey(value);
+      if (value && key && !names.has(key)) names.set(key, value);
+    };
+
+    ownCompetitionTeams.forEach((team) => addName(internalNameOfTeam(team)));
+    matches.forEach((m) => {
+      addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
+      addName(isLikelyInternalTeamName(m.team) ? m.team : undefined);
+    });
+    return Array.from(names.values()).sort(compareEquipoNames);
+  }, [ownCompetitionTeams, matches]);
+
+  // Filtrar por Equipo Interno (filtro primario)
+  const matchesByEquipoInterno = useMemo(
+    () => (equipoInternoFilter === ALL_FILTER ? matches : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter)),
+    [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]
+  );
+
+  // Competición depende de Equipo Interno
+  const competitionOptions = useMemo(() => {
+    const names = new Set<string>();
+    matchesByEquipoInterno.forEach((m) => { if (m.competition) names.add(m.competition); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matchesByEquipoInterno]);
+
+  // Filtrar por Competición (filtro secundario, depende de equipoInterno)
+  const matchesByEquipoInternoAndCompetition = useMemo(
+    () => (competitionFilter === ALL_FILTER ? matchesByEquipoInterno : matchesByEquipoInterno.filter((m) => m.competition === competitionFilter)),
+    [matchesByEquipoInterno, competitionFilter]
+  );
 
   const normalizeInternalCandidate = (candidate?: string): string | undefined => {
     const key = normalizeTeamKey(candidate);
@@ -227,38 +236,34 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return normalizeInternalCandidate(match.nombreInterno) || normalizeInternalCandidate(match.team) || own || match.nombreInterno || match.team || '';
   };
 
+  // Jornada depende de Equipo Interno y Competición
   const jornadaOptions = useMemo(() => {
     const names = new Set<string>();
-    matchesByCompetition.forEach((m) => { if (m.jornada) names.add(m.jornada); });
+    matchesByEquipoInternoAndCompetition.forEach((m) => { if (m.jornada) names.add(m.jornada); });
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
-  }, [matchesByCompetition]);
+  }, [matchesByEquipoInternoAndCompetition]);
 
-  const matchesByCompetitionAndJornada = useMemo(
-    () => (jornadaFilter === ALL_FILTER ? matchesByCompetition : matchesByCompetition.filter((m) => m.jornada === jornadaFilter)),
-    [matchesByCompetition, jornadaFilter]
-  );
-
+  // Filtro final: aplicar filtro de Jornada
   const filteredMatches = useMemo(
-    () => (equipoInternoFilter === ALL_FILTER ? matchesByCompetitionAndJornada : matchesByCompetitionAndJornada.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter)),
-    [matchesByCompetitionAndJornada, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]
+    () => (jornadaFilter === ALL_FILTER ? matchesByEquipoInternoAndCompetition : matchesByEquipoInternoAndCompetition.filter((m) => m.jornada === jornadaFilter)),
+    [matchesByEquipoInternoAndCompetition, jornadaFilter]
   );
 
-  // Si cambia la competición, el equipo elegido puede dejar de ser válido.
-  // Si cambia competición/equipo, la jornada elegida puede dejar de ser válida.
+  // Si cambia Equipo Interno, la competición elegida puede dejar de ser válida
+  useEffect(() => {
+    if (competitionFilter !== ALL_FILTER && !competitionOptions.includes(competitionFilter)) {
+      setCompetitionFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competitionOptions]);
+
+  // Si cambian Equipo Interno o Competición, la jornada elegida puede dejar de ser válida
   useEffect(() => {
     if (jornadaFilter !== ALL_FILTER && !jornadaOptions.includes(jornadaFilter)) {
       setJornadaFilter(ALL_FILTER);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jornadaOptions]);
-
-  // Si cambia la competición, el equipo interno elegido puede dejar de ser válido.
-  useEffect(() => {
-    if (equipoInternoFilter !== ALL_FILTER && !equipoInternoOptions.includes(equipoInternoFilter)) {
-      setEquipoInternoFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [equipoInternoOptions]);
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
 
@@ -335,7 +340,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     });
     return Array.from(groups.entries()).map(([key, matches]) => {
       const [competition, jornada] = key.split('|');
-      return { competition, jornada, matches: matches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) };
+      return { groupKey: key, competition, jornada, matches: matches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) };
     }).sort((a, b) => {
       if (a.competition !== b.competition) return a.competition.localeCompare(b.competition, 'es');
       const numA = parseInt(a.jornada) || 0;
@@ -425,8 +430,8 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-        {groupedMatches.map(({ competition, jornada, matches }) => (
-          <div key={`${competition}|${jornada}`} className="space-y-4">
+        {groupedMatches.map(({ groupKey, competition, jornada, matches }) => (
+          <div key={groupKey} className="space-y-4">
             <div className="bg-gradient-to-r from-sport-primary/10 to-transparent p-3 md:p-4 rounded-lg border-l-4 border-sport-primary">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
