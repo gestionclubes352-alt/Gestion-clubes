@@ -973,17 +973,20 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   }, [ownTeams, match.team, match.localTeam, match.visitorTeam, match.opponent, ownEquipoId]);
 
   // Carga la plantilla real del equipo propio (Supabase) para la pestaña Alineación
+  // Incluye también jugadores de otros equipos del club para convocatorias multi-equipo
   useEffect(() => {
-    if (!ownEquipoId) return;
+    if (!ownEquipoId || !ownTeams.length) return;
     (async () => {
       try {
-        const rows = await plantillasService.list({ equipo_id: ownEquipoId });
-        const mapped: Player[] = rows.map((p): Player => ({
+        // Cargar plantilla del equipo principal
+        const mainRows = await plantillasService.list({ equipo_id: ownEquipoId });
+        const mainTeam = ownTeams.find(t => t.id === ownEquipoId);
+        const mainMapped: Player[] = mainRows.map((p): Player => ({
           id: p.id,
           fotoUrl: p.foto_url || '',
           competicion: '',
           club: '',
-          equipo: '',
+          equipo: mainTeam?.nombre || '',
           dorsal: p.dorsal ?? 0,
           nombre: p.nombre,
           apodo: p.apodo,
@@ -991,13 +994,45 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           posicionJuego: p.posicion_juego || '',
           perfil: (p.perfil || 'D') as Player['perfil'],
           estado: p.estado,
+          equipoId: ownEquipoId,
         }));
-        if (mapped.length > 0) setSquad(mapped.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
+
+        // Cargar plantillas de otros equipos del club
+        const otherEquipoIds = ownTeams.filter(t => t.id !== ownEquipoId).map(t => t.id);
+        const otherMapped: Player[] = [];
+
+        for (const equipoId of otherEquipoIds) {
+          try {
+            const rows = await plantillasService.list({ equipo_id: equipoId });
+            const teamName = ownTeams.find(t => t.id === equipoId)?.nombre || '';
+            rows.forEach(p => {
+              otherMapped.push({
+                id: p.id,
+                fotoUrl: p.foto_url || '',
+                competicion: '',
+                club: '',
+                equipo: teamName,
+                dorsal: p.dorsal ?? 0,
+                nombre: p.nombre,
+                apodo: p.apodo,
+                posicion: p.posicion,
+                posicionJuego: p.posicion_juego || '',
+                perfil: (p.perfil || 'D') as Player['perfil'],
+                estado: p.estado,
+              });
+            });
+          } catch (err) {
+            console.warn(`No se pudo cargar plantilla del equipo ${equipoId}:`, err);
+          }
+        }
+
+        const combined = [...mainMapped, ...otherMapped];
+        if (combined.length > 0) setSquad(combined.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
       } catch (err) {
         console.error('No se pudo cargar la plantilla propia', err);
       }
     })();
-  }, [ownEquipoId]);
+  }, [ownEquipoId, ownTeams]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -3029,6 +3064,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             onChangeFormation={handleChangeFormation}
             onToggleConvocado={handleToggleConvocado}
             onPlayerSelect={setSelectedPlayerForModal}
+            mainTeamName={ownTeams.find(t => t.id === ownEquipoId)?.nombre}
         />
     </div>
   );

@@ -25,6 +25,7 @@ interface TacticalBoardProps {
   onPlayerSelect?: (player: Player) => void;
   showStarterBadge?: boolean;
   showConvocadoControl?: boolean;
+  mainTeamName?: string;
 }
 
 const TacticalBoard: React.FC<TacticalBoardProps> = ({
@@ -39,13 +40,16 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
   onToggleConvocado,
   onPlayerSelect,
   showStarterBadge = true,
-  showConvocadoControl = true
+  showConvocadoControl = true,
+  mainTeamName = ''
 }) => {
-  const [activePosId, setActivePosId] = useState<string | null>(null);
+  const [activePosId, setActivePosId] = useState<string | null>(positions.length > 0 ? positions[0].id : null);
 
   const isConvocado = (playerId: string | number) => !notConvocadoIds.some(id => String(id) === String(playerId));
+  const isOtherTeam = (player: Player) => mainTeamName && player.equipo && player.equipo !== mainTeamName;
 
-  const convocadoSquad = useMemo(() => squad.filter(p => isConvocado(p.id)), [squad, notConvocadoIds]);
+  const convocadoSquad = useMemo(() => squad.filter(p => isConvocado(p.id) && !isOtherTeam(p)), [squad, notConvocadoIds, mainTeamName]);
+  const otherTeamsSquad = useMemo(() => squad.filter(p => isConvocado(p.id) && isOtherTeam(p)), [squad, notConvocadoIds, mainTeamName]);
   const noConvocadoSquad = useMemo(() => squad.filter(p => !isConvocado(p.id)), [squad, notConvocadoIds]);
 
   const groupedPlayers = useMemo(() => {
@@ -285,6 +289,11 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                                   T
                                 </span>
                               )}
+                              {mainTeamName && player.equipo && player.equipo !== mainTeamName && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[7px] font-black ${inThisPos ? 'bg-orange-400/50 text-white' : 'bg-orange-300 text-white'}`}>
+                                  ♦
+                                </span>
+                              )}
                             </div>
                             <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : isOnField ? 'text-blue-600' : 'text-slate-600'}`}>
                               {player.apodo || player.nombre}
@@ -323,6 +332,93 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
             </div>
           ))}
 
+          {otherTeamsSquad.length > 0 && (
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <h4 className="text-[7px] md:text-[7.5px] font-black text-orange-500 px-2 py-0.5 bg-orange-50 rounded-lg tracking-widest uppercase">
+                <i className="fa-solid fa-arrow-down-short-wide mr-1"></i>Otros Equipos
+              </h4>
+              <div className="space-y-2">
+                {otherTeamsSquad.map((player) => {
+                  const inThisPos = selectedPos?.playerIds?.some(id => String(id) === String(player.id));
+                  const isOnField = positions.some(p => p.playerIds?.some(id => String(id) === String(player.id)));
+                  const isDisabled = isOnField && !inThisPos;
+                  const subtitle = [player.club, player.equipo].filter(Boolean).join(' · ') || player.posicion;
+
+                  return (
+                    <div
+                      key={player.id}
+                      className={`
+                        w-full flex items-center justify-between gap-2 p-2 rounded-xl transition-all border
+                        ${inThisPos ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg' : isOnField ? 'bg-orange-50 border-orange-200 hover:bg-orange-100' : 'bg-white border-slate-100 hover:bg-slate-50'}
+                        ${isDisabled && !isOnField ? 'opacity-40 grayscale' : ''}
+                        ${!activePosId && !inThisPos && !isDisabled && !isOnField ? 'opacity-50 grayscale' : ''}
+                      `}
+                    >
+                      <button
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                            if (inThisPos) onRemovePlayer(selectedPos!.id, player.id);
+                            else if (activePosId && !isDisabled) handlePickPlayer(player.id);
+                        }}
+                        className="flex items-center gap-2 min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+                      >
+                        <div className={`w-9 h-9 rounded-lg overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-orange-200'} bg-slate-100 flex items-center justify-center flex-shrink-0`}>
+                          {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                            <img src={player.fotoUrl} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className={`text-[10px] font-black ${inThisPos ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-orange-400 text-white'}`}>
+                                {player.dorsal}
+                              </span>
+                              {isOnField && showStarterBadge && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-green-500 text-white'}`}>
+                                  T
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : isOnField ? 'text-orange-600' : 'text-slate-600'}`}>
+                              {player.apodo || player.nombre}
+                            </span>
+                          </div>
+                          {subtitle && (
+                            <div className={`text-[8px] font-bold uppercase tracking-widest truncate ${inThisPos ? 'text-white/70' : 'text-slate-400'}`}>
+                              {subtitle}
+                            </div>
+                          )}
+                        </div>
+                        <i className={`fa-solid ${inThisPos ? 'fa-check text-white' : 'fa-plus text-orange-300'} text-[10px] flex-shrink-0`}></i>
+                      </button>
+                      {showConvocadoControl && (
+                        <SearchableSelect
+                          value="convocado"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === 'convocado') onToggleConvocado(player.id, true);
+                            else onToggleConvocado(player.id, false, value);
+                          }}
+                          title="Convocatoria"
+                          className={`w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none ${inThisPos ? 'bg-white/20 border-white/30 text-white' : 'bg-orange-50 border-orange-200 text-orange-600'}`}
+                        >
+                          <option value="convocado">Convocado</option>
+                          {NOT_CONVOCADO_REASONS.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </SearchableSelect>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {noConvocadoSquad.length > 0 && (
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
               <h4 className="text-[7px] md:text-[7.5px] font-black text-red-400 px-2 py-0.5 bg-red-50 rounded-lg tracking-widest uppercase">
@@ -346,9 +442,16 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex items-center gap-1.5">
-                            <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-slate-300 text-white">
-                              {player.dorsal}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-slate-300 text-white">
+                                {player.dorsal}
+                              </span>
+                              {mainTeamName && player.equipo && player.equipo !== mainTeamName && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[7px] font-black bg-orange-300 text-white">
+                                  ♦
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[11px] font-black uppercase truncate text-slate-500">
                               {player.apodo || player.nombre}
                             </span>
@@ -367,6 +470,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           if (value === 'convocado') onToggleConvocado(player.id, true);
                           else onToggleConvocado(player.id, false, value);
                         }}
+                        onClick={(e) => e.stopPropagation()}
                         title="Convocatoria"
                         className="w-32 text-[7px] font-black uppercase tracking-wide rounded-lg border px-1.5 py-1.5 flex-shrink-0 outline-none bg-white border-slate-200 text-slate-500"
                       >
