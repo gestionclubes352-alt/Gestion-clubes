@@ -790,15 +790,19 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                       return a.localeCompare(b);
                     });
 
-                    return sortedCategories.map(category => (
-                      <optgroup key={category} label={category}>
-                        {(teamsMap.get(category) || []).map(team => (
-                          <option key={`${category}-${team.fullName}`} value={team.id}>
-                            {team.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ));
+                    return sortedCategories.map(category => {
+                      const teams = (teamsMap.get(category) || [])
+                        .sort((a, b) => a.label.localeCompare(b.label));
+                      return (
+                        <optgroup key={category} label={category}>
+                          {teams.map(team => (
+                            <option key={`${category}-${team.fullName}`} value={team.id}>
+                              {team.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    });
                   }, [equipos])}
                 </SearchableSelect>
               )}
