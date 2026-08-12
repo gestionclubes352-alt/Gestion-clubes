@@ -86,14 +86,16 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
               <div className="relative">
                 <input
                   type="text"
-                  placeholder={formData.clubId ? clubes.find(c => String(c.id) === String(formData.clubId))?.nombre : '-- Selecciona un club --'}
-                  value={searchTerm}
+                  placeholder="-- Selecciona un club --"
+                  value={searchTerm || (formData.clubId ? clubes.find(c => String(c.id) === String(formData.clubId))?.nombre || '' : '')}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
                     setShowClubDropdown(true);
                   }}
                   onFocus={() => setShowClubDropdown(true)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 uppercase"
+                  className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 uppercase ${
+                    formData.clubId && !searchTerm ? 'text-slate-950 font-black' : 'text-slate-600 font-normal'
+                  }`}
                 />
                 {showClubDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -119,52 +121,93 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
             )}
           </div>
 
-          {/* Nombre del Equipo */}
+          {/* Etapa */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-              Nombre del Equipo *
+              Etapa
             </label>
-            <input
-              type="text"
-              value={formData.nombre || ''}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              placeholder="Ej: EF Huesca Juvenil A"
-            />
+            <SearchableSelect
+              value={formData.etapa || ''}
+              onChange={(e) => setFormData({ ...formData, etapa: e.target.value })}
+              className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 ${
+                formData.etapa ? 'font-black text-slate-900' : 'font-normal text-slate-600'
+              }`}
+            >
+              <option value="">-- Sin etapa --</option>
+              <option value="Senior">Senior</option>
+              <option value="Juvenil">Juvenil</option>
+              <option value="Cadete">Cadete</option>
+              <option value="Infantil">Infantil</option>
+              <option value="Alevín">Alevín</option>
+              <option value="Benjamín">Benjamín</option>
+              <option value="Prebenjamín">Prebenjamín</option>
+            </SearchableSelect>
           </div>
 
-          {/* Etapa y Equipo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Etapa
-              </label>
-              <SearchableSelect
-                value={formData.etapa || ''}
-                onChange={(e) => setFormData({ ...formData, etapa: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              >
-                <option value="">-- Sin etapa --</option>
-                <option value="Senior">Senior</option>
-                <option value="Juvenil">Juvenil</option>
-                <option value="Cadete">Cadete</option>
-                <option value="Infantil">Infantil</option>
-                <option value="Alevín">Alevín</option>
-                <option value="Benjamín">Benjamín</option>
-                <option value="Prebenjamín">Prebenjamín</option>
-              </SearchableSelect>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">
-                Equipo Interno
-              </label>
-              <input
-                type="text"
-                value={formData.equipo || ''}
-                onChange={(e) => setFormData({ ...formData, equipo: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-                placeholder="Ej: Juvenil A, A, B, Senior..."
-              />
+          {/* Equipo Interno */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">
+              Equipo Interno
+            </label>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: '', label: 'Sin equipo' },
+                  { value: 'Primer equipo', label: 'Primer equipo' },
+                  { value: 'Filial', label: 'Filial' },
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, equipo: option.value })}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                      formData.equipo === option.value
+                        ? 'bg-[var(--accent)] text-white shadow-md'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'].map(category => (
+                  <div key={category}>
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1 px-1">{category}</p>
+                    <div className="space-y-1">
+                      {category === 'Senior'
+                        ? ['Primer equipo', 'Filial'].map(option => (
+                            <button
+                              key={`${category}-${option}`}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, equipo: option })}
+                              className={`w-full px-2 py-1.5 rounded text-[9px] font-black uppercase tracking-widest transition-all ${
+                                formData.equipo === option
+                                  ? 'bg-[var(--accent)] text-white shadow-md'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                              }`}
+                            >
+                              {option === 'Primer equipo' ? 'P.E.' : 'F'}
+                            </button>
+                          ))
+                        : ['A', 'B', 'C', 'D'].map(letter => (
+                            <button
+                              key={`${category}-${letter}`}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, equipo: `${category} ${letter}` })}
+                              className={`w-full px-2 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all ${
+                                formData.equipo === `${category} ${letter}`
+                                  ? 'bg-[var(--accent)] text-white shadow-md'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                              }`}
+                            >
+                              {letter}
+                            </button>
+                          ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -177,7 +220,9 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
               type="text"
               value={formData.nombreEnFed || ''}
               onChange={(e) => setFormData({ ...formData, nombreEnFed: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+              className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 ${
+                formData.nombreEnFed ? 'font-black text-slate-900' : 'font-normal text-slate-600'
+              }`}
               placeholder="Ej: IPC LA ESCUELA"
             />
           </div>

@@ -128,9 +128,9 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
 
   const openNewPlayerCard = () => {
     onEdit({
-      id: crypto.randomUUID(), nombre: '', apodo: '', dorsal: 0, posicion: isHuesca ? 'Central' : 'Defensa',
+      id: crypto.randomUUID(), nombre: '', apodo: '', dorsal: undefined, posicion: isHuesca ? 'Central' : 'Defensa',
       posicionJuego: '', perfil: 'D', competicion: '', dni: '',
-      club: '', equipo: '', fotoUrl: 'N',
+      club: '', equipo: '', fotoUrl: '', equipoId: '', clubId: clubId,
     });
   };
 

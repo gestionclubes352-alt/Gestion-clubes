@@ -258,7 +258,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
           >
             <option value="">Selecciona un club...</option>
             {availableClubOptions.map(({ clubKey, label, count }) => (
-              <option key={clubKey} value={clubKey}>
+              <option key={clubKey} value={clubKey} data-searchable={label}>
                 {label} ({count})
               </option>
             ))}
@@ -276,7 +276,7 @@ const CompetitionTeamsSelector: React.FC<CompetitionTeamsSelectorProps> = ({
             {selectedClubToAdd && (
               <optgroup label={getClubLabel(selectedClubToAdd)}>
                 {dedupedSelectedClubTeams.map(team => (
-                  <option key={team.id} value={`team:${team.id}`}>
+                  <option key={team.id} value={`team:${team.id}`} data-searchable={team.equipo || team.nombre}>
                     {team.equipo || team.nombre}{team.etapa ? ` (${team.etapa})` : ''}
                   </option>
                 ))}

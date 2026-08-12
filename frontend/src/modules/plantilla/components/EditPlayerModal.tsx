@@ -297,6 +297,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   const handleEquipoSelect = (equipoId: string) => {
     const team = equipos.find(t => String(t.id) === equipoId);
+    console.log('[EditPlayerModal] Equipo seleccionado:', { equipoId, teamNombre: team?.nombre, teamId: team?.id });
     setFormData(prev => ({
       ...prev,
       equipoId,
@@ -348,8 +349,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
       }, originalId);
       onClose();
     } catch (err) {
-      console.error(err);
-      alert(t('editPlayer.saveError'));
+      console.error('Error guardando jugador:', err);
+      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error('Detalles del error:', errorMsg);
+      alert(`${t('editPlayer.saveError')}: ${errorMsg}`);
     } finally {
       setIsSaving(false);
     }
@@ -736,11 +739,67 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
                 >
                   <option value="">-- Selecciona un equipo --</option>
-                  {equipos.map(eq => (
-                    <option key={String(eq.id)} value={String(eq.id)}>
-                      {eq.nombre}{eq.equipo ? ` — ${eq.equipo}` : ''}
-                    </option>
-                  ))}
+                  {useMemo(() => {
+                    const categoriesOrder = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'];
+                    const teamsMap = new Map<string, Array<{ id: string; label: string; fullName: string }>>();
+
+                    equipos.forEach(eq => {
+                      const fullName = eq.equipo || eq.nombre || '';
+                      let category = '';
+                      let displayLabel = fullName;
+
+                      // Casos especiales primero (Primer equipo)
+                      if (fullName.includes('Primer') || fullName.includes('1ª') || fullName === 'P.E.') {
+                        category = 'Senior';
+                        displayLabel = 'Primer Equipo';
+                      } else if (fullName.includes('Filial')) {
+                        category = 'Senior';
+                        displayLabel = 'Filial';
+                      } else if (fullName === 'F') {
+                        category = 'Senior';
+                        displayLabel = 'F';
+                      } else {
+                        // Extraer categoría de equipos regulares
+                        for (const cat of categoriesOrder) {
+                          if (fullName.includes(cat)) {
+                            category = cat;
+                            displayLabel = fullName; // Mostrar nombre completo (ej: "Juvenil A")
+                            break;
+                          }
+                        }
+                      }
+
+                      if (!category) {
+                        category = 'Otros';
+                      }
+
+                      const teamsList = teamsMap.get(category) || [];
+                      if (!teamsList.some(t => t.fullName === displayLabel)) {
+                        teamsList.push({ id: String(eq.id), label: displayLabel, fullName: displayLabel });
+                      }
+                      teamsMap.set(category, teamsList);
+                    });
+
+                    // Ordenar categorías
+                    const sortedCategories = Array.from(teamsMap.keys()).sort((a, b) => {
+                      const aIdx = categoriesOrder.indexOf(a);
+                      const bIdx = categoriesOrder.indexOf(b);
+                      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+                      if (aIdx !== -1) return -1;
+                      if (bIdx !== -1) return 1;
+                      return a.localeCompare(b);
+                    });
+
+                    return sortedCategories.map(category => (
+                      <optgroup key={category} label={category}>
+                        {(teamsMap.get(category) || []).map(team => (
+                          <option key={`${category}-${team.fullName}`} value={team.id}>
+                            {team.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ));
+                  }, [equipos])}
                 </SearchableSelect>
               )}
             </div>

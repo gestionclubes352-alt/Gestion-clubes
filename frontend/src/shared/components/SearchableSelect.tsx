@@ -29,7 +29,9 @@ const parseOption = (child: React.ReactElement<any>, group?: string): ParsedOpti
   if (child.type !== 'option') return null;
   const value = child.props.value === undefined ? textFromNode(child.props.children) : String(child.props.value);
   const label = child.props.children ?? child.props.label ?? value;
-  const searchText = `${child.props.label ?? ''} ${textFromNode(label)} ${value}`;
+
+  // Si existe data-searchable, úsalo; si no, construye el searchText con label y value
+  const searchText = child.props['data-searchable'] ?? `${child.props.label ?? ''} ${textFromNode(label)} ${value}`;
 
   return {
     value,
@@ -231,7 +233,7 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
             />
           </div>
 
-          <div role="listbox" className="max-h-64 overflow-y-auto py-1">
+          <div role="listbox" className="max-h-96 overflow-y-auto py-1">
             {optionGroups.length === 0 ? (
               <div className="px-3 py-3 text-sm font-semibold text-slate-400">Sin resultados</div>
             ) : (

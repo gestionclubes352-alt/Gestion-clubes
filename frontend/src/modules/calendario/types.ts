@@ -24,7 +24,7 @@ export interface SessionTask {
   technicalRoles?: string;
 }
 
-export type AttendanceStatus = 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro';
+export type AttendanceStatus = 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro' | 'Otro Equipo';
 
 export interface CalendarEvent {
   id: string;

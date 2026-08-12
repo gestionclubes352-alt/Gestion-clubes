@@ -354,6 +354,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [ownTeams, setOwnTeams] = useState<Equipo[]>([]);
   const [ownEquipoId, setOwnEquipoId] = useState('');
 
+  // Selector de equipo en la alineación (mi equipo vs rival)
+  const [lineupTeamView, setLineupTeamView] = useState<'own' | 'rival'>('own');
+  const [rivalLineupSquad, setRivalLineupSquad] = useState<Player[]>([]);
+
   const samePlayerId = (a?: string | number, b?: string | number) => String(a) === String(b);
 
   // YouTube upload state
@@ -1033,6 +1037,43 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       }
     })();
   }, [ownEquipoId, ownTeams]);
+
+  // Carga la plantilla del equipo visitante para mostrar en ALINEACIÓN
+  useEffect(() => {
+    if (!match.visitorTeamClubId || !competitionTeams) return;
+    (async () => {
+      try {
+        // Encontrar el equipo visitante en competitionTeams
+        const visitorCompTeam = competitionTeams.find(t => String(t.clubId) === String(match.visitorTeamClubId));
+        if (!visitorCompTeam || !visitorCompTeam.id) {
+          setRivalLineupSquad([]);
+          return;
+        }
+
+        // Cargar plantilla del equipo visitante
+        const rows = await plantillasService.list({ equipo_id: visitorCompTeam.id });
+        const mapped: Player[] = rows.map((p): Player => ({
+          id: p.id,
+          fotoUrl: p.foto_url || '',
+          competicion: '',
+          club: '',
+          equipo: match.visitorTeam || '',
+          dorsal: p.dorsal ?? 0,
+          nombre: p.nombre,
+          apodo: p.apodo,
+          posicion: p.posicion,
+          posicionJuego: p.posicion_juego || '',
+          perfil: (p.perfil || 'D') as Player['perfil'],
+          estado: p.estado,
+        }));
+
+        if (mapped.length > 0) setRivalLineupSquad(mapped.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
+      } catch (err) {
+        console.warn('No se pudo cargar la plantilla del equipo visitante:', err);
+        setRivalLineupSquad([]);
+      }
+    })();
+  }, [match.visitorTeamClubId, competitionTeams, match.visitorTeam]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -3046,28 +3087,92 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     </div>
   );
 
-  const renderAlineacionTactiva = () => (
-    <div className="animate-fade-in flex flex-col h-[calc(100vh-130px)]">
-        <div className="flex justify-center px-6 py-2">
-             <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveLineup')}</button>
+  const renderAlineacionTactiva = () => {
+    const currentSquad = lineupTeamView === 'own' ? squad : rivalLineupSquad;
+    const canEdit = lineupTeamView === 'own';
+    const mainTeamName = lineupTeamView === 'own'
+      ? ownTeams.find(t => t.id === ownEquipoId)?.nombre
+      : match.visitorTeam;
+
+    return (
+      <div className="animate-fade-in flex flex-col h-[calc(100vh-130px)]">
+        <div className="px-6 py-4 space-y-3 border-b border-[var(--border-soft)]">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+                <i className="fa-solid fa-shield mr-2"></i>{t('newEvent.teams')}
+              </label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setLineupTeamView('own')}
+                  className={`flex-1 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                    lineupTeamView === 'own'
+                      ? 'bg-sport-primary text-white shadow-lg'
+                      : 'bg-[var(--surface-1)] text-[var(--text-muted)] hover:bg-[var(--surface-2)]'
+                  }`}
+                >
+                  <i className="fa-solid fa-shield mr-2"></i>
+                  {match.localTeam || 'Mi Equipo'}
+                </button>
+                {rivalLineupSquad.length > 0 && (
+                  <button
+                    onClick={() => setLineupTeamView('rival')}
+                    className={`flex-1 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                      lineupTeamView === 'rival'
+                        ? 'bg-sport-primary text-white shadow-lg'
+                        : 'bg-[var(--surface-1)] text-[var(--text-muted)] hover:bg-[var(--surface-2)]'
+                    }`}
+                  >
+                    <i className="fa-solid fa-shield-heart mr-2"></i>
+                    {match.visitorTeam || 'Equipo Rival'}
+                  </button>
+                )}
+              </div>
+            </div>
+            {canEdit && (
+              <button
+                onClick={handleSave}
+                className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg whitespace-nowrap"
+              >
+                <i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveLineup')}
+              </button>
+            )}
+          </div>
         </div>
-        <TacticalBoard
-            formacion={report.formation || '4-3-3'}
-            positions={report.lineupPositions && report.lineupPositions.length > 0
+        <div className="flex-1 overflow-auto">
+          {currentSquad.length > 0 ? (
+            <TacticalBoard
+              formacion={report.formation || '4-3-3'}
+              positions={lineupTeamView === 'own' && report.lineupPositions && report.lineupPositions.length > 0
                 ? report.lineupPositions
                 : getInitialPositions(report.formation || '4-3-3')}
-            squad={squad}
-            notConvocadoIds={report.notConvocadoIds || []}
-            notConvocadoReasons={report.notConvocadoReasons || {}}
-            onAssignPlayer={handleAssignPlayer}
-            onRemovePlayer={handleRemovePlayer}
-            onChangeFormation={handleChangeFormation}
-            onToggleConvocado={handleToggleConvocado}
-            onPlayerSelect={setSelectedPlayerForModal}
-            mainTeamName={ownTeams.find(t => t.id === ownEquipoId)?.nombre}
-        />
-    </div>
-  );
+              squad={currentSquad}
+              notConvocadoIds={lineupTeamView === 'own' ? report.notConvocadoIds || [] : []}
+              notConvocadoReasons={lineupTeamView === 'own' ? report.notConvocadoReasons || {} : {}}
+              onAssignPlayer={canEdit ? handleAssignPlayer : () => {}}
+              onRemovePlayer={canEdit ? handleRemovePlayer : () => {}}
+              onChangeFormation={canEdit ? handleChangeFormation : () => {}}
+              onToggleConvocado={canEdit ? handleToggleConvocado : () => {}}
+              onPlayerSelect={setSelectedPlayerForModal}
+              mainTeamName={mainTeamName}
+              showConvocadoControl={canEdit}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <i className="fa-solid fa-triangle-exclamation text-4xl text-[var(--text-muted)] mb-4"></i>
+                <p className="text-sm font-bold text-[var(--text-muted)]">
+                  {lineupTeamView === 'rival'
+                    ? 'No se pudo cargar la plantilla del equipo visitante'
+                    : 'Cargando plantilla...'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderEventosPartido = () => {
     return (

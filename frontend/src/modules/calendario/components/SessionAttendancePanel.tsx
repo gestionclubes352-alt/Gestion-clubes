@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Player } from '@modules/plantilla';
 import type { AttendanceStatus } from '../types';
@@ -10,10 +10,15 @@ interface SessionAttendancePanelProps {
   attendance: Record<string, AttendanceStatus>;
   onChange: (attendance: Record<string, AttendanceStatus>) => void;
   selectiveAttendance?: boolean;
+  hideExternalPlayers?: boolean;
 }
 
-const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players, additionalPlayers = [], attendance, onChange, selectiveAttendance = false }) => {
+const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players, additionalPlayers = [], attendance, onChange, selectiveAttendance = false, hideExternalPlayers = false }) => {
   const { t } = useTranslation();
+  const [externalTeamFilter, setExternalTeamFilter] = useState<string>('all');
+  const [externalSearch, setExternalSearch] = useState('');
+  const [absentTeamFilter, setAbsentTeamFilter] = useState<string>('all');
+  const [absentSearch, setAbsentSearch] = useState('');
 
   const getStatus = (playerId: string | number): AttendanceStatus => attendance[String(playerId)] || 'Si';
 
@@ -61,7 +66,8 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
     const attended = selectiveAttendance
       ? countedPlayers.filter(p => attendance[String(p.id)] === 'Si').length
       : countedPlayers.filter(p => getStatus(p.id) === 'Si').length;
-    return { attendedCount: attended, absentCount: countedPlayers.length - attended };
+    const countedForAbsence = countedPlayers.filter(p => getStatus(p.id) !== 'Otro Equipo');
+    return { attendedCount: attended, absentCount: countedForAbsence.length - attended };
   }, [players, allSelectablePlayers, selectedAdditionalPlayers, attendance, selectiveAttendance]);
 
   const positionColors: Record<string, { badge: string; bg: string; border: string; text: string; icon: string }> = {
@@ -98,15 +104,15 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
 
     playersList.forEach(p => {
       const pos = (p.posicionJuego || p.posicion || '').toLowerCase();
-      let demarcation = 'Otros';
+      let demarcation = 'Delantero';
 
       if (pos.includes('portero') || pos.includes('por') || pos === 'gk') {
         demarcation = 'Portero';
       } else if (pos.includes('defensa') || pos.includes('central') || pos.includes('lateral') || pos.includes('df') || pos === 'dfc') {
         demarcation = 'Defensa';
-      } else if (pos.includes('centrocampista') || pos.includes('medio') || pos.includes('mf') || pos === 'mc' || pos.includes('mco') || pos.includes('mcd')) {
+      } else if (pos.includes('centrocampista') || pos.includes('medio') || pos.includes('mf') || pos === 'mc' || pos.includes('mco') || pos.includes('mcd') || pos.includes('pivote') || pos.includes('mediapunta')) {
         demarcation = 'Centrocampista';
-      } else if (pos.includes('delantero') || pos.includes('st') || pos === 'dc') {
+      } else if (pos.includes('delantero') || pos.includes('st') || pos === 'dc' || pos.includes('extremo') || pos.includes('delantero')) {
         demarcation = 'Delantero';
       }
 
@@ -118,7 +124,6 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
     demarcations.forEach(d => {
       if (grouped.has(d)) result.push([d, grouped.get(d)!]);
     });
-    if (grouped.has('Otros')) result.push(['Otros', grouped.get('Otros')!]);
     return result;
   };
 
@@ -130,6 +135,34 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
     : uniqueAdditionalPlayers.filter(p => !attendance[String(p.id)]);
   const groupedAttending = groupPlayersByDemarcation(attendingPlayers);
   const groupedAvailable = groupPlayersByDemarcation(availablePlayers);
+
+  const externalTeams = useMemo(() => {
+    const teams = new Set<string>();
+    players.forEach(p => { if (p.equipo) teams.add(p.equipo); });
+    uniqueAdditionalPlayers.forEach(p => { if (p.equipo) teams.add(p.equipo); });
+    return Array.from(teams).sort((a, b) => a.localeCompare(b));
+  }, [players, uniqueAdditionalPlayers]);
+
+  const absentPlayers = useMemo(() =>
+    [...players, ...selectedAdditionalPlayers].filter(p => getStatus(p.id) !== 'Si' && getStatus(p.id) !== 'Otro Equipo'),
+    [players, selectedAdditionalPlayers]
+  );
+
+  const absentTeams = useMemo(() => {
+    const teams = new Set<string>();
+    absentPlayers.forEach(p => { if (p.equipo) teams.add(p.equipo); });
+    return Array.from(teams).sort((a, b) => a.localeCompare(b));
+  }, [absentPlayers]);
+
+  const filteredExternalPlayers = useMemo(() => {
+    const query = externalSearch.trim().toLowerCase();
+    return availablePlayers.filter(p => {
+      if (externalTeamFilter !== 'all' && p.equipo !== externalTeamFilter) return false;
+      if (query && !p.nombre.toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [availablePlayers, externalTeamFilter, externalSearch]);
+
   const isAdditionalPlayer = (player: Player) => !basePlayerIds.has(String(player.id));
   const getPlayerMeta = (player: Player) =>
     [player.posicionJuego || player.posicion, isAdditionalPlayer(player) ? player.equipo : '']
@@ -217,6 +250,7 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                               <option value="Descanso">{t('calendarView.attendRest')}</option>
                               <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
                               <option value="Otro">{t('calendarView.other')}</option>
+                              <option value="Otro Equipo">{t('calendarView.otherTeam')}</option>
                             </SearchableSelect>
                             {isAdditionalPlayer(player) && (
                               <button
@@ -238,22 +272,81 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
               </div>
             ))}
 
-            {groupedAvailable.length > 0 && (
+            {selectiveAttendance ? (
+              groupedAvailable.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200">
+                    <i className="fa-solid fa-user-plus text-slate-400"></i>
+                    <h4 className="text-slate-500 font-black text-sm uppercase tracking-widest">{t('calendarView.availablePlayers')}</h4>
+                    <span className="ml-auto text-[10px] font-black text-slate-400">{availablePlayers.length}</span>
+                  </div>
+                  {groupedAvailable.map(([positionGroup, posPlayers]) => (
+                    <div key={`available-${positionGroup}`} className="space-y-2">
+                      <div className="flex items-center gap-2 mt-2 mb-2">
+                        <div className="bg-slate-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">+</div>
+                        <h5 className="text-slate-500 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
+                      </div>
+                      {posPlayers.map((player) => (
+                        <div key={player.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-200">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[11px]">
+                              {player.dorsal || player.nombre.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[12px] font-black text-slate-700 truncate">{player.nombre}</p>
+                              <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAttending(player.id, true)}
+                            className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-black hover:bg-emerald-100"
+                          >
+                            {t('calendarView.addPlayer')}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              )
+            ) : null
+            }
+
+            {!selectiveAttendance && !hideExternalPlayers && uniqueAdditionalPlayers.length > 0 && (
               <>
                 <div className="flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200">
                   <i className="fa-solid fa-user-plus text-slate-400"></i>
-                  <h4 className="text-slate-500 font-black text-sm uppercase tracking-widest">
-                    {selectiveAttendance ? t('calendarView.availablePlayers') : t('calendarView.externalPlayers')}
-                  </h4>
-                  <span className="ml-auto text-[10px] font-black text-slate-400">{availablePlayers.length}</span>
+                  <h4 className="text-slate-500 font-black text-sm uppercase tracking-widest">{t('calendarView.externalPlayers')}</h4>
+                  <span className="ml-auto text-[10px] font-black text-slate-400">{filteredExternalPlayers.length}</span>
                 </div>
-                {groupedAvailable.map(([positionGroup, posPlayers]) => (
-                  <div key={`available-${positionGroup}`} className="space-y-2">
-                    <div className="flex items-center gap-2 mt-2 mb-2">
-                      <div className="bg-slate-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">+</div>
-                      <h5 className="text-slate-500 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
-                    </div>
-                    {posPlayers.map((player) => (
+                <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                  <SearchableSelect
+                    value={externalTeamFilter}
+                    onChange={(e) => setExternalTeamFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
+                  >
+                    <option value="all">{t('calendarView.filterAllTeams')}</option>
+                    {externalTeams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </SearchableSelect>
+                  <div className="relative flex-1">
+                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                    <input
+                      type="text"
+                      value={externalSearch}
+                      onChange={(e) => setExternalSearch(e.target.value)}
+                      placeholder={t('calendarView.searchPlayerPlaceholder')}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold placeholder:text-slate-300 focus:outline-none focus:border-[var(--accent)]"
+                    />
+                  </div>
+                </div>
+                {filteredExternalPlayers.length === 0 ? (
+                  <div className="text-center text-slate-400 text-xs font-bold py-4">{t('calendarView.noExternalPlayersFound')}</div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredExternalPlayers.map((player) => (
                       <div key={player.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-200">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[11px]">
@@ -274,71 +367,106 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                       </div>
                     ))}
                   </div>
-                ))}
+                )}
               </>
             )}
 
             {(() => {
               if (selectiveAttendance) return null;
-              const absentPlayers = [...players, ...selectedAdditionalPlayers].filter(p => getStatus(p.id) !== 'Si');
               if (absentPlayers.length === 0) return null;
 
-              const groupedAbsent = groupPlayersByDemarcation(absentPlayers);
+              const query = absentSearch.trim().toLowerCase();
+              const filteredAbsent = absentPlayers.filter(p => {
+                if (absentTeamFilter !== 'all' && p.equipo !== absentTeamFilter) return false;
+                if (query && !p.nombre.toLowerCase().includes(query)) return false;
+                return true;
+              });
+
+              const groupedAbsent = groupPlayersByDemarcation(filteredAbsent);
               return (
                 <>
                   <div className="flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200">
                     <i className="fa-solid fa-user-xmark text-red-500"></i>
                     <h4 className="text-red-600 font-black text-sm uppercase tracking-widest">{t('calendarView.absences')}</h4>
-                    <span className="ml-auto text-[10px] font-black text-red-400">{absentPlayers.length}</span>
+                    <span className="ml-auto text-[10px] font-black text-red-400">{filteredAbsent.length}</span>
                   </div>
-                  {groupedAbsent.map(([positionGroup, posPlayers]) => (
-                    <div key={`absent-${positionGroup}`} className="space-y-2">
-                      <div className="flex items-center gap-2 mt-2 mb-2">
-                        <div className="bg-red-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">DF</div>
-                        <h5 className="text-red-600 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
-                      </div>
-                      {posPlayers.map((player) => {
-                        const status = getStatus(player.id);
-                        return (
-                          <div key={player.id} className="flex items-center justify-between bg-red-50 rounded-xl p-3 border border-red-200">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-9 h-9 rounded-full bg-red-400 text-white flex items-center justify-center font-black text-[11px]">
-                                {player.dorsal || player.nombre.charAt(0)}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-[12px] font-black text-red-700 truncate">{player.nombre}</p>
-                                <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
-                              </div>
-                            </div>
-                            <>
-                            <SearchableSelect
-                              value={status}
-                              onChange={(e) => setStatus(player.id, e.target.value as AttendanceStatus)}
-                              className="px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-xs font-black"
-                            >
-                              <option value="Si">{t('calendarView.attendYes')}</option>
-                              <option value="Lesión">{t('calendarView.attendInjury')}</option>
-                              <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
-                              <option value="Descanso">{t('calendarView.attendRest')}</option>
-                              <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
-                              <option value="Otro">{t('calendarView.other')}</option>
-                            </SearchableSelect>
-                            {isAdditionalPlayer(player) && (
-                              <button
-                                type="button"
-                                onClick={() => removeAdditionalPlayer(player.id)}
-                                className="ml-2 w-9 h-9 rounded-xl border border-red-200 bg-white text-red-400 hover:text-white hover:bg-red-500"
-                                title={t('calendarView.removePlayer')}
-                              >
-                                <i className="fa-solid fa-xmark"></i>
-                              </button>
-                            )}
-                            </>
-                          </div>
-                        );
-                      })}
+                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                    <SearchableSelect
+                      value={absentTeamFilter}
+                      onChange={(e) => setAbsentTeamFilter(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
+                    >
+                      <option value="all">{t('calendarView.filterAllTeams')}</option>
+                      {absentTeams.map(team => (
+                        <option key={team} value={team}>{team}</option>
+                      ))}
+                    </SearchableSelect>
+                    <div className="relative flex-1">
+                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                      <input
+                        type="text"
+                        value={absentSearch}
+                        onChange={(e) => setAbsentSearch(e.target.value)}
+                        placeholder={t('calendarView.searchPlayerPlaceholder')}
+                        className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold placeholder:text-slate-300 focus:outline-none focus:border-[var(--accent)]"
+                      />
                     </div>
-                  ))}
+                  </div>
+                  {groupedAbsent.length === 0 ? (
+                    <div className="text-center text-slate-400 text-xs font-bold py-4">{t('calendarView.noPlayersFound')}</div>
+                  ) : (
+                    <>
+                      {groupedAbsent.map(([positionGroup, posPlayers]) => (
+                        <div key={`absent-${positionGroup}`} className="space-y-2">
+                          <div className="flex items-center gap-2 mt-2 mb-2">
+                            <div className="bg-red-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">DF</div>
+                            <h5 className="text-red-600 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
+                          </div>
+                          {posPlayers.map((player) => {
+                            const status = getStatus(player.id);
+                            return (
+                              <div key={player.id} className="flex items-center justify-between bg-red-50 rounded-xl p-3 border border-red-200">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-9 h-9 rounded-full bg-red-400 text-white flex items-center justify-center font-black text-[11px]">
+                                    {player.dorsal || player.nombre.charAt(0)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[12px] font-black text-red-700 truncate">{player.nombre}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
+                                  </div>
+                                </div>
+                                <>
+                                <SearchableSelect
+                                  value={status}
+                                  onChange={(e) => setStatus(player.id, e.target.value as AttendanceStatus)}
+                                  className="px-3 py-2 rounded-xl border border-red-200 text-red-700 bg-red-50 text-xs font-black"
+                                >
+                                  <option value="Si">{t('calendarView.attendYes')}</option>
+                                  <option value="Lesión">{t('calendarView.attendInjury')}</option>
+                                  <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
+                                  <option value="Descanso">{t('calendarView.attendRest')}</option>
+                                  <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
+                                  <option value="Otro">{t('calendarView.other')}</option>
+                                  <option value="Otro Equipo">{t('calendarView.otherTeam')}</option>
+                                </SearchableSelect>
+                                {isAdditionalPlayer(player) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAdditionalPlayer(player.id)}
+                                    className="ml-2 w-9 h-9 rounded-xl border border-red-200 bg-white text-red-400 hover:text-white hover:bg-red-500"
+                                    title={t('calendarView.removePlayer')}
+                                  >
+                                    <i className="fa-solid fa-xmark"></i>
+                                  </button>
+                                )}
+                                </>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </>
               );
             })()}

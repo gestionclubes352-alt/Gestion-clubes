@@ -369,7 +369,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                 >
                   <option value="">{t('newEvent.sessionType')}</option>
                   <option value="Sesión equipo">{t('newEvent.teamSession')}</option>
-                  <option value="Sesión grupal">{t('newEvent.groupSession')}</option>
+                  <option value="Sesión grupal">{t('newEvent.groupSession', { defaultValue: 'Sesión grupal' })}</option>
                   <option value="Sesión individual">{t('newEvent.individualSession')}</option>
                   <option value="Gym">{t('newEvent.gym')}</option>
                 </SearchableSelect>

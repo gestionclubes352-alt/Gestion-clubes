@@ -783,12 +783,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       const mappedSquad: Player[] = (pRes || []).map((p: Jugador): Player => {
         const equipoRow = equiposById.get(String(p.equipo_id));
         const clubRow = equipoRow ? clubesByIdForSquad.get(String(equipoRow.club_id)) : undefined;
+        const clubIdFallback = equipoRow?.club_id || currentTeam?.id || '';
+        // Fallback para equipoFallback: si el equipo no existe, intentar obtenerlo de otros equipos cargados
+        const equipoFallback = !equipoRow ? (ctRes || []).find(e => String(e.id) === String(p.equipo_id)) : undefined;
+        // Log para diagnosticar jugadores que no se muestran
+        if (!equipoRow) {
+          console.warn(`[DEBUG] Jugador "${p.nombre}" con equipo_id "${p.equipo_id}" no encontrado en equipos. equipoFallback:`, equipoFallback?.nombre);
+        }
         return {
           id: p.id,
           fotoUrl: p.foto_url || '',
-          competicion: equipoRow?.competicion || '',
-          club: clubRow?.nombre || '',
-          equipo: equipoRow?.sub_equipo || equipoRow?.nombre || '',
+          competicion: equipoRow?.competicion || equipoFallback?.competicion || '',
+          club: clubRow?.nombre || currentTeam?.name || '',
+          equipo: equipoRow?.sub_equipo || equipoRow?.nombre || equipoFallback?.sub_equipo || equipoFallback?.nombre || '',
           dorsal: p.dorsal ?? 0,
           nombre: p.nombre,
           apodo: p.apodo,
@@ -820,7 +827,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           telefono: p.telefono,
           correo: p.correo,
           temporada: p.temporada,
-          clubId: equipoRow?.club_id,
+          clubId: clubIdFallback,
           equipoId: p.equipo_id,
           nombreCompleto: p.nombre_completo,
           anioNacimiento: p.anio_nacimiento,
@@ -1400,8 +1407,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       ? `Este equipo tiene ${affected} jugador${affected === 1 ? '' : 'es'} en su plantilla. Al eliminarlo se borrarán también esos jugadores de forma permanente. ¿Continuar?`
                       : '¿Eliminar este equipo?';
                     if (!window.confirm(warning)) return;
-                    try { await equiposService.remove(id); await fetchData(); }
-                    catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el equipo'); }
+                    try {
+                      await equiposService.remove(id);
+                      await fetchData();
+                      setShowStatus('Equipo eliminado correctamente');
+                      setTimeout(() => setShowStatus(null), 2000);
+                    }
+                    catch (e) {
+                      const errorMsg = e instanceof Error ? e.message : 'Error al eliminar el equipo';
+                      console.error('Error eliminando equipo:', e);
+                      alert(errorMsg);
+                    }
                   }}
                 />
               } />
@@ -1566,6 +1582,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         onSave={async (p, originalId) => {
           const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || '' }, originalId);
           if (!toSave.equipoId) { alert('Selecciona un equipo antes de guardar.'); return; }
+          // Validar que el equipo exista
+          const equipoValido = competitionTeams.some(eq => String(eq.id) === String(toSave.equipoId));
+          if (!equipoValido) { alert('El equipo seleccionado no existe. Por favor, selecciona un equipo válido.'); return; }
           const payload = {
             equipo_id: String(toSave.equipoId),
             foto_url: toSave.fotoUrl || '',
@@ -1609,9 +1628,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             telefono_tutor: toSave.telefonoTutor,
           };
           try {
+            console.log('[App.tsx] Guardando jugador:', { nombre: toSave.nombre, equipoId: toSave.equipoId, equipo: toSave.equipo, club: toSave.club, payload });
             const exists = squadList.some(existing => String(existing.id) === String(originalId));
             if (exists) await plantillasService.update(String(originalId), payload);
             else await plantillasService.create(payload);
+            console.log('[App.tsx] Jugador guardado exitosamente');
             await fetchData();
             setEditingPlayer(null);
           } catch (e) {

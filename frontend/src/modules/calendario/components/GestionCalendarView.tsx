@@ -190,6 +190,44 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     if (!teamName) return '';
     return internalNameByFedName.get(teamName.trim().toLowerCase()) || teamName;
   };
+
+  const findCompetitionTeamForSide = (teamName?: string, clubId?: string): CompetitionTeam | undefined => {
+    const key = normalizeTeamKey(teamName);
+    const matchesName = (team: CompetitionTeam) =>
+      [team.equipo, team.nombreEnFed, team.nombre].some(value => normalizeTeamKey(value) === key);
+
+    if (clubId) {
+      const teamsByClub = competitionTeams.filter(team => String(team.clubId ?? '') === String(clubId));
+      const exact = teamsByClub.find(matchesName) || (teamsByClub.length === 1 ? teamsByClub[0] : undefined);
+      if (exact) return exact;
+    }
+
+    return competitionTeams.find(matchesName);
+  };
+
+  const resolveMatchSideDisplay = (event: CalendarEvent, teamName?: string, clubId?: string) => {
+    const team = findCompetitionTeamForSide(teamName, clubId);
+    const rawName = teamName || '';
+    const clubName =
+      (clubId && clubNameById.get(String(clubId))) ||
+      resolveClubLabel(rawName, clubId) ||
+      team?.nombre ||
+      rawName;
+    const isOwnSide = !!ownClubId && !!clubId && String(clubId) === String(ownClubId);
+    const federationName =
+      team?.nombreEnFed && normalizeTeamKey(team.nombreEnFed) !== normalizeTeamKey(clubName)
+        ? team.nombreEnFed
+        : '';
+    const teamDisplayName =
+      (isOwnSide ? resolveTeamDisplayName(event.nombreInterno || event.team) : '') ||
+      team?.equipo ||
+      team?.etapa ||
+      federationName ||
+      resolveTeamDisplayName(rawName) ||
+      rawName;
+
+    return { clubName, teamName: teamDisplayName };
+  };
   // Equipos propios del club: `competitionTeams` incluye también equipos rivales
   // dados de alta para programar amistosos, así que hay que filtrar por clubId
   // para quedarnos solo con los que son realmente del propio club.
@@ -718,6 +756,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     const isMatch = ev.type === 'Partido';
                     const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
                     const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
+                    const localDisplay = resolveMatchSideDisplay(ev, ev.localTeam, ev.localTeamClubId);
+                    const visitorDisplay = resolveMatchSideDisplay(ev, ev.visitorTeam, ev.visitorTeamClubId);
                     const localLogo = resolveTeamLogo(ev.localTeamClubId, ev.localTeam, displayLocalTeam);
                     const visitorLogo = resolveTeamLogo(ev.visitorTeamClubId, ev.visitorTeam, displayVisitorTeam);
                     return (
@@ -780,10 +820,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                       <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
                                     </div>
                                   )}
-                                  {resolveClubLabel(displayLocalTeam, ev.localTeamClubId) && (
-                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(displayLocalTeam, ev.localTeamClubId)}</span>
-                                  )}
-                                  <span className="block truncate w-full text-xs leading-tight">{displayLocalTeam}</span>
+                                  <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{localDisplay.clubName}</span>
+                                  <span className="block truncate w-full text-xs leading-tight">{localDisplay.teamName}</span>
                                 </div>
                                 <span className="flex-shrink-0 bg-red-600 text-white text-[10px] font-black leading-none px-2 py-1.5 rounded-full shadow-sm">VS</span>
                                 <div className="flex-1 min-w-0 flex flex-col items-center text-center">
@@ -794,10 +832,8 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                       <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
                                     </div>
                                   )}
-                                  {resolveClubLabel(displayVisitorTeam, ev.visitorTeamClubId) && (
-                                    <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{resolveClubLabel(displayVisitorTeam, ev.visitorTeamClubId)}</span>
-                                  )}
-                                  <span className="block truncate w-full text-xs leading-tight">{displayVisitorTeam}</span>
+                                  <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{visitorDisplay.clubName}</span>
+                                  <span className="block truncate w-full text-xs leading-tight">{visitorDisplay.teamName}</span>
                                 </div>
                               </div>
                             ) : (

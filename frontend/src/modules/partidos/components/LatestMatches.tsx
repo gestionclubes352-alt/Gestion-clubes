@@ -293,7 +293,8 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
 
     for (const pool of pools) {
       if (clubId) {
-        const exact = pool.find((team) => String(team.clubId ?? '') === String(clubId) && (!key || matchesName(team)));
+        const teamsByClub = pool.filter((team) => String(team.clubId ?? '') === String(clubId));
+        const exact = teamsByClub.find(matchesName) || (teamsByClub.length === 1 ? teamsByClub[0] : undefined);
         if (exact) return exact;
       }
 

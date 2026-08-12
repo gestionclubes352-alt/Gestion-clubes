@@ -107,6 +107,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   );
 
   const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
+  const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
+
+  const clubNameByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, clubName?: string) => {
+      if (!name || !clubName) return;
+      map.set(normalizeFederationTeamName(name), clubName);
+    };
+
+    competitionTeams?.forEach(team => {
+      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
+      register(team.nombre, clubName);
+      register(team.nombreEnFed, clubName);
+      register(team.equipo, clubName);
+    });
+
+    return map;
+  }, [competitionTeams, clubNameById]);
 
   const clubLogoByTeamName = useMemo(() => {
     const map = new Map<string, string>();
@@ -138,8 +156,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return clubLogoByTeamName.get(normalizeFederationTeamName(teamName));
   };
 
+  const findCompetitionTeamForSide = (teamName?: string | null, clubId?: string | null): CompetitionTeam | undefined => {
+    const teams = competitionTeams ?? [];
+    const key = teamName ? normalizeFederationTeamName(teamName) : '';
+    const matchesName = (team: CompetitionTeam) =>
+      [team.equipo, team.nombreEnFed, team.nombre].some(value => value && normalizeFederationTeamName(value) === key);
+
+    if (clubId) {
+      const teamsByClub = teams.filter(team => String(team.clubId ?? '') === String(clubId));
+      const exact = teamsByClub.find(matchesName) || (teamsByClub.length === 1 ? teamsByClub[0] : undefined);
+      if (exact) return exact;
+    }
+
+    return teams.find(matchesName);
+  };
+
+  const resolveMatchSideDisplay = (name: string, clubId?: string) => {
+    const team = findCompetitionTeamForSide(name, clubId);
+    const clubName =
+      (clubId && clubNameById.get(String(clubId))) ||
+      clubNameByTeamName.get(normalizeFederationTeamName(name)) ||
+      team?.nombre ||
+      name;
+    const federationName =
+      team?.nombreEnFed && normalizeFederationTeamName(team.nombreEnFed) !== normalizeFederationTeamName(clubName)
+        ? team.nombreEnFed
+        : '';
+    const teamName = team?.equipo || team?.etapa || federationName || name;
+
+    return { clubName, teamName };
+  };
+
   const MatchTeamMini: React.FC<{ name: string; clubId?: string }> = ({ name, clubId }) => {
     const logoUrl = resolveTeamLogo(name, clubId);
+    const { clubName, teamName } = resolveMatchSideDisplay(name, clubId);
     return (
       <span className="flex min-w-0 flex-col items-center text-center">
         <span className="mb-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/80 shadow-sm ring-1 ring-black/5">
@@ -149,7 +199,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             <i className="fa-solid fa-shield-halved text-[8px] opacity-40"></i>
           )}
         </span>
-        <span className="truncate block w-full">{name}</span>
+        <span className="block w-full truncate text-[7px] font-bold uppercase leading-none opacity-60">{clubName}</span>
+        <span className="block w-full truncate text-[8px] font-black uppercase leading-tight">{teamName}</span>
       </span>
     );
   };
@@ -523,6 +574,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             attendance={attendance}
             onChange={setAttendance}
             selectiveAttendance={selectiveAttendance}
+            hideExternalPlayers={mainTab === 'datosSesiones'}
           />
         )}
 
@@ -629,6 +681,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             attendance={attendance}
             onChange={setAttendance}
             selectiveAttendance={selectiveAttendance}
+            hideExternalPlayers={mainTab === 'datosSesiones'}
           />
 
           {false && (

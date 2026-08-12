@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
 import EditTeamModal from './EditTeamModal';
+import SearchableSelect from '@shared/components/SearchableSelect';
 import { getTeamConfig } from '@shared/services/dataService';
 import { getFederationTeamLogo } from '../data/teamLogos';
 
@@ -23,6 +24,24 @@ interface ClubGroup {
   isOwn: boolean;
 }
 
+/** Orden de categorías: Primer equipo, Filial, Juvenil, Cadete, Infantil, Alevín (A-D dentro de cada una) */
+const CATEGORY_ORDER = ['primer equipo', 'filial', 'juvenil', 'cadete', 'infantil', 'alevin'];
+
+const getTeamOrderRank = (team: CompetitionTeam): number => {
+  const raw = `${team.equipo || ''} ${team.nombre || ''}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+  for (let i = 0; i < CATEGORY_ORDER.length; i++) {
+    if (raw.includes(CATEGORY_ORDER[i])) {
+      const letterMatch = raw.match(/\b([a-d])\b/);
+      const letterRank = letterMatch ? letterMatch[1].charCodeAt(0) - 97 : 0;
+      return i * 10 + letterRank;
+    }
+  }
+  return 999;
+};
+
 const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, clubId, onEdit, onDelete }) => {
   const [editingTeam, setEditingTeam] = useState<CompetitionTeam | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -31,6 +50,8 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
   const [clubFilter, setClubFilter] = useState('Todos');
   const [equipoInternoFilter, setEquipoInternoFilter] = useState('Todos');
   const [activeTab, setActiveTab] = useState<'todos' | 'equipos' | 'rivales'>('todos');
+  const [editingEquipoId, setEditingEquipoId] = useState<string | null>(null);
+  const [editingEquipoValue, setEditingEquipoValue] = useState<string>('');
 
   const myTeamName = useMemo(() => {
     try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -59,7 +80,19 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         map.get(key)!.logoUrl = displayLogo;
       }
     });
-    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const groupsArray = Array.from(map.values());
+    groupsArray.forEach(g => {
+      g.equipos.sort((a, b) => getTeamOrderRank(a) - getTeamOrderRank(b));
+    });
+    return groupsArray.sort((a, b) => {
+      // Club propio siempre primero
+      if (a.isOwn && !b.isOwn) return -1;
+      if (!a.isOwn && b.isOwn) return 1;
+      // Luego ordenar alfabéticamente (con normalización para evitar problemas con tildes/espacios)
+      const nameA = (a.nombre || '').trim().toUpperCase();
+      const nameB = (b.nombre || '').trim().toUpperCase();
+      return nameA.localeCompare(nameB, 'es-ES');
+    });
   }, [teams, clubId, clubById]);
 
   const tabGroups = useMemo(() => {
@@ -94,15 +127,9 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
   }, [tabGroups, search, clubFilter, equipoInternoFilter]);
 
   // Clubs disponibles para el filtro (basados en los grupos de la pestaña activa, sin filtrar por búsqueda)
-  // IPC ESCUELA se destaca y aparece primero
   const availableClubs = useMemo(() => {
     const clubs = tabGroups.map(g => g.nombre);
-    const ipcIndex = clubs.findIndex(c => c.toUpperCase().includes('IPC'));
-    if (ipcIndex > -1) {
-      const [ipc] = clubs.splice(ipcIndex, 1);
-      return [ipc, ...clubs];
-    }
-    return clubs;
+    return clubs.sort((a, b) => a.localeCompare(b));
   }, [tabGroups]);
 
   // Equipos internos disponibles para el filtro (sub-equipo, ej: Juvenil A, Cadete A)
@@ -201,30 +228,22 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
 
       {/* FILTRO CLUB (dentro de la pestaña activa) */}
       {availableClubs.length > 0 && (
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
-          <button
-            onClick={() => setClubFilter('Todos')}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-              clubFilter === 'Todos'
-                ? 'bg-slate-800 text-white shadow'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
+        <div className="flex items-center gap-2 mb-4">
+          <label className="text-[11px] font-black uppercase tracking-widest text-slate-600 flex-shrink-0">
+            {activeTab === 'rivales' ? 'Equipo Rival:' : 'Club:'}
+          </label>
+          <select
+            value={clubFilter}
+            onChange={(e) => setClubFilter(e.target.value)}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all hover:border-slate-300"
           >
-            Todos
-          </button>
-          {availableClubs.map(nombre => (
-            <button
-              key={nombre}
-              onClick={() => setClubFilter(nombre === clubFilter ? 'Todos' : nombre)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                clubFilter === nombre
-                  ? 'bg-slate-800 text-white shadow'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-              }`}
-            >
-              {nombre}
-            </button>
-          ))}
+            <option value="Todos">Todos los {activeTab === 'rivales' ? 'equipos rivales' : 'clubes'}</option>
+            {availableClubs.map(nombre => (
+              <option key={nombre} value={nombre}>
+                {nombre}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -265,16 +284,6 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
 
       {/* BARRA DE BÚSQUEDA + CONTROLES */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar club, etapa, equipo..."
-            className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
-          />
-        </div>
         <button
           onClick={expandAll}
           className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-all"
@@ -289,20 +298,38 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         >
           <i className="fa-solid fa-chevron-up mr-1"></i>Colapsar
         </button>
+        <div className="flex-1 min-w-[200px]">
+          <SearchableSelect
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+          >
+            <option value="">-- Buscar club, etapa, equipo --</option>
+            {filteredGroups.length > 0 && filteredGroups.map((group) => (
+              <optgroup key={group.nombre} label={group.nombre}>
+                {group.equipos.map(team => (
+                  <option key={team.id} value={team.nombre}>
+                    {team.equipo || team.nombre}{team.etapa ? ` (${team.etapa})` : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </SearchableSelect>
+        </div>
       </div>
 
       {/* TABLA AGRUPADA */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
        <div className="overflow-x-auto">
-        <div className="min-w-[900px]">
+        <div className="min-w-fit">
         {/* Cabecera */}
         <div className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-          style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 1fr 80px' }}
+          style={{ gridTemplateColumns: '48px 220px 110px 140px 220px 110px 90px', columnGap: '16px', justifyContent: 'start' }}
         >
           <div className="px-3 py-3"></div>
           <div className="px-3 py-3">Club / Equipo</div>
           <div className="px-3 py-3">Etapa</div>
-          <div className="px-3 py-3">Equipo</div>
+          <div className="px-3 py-3">Equipo Interno</div>
           <div className="px-3 py-3">Nombre en Fed.</div>
           <div className="px-3 py-3">Enlace</div>
           <div className="px-3 py-3 text-right">Acciones</div>
@@ -325,7 +352,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                 type="button"
                 onClick={() => toggleClub(group.nombre)}
                 className={`w-full grid items-center text-left transition-colors hover:bg-slate-50 ${highlight ? 'bg-[var(--accent)]/5' : 'bg-white'}`}
-                style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 1fr 80px' }}
+                style={{ gridTemplateColumns: '48px 220px 110px 140px 220px 110px 90px', columnGap: '16px', justifyContent: 'start' }}
               >
                 {/* Logo */}
                 <div className="px-3 py-3 flex items-center justify-center">
@@ -356,7 +383,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                 <div
                   key={String(eq.id)}
                   className={`grid items-center border-t border-slate-100 hover:bg-slate-100/60 transition-colors ${highlight ? 'bg-[var(--accent)]/5' : 'bg-slate-50/60'}`}
-                  style={{ gridTemplateColumns: '48px 1fr 100px 130px 150px 1fr 80px' }}
+                  style={{ gridTemplateColumns: '48px 220px 110px 140px 220px 110px 90px', columnGap: '16px', justifyContent: 'start' }}
                 >
                   {/* Indent visual */}
                   <div className="px-3 py-2.5 flex items-center justify-center">
@@ -374,9 +401,46 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                       </span>
                     ) : <span className="text-slate-300 text-xs">—</span>}
                   </div>
-                  {/* Equipo */}
+                  {/* Equipo - Editable */}
                   <div className="px-3 py-2.5">
-                    <span className="text-xs font-bold text-slate-700">{eq.equipo || <span className="text-slate-300">—</span>}</span>
+                    {editingEquipoId === String(eq.id) ? (
+                      <input
+                        type="text"
+                        value={editingEquipoValue}
+                        onChange={(e) => setEditingEquipoValue(e.target.value)}
+                        onBlur={() => {
+                          if (editingEquipoValue.trim() && onEdit) {
+                            onEdit({ ...eq, equipo: editingEquipoValue.trim() });
+                          }
+                          setEditingEquipoId(null);
+                          setEditingEquipoValue('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && onEdit) {
+                            onEdit({ ...eq, equipo: editingEquipoValue.trim() });
+                            setEditingEquipoId(null);
+                            setEditingEquipoValue('');
+                          }
+                          if (e.key === 'Escape') {
+                            setEditingEquipoId(null);
+                            setEditingEquipoValue('');
+                          }
+                        }}
+                        autoFocus
+                        className="w-full px-2 py-1 text-xs font-bold rounded border border-[var(--accent)] bg-white focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                      />
+                    ) : (
+                      <span
+                        onClick={() => {
+                          setEditingEquipoId(String(eq.id));
+                          setEditingEquipoValue(eq.equipo || eq.nombre || '');
+                        }}
+                        className="text-xs font-bold text-slate-700 cursor-pointer hover:text-[var(--accent)] transition-colors"
+                        title="Click para editar"
+                      >
+                        {eq.equipo || eq.nombre || <span className="text-slate-300">—</span>}
+                      </span>
+                    )}
                   </div>
                   {/* Nombre en Fed */}
                   <div className="px-3 py-2.5">
@@ -404,7 +468,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
                     )}
                     {onDelete && (
                       <button
-                        onClick={() => onDelete(Number(eq.id))}
+                        onClick={() => onDelete(eq.id)}
                         className="w-7 h-7 rounded-lg bg-slate-200 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
                         title="Eliminar"
                       >
