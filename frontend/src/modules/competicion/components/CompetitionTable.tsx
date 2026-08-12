@@ -490,6 +490,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         <EditTeamModal
           team={editingTeam}
           clubes={clubes}
+          existingTeams={teams}
           onClose={() => setEditingTeam(null)}
           onSave={async (updated) => {
             await onEdit(updated);
@@ -501,6 +502,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
         <EditTeamModal
           team={{ id: Date.now(), nombre: '' }}
           clubes={clubes}
+          existingTeams={teams}
           isNew
           onClose={() => setIsCreating(false)}
           onSave={async (created) => {

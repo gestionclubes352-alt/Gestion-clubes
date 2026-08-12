@@ -6,16 +6,25 @@ import SearchableSelect from '@shared/components/SearchableSelect';
 interface EditTeamModalProps {
   team: CompetitionTeam;
   clubes: Club[];
+  existingTeams?: CompetitionTeam[];
   isNew?: boolean;
   onClose: () => void;
   onSave: (team: CompetitionTeam) => Promise<void>;
 }
 
-const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onClose, onSave }) => {
+const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, existingTeams = [], isNew, onClose, onSave }) => {
   const [formData, setFormData] = useState<CompetitionTeam>({ ...team });
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showClubDropdown, setShowClubDropdown] = useState(false);
+
+  const teamExists = (equipoValue: string): boolean => {
+    return existingTeams.some(t =>
+      String(t.clubId) === String(formData.clubId) &&
+      t.equipo === equipoValue &&
+      String(t.id) !== String(team.id)
+    );
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -155,20 +164,26 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
                   { value: '', label: 'Sin equipo' },
                   { value: 'Primer equipo', label: 'Primer equipo' },
                   { value: 'Filial', label: 'Filial' },
-                ].map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, equipo: option.value })}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                      formData.equipo === option.value
-                        ? 'bg-[var(--accent)] text-white shadow-md'
-                        : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+                ].map(option => {
+                  const exists = teamExists(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, equipo: option.value })}
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                        formData.equipo === option.value
+                          ? 'bg-[var(--accent)] text-white shadow-md'
+                          : exists
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                      }`}
+                    >
+                      {option.label}
+                      {exists && <i className="fa-solid fa-check text-[8px]"></i>}
+                    </button>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-5 gap-2">
                 {['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'].map(category => (
@@ -176,34 +191,51 @@ const EditTeamModal: React.FC<EditTeamModalProps> = ({ team, clubes, isNew, onCl
                     <p className="text-[9px] font-black text-slate-400 uppercase mb-1 px-1">{category}</p>
                     <div className="space-y-1">
                       {category === 'Senior'
-                        ? ['Primer equipo', 'Filial'].map(option => (
-                            <button
-                              key={`${category}-${option}`}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, equipo: option })}
-                              className={`w-full px-2 py-1.5 rounded text-[9px] font-black uppercase tracking-widest transition-all ${
-                                formData.equipo === option
-                                  ? 'bg-[var(--accent)] text-white shadow-md'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
-                              }`}
-                            >
-                              {option === 'Primer equipo' ? 'P.E.' : 'F'}
-                            </button>
-                          ))
-                        : ['A', 'B', 'C', 'D'].map(letter => (
-                            <button
-                              key={`${category}-${letter}`}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, equipo: `${category} ${letter}` })}
-                              className={`w-full px-2 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all ${
-                                formData.equipo === `${category} ${letter}`
-                                  ? 'bg-[var(--accent)] text-white shadow-md'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
-                              }`}
-                            >
-                              {letter}
-                            </button>
-                          ))}
+                        ? ['Primer equipo', 'Filial'].map(option => {
+                            const exists = teamExists(option);
+                            return (
+                              <button
+                                key={`${category}-${option}`}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, equipo: option })}
+                                className={`w-full px-2 py-1.5 rounded text-[9px] font-black uppercase tracking-widest transition-all relative ${
+                                  formData.equipo === option
+                                    ? 'bg-[var(--accent)] text-white shadow-md'
+                                    : exists
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                }`}
+                              >
+                                <span className="flex items-center justify-center gap-1">
+                                  {option === 'Primer equipo' ? 'P.E.' : 'F'}
+                                  {exists && <i className="fa-solid fa-check text-[7px]"></i>}
+                                </span>
+                              </button>
+                            );
+                          })
+                        : ['A', 'B', 'C', 'D'].map(letter => {
+                            const equipoValue = `${category} ${letter}`;
+                            const exists = teamExists(equipoValue);
+                            return (
+                              <button
+                                key={`${category}-${letter}`}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, equipo: equipoValue })}
+                                className={`w-full px-2 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all relative ${
+                                  formData.equipo === equipoValue
+                                    ? 'bg-[var(--accent)] text-white shadow-md'
+                                    : exists
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                }`}
+                              >
+                                <span className="flex items-center justify-center gap-1">
+                                  {letter}
+                                  {exists && <i className="fa-solid fa-check text-[7px]"></i>}
+                                </span>
+                              </button>
+                            );
+                          })}
                     </div>
                   </div>
                 ))}
