@@ -115,6 +115,50 @@ const TaskRepositoryView: React.FC = () => {
     await fetchTasks();
   };
 
+  const rotateDesignerItem = (item: any, centerX = 50, centerY = 50): any => {
+    const dx = item.x - centerX;
+    const dy = item.y - centerY;
+    // Rotar 90 grados en sentido de las agujas del reloj
+    const newX = centerX - dy;
+    const newY = centerY + dx;
+
+    const rotated = { ...item, x: newX, y: newY, rotation: (item.rotation + 90) % 360 };
+
+    // Rotar también los puntos de las flechas si existen
+    if (item.arrowStart) {
+      const startDx = item.arrowStart.x - centerX;
+      const startDy = item.arrowStart.y - centerY;
+      rotated.arrowStart = {
+        x: centerX - startDy,
+        y: centerY + startDx,
+      };
+    }
+    if (item.arrowEnd) {
+      const endDx = item.arrowEnd.x - centerX;
+      const endDy = item.arrowEnd.y - centerY;
+      rotated.arrowEnd = {
+        x: centerX - endDy,
+        y: centerY + endDx,
+      };
+    }
+
+    return rotated;
+  };
+
+  const handleRotate = async (task: TrainingTask) => {
+    if (!task.designerSnapshot || task.designerSnapshot.length === 0) return;
+
+    const rotatedSnapshot = task.designerSnapshot.map(item => rotateDesignerItem(item));
+    const updatedTask: TrainingTask = {
+      ...task,
+      designerSnapshot: rotatedSnapshot,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await db.task_templates.upsert(updatedTask);
+    await fetchTasks();
+  };
+
   const openNew = () => { setEditingTask(null); setModalOpen(true); };
   const openEdit = (task: TrainingTask) => { setEditingTask(task); setModalOpen(true); };
   /** Abrir el diseño táctico de una tarea existente (permite editar el dibujo y regenerar su miniatura) */
@@ -195,9 +239,23 @@ const TaskRepositoryView: React.FC = () => {
   );
 
   // ─── Full task preview modal ───
-  const TaskPreviewModal: React.FC<{ task: TrainingTask; onClose: () => void }> = ({ task, onClose }) => {
+  const TaskPreviewModal: React.FC<{ task: TrainingTask; onClose: () => void; onTaskUpdate?: (task: TrainingTask) => void }> = ({ task, onClose, onTaskUpdate }) => {
     const [is3DPreview, setIs3DPreview] = useState(false);
-    const hasDesignerSnapshot = task.designerSnapshot && task.designerSnapshot.length > 0;
+    const [localTask, setLocalTask] = useState(task);
+    const hasDesignerSnapshot = localTask.designerSnapshot && localTask.designerSnapshot.length > 0;
+
+    const handleRotateInModal = async () => {
+      if (!localTask.designerSnapshot || localTask.designerSnapshot.length === 0) return;
+      const rotatedSnapshot = localTask.designerSnapshot.map(item => rotateDesignerItem(item));
+      const updatedTask: TrainingTask = {
+        ...localTask,
+        designerSnapshot: rotatedSnapshot,
+        updatedAt: new Date().toISOString(),
+      };
+      setLocalTask(updatedTask);
+      await db.task_templates.upsert(updatedTask);
+      onTaskUpdate?.(updatedTask);
+    };
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -243,15 +301,15 @@ const TaskRepositoryView: React.FC = () => {
                     transformStyle: 'preserve-3d',
                   } : undefined}
                 >
-                  <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} is3D={is3DPreview} className="max-w-full shadow-2xl" />
+                  <DesignerPreview items={localTask.designerSnapshot} fieldStructure={localTask.fieldStructure} is3D={is3DPreview} className="max-w-full shadow-2xl" />
                 </div>
               </div>
             </div>
-          ) : task.thumbnail ? (
-            <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="h-80 w-full object-cover shrink-0" />
+          ) : localTask.thumbnail ? (
+            <img loading="lazy" decoding="async" src={localTask.thumbnail} alt={localTask.name} className="h-80 w-full object-cover shrink-0" />
           ) : (
             <div className="h-80 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center shrink-0">
-              <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-6xl`}></i>
+              <i className={`fa-solid ${CATEGORY_ICONS[localTask.category]} text-slate-300 text-6xl`}></i>
             </div>
           )}
 
@@ -259,24 +317,27 @@ const TaskRepositoryView: React.FC = () => {
           <div className="p-5 overflow-y-auto flex-1">
             {/* Header */}
             <div className="mb-3">
-              <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 mb-2">{task.name}</h3>
-              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[task.category]}`}>
-                {task.category}
+              <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 mb-2">{localTask.name}</h3>
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[localTask.category]}`}>
+                {localTask.category}
               </span>
             </div>
 
             {/* Actions */}
             <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-              <button onClick={() => { openInDesigner(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 transition-colors">
+              <button onClick={() => { openInDesigner(localTask); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-chess-board"></i> {t('taskRepository.openDesigner')}
               </button>
-              <button onClick={() => { handleDuplicate(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 transition-colors">
+              <button onClick={handleRotateInModal} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-purple-600 hover:bg-purple-50 flex items-center gap-1.5 transition-colors">
+                <i className="fa-solid fa-rotate-right"></i> Rotar
+              </button>
+              <button onClick={() => { handleDuplicate(localTask); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-copy"></i> {t('taskRepository.duplicate')}
               </button>
-              <button onClick={() => { openEdit(task); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-[var(--accent)] hover:bg-[var(--accent-dark)] flex items-center gap-1.5 transition-colors">
+              <button onClick={() => { openEdit(localTask); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-[var(--accent)] hover:bg-[var(--accent-dark)] flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-pen"></i> {t('common.edit')}
               </button>
-              <button onClick={() => { handleDelete(task.id); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-colors">
+              <button onClick={() => { handleDelete(localTask.id); onClose(); }} className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1.5 transition-colors">
                 <i className="fa-solid fa-trash"></i> {t('common.delete')}
               </button>
             </div>
@@ -398,7 +459,7 @@ const TaskRepositoryView: React.FC = () => {
       )}
 
       {/* Preview modal */}
-      {previewTask && <TaskPreviewModal task={previewTask} onClose={() => setPreviewTask(null)} />}
+      {previewTask && <TaskPreviewModal task={previewTask} onClose={() => setPreviewTask(null)} onTaskUpdate={(updatedTask) => setPreviewTask(updatedTask)} />}
 
       {/* Edit modal */}
       <TaskDetailModal task={editingTask} open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} minimalFields />
