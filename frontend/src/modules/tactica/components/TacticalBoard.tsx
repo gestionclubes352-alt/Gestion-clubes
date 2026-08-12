@@ -203,7 +203,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                               {p.dorsal}
                             </span>
                             <div className="min-w-0 flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
-                              <div className="whitespace-nowrap truncate text-[11px] md:text-[12px]">
+                              <div className="whitespace-nowrap truncate text-[8px] md:text-[9px]">
                                 {p.apodo || p.nombre}
                               </div>
                             </div>
