@@ -3,9 +3,10 @@ import { useId, type FC } from 'react';
 interface GoalFrame3DProps {
   className?: string;
   compact?: boolean;
+  isFlipped?: boolean;
 }
 
-const GoalFrame3D: FC<GoalFrame3DProps> = ({ className = '', compact = false }) => {
+const GoalFrame3D: FC<GoalFrame3DProps> = ({ className = '', compact = false, isFlipped = false }) => {
   const rawId = useId().replace(/:/g, '');
   const depth = compact ? 42 : 56;
   const inset = compact ? 8 : 10;
@@ -24,7 +25,10 @@ const GoalFrame3D: FC<GoalFrame3DProps> = ({ className = '', compact = false }) 
   return (
     <div
       className={`relative h-full w-full overflow-visible ${className}`}
-      style={{ transformStyle: 'preserve-3d' }}
+      style={{
+        transformStyle: 'preserve-3d',
+        transform: isFlipped ? 'scaleY(-1)' : undefined,
+      }}
     >
       <div
         className="absolute inset-x-[-8%] bottom-[-10%] h-[42%] rounded-full bg-black/35 blur-[7px]"

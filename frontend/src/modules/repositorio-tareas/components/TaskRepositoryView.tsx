@@ -29,6 +29,7 @@ const TaskRepositoryView: React.FC = () => {
   const [editingTask, setEditingTask] = useState<TrainingTask | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [previewTask, setPreviewTask] = useState<TrainingTask | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Set<TaskCategory>>(new Set());
 
   // ─── Data loading ───
   const fetchTasks = useCallback(async () => {
@@ -52,8 +53,11 @@ const TaskRepositoryView: React.FC = () => {
       const q = search.toLowerCase();
       result = result.filter(t => t.name.toLowerCase().includes(q));
     }
+    if (selectedCategories.size > 0) {
+      result = result.filter(t => selectedCategories.has(t.category));
+    }
     return result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [tasks, search]);
+  }, [tasks, search, selectedCategories]);
 
   // ─── Grouped by category ───
   const grouped = useMemo(() => {
@@ -189,7 +193,7 @@ const TaskRepositoryView: React.FC = () => {
   const MiniTaskCard: React.FC<{ task: TrainingTask }> = ({ task }) => (
     <div
       onClick={() => setPreviewTask(task)}
-      className="group relative bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer"
+      className="group relative bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col h-56"
     >
       {/* Duplicate / edit / delete actions */}
       <div className="absolute top-1.5 right-1.5 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -221,16 +225,16 @@ const TaskRepositoryView: React.FC = () => {
 
       {/* Image preview */}
       {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-        <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
+        <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full flex-1 object-cover" />
       ) : task.thumbnail ? (
-        <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="h-16 w-full object-cover" />
+        <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="flex-1 w-full object-cover" />
       ) : (
-        <div className="h-16 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
+        <div className="flex-1 bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
           <i className={`fa-solid ${CATEGORY_ICONS[task.category]} text-slate-300 text-lg`}></i>
         </div>
       )}
-      <div className="p-2">
-        <h4 className="text-[10px] font-black uppercase tracking-tight text-slate-800 truncate leading-tight mb-1">{task.name}</h4>
+      <div className="p-2 bg-white border-t border-slate-100 shrink-0">
+        <h4 className="text-[9px] font-black uppercase tracking-tight text-slate-800 truncate leading-tight mb-1">{task.name}</h4>
         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider text-white ${CATEGORY_COLORS[task.category]}`}>
           {task.category}
         </span>
@@ -423,19 +427,67 @@ const TaskRepositoryView: React.FC = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        <div className="relative flex-1">
-          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
-            placeholder={t('taskRepository.searchPlaceholder')}
-          />
+      {/* Search and Filters */}
+      <div className="space-y-3">
+        {/* Search */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+          <div className="relative flex-1">
+            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder={t('taskRepository.searchPlaceholder')}
+            />
+          </div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">
+            {filtered.length} {t('taskRepository.results')}
+          </div>
         </div>
-        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">
-          {filtered.length} {t('taskRepository.results')}
+
+        {/* Category Filter Dropdown */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Filtrar por tipo:
+          </label>
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            {TASK_CATEGORIES.map(category => {
+              const isSelected = selectedCategories.has(category);
+              const count = tasks.filter(t => t.category === category).length;
+              return (
+                <button
+                  key={category}
+                  onClick={() => {
+                    const next = new Set(selectedCategories);
+                    if (next.has(category)) {
+                      next.delete(category);
+                    } else {
+                      next.add(category);
+                    }
+                    setSelectedCategories(next);
+                  }}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    isSelected
+                      ? `${CATEGORY_COLORS[category]} text-white shadow-sm`
+                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                  title={`${category} (${count} tareas)`}
+                >
+                  <i className={`fa-solid ${CATEGORY_ICONS[category]} text-[8px]`}></i>
+                  {category}
+                </button>
+              );
+            })}
+          </div>
+          {selectedCategories.size > 0 && (
+            <button
+              onClick={() => setSelectedCategories(new Set())}
+              className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+              title="Mostrar todas las categorías"
+            >
+              Limpiar
+            </button>
+          )}
         </div>
       </div>
 
@@ -483,8 +535,8 @@ const TaskRepositoryView: React.FC = () => {
 
                 {/* Tasks grid */}
                 {!isCollapsed && (
-                  <div className="border-t border-slate-100 p-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                  <div className="border-t border-slate-100 p-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-3">
                       {catTasks.map(task => <MiniTaskCard key={task.id} task={task} />)}
                     </div>
                   </div>

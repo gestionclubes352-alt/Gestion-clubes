@@ -413,67 +413,72 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
             )}
 
-            {/* Filtro de clubes */}
+            {/* Filtro de clubes - Select */}
             {availableClubs.length > 1 && (
-              <>
+              <select
+                value={filterClub}
+                onChange={(e) => setFilterClub(e.target.value)}
+                className="px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border border-[var(--border-soft)] bg-[var(--surface-0)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--surface-3)] transition-all appearance-none cursor-pointer"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundSize: '1.2em 1.2em',
+                  paddingRight: '1.8rem',
+                }}
+              >
                 {['TODOS', ...availableClubs].map((club) => (
-                  <button
-                    key={`club-${club}`}
-                    onClick={() => setFilterClub(club)}
-                    className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
-                      filterClub === club
-                        ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
-                        : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
-                    }`}
-                  >
-                    <i className="fa-solid fa-shield-halved text-[9px] mr-1"></i>
+                  <option key={`club-${club}`} value={club}>
                     {club === 'TODOS' ? 'Todos los clubes' : club}
-                  </button>
+                  </option>
                 ))}
-                {filterClub !== 'TODOS' && (
-                  <button
-                    onClick={() => setFilterClub('TODOS')}
-                    className="px-3 py-2 rounded-xl text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    <i className="fa-solid fa-xmark text-[9px]"></i>
-                  </button>
-                )}
-              </>
+              </select>
             )}
 
             {/* Separador */}
-            {availableTeams.length > 1 && activeTab === 'mis' && (
+            {availableTeams.length > 1 && (
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
             )}
             </div>
 
-            {/* Filtro de equipos (solo en pestaña "mis") */}
-            {availableTeams.length > 1 && activeTab === 'mis' && (
-              <>
+            {/* Filtro de equipos - Select */}
+            {availableTeams.length > 1 && (
+              <select
+                value={filterTeam}
+                onChange={(e) => setFilterTeam(e.target.value)}
+                className="px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border border-[var(--border-soft)] bg-[var(--surface-0)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--surface-3)] transition-all appearance-none cursor-pointer"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundSize: '1.2em 1.2em',
+                  paddingRight: '1.8rem',
+                }}
+              >
                 {['TODOS', ...availableTeams].map((team) => (
-                  <button
-                    key={`team-${team}`}
-                    onClick={() => setFilterTeam(team)}
-                    className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
-                      filterTeam === team
-                        ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm'
-                        : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
-                    }`}
-                  >
+                  <option key={`team-${team}`} value={team}>
                     {team === 'TODOS' ? t('playerTable.allTeams', 'Todos los equipos') : team}
-                  </button>
+                  </option>
                 ))}
-                {filterTeam !== 'TODOS' && (
-                  <button
-                    onClick={() => setFilterTeam('TODOS')}
-                    className="px-3 py-2 rounded-xl text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    <i className="fa-solid fa-xmark text-[9px]"></i>
-                  </button>
-                )}
-              </>
+              </select>
             )}
           </div>
+
+          {/* STATS CARD COMPACTA */}
+          <div className="flex items-center gap-2 bg-gradient-to-br from-[var(--surface-0)] to-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-3.5 py-2 shrink-0">
+            <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white shadow-lg">
+              <i className="fa-solid fa-users text-xs"></i>
+            </div>
+            <div>
+              <p className="text-[9px] font-medium text-[var(--text-muted)] uppercase tracking-wider leading-none">
+                {activeTab === 'rivales' ? 'Rivales' : 'Registros'}
+              </p>
+              <p className="text-lg font-black text-[var(--text-strong)] leading-none">
+                {filteredSquad.length}
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl">
             <button
               onClick={() => setViewMode('table')}

@@ -131,42 +131,6 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return map;
   }, [ownCompetitionTeams]);
 
-  // Equipo Interno es el filtro raíz: se calcula a partir de TODOS los matches y los equipos propios
-  const equipoInternoOptions = useMemo(() => {
-    const names = new Map<string, string>();
-    const addName = (name?: string) => {
-      const value = name?.trim();
-      const key = normalizeTeamKey(value);
-      if (value && key && !names.has(key)) names.set(key, value);
-    };
-
-    ownCompetitionTeams.forEach((team) => addName(internalNameOfTeam(team)));
-    matches.forEach((m) => {
-      addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
-      addName(isLikelyInternalTeamName(m.team) ? m.team : undefined);
-    });
-    return Array.from(names.values()).sort(compareEquipoNames);
-  }, [ownCompetitionTeams, matches]);
-
-  // Filtrar por Equipo Interno (filtro primario)
-  const matchesByEquipoInterno = useMemo(
-    () => (equipoInternoFilter === ALL_FILTER ? matches : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter)),
-    [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]
-  );
-
-  // Competición depende de Equipo Interno
-  const competitionOptions = useMemo(() => {
-    const names = new Set<string>();
-    matchesByEquipoInterno.forEach((m) => { if (m.competition) names.add(m.competition); });
-    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matchesByEquipoInterno]);
-
-  // Filtrar por Competición (filtro secundario, depende de equipoInterno)
-  const matchesByEquipoInternoAndCompetition = useMemo(
-    () => (competitionFilter === ALL_FILTER ? matchesByEquipoInterno : matchesByEquipoInterno.filter((m) => m.competition === competitionFilter)),
-    [matchesByEquipoInterno, competitionFilter]
-  );
-
   const normalizeInternalCandidate = (candidate?: string): string | undefined => {
     const key = normalizeTeamKey(candidate);
     if (!key) return undefined;
@@ -235,6 +199,42 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     if (byCompetitionContext) return byCompetitionContext;
     return normalizeInternalCandidate(match.nombreInterno) || normalizeInternalCandidate(match.team) || own || match.nombreInterno || match.team || '';
   };
+
+  // Equipo Interno es el filtro raíz: se calcula a partir de TODOS los matches y los equipos propios
+  const equipoInternoOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    const addName = (name?: string) => {
+      const value = name?.trim();
+      const key = normalizeTeamKey(value);
+      if (value && key && !names.has(key)) names.set(key, value);
+    };
+
+    ownCompetitionTeams.forEach((team) => addName(internalNameOfTeam(team)));
+    matches.forEach((m) => {
+      addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
+      addName(isLikelyInternalTeamName(m.team) ? m.team : undefined);
+    });
+    return Array.from(names.values()).sort(compareEquipoNames);
+  }, [ownCompetitionTeams, matches]);
+
+  // Filtrar por Equipo Interno (filtro primario)
+  const matchesByEquipoInterno = useMemo(
+    () => (equipoInternoFilter === ALL_FILTER ? matches : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter)),
+    [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]
+  );
+
+  // Competición depende de Equipo Interno
+  const competitionOptions = useMemo(() => {
+    const names = new Set<string>();
+    matchesByEquipoInterno.forEach((m) => { if (m.competition) names.add(m.competition); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matchesByEquipoInterno]);
+
+  // Filtrar por Competición (filtro secundario, depende de equipoInterno)
+  const matchesByEquipoInternoAndCompetition = useMemo(
+    () => (competitionFilter === ALL_FILTER ? matchesByEquipoInterno : matchesByEquipoInterno.filter((m) => m.competition === competitionFilter)),
+    [matchesByEquipoInterno, competitionFilter]
+  );
 
   // Jornada depende de Equipo Interno y Competición
   const jornadaOptions = useMemo(() => {

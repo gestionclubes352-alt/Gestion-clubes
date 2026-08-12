@@ -612,12 +612,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     const squadPlayer = isSquadPlayer
       ? squad.find(p => String(p.id) === selectedTool.replace('player-real-', ''))
       : undefined;
+    const isGoal = selectedTool === 'goal';
+    const goalRotation = isGoal && y > 50 ? 180 : 0;
+
     const newItem: DesignerItem = {
       id: Math.random().toString(),
       type: isCone ? 'cone' : selectedTool,
       x,
       y,
-      rotation: 0,
+      rotation: goalRotation,
       scale: isPlayer ? ELEMENT_SCALES[playerSize] : isCone ? ELEMENT_SCALES[coneSize] : isMaterial ? ELEMENT_SCALES[materialSize] : 1,
       locked: false,
       zIndex: nextZ,
@@ -2036,6 +2039,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         </div>
                       </div>
                     )}
+                    {(rotatingId === item.id || resizingId === item.id) && item.type === 'goal' && (
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-full bg-black/85 px-2.5 py-1 text-[9px] font-semibold text-white/80 shadow-lg pointer-events-none z-20 whitespace-nowrap">
+                        Dale a scape para salir
+                      </div>
+                    )}
                     {isResizable && item.type !== 'goal' && (isItemSelected || resizingId === item.id) && (() => {
                       const pitchMeters = getPitchMeters();
                       const widthMeters = ((size.width ?? 0) / 100) * pitchMeters.width;
@@ -2180,7 +2188,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       </div>
                     ) : item.type === 'goal' ? (
                       is3DView ? (
-                        <GoalFrame3D className={`drop-shadow-[0_18px_16px_rgba(0,0,0,0.42)] ${animationClass}`} />
+                        <GoalFrame3D
+                          className={`drop-shadow-[0_18px_16px_rgba(0,0,0,0.42)] ${animationClass}`}
+                          isFlipped={item.rotation === 180}
+                        />
                       ) : (
                         <div className={`relative h-full w-full border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors overflow-hidden ${animationClass}`}>
                         {showResizeHandles && (
