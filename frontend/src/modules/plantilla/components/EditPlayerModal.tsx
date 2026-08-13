@@ -403,13 +403,12 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   // Establecer "Juvenil A" como equipo por defecto si no hay uno asignado
   useEffect(() => {
-    if (!formData.equipoId && equipos.length > 0) {
-      const juvenilA = equipos.find(eq => (eq.equipo || eq.nombre || '').includes('Juvenil A'));
-      if (juvenilA) {
-        handleEquipoSelect(String(juvenilA.id));
-      }
+    if (formData.equipoId || equipos.length === 0) return;
+    const juvenilA = equipos.find(eq => (eq.equipo || eq.nombre || '').includes('Juvenil A'));
+    if (juvenilA) {
+      handleEquipoSelect(String(juvenilA.id));
     }
-  }, [equipos.length]);
+  }, [equipos.length, formData.equipoId]);
 
   const exportPlayerProfile = async () => {
     const target = exportRef.current;
