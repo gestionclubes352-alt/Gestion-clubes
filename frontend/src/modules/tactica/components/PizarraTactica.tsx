@@ -5,7 +5,7 @@ import type { TacticalArrow } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 
@@ -879,9 +879,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     link.click();
   };
 
-  const startVideoRecording = async () => {
-    if (!pitchRef.current || isRecording) return;
-    setIsRecording(true);
+  const downloadVideoAsMP4 = async () => {
+    if (!pitchRef.current) return;
 
     try {
       const canvas = await html2canvas(pitchRef.current, {
@@ -923,16 +922,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.webm`;
           a.click();
           URL.revokeObjectURL(url);
-        } finally {
-          setIsRecording(false);
         }
       };
 
       mediaRecorder.start();
       setTimeout(() => mediaRecorder.stop(), 10000);
     } catch (err) {
-      console.error('Error al grabar video:', err);
-      setIsRecording(false);
+      console.error('Error al descargar video:', err);
     }
   };
 
@@ -1010,17 +1006,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 IMAGEN
               </button>
               <button
-                onClick={startVideoRecording}
-                disabled={isRecording}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  isRecording
-                    ? 'border-red-300 bg-red-100 text-red-600 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-300 cursor-not-allowed'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-                title={isRecording ? 'Grabando...' : 'Grabar 10 segundos de video en MP4'}
+                onClick={downloadVideoAsMP4}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                title="Descargar pizarra como video en MP4"
               >
-                <i className={`fa-solid ${isRecording ? 'fa-circle-notch animate-spin' : 'fa-video'} mr-2 text-[11px]`} />
-                {isRecording ? 'GRABANDO' : 'VIDEO'}
+                <i className="fa-solid fa-video mr-2 text-[11px]" />
+                VIDEO
               </button>
               <button
                 onClick={() => setDrawingMode(!drawingMode)}
@@ -1591,6 +1582,44 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           </p>
                         </div>
                       )}
+
+                      {selectedMyTeamId && !isMySquadLoading && squad.length > 0 && (
+                        <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                          {groupedSquad.map(([grupo, players]) => (
+                            <div key={grupo}>
+                              <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-500/70 dark:text-red-300/60">
+                                {grupo}
+                              </div>
+                              <div className="space-y-1.5">
+                                {players.map(player => {
+                                  const isSelected = selectedSquadPlayerId === player.id;
+                                  const isAssigned = assignedPlayerIds.has(player.id);
+                                  return (
+                                    <button
+                                      key={player.id}
+                                      type="button"
+                                      onClick={() => setSelectedSquadPlayerId(prev => (prev === player.id ? null : player.id))}
+                                      className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
+                                        isSelected
+                                          ? 'border-red-400 bg-red-200 text-red-800 dark:border-red-400/60 dark:bg-red-500/30 dark:text-red-100'
+                                          : isAssigned
+                                            ? 'border-red-200/60 bg-white/60 text-red-400 dark:border-red-500/20 dark:bg-[#1a1a1a]/60 dark:text-red-300/50'
+                                            : 'border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-200 dark:hover:bg-red-500/10'
+                                      }`}
+                                    >
+                                      <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-red-600/10 text-[11px] font-black text-red-600 dark:bg-red-400/10 dark:text-red-300">
+                                        {player.dorsal ?? '-'}
+                                      </span>
+                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                      {isAssigned && <i className="fa-solid fa-check ml-auto text-[10px]" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1669,6 +1698,35 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           <p className="text-[11px] font-black text-blue-700 dark:text-blue-200">
                             ✓ {rivalPlayers.length} jugadores cargados
                           </p>
+                        </div>
+                      )}
+
+                      {selectedRivalTeamId && rivalPlayers.length > 0 && (
+                        <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                          {rivalPlayers.map(player => {
+                            const isSelected = selectedRivalPlayerId === player.id;
+                            const isAssigned = assignedPlayerIds.has(player.id);
+                            return (
+                              <button
+                                key={player.id}
+                                type="button"
+                                onClick={() => setSelectedRivalPlayerId(prev => (prev === player.id ? null : player.id))}
+                                className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
+                                  isSelected
+                                    ? 'border-blue-400 bg-blue-200 text-blue-800 dark:border-blue-400/60 dark:bg-blue-500/30 dark:text-blue-100'
+                                    : isAssigned
+                                      ? 'border-blue-200/60 bg-white/60 text-blue-400 dark:border-blue-500/20 dark:bg-[#1a1a1a]/60 dark:text-blue-300/50'
+                                      : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-500/20 dark:bg-[#1a1a1a] dark:text-blue-200 dark:hover:bg-blue-500/10'
+                                }`}
+                              >
+                                <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-blue-600/10 text-[11px] font-black text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">
+                                  {player.dorsal ?? '-'}
+                                </span>
+                                <span className="truncate">{player.nombre}</span>
+                                {isAssigned && <i className="fa-solid fa-check ml-auto text-[10px]" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

@@ -325,6 +325,77 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     () => equipos.filter(eq => String(eq.clubId ?? '') === String(formData.clubId ?? '')),
     [equipos, formData.clubId]
   );
+
+  // Calcular opciones de equipo aquí, al nivel superior, no dentro del condicional del JSX
+  const teamOptions = useMemo(() => {
+    const categoriesOrder = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'];
+    const teamsMap = new Map<string, Array<{ id: string; label: string; fullName: string }>>();
+
+    equiposDelClubSeleccionado.forEach(eq => {
+      const fullName = eq.equipo || eq.nombre || '';
+      let category = '';
+      let displayLabel = fullName;
+
+      // Casos especiales primero (Primer equipo)
+      if (fullName.includes('Primer') || fullName.includes('1ª') || fullName === 'P.E.') {
+        category = 'Senior';
+        displayLabel = 'Primer Equipo';
+      } else if (fullName.includes('Filial')) {
+        category = 'Senior';
+        displayLabel = 'Filial';
+      } else if (fullName === 'F') {
+        category = 'Senior';
+        displayLabel = 'F';
+      } else {
+        // Extraer categoría de equipos regulares
+        for (const cat of categoriesOrder) {
+          if (fullName.includes(cat)) {
+            category = cat;
+            displayLabel = fullName; // Mostrar nombre completo (ej: "Juvenil A")
+            break;
+          }
+        }
+      }
+
+      if (!category) {
+        category = 'Otros';
+      }
+
+      const teamsList = teamsMap.get(category) || [];
+      if (!teamsList.some(t => t.fullName === displayLabel)) {
+        teamsList.push({ id: String(eq.id), label: displayLabel, fullName: displayLabel });
+      }
+      teamsMap.set(category, teamsList);
+    });
+
+    // Ordenar categorías
+    const sortedCategories = Array.from(teamsMap.keys()).sort((a, b) => {
+      const aIdx = categoriesOrder.indexOf(a);
+      const bIdx = categoriesOrder.indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    const seniorOrder = ['Primer Equipo', 'Filial', 'F'];
+    return sortedCategories.map(category => {
+      const teams = (teamsMap.get(category) || [])
+        .sort((a, b) => category === 'Senior'
+          ? seniorOrder.indexOf(a.label) - seniorOrder.indexOf(b.label)
+          : a.label.localeCompare(b.label));
+      return (
+        <optgroup key={category} label={category}>
+          {teams.map(team => (
+            <option key={`${category}-${team.fullName}`} value={team.id}>
+              {team.label}
+            </option>
+          ))}
+        </optgroup>
+      );
+    });
+  }, [equiposDelClubSeleccionado]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -786,74 +857,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
                 >
                   <option value="">-- Selecciona un equipo --</option>
-                  {useMemo(() => {
-                    const categoriesOrder = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'];
-                    const teamsMap = new Map<string, Array<{ id: string; label: string; fullName: string }>>();
-
-                    equiposDelClubSeleccionado.forEach(eq => {
-                      const fullName = eq.equipo || eq.nombre || '';
-                      let category = '';
-                      let displayLabel = fullName;
-
-                      // Casos especiales primero (Primer equipo)
-                      if (fullName.includes('Primer') || fullName.includes('1ª') || fullName === 'P.E.') {
-                        category = 'Senior';
-                        displayLabel = 'Primer Equipo';
-                      } else if (fullName.includes('Filial')) {
-                        category = 'Senior';
-                        displayLabel = 'Filial';
-                      } else if (fullName === 'F') {
-                        category = 'Senior';
-                        displayLabel = 'F';
-                      } else {
-                        // Extraer categoría de equipos regulares
-                        for (const cat of categoriesOrder) {
-                          if (fullName.includes(cat)) {
-                            category = cat;
-                            displayLabel = fullName; // Mostrar nombre completo (ej: "Juvenil A")
-                            break;
-                          }
-                        }
-                      }
-
-                      if (!category) {
-                        category = 'Otros';
-                      }
-
-                      const teamsList = teamsMap.get(category) || [];
-                      if (!teamsList.some(t => t.fullName === displayLabel)) {
-                        teamsList.push({ id: String(eq.id), label: displayLabel, fullName: displayLabel });
-                      }
-                      teamsMap.set(category, teamsList);
-                    });
-
-                    // Ordenar categorías
-                    const sortedCategories = Array.from(teamsMap.keys()).sort((a, b) => {
-                      const aIdx = categoriesOrder.indexOf(a);
-                      const bIdx = categoriesOrder.indexOf(b);
-                      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-                      if (aIdx !== -1) return -1;
-                      if (bIdx !== -1) return 1;
-                      return a.localeCompare(b);
-                    });
-
-                    const seniorOrder = ['Primer Equipo', 'Filial', 'F'];
-                    return sortedCategories.map(category => {
-                      const teams = (teamsMap.get(category) || [])
-                        .sort((a, b) => category === 'Senior'
-                          ? seniorOrder.indexOf(a.label) - seniorOrder.indexOf(b.label)
-                          : a.label.localeCompare(b.label));
-                      return (
-                        <optgroup key={category} label={category}>
-                          {teams.map(team => (
-                            <option key={`${category}-${team.fullName}`} value={team.id}>
-                              {team.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      );
-                    });
-                  }, [equiposDelClubSeleccionado])}
+                  {teamOptions}
                 </SearchableSelect>
               )}
             </div>
