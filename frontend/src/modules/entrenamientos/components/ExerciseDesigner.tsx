@@ -16,7 +16,7 @@ const RESIZABLE_DEFAULT_SIZES: Record<string, { width: number; height: number }>
 };
 
 const FIELD_BACKGROUND = {
-  backgroundColor: '#315b31',
+  backgroundColor: '#2d7a34',
   backgroundImage: [
     'radial-gradient(circle at 50% 48%, rgba(117, 166, 99, 0.20) 0%, rgba(80, 121, 73, 0.12) 42%, rgba(18, 30, 18, 0.34) 100%)',
     'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.020) 0 56px, rgba(0, 0, 0, 0.045) 56px 112px)',
@@ -255,7 +255,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectedPanelOpen, setIsSelectedPanelOpen] = useState(false);
-  const [activeStructure, setActiveStructure] = useState('campo-total');
+  const [activeStructure, setActiveStructure] = useState('libre');
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
   const [orientationModeEnabled, setOrientationModeEnabled] = useState(false);
   const [playerSource, setPlayerSource] = useState<'generico' | 'plantilla'>('generico');
@@ -457,7 +457,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       pushHistoryNow();
       setFrames([[]]);
       setCurrentFrameIndex(0);
-      setActiveStructure('campo-total');
+      setActiveStructure('libre');
       setSaveStatus('TAREA GUARDADA');
       setTimeout(() => setSaveStatus(null), 2000);
       return;
@@ -472,7 +472,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     const snapshot = deepCloneItems(task.designerSnapshot || []);
     setFrames([snapshot]);
     setCurrentFrameIndex(0);
-    setActiveStructure(task.fieldStructure || 'campo-total');
+    setActiveStructure(task.fieldStructure || 'libre');
   };
 
   /** Al llegar desde el Repositorio de Tareas tras crear una tarea, abrir ya el diseñador sobre esa tarea */
@@ -664,6 +664,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     updateFrames([...items, newItem]);
     selectItemOnly(newItem.id);
     if (isText) setShowText(false);
+    if (isGoal) setSelectedTool(null);
   };
 
   const handlePitchBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {

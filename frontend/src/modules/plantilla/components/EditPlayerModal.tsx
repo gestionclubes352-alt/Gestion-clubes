@@ -593,15 +593,19 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               )}
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('players.number')}</label>
-                <input
-                  type="number"
-                  value={formData.dorsal ?? ''}
+                <SearchableSelect
+                  value={formData.dorsal !== undefined && formData.dorsal !== null ? String(formData.dorsal) : ''}
                   onChange={(e) => {
                     const raw = e.target.value;
                     handleChange('dorsal', raw === '' ? undefined : parseInt(raw, 10));
                   }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)]"
-                />
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)] appearance-none cursor-pointer"
+                >
+                  <option value="">–</option>
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </SearchableSelect>
               </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('common.status')}</label>

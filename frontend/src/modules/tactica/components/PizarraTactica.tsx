@@ -3,6 +3,8 @@ import { plantillasService, equiposService, clubesService } from '@shared/servic
 import type { Club, Equipo } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import SoccerBallIcon from '@shared/components/SoccerBallIcon';
+import html2canvas from 'html2canvas';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
@@ -61,6 +63,11 @@ interface PitchPlayer {
   playerName?: string;
   playerInitials?: string;
   rotation?: number;
+}
+
+interface Ball {
+  x: number;
+  y: number;
 }
 
 interface SquadPlayer {
@@ -143,6 +150,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [is3DView, setIs3DView] = useState(false);
+  const [ball, setBall] = useState<Ball>({ x: 50, y: 88 });
+  const [draggingBall, setDraggingBall] = useState(false);
   const mode = is3DView ? 'Vista 3D' : 'Normal';
   const [myTeamColor, setMyTeamColor] = useState(MY_TEAM_COLOR);
   const [rivalTeamColor, setRivalTeamColor] = useState(RIVAL_TEAM_COLOR);
@@ -155,7 +164,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [draggingArrowId, setDraggingArrowId] = useState<string | null>(null);
   const draggingArrowStart = useRef<{ x: number; y: number } | null>(null);
   const arrowStartPosition = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
-  const [showFieldLines, setShowFieldLines] = useState(false);
+  const [showFieldLines, setShowFieldLines] = useState(true);
   const [dragOutsideField, setDragOutsideField] = useState(false);
   const DROP_OUTSIDE_MARGIN_PX = 30;
 
@@ -185,6 +194,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const suppressNextPitchClickRef = useRef(false);
   const dragged = useRef(false);
   const rafId = useRef<number>(0);
+  const ballDraggingStart = useRef<{ x: number; y: number } | null>(null);
+  const ballStartPosition = useRef<{ x: number; y: number } | null>(null);
   const [selectionBox, setSelectionBox] = useState<null | { left: number; top: number; right: number; bottom: number }>(null);
 
   useEffect(() => {
@@ -300,9 +311,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, [myTeamColor, rivalTeamColor]);
 
   useEffect(() => {
-    setFrames([[]]);
+    const myTeam = buildTeamPlayers(myFormation, 'my');
+    const rivalTeam = buildTeamPlayers(rivalFormation, 'rival');
+    setFrames([[...myTeam, ...rivalTeam]]);
     setCurrentFrameIndex(0);
-  }, []);
+  }, [myFormation, rivalFormation, buildTeamPlayers]);
 
   useEffect(() => {
     if (!isPlaying || frames.length <= 1) return;
@@ -554,6 +567,20 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
+      if (draggingBall && ballDraggingStart.current && ballStartPosition.current && pitchRef.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
+
+        const dx = currentX - ballDraggingStart.current.x;
+        const dy = currentY - ballDraggingStart.current.y;
+
+        const newX = Math.min(97, Math.max(3, ballStartPosition.current.x + dx));
+        const newY = Math.min(97, Math.max(3, ballStartPosition.current.y + dy));
+        setBall({ x: newX, y: newY });
+        return;
+      }
+
       if (draggingArrowId && pitchRef.current && draggingArrowStart.current && arrowStartPosition.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
@@ -652,6 +679,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const onPointerUp = (event: MouseEvent | PointerEvent) => {
       cancelAnimationFrame(rafId.current);
 
+      if (draggingBall) {
+        setDraggingBall(false);
+        ballDraggingStart.current = null;
+        ballStartPosition.current = null;
+        document.body.style.cursor = '';
+        return;
+      }
+
       if (isDrawingArrow && drawStart) {
         const end = drawStart as any;
         if (end.x2 !== undefined && end.y2 !== undefined) {
@@ -740,7 +775,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('mouseup', onPointerUp);
     };
-  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId]);
+  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball]);
 
   const groupedSquad = useMemo(() => {
     const buckets: Record<string, SquadPlayer[]> = {
@@ -810,6 +845,49 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const selectedSquadPlayer = selectedSquadPlayerId ? squad.find(p => p.id === selectedSquadPlayerId) : null;
   const selectedMyTeam = selectedMyTeamId ? myTeams.find(team => String(team.id) === selectedMyTeamId) : null;
 
+  const downloadImage = async () => {
+    if (!pitchRef.current) return;
+    const canvas = await html2canvas(pitchRef.current, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+    });
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.png`;
+    link.click();
+  };
+
+  const startVideoRecording = async () => {
+    if (!pitchRef.current) return;
+    try {
+      const canvas = await html2canvas(pitchRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+      });
+      const stream = canvas.captureStream(30);
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const chunks: BlobPart[] = [];
+
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      mediaRecorder.start();
+      setTimeout(() => mediaRecorder.stop(), 10000);
+    } catch (err) {
+      console.error('Error al grabar video:', err);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-white text-slate-800 dark:bg-[#121212] dark:text-slate-100">
       <aside className={`${mobileTeamPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} md:flex md:static md:z-auto md:w-[290px] shrink-0 flex-col border-r border-slate-200 bg-[#f8f9fa] dark:border-white/10 dark:bg-[#121212]`}>
@@ -835,127 +913,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           </div>
 
           <div className="mt-8 space-y-5">
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1a1a1a] dark:shadow-none">
-              <div className="flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
-                MIS EQUIPOS
-                <button
-                  type="button"
-                  onClick={() => setShowMyTeam(v => !v)}
-                  className="ml-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600"
-                >
-                  <i className={`fa-solid ${showMyTeam ? 'fa-eye' : 'fa-eye-slash'} text-[10px]`} />
-                  {showMyTeam ? 'VISIBLE' : 'OCULTO'}
-                </button>
-              </div>
-
-              <div className="mt-4">
-                <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                  Mis equipos
-                </label>
-                <SearchableSelect
-                  value={selectedMyTeamId}
-                  onChange={e => setSelectedMyTeamId(e.target.value)}
-                  className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                >
-                  <option value="">Selecciona tu equipo</option>
-                  {myTeams.map(team => (
-                    <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
-                  ))}
-                </SearchableSelect>
-              </div>
-
-              <div className="mt-4">
-                <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                  Formación
-                </label>
-                <SearchableSelect
-                  value={myFormation}
-                  onChange={e => setMyFormation(e.target.value)}
-                  className="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                >
-                  {Object.keys(FORMATIONS).map(form => <option key={form} value={form}>{form}</option>)}
-                </SearchableSelect>
-              </div>
-
-              <div className="mt-4">
-                <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                  Color
-                </label>
-                <div className="flex items-center gap-3">
-                  {PANEL_COLORS.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setMyTeamColor(color)}
-                      className={`h-9 w-9 rounded-full border-2 ${color === myTeamColor ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30' : 'border-slate-200 dark:border-white/10'}`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1a1a1a] dark:shadow-none">
-              <div className="flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                <span className="h-3 w-3 rounded-full bg-[#1976d2]" />
-                EQUIPO RIVAL
-                <button
-                  type="button"
-                  onClick={() => setShowRivalTeam(v => !v)}
-                  className="ml-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-500 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-400"
-                >
-                  <i className={`fa-solid ${showRivalTeam ? 'fa-eye' : 'fa-eye-slash'} text-[10px]`} />
-                  {showRivalTeam ? 'VISIBLE' : 'OCULTO'}
-                </button>
-              </div>
-
-              <SearchableSelect
-                value={selectedRivalClubId}
-                onChange={e => handleSelectRivalClub(e.target.value)}
-                className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-              >
-                <option value="">Selecciona un club rival</option>
-                {rivalClubs.map(club => (
-                  <option key={club.id} value={club.id}>{club.nombre}</option>
-                ))}
-              </SearchableSelect>
-
-              <SearchableSelect
-                value={selectedRivalTeamId}
-                onChange={e => handleSelectRivalTeam(e.target.value)}
-                disabled={!selectedRivalClubId}
-                className="mt-3 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-              >
-                <option value="">
-                  {selectedRivalClubId ? 'Selecciona un equipo' : 'Sin plantilla rival (añadir a mano)'}
-                </option>
-                {rivalTeamsForSelectedClub.map(team => (
-                  <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
-                ))}
-              </SearchableSelect>
-
-              <SearchableSelect
-                value={rivalFormation}
-                onChange={e => setRivalFormation(e.target.value)}
-                className="mt-4 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-[15px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-              >
-                {Object.keys(FORMATIONS).map(form => <option key={form} value={form}>{form}</option>)}
-              </SearchableSelect>
-
-              <div className="mt-4 flex items-center gap-3">
-                {PANEL_COLORS.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setRivalTeamColor(color)}
-                    className={`h-9 w-9 rounded-full border-2 ${color === rivalTeamColor ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30' : 'border-slate-200 dark:border-white/10'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </section>
-
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -994,13 +951,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 title="Restablecer tamaño de todos los jugadores"
               >
                 <i className="fa-solid fa-rotate-left mr-2 text-[11px]" />
-                {Math.round(playerScale * 100)}%
+                Resetear
               </button>
-              <button className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
+              <button
+                onClick={downloadImage}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                title="Descargar captura de la pizarra"
+              >
                 <i className="fa-solid fa-image mr-2 text-[11px]" />
                 IMAGEN
               </button>
-              <button className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
+              <button
+                onClick={startVideoRecording}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                title="Grabar 10 segundos de video"
+              >
                 <i className="fa-solid fa-video mr-2 text-[11px]" />
                 VIDEO
               </button>
@@ -1015,38 +980,28 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className={`fa-solid ${drawingMode ? 'fa-pen' : 'fa-pen'} mr-2 text-[11px]`} />
                 {drawingMode ? 'MODO FLECHA ON' : 'MODO FLECHA'}
               </button>
-              <button
-                onClick={() => {
-                  if (selectedArrowId) {
-                    setArrows(prev => prev.filter(a => a.id !== selectedArrowId));
-                    setSelectedArrowId(null);
-                  }
-                }}
-                disabled={!selectedArrowId}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-              >
-                <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
-                BORRAR FLECHA
-              </button>
-              <button
-                onClick={() => setArrows([])}
-                disabled={arrows.length === 0}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-              >
-                <i className="fa-solid fa-broom mr-2 text-[11px]" />
-                BORRAR TODO
-              </button>
-              <div className="flex gap-2">
+              <div className="flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 dark:border-white/10 dark:bg-[#1a1a1a]">
                 <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                  Color flecha
+                  Color
                 </label>
                 <input
                   type="color"
                   value={arrowColor}
                   onChange={e => setArrowColor(e.target.value)}
-                  className="h-8 w-12 rounded-md border border-slate-200 cursor-pointer dark:border-white/10"
+                  className="h-7 w-10 rounded-md border border-slate-200 cursor-pointer dark:border-white/10"
                 />
               </div>
+              <button
+                onClick={() => {
+                  setArrows([]);
+                  setSelectedArrowId(null);
+                }}
+                disabled={arrows.length === 0}
+                className="col-span-2 h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
+                BORRAR FLECHAS
+              </button>
               <button className="col-span-2 h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
                 <i className="fa-solid fa-user mr-2 text-[11px]" />
                 FOTOS JUGADORES
@@ -1071,6 +1026,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               >
                 <i className="fa-solid fa-broom mr-2 text-[11px]" />
                 QUITAR JUGADORES
+              </button>
+              <button
+                onClick={() => setBall({ x: 50, y: 88 })}
+                className="col-span-2 h-12 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.13em] text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                <i className="fa-solid fa-futbol mr-2 text-[11px]" />
+                Resetear balón
               </button>
             </div>
           </div>
@@ -1141,20 +1103,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           >
             <i className="fa-solid fa-cube text-[12px]" />
             3D
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowFieldLines(value => !value)}
-            className={`flex h-8 shrink-0 items-center gap-2 rounded-md border px-3 text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
-              showFieldLines
-                ? 'border-emerald-400/30 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-            }`}
-            title={showFieldLines ? 'Ocultar líneas de campo' : 'Mostrar líneas de campo'}
-            aria-pressed={showFieldLines}
-          >
-            <i className="fa-solid fa-border-all text-[12px]" />
-            Líneas
           </button>
           <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[140px] md:max-w-[260px]">
             {frames.map((_, i) => (
@@ -1353,6 +1301,38 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   );
                 })()}
 
+                {/* Ball */}
+                <div
+                  className="absolute select-none"
+                  style={{
+                    left: `${ball.x}%`,
+                    top: `${ball.y}%`,
+                    transform: `translate(-50%, -50%)`,
+                    cursor: draggingBall ? 'grabbing' : 'grab',
+                    touchAction: 'none',
+                    zIndex: draggingBall ? 9999 : 30,
+                    userSelect: 'none',
+                  }}
+                  onPointerDown={e => {
+                    if (isPlaying || is3DView) return;
+                    e.stopPropagation();
+                    const rect = pitchRef.current?.getBoundingClientRect();
+                    if (!rect) return;
+                    ballDraggingStart.current = {
+                      x: ((e.clientX - rect.left) / rect.width) * 100,
+                      y: ((e.clientY - rect.top) / rect.height) * 100,
+                    };
+                    ballStartPosition.current = { x: ball.x, y: ball.y };
+                    setDraggingBall(true);
+                    document.body.style.userSelect = 'none';
+                  }}
+                >
+                  <SoccerBallIcon
+                    size={24}
+                    className="drop-shadow-lg"
+                  />
+                </div>
+
                 {pitchPlayers.map(player => {
                   if ((player.team === 'my' && !showMyTeam) || (player.team === 'rival' && !showRivalTeam)) return null;
                   const isSelected = selectedPitchIds.includes(player.id);
@@ -1490,55 +1470,38 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             </section>
 
             <aside className={`${mobileAssignPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} min-h-0 xl:flex xl:static xl:z-auto xl:flex-col xl:border-l xl:border-slate-200 bg-[#f8f9fa] dark:xl:border-white/10 dark:bg-[#121212]`}>
-              <div className="border-b border-slate-200 px-5 py-5 dark:border-white/10">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-[16px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                    ASIGNAR JUGADORES A PIZARRA
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setMobileAssignPanelOpen(false)}
-                    className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 xl:hidden dark:hover:bg-white/10"
-                    aria-label="Cerrar panel"
-                  >
-                    <i className="fa-solid fa-xmark text-[16px]" />
-                  </button>
-                </div>
-                <div className="mt-4 rounded-md border border-slate-200 bg-white px-4 py-4 text-center text-[14px] leading-tight text-slate-500 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-400">
-                  Pulsa un circulo y luego un jugador, o al revés
-                </div>
+              <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10 xl:hidden">
+                <button
+                  type="button"
+                  onClick={() => setMobileAssignPanelOpen(false)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                  aria-label="Cerrar panel"
+                >
+                  <i className="fa-solid fa-xmark text-[16px]" />
+                </button>
+              </div>
 
-                <div className="mt-4 space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => { setAssignTab('my'); setSelectedRivalPlayerId(null); }}
-                    className={`w-full h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
-                      assignTab === 'my'
-                        ? 'bg-[var(--accent)] text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
-                    }`}
-                  >
-                    MIS EQUIPOS
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setAssignTab('rival'); setSelectedSquadPlayerId(null); }}
-                    className={`w-full h-10 rounded-md text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
-                      assignTab === 'rival'
-                        ? 'bg-[#1976d2] text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
-                    }`}
-                  >
-                    RIVAL
-                  </button>
-                </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-6">
+                <div className="space-y-3">
+                  <div className="rounded-md border border-red-200/50 bg-red-50 p-4 dark:border-red-500/20 dark:bg-red-500/10">
+                    <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-red-600 dark:text-red-300">
+                      MI EQUIPO
+                    </div>
 
-                {assignTab === 'my' && (
-                  <div className="mt-4 space-y-3 pb-4 border-b border-slate-200 dark:border-white/10">
-                    <div>
-                      <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        Mis equipos
-                      </label>
+                    <div className="space-y-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowMyTeam(v => !v)}
+                        className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 ${
+                          showMyTeam
+                            ? 'border-red-300/50 bg-red-100 text-red-700 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-200'
+                            : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-300 dark:hover:bg-red-500/10'
+                        }`}
+                      >
+                        <i className={`fa-solid ${showMyTeam ? 'fa-eye' : 'fa-eye-slash'} text-[11px]`} />
+                        {showMyTeam ? 'MOSTRAR' : 'OCULTAR'}
+                      </button>
+
                       <SearchableSelect
                         value={selectedMyTeamId}
                         onChange={e => setSelectedMyTeamId(e.target.value)}
@@ -1549,205 +1512,85 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
                         ))}
                       </SearchableSelect>
-                    </div>
 
-                    {selectedMyTeamId && (
-                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 dark:border-red-500/20 dark:bg-red-500/10">
-                        <p className="text-[11px] font-black text-[var(--accent)] dark:text-red-300">
-                          {isMySquadLoading
-                            ? 'Cargando jugadores...'
-                            : `${squad.length} jugador${squad.length === 1 ? '' : 'es'} ${selectedMyTeam ? `de ${selectedMyTeam.sub_equipo || selectedMyTeam.nombre}` : 'cargados'}`}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {assignTab === 'rival' && (
-                  <div className="mt-4 space-y-3 pb-4 border-b border-slate-200 dark:border-white/10">
-                    <div>
-                      <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        Club Rival
-                      </label>
-                      <SearchableSelect
-                        value={selectedRivalClubId}
-                        onChange={e => handleSelectRivalClub(e.target.value)}
-                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                      >
-                        <option value="">Selecciona club rival</option>
-                        {rivalClubs.map(club => (
-                          <option key={club.id} value={club.id}>{club.nombre}</option>
-                        ))}
-                      </SearchableSelect>
-                    </div>
-
-                    <div>
-                      <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        Equipo Rival
-                      </label>
-                      <SearchableSelect
-                        value={selectedRivalTeamId}
-                        onChange={e => handleSelectRivalTeam(e.target.value)}
-                        disabled={!selectedRivalClubId}
-                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                      >
-                        <option value="">
-                          {selectedRivalClubId ? 'Selecciona equipo' : 'Sin plantilla rival (añadir a mano)'}
-                        </option>
-                        {rivalTeamsForSelectedClub.map(team => (
-                          <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
-                        ))}
-                      </SearchableSelect>
-                    </div>
-
-                    {selectedRivalTeamId && rivalPlayers.length > 0 && (
-                      <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 dark:bg-blue-500/10 dark:border-blue-500/20">
-                        <p className="text-[11px] font-black text-blue-700 dark:text-blue-300">
-                          ✓ {rivalPlayers.length} jugadores cargados
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                {assignTab === 'my' && groupedSquad.map(([groupName, players]) => (
-                  <div key={groupName} className="mb-5">
-                    <div className="mb-3 border-b border-slate-200 pb-2 text-[13px] font-black uppercase tracking-[0.18em] text-slate-400 dark:border-white/10 dark:text-slate-500">
-                      {groupName}
-                    </div>
-                    <div className="space-y-4">
-                      {players.map(player => {
-                        const isAssigned = assignedPlayerIds.has(player.id);
-                        const canAssign = !!selectedPitchId && selectedPlayer?.team === 'my' && !isAssigned;
-                        return (
-                          <button
-                            key={player.id}
-                            type="button"
-                            disabled={isAssigned}
-                            onClick={() => {
-                              if (selectedPitchId && canAssign) {
-                                assignPlayer(player);
-                                return;
-                              }
-                              if (selectedPitchId && !canAssign) return;
-                              setSelectedSquadPlayerId(prev => prev === player.id ? null : player.id);
-                            }}
-                            className={`flex w-full items-center gap-4 text-left transition-opacity ${isAssigned ? 'opacity-35 grayscale' : canAssign ? 'opacity-100' : 'opacity-100'} ${selectedSquadPlayerId === player.id ? 'scale-[1.01]' : ''}`}
-                          >
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[15px] font-black text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                              {player.dorsal ?? (player.apodo || player.nombre).slice(0, 1)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-[18px] font-black text-slate-800 dark:text-white">
-                                {player.apodo || player.nombre}
-                              </div>
-                            </div>
-                            {selectedSquadPlayerId === player.id && (
-                              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">SELECCIONADO</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-
-                {assignTab === 'my' && !isMySquadLoading && groupedSquad.length === 0 && (
-                  <div className="rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-[13px] text-slate-400 dark:border-white/10 dark:text-slate-500">
-                    {selectedMyTeamId
-                      ? 'Este equipo no tiene jugadores dados de alta en plantilla'
-                      : 'Selecciona uno de tus equipos para ver sus jugadores'}
-                  </div>
-                )}
-
-                {assignTab === 'rival' && (
-                  <div>
-                    <div className="mb-5 rounded-md border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#1a1a1a]">
-                      <div className="mb-2 text-[12px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        Añadir jugador rival
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={rivalNameInput}
-                          onChange={e => setRivalNameInput(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') addRivalPlayer(); }}
-                          placeholder="Nombre"
-                          className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 outline-none dark:border-white/10 dark:bg-[#121212] dark:text-slate-200"
-                        />
-                        <input
-                          type="number"
-                          value={rivalDorsalInput}
-                          onChange={e => setRivalDorsalInput(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') addRivalPlayer(); }}
-                          placeholder="Dorsal"
-                          className="w-20 shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 outline-none dark:border-white/10 dark:bg-[#121212] dark:text-slate-200"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={addRivalPlayer}
-                        disabled={!rivalNameInput.trim()}
-                        className="mt-2 h-10 w-full rounded-md bg-[#1976d2] text-[12px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
-                      >
-                        <i className="fa-solid fa-plus mr-2 text-[11px]" />
-                        Añadir
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {rivalPlayers.map(player => {
-                        const isAssigned = assignedPlayerIds.has(player.id);
-                        const canAssign = !!selectedPitchId && selectedPlayer?.team === 'rival' && !isAssigned;
-                        return (
-                          <div key={player.id} className="flex w-full items-center gap-3">
-                            <button
-                              type="button"
-                              disabled={isAssigned}
-                              onClick={() => {
-                                if (selectedPitchId && canAssign) {
-                                  assignPlayer(player);
-                                  return;
-                                }
-                                if (selectedPitchId && !canAssign) return;
-                                setSelectedRivalPlayerId(prev => prev === player.id ? null : player.id);
-                              }}
-                              className={`flex min-w-0 flex-1 items-center gap-4 text-left transition-opacity ${isAssigned ? 'opacity-35 grayscale' : 'opacity-100'} ${selectedRivalPlayerId === player.id ? 'scale-[1.01]' : ''}`}
-                            >
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[15px] font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
-                                {player.dorsal ?? player.nombre.slice(0, 1)}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-[18px] font-black text-slate-800 dark:text-white">
-                                  {player.nombre}
-                                </div>
-                              </div>
-                              {selectedRivalPlayerId === player.id && (
-                                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.18em] text-[#1976d2]">SELECCIONADO</span>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeRivalPlayer(player.id)}
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-[#cf2227] dark:hover:bg-white/10"
-                              title="Quitar jugador rival"
-                            >
-                              <i className="fa-solid fa-trash-can text-[12px]" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                      {rivalPlayers.length === 0 && (
-                        <div className="rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-[13px] text-slate-400 dark:border-white/10 dark:text-slate-500">
-                          Añade jugadores del rival para poder colocarlos en el campo
+                      {selectedMyTeamId && (
+                        <div className="rounded-md border border-red-200 bg-red-100 px-3 py-2 dark:border-red-500/40 dark:bg-red-500/20">
+                          <p className="text-[11px] font-black text-red-700 dark:text-red-200">
+                            {isMySquadLoading
+                              ? 'Cargando jugadores...'
+                              : `${squad.length} jugador${squad.length === 1 ? '' : 'es'} ${selectedMyTeam ? `de ${selectedMyTeam.sub_equipo || selectedMyTeam.nombre}` : 'cargados'}`}
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
-                )}
+
+                  <div className="rounded-md border border-blue-200/50 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+                    <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
+                      RIVAL
+                    </div>
+
+                    <div className="space-y-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowRivalTeam(v => !v)}
+                        className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 ${
+                          showRivalTeam
+                            ? 'border-blue-300/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                            : 'border-blue-200 bg-white text-blue-600 hover:bg-blue-50 dark:border-blue-500/20 dark:bg-[#1a1a1a] dark:text-blue-300 dark:hover:bg-blue-500/10'
+                        }`}
+                      >
+                        <i className={`fa-solid ${showRivalTeam ? 'fa-eye' : 'fa-eye-slash'} text-[11px]`} />
+                        {showRivalTeam ? 'MOSTRAR' : 'OCULTAR'}
+                      </button>
+
+                      <div>
+                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                          Club rival
+                        </label>
+                        <SearchableSelect
+                          value={selectedRivalClubId}
+                          onChange={e => handleSelectRivalClub(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                        >
+                          <option value="">Selecciona club rival</option>
+                          {rivalClubs.map(club => (
+                            <option key={club.id} value={club.id}>{club.nombre}</option>
+                          ))}
+                        </SearchableSelect>
+                      </div>
+
+                      <div>
+                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                          Equipo rival
+                        </label>
+                        <SearchableSelect
+                          value={selectedRivalTeamId}
+                          onChange={e => handleSelectRivalTeam(e.target.value)}
+                          disabled={!selectedRivalClubId}
+                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                        >
+                          <option value="">
+                            {selectedRivalClubId ? 'Selecciona equipo' : 'Sin plantilla rival (añadir a mano)'}
+                          </option>
+                          {rivalTeamsForSelectedClub.map(team => (
+                            <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+                          ))}
+                        </SearchableSelect>
+                      </div>
+
+                      {selectedRivalTeamId && rivalPlayers.length > 0 && (
+                        <div className="rounded-md bg-blue-100 border border-blue-300 px-3 py-2 dark:bg-blue-500/20 dark:border-blue-500/40">
+                          <p className="text-[11px] font-black text-blue-700 dark:text-blue-200">
+                            ✓ {rivalPlayers.length} jugadores cargados
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
+
             </aside>
           </div>
         </div>
