@@ -11,28 +11,28 @@ import { fetchFile } from '@ffmpeg/util';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
-    { x: 50, y: 92 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 }, { x: 82, y: 80 },
-    { x: 18, y: 68 }, { x: 38, y: 70 }, { x: 62, y: 70 }, { x: 82, y: 68 },
-    { x: 38, y: 52 }, { x: 62, y: 52 },
+    { x: 50, y: 92 }, { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
+    { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 },
+    { x: 38, y: 52 }, { x: 62, y: 52 }, { x: 18, y: 68 },
   ],
   '4-3-3': [
     { x: 50, y: 92 },
-    { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 }, { x: 82, y: 80 },
-    { x: 30, y: 68 }, { x: 50, y: 66 }, { x: 70, y: 68 },
-    { x: 20, y: 48 }, { x: 50, y: 42 }, { x: 80, y: 48 },
+    { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
+    { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 },
+    { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 18, y: 68 },
   ],
   '4-2-3-1': [
     { x: 50, y: 92 },
-    { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 }, { x: 82, y: 80 },
+    { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
     { x: 38, y: 73 }, { x: 62, y: 73 },
-    { x: 20, y: 60 }, { x: 50, y: 58 }, { x: 80, y: 60 },
-    { x: 50, y: 42 },
+    { x: 82, y: 60 }, { x: 50, y: 58 }, { x: 20, y: 60 },
+    { x: 50, y: 42 }, { x: 18, y: 68 },
   ],
   '5-3-2': [
     { x: 50, y: 92 },
-    { x: 12, y: 80 }, { x: 30, y: 84 }, { x: 50, y: 86 }, { x: 70, y: 84 }, { x: 88, y: 80 },
-    { x: 28, y: 66 }, { x: 50, y: 66 }, { x: 72, y: 66 },
-    { x: 38, y: 48 }, { x: 62, y: 48 },
+    { x: 88, y: 80 }, { x: 12, y: 80 }, { x: 30, y: 84 }, { x: 70, y: 84 }, { x: 50, y: 86 },
+    { x: 50, y: 66 }, { x: 72, y: 66 }, { x: 28, y: 66 },
+    { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 18, y: 68 },
   ],
 };
 
@@ -65,6 +65,7 @@ interface PitchPlayer {
   playerId?: string;
   playerName?: string;
   playerInitials?: string;
+  playerDorsal?: number;
   rotation?: number;
 }
 
@@ -88,7 +89,7 @@ interface RivalPlayer {
   dorsal?: number;
 }
 
-type AssignableEntity = { id: string; nombre: string; apodo?: string };
+type AssignableEntity = { id: string; nombre: string; apodo?: string; dorsal?: number };
 
 type TeamKey = 'my' | 'rival';
 
@@ -170,6 +171,19 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [showFieldLines, setShowFieldLines] = useState(true);
   const [dragOutsideField, setDragOutsideField] = useState(false);
   const DROP_OUTSIDE_MARGIN_PX = 30;
+
+  useEffect(() => {
+    if (!selectedArrowId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      setArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
+      setSelectedArrowId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedArrowId]);
 
   const pitchPlayers = frames[currentFrameIndex] ?? [];
   const updatePitchPlayers = (updater: PitchPlayer[] | ((prev: PitchPlayer[]) => PitchPlayer[])) => {
@@ -522,19 +536,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     const clickedArrow = getArrowAtPoint(start.x, start.y);
 
-    if ((clickedArrow || isClickOnSvgElement) && !drawingMode) {
-      if (clickedArrow) {
-        setSelectedArrowId(clickedArrow.id);
-        setDraggingArrowId(clickedArrow.id);
-        draggingArrowStart.current = start;
-        arrowStartPosition.current = {
-          x1: clickedArrow.x1,
-          y1: clickedArrow.y1,
-          x2: clickedArrow.x2,
-          y2: clickedArrow.y2,
-        };
-        document.body.style.cursor = 'grab';
-      }
+    if (isClickOnSvgElement) {
       return;
     }
 
@@ -589,17 +591,26 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
         const currentY = ((event.clientY - rect.top) / rect.height) * 100;
 
-        const dx = currentX - draggingArrowStart.current.x;
-        const dy = currentY - draggingArrowStart.current.y;
+        let dx = currentX - draggingArrowStart.current.x;
+        let dy = currentY - draggingArrowStart.current.y;
+
+        const start = arrowStartPosition.current!;
+        const minX = Math.min(start.x1, start.x2);
+        const maxX = Math.max(start.x1, start.x2);
+        const minY = Math.min(start.y1, start.y2);
+        const maxY = Math.max(start.y1, start.y2);
+
+        dx = Math.max(3 - minX, Math.min(dx, 97 - maxX));
+        dy = Math.max(3 - minY, Math.min(dy, 97 - maxY));
 
         setArrows(prev => prev.map(arrow => {
           if (arrow.id !== draggingArrowId) return arrow;
           return {
             ...arrow,
-            x1: Math.min(97, Math.max(3, arrowStartPosition.current!.x1 + dx)),
-            y1: Math.min(97, Math.max(3, arrowStartPosition.current!.y1 + dy)),
-            x2: Math.min(97, Math.max(3, arrowStartPosition.current!.x2 + dx)),
-            y2: Math.min(97, Math.max(3, arrowStartPosition.current!.y2 + dy)),
+            x1: start.x1 + dx,
+            y1: start.y1 + dy,
+            x2: start.x2 + dx,
+            y2: start.y2 + dy,
           };
         }));
         return;
@@ -811,7 +822,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     updatePitchPlayers(prev => prev.map(p => (
       p.id === pitchId
-        ? { ...p, playerId: player.id, playerName: displayName, playerInitials: initials }
+        ? { ...p, playerId: player.id, playerName: displayName, playerInitials: initials, playerDorsal: player.dorsal }
         : p
     )));
     setSelectedPitchIds([]);
@@ -821,7 +832,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const removeAssignment = (pitchId: string) => {
     updatePitchPlayers(prev => prev.map(p => (
-      p.id === pitchId ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined } : p
+      p.id === pitchId ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined } : p
     )));
   };
 
@@ -841,7 +852,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const removeRivalPlayer = (id: string) => {
     setRivalPlayers(prev => prev.filter(p => p.id !== id));
     updatePitchPlayers(prev => prev.map(p => (
-      p.playerId === id ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined } : p
+      p.playerId === id ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined } : p
     )));
     if (selectedRivalPlayerId === id) setSelectedRivalPlayerId(null);
   };
@@ -851,6 +862,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const ffmpegRef = useRef(new FFmpeg());
   const [isRecording, setIsRecording] = useState(false);
+  const [isExportingVideo, setIsExportingVideo] = useState(false);
+  const [isExportingImage, setIsExportingImage] = useState(false);
 
   useEffect(() => {
     const initFFmpeg = async () => {
@@ -868,19 +881,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const downloadImage = async () => {
     if (!pitchRef.current) return;
-    const canvas = await html2canvas(pitchRef.current, {
-      backgroundColor: null,
-      scale: 2,
-      useCORS: true,
-    });
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
-    link.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.png`;
-    link.click();
-  };
-
-  const downloadVideoAsMP4 = async () => {
-    if (!pitchRef.current) return;
+    setIsExportingImage(true);
 
     try {
       const canvas = await html2canvas(pitchRef.current, {
@@ -888,6 +889,31 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         scale: 2,
         useCORS: true,
       });
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.png`;
+      link.click();
+    } catch (err) {
+      console.error('Error al descargar imagen:', err);
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
+  const downloadVideoAsMP4 = async () => {
+    if (!pitchRef.current) return;
+    setIsExportingVideo(true);
+
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No se pudo crear contexto 2D');
+
+      const rect = pitchRef.current.getBoundingClientRect();
+      const scale = 2;
+      canvas.width = rect.width * scale;
+      canvas.height = rect.height * scale;
+
       const stream = canvas.captureStream(30);
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       const chunks: BlobPart[] = [];
@@ -900,7 +926,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         try {
           if (ffmpeg.isLoaded()) {
             await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
-            await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', 'output.mp4']);
+            await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']);
             const data = await ffmpeg.readFile('output.mp4');
             const mp4Blob = new Blob([data], { type: 'video/mp4' });
             const url = URL.createObjectURL(mp4Blob);
@@ -922,13 +948,38 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.webm`;
           a.click();
           URL.revokeObjectURL(url);
+        } finally {
+          setIsExportingVideo(false);
         }
       };
 
       mediaRecorder.start();
-      setTimeout(() => mediaRecorder.stop(), 10000);
+
+      const recordingDuration = 10000;
+      const recordingStartTime = Date.now();
+
+      const captureFrame = async () => {
+        if (Date.now() - recordingStartTime < recordingDuration) {
+          try {
+            const frameCanvas = await html2canvas(pitchRef.current!, {
+              backgroundColor: null,
+              scale: scale,
+              useCORS: true,
+            });
+            ctx.drawImage(frameCanvas, 0, 0);
+          } catch (err) {
+            console.error('Error capturando frame:', err);
+          }
+          requestAnimationFrame(captureFrame);
+        } else {
+          mediaRecorder.stop();
+        }
+      };
+
+      requestAnimationFrame(captureFrame);
     } catch (err) {
       console.error('Error al descargar video:', err);
+      setIsExportingVideo(false);
     }
   };
 
@@ -999,19 +1050,29 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </button>
               <button
                 onClick={downloadImage}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Descargar captura de la pizarra"
+                disabled={isExportingImage}
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  isExportingImage
+                    ? 'border-amber-500/30 bg-amber-500/15 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/15 dark:text-amber-400'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+                title={isExportingImage ? "Descargando PNG..." : "Descargar captura de la pizarra"}
               >
-                <i className="fa-solid fa-image mr-2 text-[11px]" />
-                IMAGEN
+                <i className={`fa-solid ${isExportingImage ? 'fa-spinner' : 'fa-image'} mr-2 text-[11px] ${isExportingImage ? 'animate-spin' : ''}`} />
+                {isExportingImage ? 'DESCARGANDO...' : 'IMAGEN'}
               </button>
               <button
                 onClick={downloadVideoAsMP4}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Descargar pizarra como video en MP4"
+                disabled={isExportingVideo}
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  isExportingVideo
+                    ? 'border-blue-500/30 bg-blue-500/15 text-blue-600 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-400'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+                title={isExportingVideo ? "Generando video MP4..." : "Descargar pizarra como video en MP4"}
               >
-                <i className="fa-solid fa-video mr-2 text-[11px]" />
-                VIDEO
+                <i className={`fa-solid ${isExportingVideo ? 'fa-spinner' : 'fa-video'} mr-2 text-[11px] ${isExportingVideo ? 'animate-spin' : ''}`} />
+                {isExportingVideo ? 'EXPORTANDO...' : 'VIDEO'}
               </button>
               <button
                 onClick={() => setDrawingMode(!drawingMode)}
@@ -1031,7 +1092,15 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <input
                   type="color"
                   value={arrowColor}
-                  onChange={e => setArrowColor(e.target.value)}
+                  onChange={e => {
+                    const nextColor = e.target.value;
+                    setArrowColor(nextColor);
+                    if (selectedArrowId) {
+                      setArrows(prev => prev.map(arrow => (
+                        arrow.id === selectedArrowId ? { ...arrow, color: nextColor } : arrow
+                      )));
+                    }
+                  }}
                   className="h-7 w-10 rounded-md border border-slate-200 cursor-pointer dark:border-white/10"
                 />
               </div>
@@ -1062,7 +1131,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </button>
               <button
                 onClick={() => {
-                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined })));
+                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined })));
                   setSelectedPitchIds([]);
                   setSelectedSquadPlayerId(null);
                 }}
@@ -1269,11 +1338,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       <g
                         key={arrow.id}
                         onMouseDown={(e: React.MouseEvent) => {
-                          if (is3DView || drawingMode) return;
+                          if (is3DView) return;
                           e.stopPropagation();
-                          const svg = (e.currentTarget as any).ownerSVGElement;
-                          if (!svg) return;
-                          const rect = svg.getBoundingClientRect();
+                          if (!pitchRef.current) return;
+                          const rect = pitchRef.current.getBoundingClientRect();
                           const start = {
                             x: ((e.clientX - rect.left) / rect.width) * 100,
                             y: ((e.clientY - rect.top) / rect.height) * 100,
@@ -1290,8 +1358,17 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           document.body.style.cursor = 'grabbing';
                           document.body.style.userSelect = 'none';
                         }}
-                        style={{ cursor: drawingMode ? 'crosshair' : 'grab', pointerEvents: drawingMode ? 'none' : 'auto' }}
+                        style={{ cursor: 'grab', pointerEvents: is3DView ? 'none' : 'auto' }}
                       >
+                        <line
+                          x1={arrow.x1}
+                          y1={arrow.y1}
+                          x2={arrow.x2}
+                          y2={arrow.y2}
+                          stroke="transparent"
+                          strokeWidth={3}
+                          style={{ pointerEvents: is3DView ? 'none' : 'auto' }}
+                        />
                         <line
                           x1={arrow.x1}
                           y1={arrow.y1}
@@ -1300,13 +1377,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           stroke={arrow.color}
                           strokeWidth={isSelected ? 0.8 : 0.4}
                           strokeOpacity="0.9"
-                          style={{ pointerEvents: drawingMode ? 'none' : 'auto' }}
+                          style={{ pointerEvents: 'none' }}
                         />
                         <polygon
                           points={`${arrow.x2},${arrow.y2} ${headX1},${headY1} ${headX2},${headY2}`}
                           fill={arrow.color}
                           fillOpacity="0.9"
-                          style={{ pointerEvents: drawingMode ? 'none' : 'auto' }}
+                          style={{ pointerEvents: 'none' }}
                         />
                         {isSelected && (
                           <circle cx={arrow.x1} cy={arrow.y1} r="2" fill={arrow.color} fillOpacity="0.6" style={{ pointerEvents: 'none' }} />
@@ -1463,7 +1540,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         }}
                       >
                         {showPlayerNumbers && (
-                          <span className="text-[15px] leading-none">{player.playerInitials ? player.playerInitials : player.number}</span>
+                          <span className="text-[15px] leading-none">{player.playerDorsal !== undefined ? player.playerDorsal : player.playerInitials ? player.playerInitials : player.number}</span>
                         )}
                       </div>
 
@@ -1527,102 +1604,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-6">
                 <div className="space-y-3">
-                  <div className="rounded-md border border-red-200/50 bg-red-50 p-4 dark:border-red-500/20 dark:bg-red-500/10">
-                    <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-red-600 dark:text-red-300">
-                      MI EQUIPO
-                    </div>
-
-                    <div className="space-y-3 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowMyTeam(v => !v)}
-                        className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 ${
-                          showMyTeam
-                            ? 'border-red-300/50 bg-red-100 text-red-700 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-200'
-                            : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-300 dark:hover:bg-red-500/10'
-                        }`}
-                      >
-                        <i className={`fa-solid ${showMyTeam ? 'fa-eye' : 'fa-eye-slash'} text-[11px]`} />
-                        {showMyTeam ? 'MOSTRAR' : 'OCULTAR'}
-                      </button>
-
-                      <SearchableSelect
-                        value={selectedMyTeamId}
-                        onChange={e => setSelectedMyTeamId(e.target.value)}
-                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                      >
-                        <option value="">Selecciona tu equipo</option>
-                        {myTeams.map(team => (
-                          <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
-                        ))}
-                      </SearchableSelect>
-
-                      <div>
-                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                          Sistema
-                        </label>
-                        <select
-                          value={myFormation}
-                          onChange={e => setMyFormation(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                        >
-                          <option value="4-4-2">4-4-2</option>
-                          <option value="4-3-3">4-3-3</option>
-                          <option value="4-2-3-1">4-2-3-1</option>
-                          <option value="5-3-2">5-3-2</option>
-                        </select>
-                      </div>
-
-                      {selectedMyTeamId && (
-                        <div className="rounded-md border border-red-200 bg-red-100 px-3 py-2 dark:border-red-500/40 dark:bg-red-500/20">
-                          <p className="text-[11px] font-black text-red-700 dark:text-red-200">
-                            {isMySquadLoading
-                              ? 'Cargando jugadores...'
-                              : `${squad.length} jugador${squad.length === 1 ? '' : 'es'} ${selectedMyTeam ? `de ${selectedMyTeam.sub_equipo || selectedMyTeam.nombre}` : 'cargados'}`}
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedMyTeamId && !isMySquadLoading && squad.length > 0 && (
-                        <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                          {groupedSquad.map(([grupo, players]) => (
-                            <div key={grupo}>
-                              <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-500/70 dark:text-red-300/60">
-                                {grupo}
-                              </div>
-                              <div className="space-y-1.5">
-                                {players.map(player => {
-                                  const isSelected = selectedSquadPlayerId === player.id;
-                                  const isAssigned = assignedPlayerIds.has(player.id);
-                                  return (
-                                    <button
-                                      key={player.id}
-                                      type="button"
-                                      onClick={() => setSelectedSquadPlayerId(prev => (prev === player.id ? null : player.id))}
-                                      className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
-                                        isSelected
-                                          ? 'border-red-400 bg-red-200 text-red-800 dark:border-red-400/60 dark:bg-red-500/30 dark:text-red-100'
-                                          : isAssigned
-                                            ? 'border-red-200/60 bg-white/60 text-red-400 dark:border-red-500/20 dark:bg-[#1a1a1a]/60 dark:text-red-300/50'
-                                            : 'border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-200 dark:hover:bg-red-500/10'
-                                      }`}
-                                    >
-                                      <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-red-600/10 text-[11px] font-black text-red-600 dark:bg-red-400/10 dark:text-red-300">
-                                        {player.dorsal ?? '-'}
-                                      </span>
-                                      <span className="truncate">{player.apodo || player.nombre}</span>
-                                      {isAssigned && <i className="fa-solid fa-check ml-auto text-[10px]" />}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
                   <div className="rounded-md border border-blue-200/50 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
                     <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
                       RIVAL
@@ -1727,6 +1708,102 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                               </button>
                             );
                           })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-red-200/50 bg-red-50 p-4 dark:border-red-500/20 dark:bg-red-500/10">
+                    <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-red-600 dark:text-red-300">
+                      MI EQUIPO
+                    </div>
+
+                    <div className="space-y-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowMyTeam(v => !v)}
+                        className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 ${
+                          showMyTeam
+                            ? 'border-red-300/50 bg-red-100 text-red-700 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-200'
+                            : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-300 dark:hover:bg-red-500/10'
+                        }`}
+                      >
+                        <i className={`fa-solid ${showMyTeam ? 'fa-eye' : 'fa-eye-slash'} text-[11px]`} />
+                        {showMyTeam ? 'MOSTRAR' : 'OCULTAR'}
+                      </button>
+
+                      <SearchableSelect
+                        value={selectedMyTeamId}
+                        onChange={e => setSelectedMyTeamId(e.target.value)}
+                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                      >
+                        <option value="">Selecciona tu equipo</option>
+                        {myTeams.map(team => (
+                          <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+                        ))}
+                      </SearchableSelect>
+
+                      <div>
+                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                          Sistema
+                        </label>
+                        <select
+                          value={myFormation}
+                          onChange={e => setMyFormation(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                        >
+                          <option value="4-4-2">4-4-2</option>
+                          <option value="4-3-3">4-3-3</option>
+                          <option value="4-2-3-1">4-2-3-1</option>
+                          <option value="5-3-2">5-3-2</option>
+                        </select>
+                      </div>
+
+                      {selectedMyTeamId && (
+                        <div className="rounded-md border border-red-200 bg-red-100 px-3 py-2 dark:border-red-500/40 dark:bg-red-500/20">
+                          <p className="text-[11px] font-black text-red-700 dark:text-red-200">
+                            {isMySquadLoading
+                              ? 'Cargando jugadores...'
+                              : `${squad.length} jugador${squad.length === 1 ? '' : 'es'} ${selectedMyTeam ? `de ${selectedMyTeam.sub_equipo || selectedMyTeam.nombre}` : 'cargados'}`}
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedMyTeamId && !isMySquadLoading && squad.length > 0 && (
+                        <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                          {groupedSquad.map(([grupo, players]) => (
+                            <div key={grupo}>
+                              <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-500/70 dark:text-red-300/60">
+                                {grupo}
+                              </div>
+                              <div className="space-y-1.5">
+                                {players.map(player => {
+                                  const isSelected = selectedSquadPlayerId === player.id;
+                                  const isAssigned = assignedPlayerIds.has(player.id);
+                                  return (
+                                    <button
+                                      key={player.id}
+                                      type="button"
+                                      onClick={() => setSelectedSquadPlayerId(prev => (prev === player.id ? null : player.id))}
+                                      className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
+                                        isSelected
+                                          ? 'border-red-400 bg-red-200 text-red-800 dark:border-red-400/60 dark:bg-red-500/30 dark:text-red-100'
+                                          : isAssigned
+                                            ? 'border-red-200/60 bg-white/60 text-red-400 dark:border-red-500/20 dark:bg-[#1a1a1a]/60 dark:text-red-300/50'
+                                            : 'border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-200 dark:hover:bg-red-500/10'
+                                      }`}
+                                    >
+                                      <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-red-600/10 text-[11px] font-black text-red-600 dark:bg-red-400/10 dark:text-red-300">
+                                        {player.dorsal ?? '-'}
+                                      </span>
+                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                      {isAssigned && <i className="fa-solid fa-check ml-auto text-[10px]" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
