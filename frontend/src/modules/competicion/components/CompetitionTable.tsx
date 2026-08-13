@@ -13,7 +13,7 @@ interface CompetitionTableProps {
   /** Id de mi club (currentTeam.id) — cualquier otro club/equipo se trata como rival. */
   clubId?: string;
   onEdit?: (team: CompetitionTeam) => void | Promise<void>;
-  onDelete?: (id: number) => void;
+  onDelete?: (id: number | string) => void;
 }
 
 /** Agrupa las entradas por nombre de club */

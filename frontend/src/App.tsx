@@ -207,7 +207,7 @@ const MatchReportWrapper: React.FC<{
     eventosCalendarioService.getById(matchId)
       .then(loaded => {
         if (cancelled) return;
-        setLoadedMatch(loaded);
+        setLoadedMatch(eventRowToCalendarEvent(loaded));
         setMatchLoadError(null);
       })
       .catch(err => {
@@ -334,6 +334,62 @@ const FALLBACK_FEDERATION_ALIASES_BY_INTERNAL_TEAM: Record<string, string[]> = {
   'juvenil a': ['IPC LA ESCUELA'],
   'cadete a': ['HUESCA-S.D. ESCUELA DE FUTBOL'],
 };
+
+const eventRowToCalendarEvent = (row: EventoCalendario): CalendarEvent => ({
+  id: row.id,
+  clubId: row.club_id || undefined,
+  title: row.title,
+  type: row.type,
+  date: new Date(row.date),
+  time: row.time || '',
+  team: row.team || undefined,
+  location: row.location || undefined,
+  notes: row.notes || undefined,
+  videoUrl: row.video_url || undefined,
+  docUrl: row.doc_url || undefined,
+  staffRoles: row.staff_roles || undefined,
+  competition: row.competition || undefined,
+  jornada: row.jornada || undefined,
+  sessionNumber: row.session_number ?? undefined,
+  localTeam: row.local_team || undefined,
+  visitorTeam: row.visitor_team || undefined,
+  localTeamClubId: row.local_team_club_id || undefined,
+  visitorTeamClubId: row.visitor_team_club_id || undefined,
+  opponent: row.opponent || undefined,
+  score: row.score || undefined,
+  status: row.status as CalendarEvent['status'] | undefined,
+  nombreInterno: row.nombre_interno || undefined,
+  tasks: (row.tasks as CalendarEvent['tasks']) || [],
+  attendance: (row.attendance as CalendarEvent['attendance']) || {},
+});
+
+const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
+  id: event.id,
+  club_id: event.clubId || null,
+  title: event.title || 'Sin título',
+  type: event.type,
+  date: event.date instanceof Date ? event.date.toISOString() : event.date,
+  time: event.time || null,
+  team: event.team || null,
+  location: event.location || null,
+  notes: event.notes || null,
+  video_url: event.videoUrl || null,
+  doc_url: event.docUrl || null,
+  staff_roles: event.staffRoles || null,
+  competition: event.competition || null,
+  jornada: event.jornada || null,
+  session_number: event.sessionNumber ?? null,
+  local_team: event.localTeam || null,
+  visitor_team: event.visitorTeam || null,
+  local_team_club_id: event.localTeamClubId || null,
+  visitor_team_club_id: event.visitorTeamClubId || null,
+  opponent: event.opponent || null,
+  score: event.score || null,
+  status: event.status || null,
+  nombre_interno: event.nombreInterno || null,
+  tasks: Array.isArray(event.tasks) ? event.tasks : [],
+  attendance: (event.attendance && typeof event.attendance === 'object') ? event.attendance : {},
+});
 
 function fallbackFederationAliasesForInternalTeam(teamName: string | undefined): string[] {
   return FALLBACK_FEDERATION_ALIASES_BY_INTERNAL_TEAM[normalizeTeamName(teamName || '')] || [];
@@ -664,70 +720,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     });
   };
 
-  const eventRowToCalendarEvent = (row: EventoCalendario): CalendarEvent => ({
-    id: row.id,
-    clubId: row.club_id || undefined,
-    title: row.title,
-    type: row.type,
-    date: new Date(row.date),
-    time: row.time || '',
-    team: row.team || undefined,
-    location: row.location || undefined,
-    notes: row.notes || undefined,
-    videoUrl: row.video_url || undefined,
-    docUrl: row.doc_url || undefined,
-    staffRoles: row.staff_roles || undefined,
-    competition: row.competition || undefined,
-    jornada: row.jornada || undefined,
-    sessionNumber: row.session_number ?? undefined,
-    localTeam: row.local_team || undefined,
-    visitorTeam: row.visitor_team || undefined,
-    localTeamClubId: row.local_team_club_id || undefined,
-    visitorTeamClubId: row.visitor_team_club_id || undefined,
-    opponent: row.opponent || undefined,
-    score: row.score || undefined,
-    status: row.status as CalendarEvent['status'] | undefined,
-    nombreInterno: row.nombre_interno || undefined,
-    tasks: (row.tasks as CalendarEvent['tasks']) || [],
-    attendance: (row.attendance as CalendarEvent['attendance']) || {},
-  });
-
-  const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
-    id: event.id,
-    club_id: event.clubId || null,
-    title: event.title || 'Sin título',
-    type: event.type,
-    date: event.date instanceof Date ? event.date.toISOString() : event.date,
-    time: event.time || null,
-    team: event.team || null,
-    location: event.location || null,
-    notes: event.notes || null,
-    video_url: event.videoUrl || null,
-    doc_url: event.docUrl || null,
-    staff_roles: event.staffRoles || null,
-    competition: event.competition || null,
-    jornada: event.jornada || null,
-    session_number: event.sessionNumber ?? null,
-    local_team: event.localTeam || null,
-    visitor_team: event.visitorTeam || null,
-    local_team_club_id: event.localTeamClubId || null,
-    visitor_team_club_id: event.visitorTeamClubId || null,
-    opponent: event.opponent || null,
-    score: event.score || null,
-    status: event.status || null,
-    nombre_interno: event.nombreInterno || null,
-    tasks: Array.isArray(event.tasks) ? event.tasks : [],
-    attendance: (event.attendance && typeof event.attendance === 'object') ? event.attendance : {},
-  });
-
   const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
   const canonicalizePlayer = (player: Player, fallbackId?: string | number): Player => {
     const dni = normalizePlayerId(String(player.dni || ''));
     const baseId = fallbackId !== undefined && fallbackId !== null && String(fallbackId).trim() !== ''
       ? String(fallbackId)
       : String(player.id ?? '');
-    // Usar DNI si es válido; si no, usar ID existente; si no hay, generar UUID
-    const finalId = dni || baseId || crypto.randomUUID();
+    // El id es un UUID de la tabla `plantillas`; el DNI se guarda aparte en su propia columna.
+    const finalId = baseId || crypto.randomUUID();
     return {
       ...player,
       id: finalId,
@@ -1601,17 +1601,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       {editingPlayer && <EditPlayerModal
         player={editingPlayer}
         clubId={currentTeam?.id || ''}
-        equipos={misClubCompetitionTeams}
+        equipos={competitionTeams}
         events={filteredEventsList}
         matches={filteredMatchesList}
         clubes={clubesList}
         onClose={() => setEditingPlayer(null)}
         onSave={async (p, originalId) => {
-          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: currentTeam?.id || '', competicion: p.competicion || '' }, originalId);
+          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '', competicion: p.competicion || '' }, originalId);
+          if (!toSave.clubId) { alert('Selecciona un club antes de guardar.'); return; }
           if (!toSave.equipoId) { alert('Selecciona un equipo antes de guardar.'); return; }
           // Validar que el equipo exista
           const equipoValido = competitionTeams.some(eq => String(eq.id) === String(toSave.equipoId));
           if (!equipoValido) { alert('El equipo seleccionado no existe. Por favor, selecciona un equipo válido.'); return; }
+          const dorsalDuplicado = squadList.some(existing =>
+            String(existing.id) !== String(toSave.id) &&
+            String(existing.equipoId) === String(toSave.equipoId) &&
+            existing.dorsal !== undefined && existing.dorsal !== null &&
+            Number(existing.dorsal) === Number(toSave.dorsal)
+          );
+          if (toSave.dorsal !== undefined && toSave.dorsal !== null && dorsalDuplicado) {
+            alert(`El dorsal ${toSave.dorsal} ya está asignado a otro jugador de este equipo. Elige un dorsal distinto.`);
+            return;
+          }
           const payload = {
             id: String(toSave.id),
             equipo_id: String(toSave.equipoId),
@@ -1673,7 +1684,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             console.log('[App.tsx] Modal cerrado, llamando fetchData...');
             await fetchData();
           } catch (e) {
-            alert(e instanceof Error ? e.message : 'Error al guardar el jugador');
+            console.error('[App.tsx] Error al guardar jugador:', e);
+            const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+            if (msg && msg.includes('plantillas_equipo_id_dorsal_key')) {
+              alert(`El dorsal ${toSave.dorsal} ya está asignado a otro jugador de este equipo. Elige un dorsal distinto.`);
+            } else {
+              alert(msg || 'Error al guardar el jugador');
+            }
           }
         }}
       />}

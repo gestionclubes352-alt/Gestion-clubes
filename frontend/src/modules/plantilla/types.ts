@@ -6,7 +6,7 @@ export interface Player {
   competicion: string;
   club: string;
   equipo: string;
-  dorsal: number;
+  dorsal?: number;
   nombre: string;
   apodo?: string;
   posicion: string;

@@ -20,7 +20,7 @@ const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
 interface EditPlayerModalProps {
   player: Player;
   clubId: string;
-  /** Equipos reales de Supabase a los que se puede asignar el jugador */
+  /** Equipos reales de Supabase a los que se puede asignar el jugador (de todos los clubes, propio y rivales) */
   equipos: CompetitionTeam[];
   /** Eventos del calendario (para calcular la asistencia a sesiones) */
   events?: CalendarEvent[];
@@ -306,6 +306,25 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
       clubId: team?.clubId ? String(team.clubId) : prev.clubId,
     }));
   };
+
+  // Club al que se asigna el jugador (propio o rival). Al cambiarlo se resetea el equipo,
+  // ya que los equipos disponibles dependen del club seleccionado.
+  const handleClubSelect = (newClubId: string) => {
+    const clubRow = (clubes || []).find(c => String(c.id) === newClubId);
+    setFormData(prev => ({
+      ...prev,
+      clubId: newClubId,
+      club: clubRow?.nombre || '',
+      equipoId: '',
+      equipo: '',
+    }));
+  };
+
+  // Equipos disponibles para el club actualmente seleccionado (propio o rival)
+  const equiposDelClubSeleccionado = useMemo(
+    () => equipos.filter(eq => String(eq.clubId ?? '') === String(formData.clubId ?? '')),
+    [equipos, formData.clubId]
+  );
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -401,14 +420,17 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     };
   }, []);
 
-  // Establecer "Juvenil A" como equipo por defecto si no hay uno asignado
+  // Establecer "Juvenil A" como equipo por defecto si no hay uno asignado (solo para el propio club:
+  // un jugador rival recién creado no tiene club todavía, así que no debe autoasignarse un equipo).
   useEffect(() => {
-    if (formData.equipoId || equipos.length === 0) return;
-    const juvenilA = equipos.find(eq => (eq.equipo || eq.nombre || '').includes('Juvenil A'));
+    if (formData.equipoId || String(formData.clubId ?? '') !== String(clubId)) return;
+    const propios = equipos.filter(eq => String(eq.clubId ?? '') === String(clubId));
+    if (propios.length === 0) return;
+    const juvenilA = propios.find(eq => (eq.equipo || eq.nombre || '').includes('Juvenil A'));
     if (juvenilA) {
       handleEquipoSelect(String(juvenilA.id));
     }
-  }, [equipos.length, formData.equipoId]);
+  }, [equipos, formData.equipoId, formData.clubId, clubId]);
 
   const exportPlayerProfile = async () => {
     const target = exportRef.current;
@@ -571,11 +593,14 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               )}
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('players.number')}</label>
-                <input 
-                  type="number" 
-                  value={formData.dorsal} 
-                  onChange={(e) => handleChange('dorsal', parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)]" 
+                <input
+                  type="number"
+                  value={formData.dorsal ?? ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    handleChange('dorsal', raw === '' ? undefined : parseInt(raw, 10));
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)]"
                 />
               </div>
               <div>
@@ -594,7 +619,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           </div>
 
           {/* === CAMPOS DE CONFIGURACIÓN en grid compacto === */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-3 mb-4">
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('common.position', 'Posición')}</label>
               <SearchableSelect
@@ -715,8 +740,37 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </SearchableSelect>
             </div>
             <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.club', 'Club')}</label>
+              {(clubes || []).length === 0 ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
+                  <i className="fa-solid fa-circle-info"></i>
+                  No hay clubes disponibles.
+                </div>
+              ) : (
+                <SearchableSelect
+                  value={formData.clubId || ''}
+                  onChange={(e) => handleClubSelect(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+                >
+                  <option value="">-- Selecciona un club --</option>
+                  {[...clubes]
+                    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+                    .map(c => (
+                      <option key={c.id} value={String(c.id)}>
+                        {String(c.id) === String(clubId) ? `${c.nombre} (mi club)` : c.nombre}
+                      </option>
+                    ))}
+                </SearchableSelect>
+              )}
+            </div>
+            <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.team')}</label>
-              {equipos.length === 0 ? (
+              {!formData.clubId ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-bold">
+                  <i className="fa-solid fa-circle-info"></i>
+                  Selecciona antes un club.
+                </div>
+              ) : equiposDelClubSeleccionado.length === 0 ? (
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
                   <i className="fa-solid fa-circle-info"></i>
                   Crea antes un equipo en la sección Equipos.
@@ -732,7 +786,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     const categoriesOrder = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'];
                     const teamsMap = new Map<string, Array<{ id: string; label: string; fullName: string }>>();
 
-                    equipos.forEach(eq => {
+                    equiposDelClubSeleccionado.forEach(eq => {
                       const fullName = eq.equipo || eq.nombre || '';
                       let category = '';
                       let displayLabel = fullName;
@@ -795,7 +849,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                         </optgroup>
                       );
                     });
-                  }, [equipos])}
+                  }, [equiposDelClubSeleccionado])}
                 </SearchableSelect>
               )}
             </div>

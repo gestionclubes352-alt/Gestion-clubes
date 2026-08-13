@@ -470,6 +470,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     planSinBalonVideo: '',
     planSinBalonDoc: '',
     planSinBalonImages: [],
+    planAbpText: '',
+    planAbpVideo: '',
+    planAbpDoc: '',
+    planAbpImages: [],
 
     abpOffCorners: [newAbpItem(), newAbpItem(), newAbpItem(), newAbpItem()],
     abpOffLateralFouls: [newAbpItem(), newAbpItem()],

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-type NativeSelectProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'multiple' | 'size'>;
+type NativeSelectProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'multiple' | 'size'> & {
+  placeholder?: string;
+};
 
 interface ParsedOption {
   value: string;
@@ -49,7 +51,7 @@ const parseOptions = (children: React.ReactNode): ParsedOption[] => {
     if (!React.isValidElement<any>(child)) return;
 
     // Maneja Fragments (destructuring automático)
-    const isFragment = child.type === React.Fragment || child.type === Symbol.for('react.fragment');
+    const isFragment = child.type === React.Fragment;
     if (isFragment) {
       React.Children.forEach(child.props.children, (c) => processChild(c, group));
       return;
@@ -199,8 +201,8 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        onFocus={onFocus as React.FocusEventHandler<HTMLButtonElement>}
-        onBlur={onBlur as React.FocusEventHandler<HTMLButtonElement>}
+        onFocus={onFocus as unknown as React.FocusEventHandler<HTMLButtonElement>}
+        onBlur={onBlur as unknown as React.FocusEventHandler<HTMLButtonElement>}
         onClick={() => {
           if (disabled) return;
           setIsOpen(open => !open);

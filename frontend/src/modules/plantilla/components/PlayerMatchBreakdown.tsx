@@ -215,8 +215,8 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                   <tbody className="divide-y divide-slate-100">
                     {group.rows.map(row => {
                       const playerPositionInMatch = row.report?.lineupPositions?.find(
-                        p => String(p.playerId) === String(playerId)
-                      )?.position;
+                        p => p.playerIds?.some(id => String(id) === String(playerId))
+                      )?.label;
                       return (
                         <tr key={String(row.match.id)} className="text-slate-700">
                           <td className="px-3 py-2 font-bold whitespace-nowrap">

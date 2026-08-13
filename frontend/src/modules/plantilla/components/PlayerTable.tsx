@@ -128,10 +128,13 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   }, [filteredSquad]);
 
   const openNewPlayerCard = () => {
+    // En la pestaña "Jugadores Rivales" no se preasigna el club propio: el usuario debe
+    // elegir explícitamente el club y equipo rival al que pertenece el jugador.
+    const isNewRival = activeTab === 'rivales';
     onEdit({
       id: crypto.randomUUID(), nombre: '', apodo: '', dorsal: undefined, posicion: isHuesca ? 'Central' : 'Defensa',
       posicionJuego: '', perfil: 'D', competicion: '', dni: '',
-      club: '', equipo: '', fotoUrl: '', equipoId: '', clubId: clubId,
+      club: '', equipo: '', fotoUrl: '', equipoId: '', clubId: isNewRival ? '' : clubId,
     });
   };
 

@@ -256,7 +256,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const subTeamOptions: EquipoOption[] = ownClubId
     ? allCompetitionTeams
         .filter((team) => String(team.clubId) === String(ownClubId))
-        .map(toTeamOption)
+        .map((team) => toTeamOption(team))
         .filter((option) => option.value.trim().length > 0)
         .sort((a, b) => compareEquipoNames(a.value, b.value))
     : [];
