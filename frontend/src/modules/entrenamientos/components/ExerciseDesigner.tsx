@@ -2312,30 +2312,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     ) : (
                       <i className={`fa-solid ${item.icon} text-3xl text-white drop-shadow-lg ${animationClass}`}></i>
                     )}
-                    {!is3DView && canOrientItem(item) && orientationModeEnabled && (
-                      <svg
-                        width="80"
-                        height="80"
-                        viewBox="-40 -40 80 80"
-                        className={`absolute left-1/2 top-1/2 overflow-visible ${isItemSelected ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
-                        style={{ transform: 'translate(-50%, -50%)' }}
-                      >
-                        <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
-                        {isItemSelected && (
-                          <path
-                            data-orientation-handle="true"
-                            onPointerDown={(e) => handleRotateStart(e, item)}
-                            d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8"
-                            fill="none"
-                            stroke="transparent"
-                            strokeWidth="20"
-                            strokeLinecap="round"
-                            style={{ pointerEvents: 'stroke' }}
-                          />
-                        )}
-                      </svg>
-                    )}
-                    {!is3DView && (item.type === 'goal' || item.type === 'fence') && isItemSelected && !item.locked && (
+                    {!is3DView && (item.type === 'goal' || item.type === 'fence' || item.type === 'ladder') && isItemSelected && !item.locked && (
                       <button
                         type="button"
                         data-orientation-handle="true"
@@ -2347,8 +2324,26 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         }}
                         className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
                         style={{ transform: 'translate(60%, 60%)' }}
-                        title={item.type === 'goal' ? 'Arrastra para girar la portería' : 'Arrastra para girar la valla'}
-                        aria-label={item.type === 'goal' ? 'Girar portería manualmente' : 'Girar valla manualmente'}
+                        title={item.type === 'goal' ? 'Arrastra para girar la portería' : item.type === 'fence' ? 'Arrastra para girar la valla' : 'Arrastra para girar la escalera'}
+                        aria-label={item.type === 'goal' ? 'Girar portería manualmente' : item.type === 'fence' ? 'Girar valla manualmente' : 'Girar escalera manualmente'}
+                      >
+                        <i className="fa-solid fa-rotate-right text-sm"></i>
+                      </button>
+                    )}
+                    {!is3DView && item.type?.startsWith('player-') && orientationModeEnabled && isItemSelected && !item.locked && (
+                      <button
+                        type="button"
+                        data-orientation-handle="true"
+                        onPointerDown={(e) => {
+                          handleRotateStart(e, item);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
+                        style={{ transform: 'translate(60%, 60%)' }}
+                        title="Arrastra para girar el jugador"
+                        aria-label="Girar jugador manualmente"
                       >
                         <i className="fa-solid fa-rotate-right text-sm"></i>
                       </button>
