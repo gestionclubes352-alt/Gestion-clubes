@@ -91,9 +91,9 @@ const createCompressedPhotoDataUrl = (file: File): Promise<string> =>
 
 const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, events, matches, clubes, onClose, onSave }) => {
   const { t } = useTranslation();
-  const isHuesca = clubId === 'escuela-huesca' || player.club?.toUpperCase().includes('HUESCA');
+  const isHuesca = clubId === 'escuela-huesca' || player.club?.toUpperCase().includes('HUESCA'); // v2
   const initialPhotoUrl = isPersistedImage(player.fotoUrl) ? player.fotoUrl : '';
-  const [formData, setFormData] = useState<Player>({ ...player, fotoUrl: player.fotoUrl || '', estado: player.estado || 'APTO' });
+  const [formData, setFormData] = useState<Player>({ ...player, fotoUrl: player.fotoUrl || '', estado: player.estado || 'APTO', fechaNacimiento: player.fechaNacimiento || '2000-01-01' });
   const [preview, setPreview] = useState<string | null>(initialPhotoUrl || null);
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File|null>(null);
@@ -278,7 +278,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   const handleChange = (field: keyof Player, value: any) => {
     setFormData(prev => {
       const next: Player = { ...prev, [field]: value };
-      if (isHuesca && (field === 'nombrePila' || field === 'primerApellido' || field === 'segundoApellido')) {
+      if (field === 'nombrePila' || field === 'primerApellido' || field === 'segundoApellido') {
         const nombrePila = field === 'nombrePila' ? value : (prev.nombrePila || '');
         const primerApellido = field === 'primerApellido' ? value : (prev.primerApellido || '');
         const segundoApellido = field === 'segundoApellido' ? value : (prev.segundoApellido || '');
@@ -401,6 +401,16 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     };
   }, []);
 
+  // Establecer "Juvenil A" como equipo por defecto si no hay uno asignado
+  useEffect(() => {
+    if (!formData.equipoId && equipos.length > 0) {
+      const juvenilA = equipos.find(eq => (eq.equipo || eq.nombre || '').includes('Juvenil A'));
+      if (juvenilA) {
+        handleEquipoSelect(String(juvenilA.id));
+      }
+    }
+  }, [equipos.length]);
+
   const exportPlayerProfile = async () => {
     const target = exportRef.current;
     if (!target) return;
@@ -477,21 +487,21 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             {/* Foto compacta */}
             <div className="shrink-0 flex flex-col items-center gap-2">
               <div className="relative">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
                   onChange={handleFileChange}
                 />
-                <div 
+                <div
                   onClick={triggerFileInput}
                   className="w-28 h-32 rounded-2xl border-2 border-dashed border-[var(--accent)]/20 flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all overflow-hidden group shadow-inner"
                 >
                   {preview ? (
-                    <img loading="lazy" decoding="async" 
-                      src={preview} 
-                      alt="Preview" 
+                    <img loading="lazy" decoding="async"
+                      src={preview}
+                      alt="Preview"
                       className="w-full h-full object-cover object-top group-hover:opacity-75 transition-opacity"
                     />
                   ) : (
@@ -501,7 +511,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     </>
                   )}
                 </div>
-                <div 
+                <div
                   onClick={triggerFileInput}
                   className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white shadow-lg cursor-pointer hover:bg-red-700 transition-colors border-2 border-white text-xs"
                 >
@@ -511,42 +521,55 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             </div>
 
             {/* Datos básicos al lado de la foto */}
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Los 3 campos de nombre aparecen primero para todos */}
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">
-                  {isHuesca ? t('editPlayer.nameAndSurname', 'Nombre y apellido') : t('common.name')} *
-                </label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.firstName', 'Nombre')}</label>
+                <input type="text" value={formData.nombrePila || ''} onChange={(e) => handleChange('nombrePila' as keyof Player, e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-semibold text-slate-700" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.firstSurname', 'Primer apellido')}</label>
+                <input type="text" value={formData.primerApellido || ''} onChange={(e) => handleChange('primerApellido' as keyof Player, e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-semibold text-slate-700" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.secondSurname', 'Segundo apellido')}</label>
+                <input type="text" value={formData.segundoApellido || ''} onChange={(e) => handleChange('segundoApellido' as keyof Player, e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-semibold text-slate-700" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.fullName', 'Nombre Completo')}</label>
                 <input
                   type="text"
-                  value={formData.nombre}
-                  onChange={(e) => handleChange('nombre', e.target.value.toUpperCase())}
-                  placeholder={t('editPlayer.namePlaceholder')}
-                  readOnly={isHuesca}
-                  disabled={isHuesca}
-                  title={isHuesca ? t('editPlayer.nameAutoHint', 'Se genera automáticamente desde Nombre + Primer apellido') : undefined}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-black text-[var(--accent)] uppercase disabled:opacity-70 disabled:cursor-not-allowed"
+                  value={`${formData.nombrePila || ''} ${formData.primerApellido || ''}`.trim().toUpperCase()}
+                  readOnly
+                  disabled
+                  className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)] disabled:cursor-not-allowed"
                 />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.nickname')}</label>
-                <input 
-                  type="text" 
-                  value={formData.apodo || ''} 
-                  onChange={(e) => handleChange('apodo', e.target.value.toUpperCase())}
-                  placeholder={t('editPlayer.nicknamePlaceholder')}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-black text-[var(--accent)] uppercase" 
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.dni', 'DNI')}</label>
                 <input
                   type="text"
-                  value={formData.dni || ''}
-                  onChange={(e) => handleChange('dni', e.target.value.toUpperCase())}
-                  placeholder="12345678A"
+                  value={formData.apodo || ''}
+                  onChange={(e) => handleChange('apodo', e.target.value.toUpperCase())}
+                  placeholder={t('editPlayer.nicknamePlaceholder')}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-black text-[var(--accent)] uppercase"
                 />
               </div>
+              {!isHuesca && (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.dni', 'DNI')}</label>
+                  <input
+                    type="text"
+                    value={formData.dni || ''}
+                    onChange={(e) => handleChange('dni', e.target.value.toUpperCase())}
+                    placeholder="12345678A"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-black text-[var(--accent)] uppercase"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('players.number')}</label>
                 <input 
@@ -796,8 +819,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.birthDate')}</label>
               <input
-                type="text"
-                placeholder={t('editPlayer.birthDatePlaceholder')}
+                type="date"
                 value={formData.fechaNacimiento || ''}
                 onChange={(e) => handleChange('fechaNacimiento', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)]"
@@ -816,6 +838,126 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 />
               </div>
             )}
+          </div>
+
+          {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}
+          {!isHuesca && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('common.description')}</label>
+              <textarea
+                value={formData.descripcion || ''}
+                onChange={(e) => handleChange('descripcion', e.target.value)}
+                placeholder={t('editPlayer.descriptionPlaceholder')}
+                rows={3}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
+              />
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.attack')}</label>
+              <textarea
+                value={formData.ataque || ''}
+                onChange={(e) => handleChange('ataque', e.target.value)}
+                placeholder={t('editPlayer.attackPlaceholder')}
+                rows={3}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
+              />
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.defense')}</label>
+              <textarea
+                value={formData.defensa || ''}
+                onChange={(e) => handleChange('defensa', e.target.value)}
+                placeholder={t('editPlayer.defensePlaceholder')}
+                rows={3}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
+              />
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.person')}</label>
+              <textarea
+                value={formData.persona || ''}
+                onChange={(e) => handleChange('persona', e.target.value)}
+                placeholder={t('editPlayer.personPlaceholder')}
+                rows={3}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
+              />
+            </div>
+          </div>
+          )}
+
+          {/* === OBSERVACIONES — solo visible para Escuela Huesca === */}
+          {(clubId === 'escuela-huesca' || formData.club?.toUpperCase().includes('HUESCA')) && (
+            <>
+              {/* === DATOS PERSONALES EXTENDIDOS === */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mt-4 mb-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+                  <i className="fa-solid fa-id-card mr-1"></i>
+                  {t('editPlayer.extendedData', 'Datos personales')}
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.phone', 'Teléfono')}</label>
+                    <input type="tel" value={formData.telefono || ''} onChange={(e) => handleChange('telefono' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.email', 'Correo')}</label>
+                    <input type="email" value={formData.correo || ''} onChange={(e) => handleChange('correo' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.link', 'Enlace')}</label>
+                    <input type="url" value={formData.enlace || ''} onChange={(e) => handleChange('enlace' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                </div>
+              </div>
+
+              {/* === DATOS DEL TUTOR/A === */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+                  <i className="fa-solid fa-user-shield mr-1"></i>
+                  {t('editPlayer.guardianData', 'Datos del tutor/a')}
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.guardianName', 'Nombre tutor/a')}</label>
+                    <input type="text" value={formData.nombreTutor || ''} onChange={(e) => handleChange('nombreTutor' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.guardianEmail', 'Correo tutor')}</label>
+                    <input type="email" value={formData.correoTutor || ''} onChange={(e) => handleChange('correoTutor' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.guardianPhone', 'Teléfono tutor')}</label>
+                    <input type="tel" value={formData.telefonoTutor || ''} onChange={(e) => handleChange('telefonoTutor' as keyof Player, e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.observations')}</label>
+                <textarea
+                  value={formData.observaciones || ''}
+                  onChange={(e) => handleChange('observaciones', e.target.value)}
+                  placeholder={t('editPlayer.observationsPlaceholder')}
+                  rows={4}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
+                />
+              </div>
+            </>
+          )}
+
+          {/* === DIVISOR: DATOS GENERADOS === */}
+          <div className="my-6 pt-6 border-t-2 border-slate-200">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <i className="fa-solid fa-chart-line mr-2"></i>
+              {t('editPlayer.generatedData', 'Datos generados')}
+            </span>
           </div>
 
           {/* === DATOS DE PARTIDO en fila horizontal (calculados a partir de las actas, no editables) === */}
@@ -891,133 +1033,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               />
             </Suspense>
           )}
-
-          {/* === TEXTAREAS en grid 2x2 — oculto para Huesca === */}
-          {!isHuesca && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('common.description')}</label>
-              <textarea
-                value={formData.descripcion || ''}
-                onChange={(e) => handleChange('descripcion', e.target.value)}
-                placeholder={t('editPlayer.descriptionPlaceholder')}
-                rows={3}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
-              />
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.attack')}</label>
-              <textarea
-                value={formData.ataque || ''}
-                onChange={(e) => handleChange('ataque', e.target.value)}
-                placeholder={t('editPlayer.attackPlaceholder')}
-                rows={3}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
-              />
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.defense')}</label>
-              <textarea
-                value={formData.defensa || ''}
-                onChange={(e) => handleChange('defensa', e.target.value)}
-                placeholder={t('editPlayer.defensePlaceholder')}
-                rows={3}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
-              />
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.person')}</label>
-              <textarea
-                value={formData.persona || ''}
-                onChange={(e) => handleChange('persona', e.target.value)}
-                placeholder={t('editPlayer.personPlaceholder')}
-                rows={3}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
-              />
-            </div>
-          </div>
-          )}
-
-          {/* === OBSERVACIONES — solo visible para Escuela Huesca === */}
-          {(clubId === 'escuela-huesca' || formData.club?.toUpperCase().includes('HUESCA')) && (
-            <>
-              {/* === DATOS PERSONALES EXTENDIDOS === */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mt-4 mb-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
-                  <i className="fa-solid fa-id-card mr-1"></i>
-                  {t('editPlayer.extendedData', 'Datos personales')}
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.firstName', 'Nombre')}</label>
-                    <input type="text" value={formData.nombrePila || ''} onChange={(e) => handleChange('nombrePila' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.firstSurname', 'Primer apellido')}</label>
-                    <input type="text" value={formData.primerApellido || ''} onChange={(e) => handleChange('primerApellido' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.secondSurname', 'Segundo apellido')}</label>
-                    <input type="text" value={formData.segundoApellido || ''} onChange={(e) => handleChange('segundoApellido' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.phone', 'Teléfono')}</label>
-                    <input type="tel" value={formData.telefono || ''} onChange={(e) => handleChange('telefono' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.email', 'Correo')}</label>
-                    <input type="email" value={formData.correo || ''} onChange={(e) => handleChange('correo' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.link', 'Enlace')}</label>
-                    <input type="url" value={formData.enlace || ''} onChange={(e) => handleChange('enlace' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                </div>
-              </div>
-
-              {/* === DATOS DEL TUTOR/A === */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
-                  <i className="fa-solid fa-user-shield mr-1"></i>
-                  {t('editPlayer.guardianData', 'Datos del tutor/a')}
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.guardianName', 'Nombre tutor/a')}</label>
-                    <input type="text" value={formData.nombreTutor || ''} onChange={(e) => handleChange('nombreTutor' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.guardianEmail', 'Correo tutor')}</label>
-                    <input type="email" value={formData.correoTutor || ''} onChange={(e) => handleChange('correoTutor' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.guardianPhone', 'Teléfono tutor')}</label>
-                    <input type="tel" value={formData.telefonoTutor || ''} onChange={(e) => handleChange('telefonoTutor' as keyof Player, e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.observations')}</label>
-                <textarea
-                  value={formData.observaciones || ''}
-                  onChange={(e) => handleChange('observaciones', e.target.value)}
-                  placeholder={t('editPlayer.observationsPlaceholder')}
-                  rows={4}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
-                />
-              </div>
-            </>
-          )}
         </div>
 
         <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-center gap-3 sticky bottom-0">
@@ -1046,7 +1061,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             </button>
           </div>
           <button
-            disabled={isSaving || !formData.equipoId}
+            disabled={isSaving || !formData.nombre?.trim()}
             onClick={handleSave}
             className="flex-2 py-4 bg-[var(--accent)] text-white rounded-2xl font-black hover:bg-[var(--accent-dark)] transition-all shadow-xl shadow-[var(--accent)]/20 uppercase text-xs tracking-widest flex items-center justify-center gap-3 disabled:opacity-70"
           >

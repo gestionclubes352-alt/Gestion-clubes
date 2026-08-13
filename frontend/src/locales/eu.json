@@ -906,6 +906,7 @@
     "awayPlaceholder": "Kanpoko Taldea",
     "resultPlaceholder": "Emaitza (adib.: 2-1)",
     "saveEvent": "EKITALDIA GORDE",
+    "confirmPendingTeam": "Berretsi (✓) club/talde berria gorde aurretik",
     "deleteEvent": "Ekitaldia ezabatu"
   },
   "squadList": {

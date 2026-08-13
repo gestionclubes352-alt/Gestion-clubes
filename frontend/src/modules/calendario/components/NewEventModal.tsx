@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { CalendarEvent, EventType, EventFormData } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
-import EquipoSelect, { type EquipoOption } from '../../../shared/components/EquipoSelect';
+import EquipoSelect, { type EquipoOption, compareEquipoNames } from '../../../shared/components/EquipoSelect';
 import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { Competicion, Equipo, EquipoRival } from '@shared/services/dataService';
@@ -60,6 +60,9 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [configuredOwnTeamIds, setConfiguredOwnTeamIds] = useState<Set<string> | null>(null);
   const [configuredRivalIds, setConfiguredRivalIds] = useState<Set<string>>(new Set());
   const [createdCompetitionTeams, setCreatedCompetitionTeams] = useState<CompetitionTeam[]>([]);
+  const [isAddingLocalTeam, setIsAddingLocalTeam] = useState(false);
+  const [isAddingVisitorTeam, setIsAddingVisitorTeam] = useState(false);
+  const hasPendingTeamCreation = isAddingLocalTeam || isAddingVisitorTeam;
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -220,13 +223,33 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
   const restRivals = rivalCatalog.filter((rival) => !configuredRivalIds.has(String(rival.id)));
 
+  const sortedRelevantOwnTeams = useMemo(
+    () => [...relevantOwnTeams].sort((a, b) => compareEquipoNames(a.equipo || a.nombre || '', b.equipo || b.nombre || '')),
+    [relevantOwnTeams]
+  );
+
+  const sortedRelevantRivals = useMemo(
+    () => [...relevantRivals].sort((a, b) => compareEquipoNames(a.nombre, b.nombre)),
+    [relevantRivals]
+  );
+
+  const sortedRestOwnTeams = useMemo(
+    () => [...restOwnTeams].sort((a, b) => compareEquipoNames(a.equipo || a.nombre || '', b.equipo || b.nombre || '')),
+    [restOwnTeams]
+  );
+
+  const sortedRestRivals = useMemo(
+    () => [...restRivals].sort((a, b) => compareEquipoNames(a.nombre, b.nombre)),
+    [restRivals]
+  );
+
   const teamOptions: EquipoOption[] = [
-    // 1º: equipos ya adheridos a la competición
-    ...relevantOwnTeams.map((team) => toTeamOption(team, COMPETITION_GROUP)),
-    ...relevantRivals.map((rival) => toRivalOption(rival, COMPETITION_GROUP)),
+    // 1º: equipos ya adheridos a la competición (ordenados por categoría)
+    ...sortedRelevantOwnTeams.map((team) => toTeamOption(team, COMPETITION_GROUP)),
+    ...sortedRelevantRivals.map((rival) => toRivalOption(rival, COMPETITION_GROUP)),
     // 2º: resto de clubes/equipos guardados en el sistema, agrupados por club para buscarlos
-    ...restOwnTeams.map((team) => toTeamOption(team, team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined)),
-    ...restRivals.map((rival) => toRivalOption(rival, rival.club_id != null ? clubNameById.get(String(rival.club_id)) : undefined)),
+    ...sortedRestOwnTeams.map((team) => toTeamOption(team, team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined)),
+    ...sortedRestRivals.map((rival) => toRivalOption(rival, rival.club_id != null ? clubNameById.get(String(rival.club_id)) : undefined)),
   ].filter((option) => option.value.trim().length > 0);
 
   // Para sesiones (entrenamientos propios) solo tiene sentido elegir entre los equipos del propio club
@@ -235,6 +258,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
         .filter((team) => String(team.clubId) === String(ownClubId))
         .map(toTeamOption)
         .filter((option) => option.value.trim().length > 0)
+        .sort((a, b) => compareEquipoNames(a.value, b.value))
     : [];
 
   const matchOwnTeamOptions = subTeamOptions;
@@ -523,6 +547,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       onCreateOption={handleCreateTeamForCompetition}
                       addNewMode="clubTeam"
                       addLabel="+ Añadir club y equipo..."
+                      onAddingChange={setIsAddingLocalTeam}
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                     <EquipoSelect
@@ -535,6 +560,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       onCreateOption={handleCreateTeamForCompetition}
                       addNewMode="clubTeam"
                       addLabel="+ Añadir club y equipo..."
+                      onAddingChange={setIsAddingVisitorTeam}
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                   </div>
@@ -542,9 +568,15 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
               )}
             </div>
 
+            {hasPendingTeamCreation && (
+              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest text-center">
+                {t('newEvent.confirmPendingTeam')}
+              </p>
+            )}
             <button
               onClick={handleSubmit}
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg shadow-red-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+              disabled={hasPendingTeamCreation}
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg shadow-red-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               <i className="fa-solid fa-floppy-disk"></i> {t('newEvent.saveEvent')}
             </button>

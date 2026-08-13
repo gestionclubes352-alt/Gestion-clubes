@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '../../../shared/components/DataTable';
 import type { CompetitionTeam } from '../types';
+import type { Match } from '../../partidos/types';
 import { getTeamConfig } from '@shared/services/dataService';
 import { useGeminiStandings } from '../hooks/useGeminiStandings';
 import { useTeam } from '@context/TeamContext';
@@ -24,6 +25,7 @@ interface StandingTeam {
 
 interface LeagueTableProps {
   teams?: CompetitionTeam[];
+  matches?: Match[];
   myTeamName?: string;
   leagueName?: string;
 }
@@ -250,54 +252,103 @@ const buildOfficialStandings = (teams: CompetitionTeam[], clubId: string): Stand
   });
 };
 
-/**
- * Genera datos de clasificación simulados a partir de los equipos reales.
- * Ordena por puntos descendente y asigna posición.
- */
-/** Convierte un id (numérico o string, p.ej. UUID de Supabase) en un número estable para usar como semilla. */
-const idToSeed = (id: number | string): number => {
-  if (typeof id === 'number') return id;
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+/** Empareja un lado de un partido (nombre + clubId opcional) con un CompetitionTeam. */
+const findTeamForSide = (
+  teams: CompetitionTeam[],
+  sideName?: string,
+  sideClubId?: string | number
+): CompetitionTeam | undefined => {
+  if (sideClubId != null) {
+    const byClub = teams.find(t => t.clubId != null && String(t.clubId) === String(sideClubId));
+    if (byClub) return byClub;
   }
-  return Math.abs(hash);
+  if (!sideName) return undefined;
+  const normalizedSide = normalizeTeam(sideName);
+  if (!normalizedSide) return undefined;
+  return teams.find(t =>
+    [t.nombreEnFed, t.equipo, t.nombre].some(n => !!n && normalizeTeam(n) === normalizedSide)
+  );
 };
 
-const generateStandingsFromTeams = (teams: CompetitionTeam[], myTeamName: string): StandingTeam[] => {
+const MATCH_SCORE_REGEX = /^(\d+)\s*-\s*(\d+)$/;
+
+interface TeamMatchStats {
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+  formEntries: { date: string; result: 'W' | 'D' | 'L' }[];
+}
+
+/**
+ * Calcula la clasificación real a partir de los partidos registrados con resultado ('Finished').
+ * Los equipos sin partidos jugados muestran 0 en todas las columnas.
+ */
+const computeStandingsFromMatches = (teams: CompetitionTeam[], matches: Match[]): StandingTeam[] => {
   if (teams.length === 0) return [];
 
-  const standings = teams.map((team, index) => {
-    const seed = idToSeed(team.id || team.nombre || index.toString()) * 7 + 3 + index * 11;
-    const isMyTeam = team.nombre.toLowerCase().includes(myTeamName.toLowerCase());
+  const statsByTeamId = new Map<number | string, TeamMatchStats>();
+  teams.forEach(team => {
+    statsByTeamId.set(team.id, { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0, formEntries: [] });
+  });
 
-    const played = 18;
-    const won = isMyTeam ? 9 : Math.max(1, Math.min(14, (seed % 13) + 1));
-    const drawn = Math.max(0, Math.min(played - won, (seed % 7)));
-    const lost = played - won - drawn;
-    const goalsFor = won * 2 + drawn + Math.floor(seed % 5);
-    const goalsAgainst = lost * 2 + drawn + Math.floor((seed + 3) % 5);
-    const points = won * 3 + drawn;
-    const formOptions: ('W' | 'D' | 'L')[] = ['W', 'D', 'L'];
-    const form: ('W' | 'L' | 'D')[] = Array.from({ length: 5 }, (_, i) => formOptions[(seed + i) % 3]);
+  const applyResult = (team: CompetitionTeam | undefined, date: string, gf: number, ga: number) => {
+    if (!team) return;
+    const stats = statsByTeamId.get(team.id);
+    if (!stats) return;
+    stats.played += 1;
+    stats.goalsFor += gf;
+    stats.goalsAgainst += ga;
+    let result: 'W' | 'D' | 'L';
+    if (gf > ga) { stats.won += 1; stats.points += 3; result = 'W'; }
+    else if (gf === ga) { stats.drawn += 1; stats.points += 1; result = 'D'; }
+    else { stats.lost += 1; result = 'L'; }
+    stats.formEntries.push({ date, result });
+  };
 
+  matches.forEach(match => {
+    if (match.status !== 'Finished' || !match.score) return;
+    const scoreMatch = MATCH_SCORE_REGEX.exec(match.score.trim());
+    if (!scoreMatch) return;
+    const golLocal = parseInt(scoreMatch[1], 10);
+    const golVisitante = parseInt(scoreMatch[2], 10);
+
+    const localTeam = findTeamForSide(teams, match.localTeam, match.localTeamClubId);
+    const visitorTeam = findTeamForSide(teams, match.visitorTeam, match.visitorTeamClubId);
+    applyResult(localTeam, match.date, golLocal, golVisitante);
+    applyResult(visitorTeam, match.date, golVisitante, golLocal);
+  });
+
+  const standings = teams.map(team => {
+    const stats = statsByTeamId.get(team.id)!;
+    const form = [...stats.formEntries]
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+      .slice(0, 5)
+      .map(entry => entry.result);
     return {
       pos: 0,
       team: team.nombre,
       localidad: team.localidad || '',
       logoUrl: team.logoUrl || getFederationTeamLogo(team.nombreEnFed) || getFederationTeamLogo(team.nombre),
-      played,
-      won,
-      drawn,
-      lost,
-      goalsFor,
-      goalsAgainst,
-      points,
+      played: stats.played,
+      won: stats.won,
+      drawn: stats.drawn,
+      lost: stats.lost,
+      goalsFor: stats.goalsFor,
+      goalsAgainst: stats.goalsAgainst,
+      points: stats.points,
       form,
     };
   });
 
-  standings.sort((a, b) => b.points - a.points || (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst));
+  standings.sort((a, b) =>
+    b.points - a.points ||
+    (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) ||
+    b.goalsFor - a.goalsFor
+  );
   standings.forEach((s, i) => { s.pos = i + 1; });
 
   return standings;
@@ -345,7 +396,7 @@ const TeamCrest: React.FC<{ name: string; logoUrl?: string; size?: string }> = (
 
 const columnHelper = createColumnHelper<StandingTeam>();
 
-const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', leagueName = '' }) => {
+const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myTeamName = '', leagueName = '' }) => {
   const [useAI, setUseAI] = useState(true);
   const [activeSection, setActiveSection] = useState<CompetitionSection>('clasificacion');
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
@@ -432,12 +483,23 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
     }));
   }, [geminiStandings]);
 
-  // Decidir qué datos mostrar: oficiales del club > IA > simulados
-  const simulatedStandings = useMemo(() => generateStandingsFromTeams(filteredTeams, resolvedMyTeam), [filteredTeams, resolvedMyTeam]);
+  // Filtrar partidos a los equipos actualmente mostrados, para no arrastrar partidos de otras competiciones
+  const filteredTeamIds = useMemo(() => new Set(filteredTeams.map(t => t.id)), [filteredTeams]);
+  const relevantMatches = useMemo(() => matches.filter(match => {
+    const localTeam = findTeamForSide(filteredTeams, match.localTeam, match.localTeamClubId);
+    const visitorTeam = findTeamForSide(filteredTeams, match.visitorTeam, match.visitorTeamClubId);
+    return (localTeam && filteredTeamIds.has(localTeam.id)) || (visitorTeam && filteredTeamIds.has(visitorTeam.id));
+  }), [matches, filteredTeams, filteredTeamIds]);
+
+  // Clasificación calculada a partir de los partidos registrados ('Finished') de estos equipos.
+  const matchStandings = useMemo(() => computeStandingsFromMatches(filteredTeams, relevantMatches), [filteredTeams, relevantMatches]);
+  const hasRealMatchData = matchStandings.some(row => row.played > 0);
+
+  // Decidir qué datos mostrar: oficiales del club > partidos registrados > IA > (0 en todo si no hay nada)
   const officialStandings = useMemo(() => buildOfficialStandings(filteredTeams, standingsKey), [filteredTeams, standingsKey]);
   const hasOfficialData = officialStandings.length > 0;
-  const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData;
-  const standings = hasOfficialData ? officialStandings : (hasAIData ? aiStandings : simulatedStandings);
+  const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData && !hasRealMatchData;
+  const standings = hasOfficialData ? officialStandings : (hasRealMatchData ? matchStandings : (hasAIData ? aiStandings : matchStandings));
   const isAISource = hasAIData && (geminiSource === 'gemini' || geminiSource === 'cache');
   const isHuescaCurrentSeason = standingsKey === 'escuela-huesca' || standingsKey === 'escuela-huesca::Juvenil A';
   const hasStarted = standings.some(row => row.played > 0);
@@ -748,7 +810,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], myTeamName = '', 
                 : (
                   isAISource
                     ? <span className="text-violet-500"> · Datos reales vía Gemini AI</span>
-                    : <span> · Jornada simulada</span>
+                    : (hasRealMatchData
+                      ? <span className="text-emerald-600"> · Calculada desde partidos registrados</span>
+                      : <span> · Aún sin partidos disputados</span>)
                 )
               }
             </p>

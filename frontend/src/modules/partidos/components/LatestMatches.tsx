@@ -200,7 +200,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return normalizeInternalCandidate(match.nombreInterno) || normalizeInternalCandidate(match.team) || own || match.nombreInterno || match.team || '';
   };
 
-  // Equipo Interno es el filtro raíz: se calcula a partir de TODOS los matches y los equipos propios
+  // Equipos Internos: filtrados por Competición si está seleccionada
   const equipoInternoOptions = useMemo(() => {
     const names = new Map<string, string>();
     const addName = (name?: string) => {
@@ -209,45 +209,71 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       if (value && key && !names.has(key)) names.set(key, value);
     };
 
-    ownCompetitionTeams.forEach((team) => addName(internalNameOfTeam(team)));
-    matches.forEach((m) => {
+    // Filtrar equipos propios según competición si está seleccionada
+    const filteredOwnTeams = competitionFilter === ALL_FILTER
+      ? ownCompetitionTeams
+      : ownCompetitionTeams.filter((team) => isSameCompetition(team.competicion, competitionFilter));
+
+    filteredOwnTeams.forEach((team) => addName(internalNameOfTeam(team)));
+
+    // Si hay competición seleccionada, solo mostrar equipos de esa competición
+    const sourceMatches = competitionFilter === ALL_FILTER ? matches : matches.filter((m) => m.competition === competitionFilter);
+
+    sourceMatches.forEach((m) => {
       addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
       addName(isLikelyInternalTeamName(m.team) ? m.team : undefined);
     });
     return Array.from(names.values()).sort(compareEquipoNames);
-  }, [ownCompetitionTeams, matches]);
+  }, [ownCompetitionTeams, matches, competitionFilter]);
 
-  // Filtrar por Equipo Interno (filtro primario)
-  const matchesByEquipoInterno = useMemo(
-    () => (equipoInternoFilter === ALL_FILTER ? matches : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter)),
-    [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]
-  );
-
-  // Competición depende de Equipo Interno
+  // Competiciones: filtradas por Equipo Interno si está seleccionado
   const competitionOptions = useMemo(() => {
     const names = new Set<string>();
-    matchesByEquipoInterno.forEach((m) => { if (m.competition) names.add(m.competition); });
-    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matchesByEquipoInterno]);
 
-  // Filtrar por Competición (filtro secundario, depende de equipoInterno)
-  const matchesByEquipoInternoAndCompetition = useMemo(
-    () => (competitionFilter === ALL_FILTER ? matchesByEquipoInterno : matchesByEquipoInterno.filter((m) => m.competition === competitionFilter)),
-    [matchesByEquipoInterno, competitionFilter]
-  );
+    // Si hay equipo seleccionado, solo mostrar competiciones de ese equipo
+    const sourceMatches = equipoInternoFilter === ALL_FILTER
+      ? matches
+      : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+
+    sourceMatches.forEach((m) => { if (m.competition) names.add(m.competition); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+
+  // Filtro combinado para Equipo Interno y Competición
+  const filteredByEquipoAndCompetition = useMemo(() => {
+    let result = matches;
+
+    if (equipoInternoFilter !== ALL_FILTER) {
+      result = result.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+    }
+
+    if (competitionFilter !== ALL_FILTER) {
+      result = result.filter((m) => m.competition === competitionFilter);
+    }
+
+    return result;
+  }, [matches, equipoInternoFilter, competitionFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
 
   // Jornada depende de Equipo Interno y Competición
   const jornadaOptions = useMemo(() => {
     const names = new Set<string>();
-    matchesByEquipoInternoAndCompetition.forEach((m) => { if (m.jornada) names.add(m.jornada); });
+    filteredByEquipoAndCompetition.forEach((m) => { if (m.jornada) names.add(m.jornada); });
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
-  }, [matchesByEquipoInternoAndCompetition]);
+  }, [filteredByEquipoAndCompetition]);
 
   // Filtro final: aplicar filtro de Jornada
   const filteredMatches = useMemo(
-    () => (jornadaFilter === ALL_FILTER ? matchesByEquipoInternoAndCompetition : matchesByEquipoInternoAndCompetition.filter((m) => m.jornada === jornadaFilter)),
-    [matchesByEquipoInternoAndCompetition, jornadaFilter]
+    () => (jornadaFilter === ALL_FILTER ? filteredByEquipoAndCompetition : filteredByEquipoAndCompetition.filter((m) => m.jornada === jornadaFilter)),
+    [filteredByEquipoAndCompetition, jornadaFilter]
   );
+
+  // Si cambia Competición, el equipo interno elegido puede dejar de ser válido
+  useEffect(() => {
+    if (equipoInternoFilter !== ALL_FILTER && !equipoInternoOptions.includes(equipoInternoFilter)) {
+      setEquipoInternoFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipoInternoOptions]);
 
   // Si cambia Equipo Interno, la competición elegida puede dejar de ser válida
   useEffect(() => {

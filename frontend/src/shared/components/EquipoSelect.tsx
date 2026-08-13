@@ -89,6 +89,8 @@ interface EquipoSelectProps {
   onCreateOption?: (input: CreateEquipoOptionInput) => void | EquipoOption | Promise<void | EquipoOption>;
   addNewMode?: 'team' | 'clubTeam';
   addLabel?: string;
+  /** Se invoca cada vez que cambia si hay un alta de equipo/club sin confirmar (formulario inline abierto). */
+  onAddingChange?: (isAdding: boolean) => void;
 }
 
 const EquipoSelect: React.FC<EquipoSelectProps> = ({
@@ -102,6 +104,7 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   onCreateOption,
   addNewMode = 'team',
   addLabel = '+ Añadir nuevo equipo...',
+  onAddingChange,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -140,6 +143,10 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   }, [normalizedTeams, value, selectedClubId, useDefaultTeams]);
 
   const options = useMemo(() => sortTeamOptions([...dedupedList]), [dedupedList]);
+
+  useEffect(() => {
+    onAddingChange?.(isAdding);
+  }, [isAdding]);
 
   useEffect(() => {
     if (!isAdding || addNewMode !== 'clubTeam') return;
@@ -272,7 +279,7 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
             )}
           </div>
         )}
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="space-y-2">
           <input
             type="text"
             autoFocus={addNewMode === 'team' || (addNewMode === 'clubTeam' && newClubId !== '__CREATE_NEW__')}
@@ -288,24 +295,26 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
             }}
             placeholder="Nombre del equipo..."
             disabled={isCreating}
-            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 disabled:opacity-50"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 disabled:opacity-50"
           />
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={!newName.trim() || (addNewMode === 'clubTeam' && !newClubId) || isCreating}
-            className="px-3 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black disabled:opacity-40"
-          >
-            <i className={`fa-solid ${isCreating ? 'fa-spinner animate-spin' : 'fa-check'}`}></i>
-          </button>
-          <button
-            type="button"
-            onClick={resetAddForm}
-            disabled={isCreating}
-            className="px-3 py-2.5 bg-slate-200 text-slate-600 rounded-xl text-xs font-black disabled:opacity-40"
-          >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={!newName.trim() || (addNewMode === 'clubTeam' && !newClubId) || isCreating}
+              className="flex-1 px-3 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black disabled:opacity-40"
+            >
+              <i className={`fa-solid ${isCreating ? 'fa-spinner animate-spin' : 'fa-check'}`}></i>
+            </button>
+            <button
+              type="button"
+              onClick={resetAddForm}
+              disabled={isCreating}
+              className="flex-1 px-3 py-2.5 bg-slate-200 text-slate-600 rounded-xl text-xs font-black disabled:opacity-40"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
         {createError && <p className="text-[10px] font-semibold text-red-600">{createError}</p>}
       </div>

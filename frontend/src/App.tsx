@@ -961,8 +961,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   };
 
   const handleSaveEventAndViewReport = async (event: CalendarEvent) => {
+    const openedFromCalendar = location.pathname === '/calendario';
     await handleSaveEvent(event);
-    if (event.type === 'Partido') {
+    if (openedFromCalendar) {
+      navigate('/calendario');
+    } else if (event.type === 'Partido') {
       navigate(`/partidos/${event.id}`);
     }
   };
@@ -1346,8 +1349,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/plantillas" element={
                 <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
-                    if (!p.equipoId) throw new Error('Debes seleccionar un equipo');
-                    if (!p.dni && !p.id) throw new Error('El jugador debe tener un DNI o ID válido');
+                    if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
                     const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });
                     if (!toSave.id) throw new Error('No se pudo generar un ID válido para el jugador');
                     await db.players.upsert(toSave);
@@ -1493,7 +1495,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     <TacticalBoard
                       formacion={activeCampograma.formacion}
                       positions={activeCampograma.positions || []}
-                      squad={filteredSquadList}
+                      squad={filteredCurrentClubSquadList}
                       notConvocadoIds={[]}
                       onAssignPlayer={handleAssignPlayer}
                       onRemovePlayer={handleRemovePlayer}
@@ -1502,6 +1504,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       onPlayerSelect={(player) => setEditingPlayer(player)}
                       showStarterBadge={false}
                       showConvocadoControl={false}
+                      mainTeamName={activeCampograma.equipo}
                     />
                   </div>
                 ) : (
@@ -1554,7 +1557,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/videoteca" element={<Videoteca />} />
               <Route path="/competicion" element={
-                <LeagueTable teams={filteredCompetitionTeams} />
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} />
               } />
               <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
               <Route path="/lesiones" element={<InjuriesView />} />
@@ -1598,7 +1601,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       {editingPlayer && <EditPlayerModal
         player={editingPlayer}
         clubId={currentTeam?.id || ''}
-        equipos={competitionTeams}
+        equipos={misClubCompetitionTeams}
         events={filteredEventsList}
         matches={filteredMatchesList}
         clubes={clubesList}
@@ -1610,6 +1613,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           const equipoValido = competitionTeams.some(eq => String(eq.id) === String(toSave.equipoId));
           if (!equipoValido) { alert('El equipo seleccionado no existe. Por favor, selecciona un equipo válido.'); return; }
           const payload = {
+            id: String(toSave.id),
             equipo_id: String(toSave.equipoId),
             foto_url: toSave.fotoUrl || '',
             dorsal: toSave.dorsal,
@@ -1652,13 +1656,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             telefono_tutor: toSave.telefonoTutor,
           };
           try {
-            console.log('[App.tsx] Guardando jugador:', { nombre: toSave.nombre, equipoId: toSave.equipoId, equipo: toSave.equipo, club: toSave.club, payload });
-            const exists = squadList.some(existing => String(existing.id) === String(originalId));
-            if (exists) await plantillasService.update(String(originalId), payload);
+            console.log('[App.tsx] Guardando jugador:', { nombre: toSave.nombre, equipoId: toSave.equipoId, equipo: toSave.equipo, club: toSave.club, playerId: toSave.id });
+            const exists = squadList.some(existing => String(existing.id) === String(toSave.id));
+            if (exists) await plantillasService.update(String(toSave.id), payload);
             else await plantillasService.create(payload);
             console.log('[App.tsx] Jugador guardado exitosamente');
-            await fetchData();
+            setSquadList(prev => {
+              const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id));
+              console.log('[App.tsx] Actualizando squadList:', { existe: idx >= 0, toSaveId: toSave.id, prevLength: prev.length });
+              if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl);
+              const result = [toSave, ...prev];
+              console.log('[App.tsx] Nuevo jugador agregado. Nuevo length:', result.length);
+              return result;
+            });
             setEditingPlayer(null);
+            console.log('[App.tsx] Modal cerrado, llamando fetchData...');
+            await fetchData();
           } catch (e) {
             alert(e instanceof Error ? e.message : 'Error al guardar el jugador');
           }

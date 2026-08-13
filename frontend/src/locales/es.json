@@ -916,6 +916,7 @@
     "awayPlaceholder": "Equipo Visitante",
     "resultPlaceholder": "Resultado (ej: 2-1)",
     "saveEvent": "GUARDAR EVENTO",
+    "confirmPendingTeam": "Confirma (✓) el club/equipo nuevo antes de guardar",
     "deleteEvent": "Eliminar evento"
   },
   "squadList": {

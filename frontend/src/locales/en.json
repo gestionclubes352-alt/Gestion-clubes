@@ -906,6 +906,7 @@
     "awayPlaceholder": "Away Team",
     "resultPlaceholder": "Result (e.g.: 2-1)",
     "saveEvent": "SAVE EVENT",
+    "confirmPendingTeam": "Confirm (✓) the new club/team before saving",
     "deleteEvent": "Delete event"
   },
   "squadList": {

@@ -656,15 +656,24 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     const parsed = parseEventTime(ev.time);
                     return parsed && parsed.hour === hour;
                   });
+                  const compact = hourEvents.length > 1;
 
                   return (
                     <div
                       key={`${date.toISOString()}-${hour}`}
                       className={`min-h-14 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
                     >
-                      <div className="space-y-1">
+                      <div className={hourEvents.length > 0 ? 'flex flex-row gap-1 items-stretch' : 'space-y-1'}>
                         {hourEvents.map(ev => {
                           const teamColor = getTeamColor(getEventTeamKey(ev));
+                          const isMatch = ev.type === 'Partido';
+                          const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
+                          const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
+                          const localDisplay = resolveMatchSideDisplay(ev, ev.localTeam, ev.localTeamClubId);
+                          const visitorDisplay = resolveMatchSideDisplay(ev, ev.visitorTeam, ev.visitorTeamClubId);
+                          const localLogo = resolveTeamLogo(ev.localTeamClubId, ev.localTeam, displayLocalTeam);
+                          const visitorLogo = resolveTeamLogo(ev.visitorTeamClubId, ev.visitorTeam, displayVisitorTeam);
+
                           return (
                             <div
                               key={ev.id}
@@ -672,10 +681,91 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                 setSelectedEvent(ev);
                                 onClickEvent?.(ev);
                               }}
-                              className={`rounded-lg px-2 py-1 text-[10px] font-bold truncate cursor-pointer border transition-all hover:shadow-sm ${teamColor?.badge || EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}
-                              title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                              className={`flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''}`}
+                              title={isMatch
+                                ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
+                                : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                             >
-                              <span className="font-black">{formatEventLabel(ev.time || `${String(hour).padStart(2, '0')}:00`, ev.team)}</span> {ev.title}
+                              {isMatch ? (
+                                compact ? (
+                                  <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                                    <span className="text-[10px] font-black leading-none">{ev.time || '--:--'}</span>
+                                    {(ev.localTeam && ev.visitorTeam) ? (
+                                      <span className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
+                                        {localDisplay.teamName} <span className="opacity-60">vs</span> {visitorDisplay.teamName}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
+                                        {ev.title || ev.opponent || 'Partido'}
+                                      </span>
+                                    )}
+                                    {ev.score && (
+                                      <span className="text-[9px] font-black text-white bg-red-700 rounded px-1 leading-tight">
+                                        {ev.score}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="flex items-center gap-1 min-w-0 bg-white/60 rounded px-1.5 py-0.5 w-fit">
+                                      <i className="fa-solid fa-clock text-[9px] opacity-70 flex-shrink-0"></i>
+                                      <span className="text-[11px] font-black leading-none">{ev.time || '--:--'}</span>
+                                    </span>
+                                    {(ev.localTeam && ev.visitorTeam) ? (
+                                      <div className="flex items-center gap-1">
+                                        <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+                                          {localLogo ? (
+                                            <img loading="lazy" decoding="async" src={localLogo} alt="" className="h-6 w-6 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                          ) : (
+                                            <div className="h-6 w-6 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
+                                              <i className="fa-solid fa-shield-halved text-[9px] opacity-40"></i>
+                                            </div>
+                                          )}
+                                          <span className="block text-[8px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{localDisplay.clubName}</span>
+                                          <span className="block truncate w-full text-[10px] leading-tight">{localDisplay.teamName}</span>
+                                        </div>
+                                        <span className="flex-shrink-0 bg-red-600 text-white text-[9px] font-black leading-none px-1.5 py-1 rounded-full shadow-sm">VS</span>
+                                        <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+                                          {visitorLogo ? (
+                                            <img loading="lazy" decoding="async" src={visitorLogo} alt="" className="h-6 w-6 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                          ) : (
+                                            <div className="h-6 w-6 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
+                                              <i className="fa-solid fa-shield-halved text-[9px] opacity-40"></i>
+                                            </div>
+                                          )}
+                                          <span className="block text-[8px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{visitorDisplay.clubName}</span>
+                                          <span className="block truncate w-full text-[10px] leading-tight">{visitorDisplay.teamName}</span>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] font-semibold leading-tight truncate block">
+                                        {ev.title || ev.opponent || 'Partido'}
+                                      </span>
+                                    )}
+                                    {ev.score && (
+                                      <div className="text-[10px] font-black text-white bg-red-700 rounded-md py-0.5 text-center">
+                                        {ev.score}
+                                      </div>
+                                    )}
+                                  </>
+                                )
+                              ) : (
+                                compact ? (
+                                  <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                                    <span className="text-[10px] font-black leading-none">{ev.time || '--:--'}</span>
+                                    {ev.team && (
+                                      <span className="text-[9px] font-semibold leading-tight line-clamp-1 w-full">{ev.team}</span>
+                                    )}
+                                    {ev.title && (
+                                      <span className="text-[9px] leading-tight line-clamp-2 w-full opacity-90">{ev.title}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="truncate leading-tight block">
+                                    {formatEventLabel(ev.time, ev.team)} {ev.title}
+                                  </span>
+                                )
+                              )}
                             </div>
                           );
                         })}
