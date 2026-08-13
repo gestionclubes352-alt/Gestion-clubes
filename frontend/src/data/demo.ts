@@ -146,6 +146,26 @@ export const HUESCA_JUVENIL_A_PLAYERS: Player[] = [
 ];
 
 // ============================================================================
+// JUGADORES ARENAS CLUB — JUVENIL A (nuevos jugadores con nombres comunes)
+// ============================================================================
+
+export const ARENAS_JUVENIL_A_PLAYERS: Player[] = [
+  // ── DEFENSAS ──
+  { id: 300, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 2,  nombre: 'Carlos García',         posicion: 'Defensa', posicionJuego: 'Lateral Izquierdo', perfil: 'I', fechaNacimiento: '2010-03-22' },
+  { id: 301, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 3,  nombre: 'Juan López',           posicion: 'Defensa', posicionJuego: 'Central',            perfil: 'D', fechaNacimiento: '2009-05-10' },
+  { id: 302, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 4,  nombre: 'Miguel Rodríguez',     posicion: 'Defensa', posicionJuego: 'Central',            perfil: 'D', fechaNacimiento: '2010-07-14' },
+  { id: 303, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 5,  nombre: 'David Sánchez',        posicion: 'Defensa', posicionJuego: 'Lateral Derecho',    perfil: 'D', fechaNacimiento: '2009-09-08' },
+  { id: 304, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 13, nombre: 'Luis Martínez',        posicion: 'Defensa', posicionJuego: 'Lateral Izquierdo', perfil: 'I', fechaNacimiento: '2010-01-30' },
+  { id: 305, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 18, nombre: 'Ángel Pérez',          posicion: 'Defensa', posicionJuego: 'Central',            perfil: 'I', fechaNacimiento: '2010-11-09' },
+
+  // ── DELANTEROS ──
+  { id: 306, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 9,  nombre: 'Francisco Torres',     posicion: 'Delantero', posicionJuego: 'Delantero Centro', perfil: 'D', fechaNacimiento: '2010-06-19' },
+  { id: 307, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 11, nombre: 'Enrique Morales',      posicion: 'Delantero', posicionJuego: 'Extremo Izquierdo', perfil: 'I', fechaNacimiento: '2009-10-17' },
+  { id: 308, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 16, nombre: 'Rafael Jiménez',      posicion: 'Delantero', posicionJuego: 'Delantero Centro', perfil: 'I', fechaNacimiento: '2010-07-11' },
+  { id: 309, fotoUrl: 'D', competicion: 'Fútbol Base', club: 'ARENAS CLUB', equipo: 'Juvenil A', dorsal: 20, nombre: 'Andrés Ruiz',         posicion: 'Delantero', posicionJuego: 'Extremo Derecho',  perfil: 'D', fechaNacimiento: '2009-04-26' },
+];
+
+// ============================================================================
 // USUARIOS DEMO (12 usuarios — suficiente para paginación)
 // ============================================================================
 
