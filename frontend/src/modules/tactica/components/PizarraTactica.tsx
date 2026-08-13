@@ -3,6 +3,7 @@ import { plantillasService, equiposService, clubesService } from '@shared/servic
 import type { Club, Equipo } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import html2canvas from 'html2canvas';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
@@ -10,28 +11,28 @@ import { fetchFile } from '@ffmpeg/util';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
-    { x: 50, y: 88 }, { x: 18, y: 72 }, { x: 38, y: 74 }, { x: 62, y: 74 }, { x: 82, y: 72 },
-    { x: 18, y: 50 }, { x: 38, y: 52 }, { x: 62, y: 52 }, { x: 82, y: 50 },
-    { x: 38, y: 26 }, { x: 62, y: 26 },
+    { x: 50, y: 92 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 }, { x: 82, y: 80 },
+    { x: 18, y: 68 }, { x: 38, y: 70 }, { x: 62, y: 70 }, { x: 82, y: 68 },
+    { x: 38, y: 52 }, { x: 62, y: 52 },
   ],
   '4-3-3': [
-    { x: 50, y: 88 },
-    { x: 18, y: 72 }, { x: 38, y: 74 }, { x: 62, y: 74 }, { x: 82, y: 72 },
-    { x: 30, y: 50 }, { x: 50, y: 48 }, { x: 70, y: 50 },
-    { x: 20, y: 24 }, { x: 50, y: 18 }, { x: 80, y: 24 },
+    { x: 50, y: 92 },
+    { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 }, { x: 82, y: 80 },
+    { x: 30, y: 68 }, { x: 50, y: 66 }, { x: 70, y: 68 },
+    { x: 20, y: 48 }, { x: 50, y: 42 }, { x: 80, y: 48 },
   ],
   '4-2-3-1': [
-    { x: 50, y: 88 },
-    { x: 18, y: 72 }, { x: 38, y: 74 }, { x: 62, y: 74 }, { x: 82, y: 72 },
-    { x: 38, y: 55 }, { x: 62, y: 55 },
-    { x: 20, y: 36 }, { x: 50, y: 34 }, { x: 80, y: 36 },
-    { x: 50, y: 18 },
+    { x: 50, y: 92 },
+    { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 }, { x: 82, y: 80 },
+    { x: 38, y: 73 }, { x: 62, y: 73 },
+    { x: 20, y: 60 }, { x: 50, y: 58 }, { x: 80, y: 60 },
+    { x: 50, y: 42 },
   ],
   '5-3-2': [
-    { x: 50, y: 88 },
-    { x: 12, y: 70 }, { x: 30, y: 74 }, { x: 50, y: 76 }, { x: 70, y: 74 }, { x: 88, y: 70 },
-    { x: 28, y: 50 }, { x: 50, y: 50 }, { x: 72, y: 50 },
-    { x: 38, y: 24 }, { x: 62, y: 24 },
+    { x: 50, y: 92 },
+    { x: 12, y: 80 }, { x: 30, y: 84 }, { x: 50, y: 86 }, { x: 70, y: 84 }, { x: 88, y: 80 },
+    { x: 28, y: 66 }, { x: 50, y: 66 }, { x: 72, y: 66 },
+    { x: 38, y: 48 }, { x: 62, y: 48 },
   ],
 };
 
@@ -152,7 +153,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [is3DView, setIs3DView] = useState(false);
-  const [ball, setBall] = useState<Ball>({ x: 50, y: 88 });
+  const [ball, setBall] = useState<Ball>({ x: 50, y: 75 });
   const [draggingBall, setDraggingBall] = useState(false);
   const mode = is3DView ? 'Vista 3D' : 'Normal';
   const [myTeamColor, setMyTeamColor] = useState(MY_TEAM_COLOR);
@@ -209,7 +210,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           ? equiposRows.filter(e => String(e.club_id) === String(ownClubId))
           : [];
 
-        const sortedMyTeams = myTeamsFiltered.sort((a, b) => (a.sub_equipo || a.nombre).localeCompare(b.sub_equipo || b.nombre, 'es'));
+        const sortedMyTeams = myTeamsFiltered.sort((a, b) => compareEquipoNames(a.sub_equipo || a.nombre, b.sub_equipo || b.nombre));
         setMyTeams(sortedMyTeams);
 
         setSelectedMyTeamId(prev => {
@@ -805,11 +806,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const assignPlayer = (player: AssignableEntity, pitchId: string = selectedPitchId ?? '') => {
     if (!pitchId) return;
-    const initials = (player.apodo || player.nombre).slice(0, 2).toUpperCase();
+    const displayName = player.apodo || player.nombre;
+    const initials = displayName.slice(0, 2).toUpperCase();
 
     updatePitchPlayers(prev => prev.map(p => (
       p.id === pitchId
-        ? { ...p, playerId: player.id, playerName: player.apodo || player.nombre, playerInitials: initials }
+        ? { ...p, playerId: player.id, playerName: displayName, playerInitials: initials }
         : p
     )));
     setSelectedPitchIds([]);
@@ -1470,13 +1472,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         }}
                       >
                         {showPlayerNumbers && (
-                          <span className="text-[15px] leading-none">{player.playerInitials || player.number}</span>
+                          <span className="text-[15px] leading-none">{player.playerInitials ? player.playerInitials : player.number}</span>
                         )}
                       </div>
 
                       {player.playerName && (
-                        <div className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap text-[10px] font-black uppercase text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                          {player.playerName}
+                        <div className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-black uppercase text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                          {player.playerName.length > 8 ? player.playerName.substring(0, 8) + '...' : player.playerName}
                         </div>
                       )}
 
@@ -1564,6 +1566,22 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         ))}
                       </SearchableSelect>
 
+                      <div>
+                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                          Sistema
+                        </label>
+                        <select
+                          value={myFormation}
+                          onChange={e => setMyFormation(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                        >
+                          <option value="4-4-2">4-4-2</option>
+                          <option value="4-3-3">4-3-3</option>
+                          <option value="4-2-3-1">4-2-3-1</option>
+                          <option value="5-3-2">5-3-2</option>
+                        </select>
+                      </div>
+
                       {selectedMyTeamId && (
                         <div className="rounded-md border border-red-200 bg-red-100 px-3 py-2 dark:border-red-500/40 dark:bg-red-500/20">
                           <p className="text-[11px] font-black text-red-700 dark:text-red-200">
@@ -1628,6 +1646,22 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                             <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
                           ))}
                         </SearchableSelect>
+                      </div>
+
+                      <div>
+                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                          Sistema
+                        </label>
+                        <select
+                          value={rivalFormation}
+                          onChange={e => setRivalFormation(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                        >
+                          <option value="4-4-2">4-4-2</option>
+                          <option value="4-3-3">4-3-3</option>
+                          <option value="4-2-3-1">4-2-3-1</option>
+                          <option value="5-3-2">5-3-2</option>
+                        </select>
                       </div>
 
                       {selectedRivalTeamId && rivalPlayers.length > 0 && (
