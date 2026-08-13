@@ -66,9 +66,22 @@ const SQUAD_PLAYER_COLOR = '#1d4ed8';
 interface ExerciseDesignerProps {
   /** Plantilla de jugadores reales del club activo (p.ej. Escuela Huesca), para poder colocarlos en el diseñador */
   squad?: Player[];
+  /** Jugadores de todos los equipos internos del club, para agruparlos por equipo en el selector de Plantilla */
+  allSquad?: Player[];
 }
 
-const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
+const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSquad }) => {
+  const squadForPicker = allSquad && allSquad.length > 0 ? allSquad : squad;
+  const [collapsedSquadTeams, setCollapsedSquadTeams] = useState<Set<string>>(new Set());
+  const squadByTeam = useMemo(() => {
+    const groups = new Map<string, Player[]>();
+    squadForPicker.forEach(player => {
+      const teamName = player.equipo || 'Sin equipo';
+      if (!groups.has(teamName)) groups.set(teamName, []);
+      groups.get(teamName)!.push(player);
+    });
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+  }, [squadForPicker]);
   const location = useLocation();
   const navigate = useNavigate();
   // Tarea a preseleccionar al llegar desde el Repositorio de Tareas (creación rápida de una tarea nueva)
@@ -230,6 +243,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     b: { left: number; right: number; top: number; bottom: number }
   ) => !(b.left > a.right || b.right < a.left || b.top > a.bottom || b.bottom < a.top);
 
+  const isZoneOverlayTarget = useCallback((target: EventTarget | null) => {
+    const el = target as HTMLElement | null;
+    const root = el?.closest?.('[data-item-root]') as HTMLElement | null;
+    if (!root) return false;
+    const id = root.getAttribute('data-item-root');
+    return items.some(i => i.id === id && i.type === 'zone');
+  }, [items]);
+
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -285,6 +306,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const SUPPRESS_BACKGROUND_CLICK_MS = 400;
   const DRAG_THRESHOLD = 3;
   const MIN_ZONE_SIZE = 4;
+  const DROP_OUTSIDE_MARGIN_PX = 30;
+  const [dragOutsideField, setDragOutsideField] = useState(false);
 
   // Dibujo de una zona (rectángulo) siguiendo el arrastre del ratón, en vez de un tamaño fijo
   const zoneCreationRef = useRef<{
@@ -559,7 +582,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     if (!selectedTool || !selectedTool.startsWith('player-real-')) return false;
     const targetItem = items.find(i => i.id === itemId);
     if (!targetItem || !targetItem.type.startsWith('player-')) return false;
-    const squadPlayer = squad.find(p => String(p.id) === selectedTool.replace('player-real-', ''));
+    const squadPlayer = squadForPicker.find(p => String(p.id) === selectedTool.replace('player-real-', ''));
     if (!squadPlayer) return false;
 
     pushHistoryNow();
@@ -581,7 +604,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   };
 
   const handlePitchClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying) return;
+    const overZone = !!selectedTool && isZoneOverlayTarget(e.target);
+    if ((e.target !== e.currentTarget && !overZone) || resizingId || draggingId || isPlaying) return;
     if (!selectedTool) { clearSelection(); return; }
     
     const point = getPitchPercentPoint(e.clientX, e.clientY);
@@ -611,7 +635,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     const isText = selectedTool === 'text';
     const isSquadPlayer = selectedTool.startsWith('player-real-');
     const squadPlayer = isSquadPlayer
-      ? squad.find(p => String(p.id) === selectedTool.replace('player-real-', ''))
+      ? squadForPicker.find(p => String(p.id) === selectedTool.replace('player-real-', ''))
       : undefined;
     const isGoal = selectedTool === 'goal';
     const goalRotation = isGoal && y > 50 ? 180 : 0;
@@ -639,6 +663,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     pushHistoryNow();
     updateFrames([...items, newItem]);
     selectItemOnly(newItem.id);
+    if (isText) setShowText(false);
   };
 
   const handlePitchBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -653,7 +678,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
 
   const handlePitchPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (is3DView && !selectedTool) return;
-    if (e.target !== e.currentTarget || resizingId || draggingId || isPlaying) return;
+    const overZone = !!selectedTool && isZoneOverlayTarget(e.target);
+    if ((e.target !== e.currentTarget && !overZone) || resizingId || draggingId || isPlaying) return;
     if (selectedTool && selectedTool !== 'zone' && !selectedTool?.startsWith('arrow-')) return;
     const start = getPitchPercentPoint(e.clientX, e.clientY);
     if (!start) return;
@@ -904,10 +930,18 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           }
           return updated;
         }));
+
+        const rect = pitchRef.current.getBoundingClientRect();
+        const isOutside =
+          e.clientX < rect.left - DROP_OUTSIDE_MARGIN_PX ||
+          e.clientX > rect.right + DROP_OUTSIDE_MARGIN_PX ||
+          e.clientY < rect.top - DROP_OUTSIDE_MARGIN_PX ||
+          e.clientY > rect.bottom + DROP_OUTSIDE_MARGIN_PX;
+        setDragOutsideField(prev => (prev === isOutside ? prev : isOutside));
       });
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       cancelAnimationFrame(rafId.current);
       if (arrowCreationRef.current?.active) {
         const arrow = arrowCreationRef.current;
@@ -941,6 +975,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
         pushHistoryNow();
         updateFrames(prev => [...prev, newItem]);
         selectItemOnly(newItem.id);
+        setShowArrows(false);
         return;
       }
 
@@ -963,7 +998,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
         const y = moved && box ? box.top : startY;
 
         const zoneItems = itemsRef.current.filter(i => i.type === 'zone');
-        const nextZ = zoneItems.length > 0 ? Math.max(...zoneItems.map(i => i.zIndex)) + 1 : 1;
+        const nextZ = zoneItems.length > 0 ? Math.min(...zoneItems.map(i => i.zIndex)) - 1 : 0;
 
         const newItem: DesignerItem = {
           id: Math.random().toString(),
@@ -1004,12 +1039,28 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       }
 
       if (draggingRef.current) {
+        if (hasDragged.current && pitchRef.current) {
+          const rect = pitchRef.current.getBoundingClientRect();
+          const isOutside =
+            e.clientX < rect.left - DROP_OUTSIDE_MARGIN_PX ||
+            e.clientX > rect.right + DROP_OUTSIDE_MARGIN_PX ||
+            e.clientY < rect.top - DROP_OUTSIDE_MARGIN_PX ||
+            e.clientY > rect.bottom + DROP_OUTSIDE_MARGIN_PX;
+
+          if (isOutside) {
+            const idsToRemove = draggingIdsRef.current.length > 0 ? draggingIdsRef.current : [draggingRef.current];
+            updateFrames(prev => prev.filter(item => !idsToRemove.includes(item.id)));
+            clearSelection();
+          }
+        }
         commitHistorySnapshot();
       }
       draggingRef.current = null;
       draggingIdsRef.current = [];
       dragStartPositionsRef.current = {};
       dragStartArrowPointsRef.current = {};
+      hasDragged.current = false;
+      setDragOutsideField(false);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       setDraggingId(null);
@@ -1364,7 +1415,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
               })}
             </div>
           )}
-          {showPlayers && squad.length > 0 && (
+          {showPlayers && squadForPicker.length > 0 && (
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
@@ -1382,47 +1433,83 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
               </button>
             </div>
           )}
-          {showPlayers && (playerSource === 'generico' || squad.length === 0) && (
+          {showPlayers && (playerSource === 'generico' || squadForPicker.length === 0) && (
             <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
               {tools.jugadores.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedTool(selectedTool === p.id ? null : p.id)}
-                  style={{ backgroundColor: p.color }}
-                  className={`h-9 w-9 rounded-full flex items-center justify-center text-white transition-all shadow-xl relative group font-black text-xs sm:h-10 sm:w-10 sm:text-sm ${selectedTool === p.id ? 'ring-2 ring-white ring-offset-2 ring-offset-[#f1f5f9] scale-110' : 'opacity-90 hover:opacity-100 hover:scale-105'}`}
-                  aria-label={`Jugador ${p.number}`}
-                  title={`Jugador ${p.number}`}
-                >
-                  <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">{p.number}</span>
-                </button>
+                <div key={p.id} className={`relative transition-all ${selectedTool === p.id ? 'scale-125' : ''}`}>
+                  <button
+                    onClick={() => setSelectedTool(selectedTool === p.id ? null : p.id)}
+                    style={{ backgroundColor: p.color }}
+                    className={`w-9 h-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white transition-all shadow-xl font-black text-xs sm:text-sm ${selectedTool === p.id ? 'ring-4 ring-offset-3 ring-slate-800 scale-100 shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-105 opacity-90'}`}
+                    aria-label={`Jugador ${p.number}`}
+                    title={`Jugador ${p.number} (clic para deseleccionar)`}
+                  >
+                    <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">{p.number}</span>
+                  </button>
+                  {selectedTool === p.id && (
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-[var(--accent)] rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                      <i className="fa-solid fa-check text-white text-[10px] font-black"></i>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
-          {showPlayers && playerSource === 'plantilla' && squad.length > 0 && (
-            <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto pr-1">
-              {squad.map(player => {
-                const toolId = `player-real-${player.id}`;
-                const isSelected = selectedTool === toolId;
+          {showPlayers && playerSource === 'plantilla' && squadForPicker.length > 0 && (
+            <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-1">
+              {squadByTeam.map(([teamName, players]) => {
+                const isCollapsed = collapsedSquadTeams.has(teamName);
                 return (
-                  <button
-                    key={player.id}
-                    type="button"
-                    onClick={() => setSelectedTool(isSelected ? null : toolId)}
-                    className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition-all ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    title={player.apodo || player.nombre}
-                  >
-                    <div className={`w-7 h-7 shrink-0 rounded-full overflow-hidden border-2 ${isSelected ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center`}>
-                      {player.fotoUrl && player.fotoUrl.length > 1 ? (
-                        <img src={player.fotoUrl} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className={`text-[9px] font-black ${isSelected ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black ${isSelected ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
-                      {player.dorsal}
-                    </span>
-                    <span className="flex-1 min-w-0 truncate text-left text-[10px] font-black uppercase">{player.apodo || player.nombre}</span>
-                  </button>
+                  <div key={teamName} className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setCollapsedSquadTeams(prev => {
+                        const next = new Set(prev);
+                        if (next.has(teamName)) next.delete(teamName); else next.add(teamName);
+                        return next;
+                      })}
+                      className="flex items-center gap-2 px-1 py-0.5 text-left"
+                    >
+                      <i className={`fa-solid fa-chevron-down text-[9px] text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}></i>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{teamName}</span>
+                      <span className="text-[8px] font-bold text-slate-400">({players.length})</span>
+                    </button>
+                    {!isCollapsed && players.map(player => {
+                      const toolId = `player-real-${player.id}`;
+                      const isSelected = selectedTool === toolId;
+                      return (
+                        <button
+                          key={player.id}
+                          type="button"
+                          onClick={() => setSelectedTool(isSelected ? null : toolId)}
+                          className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 transition-all ${isSelected ? 'bg-gradient-to-r from-[var(--accent)] to-[var(--accent)]/90 border-[var(--accent)] text-white shadow-2xl ring-4 ring-[var(--accent)]/50 scale-110' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                          title={`${player.apodo || player.nombre} (clic para deseleccionar)`}
+                        >
+                          <div className={`w-9 h-9 shrink-0 rounded-full overflow-hidden border-3 ${isSelected ? 'border-white ring-2 ring-white/50' : 'border-slate-200'} bg-slate-100 flex items-center justify-center relative`}>
+                            {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                              <img src={player.fotoUrl} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className={`text-[10px] font-black ${isSelected ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                            )}
+                            {isSelected && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                                <i className="fa-solid fa-check text-white text-[14px] drop-shadow-lg"></i>
+                              </div>
+                            )}
+                          </div>
+                          <span className={`shrink-0 px-2 py-1 rounded-lg text-[10px] font-black ${isSelected ? 'bg-white/20 text-white border border-white/30' : 'bg-[var(--accent)] text-white'}`}>
+                            {player.dorsal}
+                          </span>
+                          <span className="flex-1 min-w-0 truncate text-left text-[11px] font-black uppercase">{player.apodo || player.nombre}</span>
+                          {isSelected && (
+                            <div className="shrink-0 w-6 h-6 flex items-center justify-center bg-white/20 rounded-full border border-white/30">
+                              <i className="fa-solid fa-check text-white text-[14px] font-black"></i>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>
@@ -2018,6 +2105,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     const isItemSelected = selectedIds.includes(item.id);
                     const showResizeHandles = !is3DView && selectedId === item.id && selectedIds.length === 1 && isResizable && !item.locked;
                     const animationClass = getDesignerItemAnimationClass(item.animation);
+                    const isMarkedForDelete = draggingId === item.id && dragOutsideField;
 
                     return (
                   <div
@@ -2027,10 +2115,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     onPointerDown={(e) => {
                       const target = e.target as HTMLElement;
                       if (target.closest('[data-resize-handle="true"]') || target.closest('[data-orientation-handle="true"]')) return;
+                      if (item.type === 'zone' && selectedTool) return;
                       if (item.type === 'zone' && !isItemSelected) return;
                       handleDragStart(e, item);
                     }}
                     onClick={(e) => {
+                      if (item.type === 'zone' && selectedTool) return;
                       e.stopPropagation();
                       if (hasDragged.current) return;
                       if (assignSelectedSquadPlayerToItem(item.id)) return;
@@ -2044,9 +2134,18 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       transformStyle: 'preserve-3d',
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
                       height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
-                      pointerEvents: 'auto'
+                      pointerEvents: 'auto',
+                      opacity: isMarkedForDelete ? 0.35 : undefined,
                     }}
                   >
+                    {isMarkedForDelete && (
+                      <div
+                        className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#cf2227] text-white shadow-lg z-30"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        <i className="fa-solid fa-trash-can text-[12px]" />
+                      </div>
+                    )}
                     {resizingId === item.id && item.type !== 'goal' && (
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 whitespace-nowrap pointer-events-none z-20">
                         <div className="rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
@@ -2212,9 +2311,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         />
                       ) : (
                         <div className={`relative h-full w-full flex items-center justify-center ${animationClass}`}>
-                          <svg viewBox="0 0 100 50" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
-                            <path d="M 10 50 Q 50 5 90 50" stroke="#111111" strokeWidth="6" fill="none" strokeLinecap="round" />
-                          </svg>
                           <div className={`absolute border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors h-full w-full pointer-events-none`} />
                           {showResizeHandles && (
                             <>
@@ -2311,6 +2407,29 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       </div>
                     ) : (
                       <i className={`fa-solid ${item.icon} text-3xl text-white drop-shadow-lg ${animationClass}`}></i>
+                    )}
+                    {!is3DView && canOrientItem(item) && orientationModeEnabled && item.type !== 'goal' && (
+                      <svg
+                        width="80"
+                        height="80"
+                        viewBox="-40 -40 80 80"
+                        className={`absolute left-1/2 top-1/2 overflow-visible ${isItemSelected ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
+                        style={{ transform: 'translate(-50%, -50%)' }}
+                      >
+                        <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
+                        {isItemSelected && (
+                          <path
+                            data-orientation-handle="true"
+                            onPointerDown={(e) => handleRotateStart(e, item)}
+                            d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8"
+                            fill="none"
+                            stroke="transparent"
+                            strokeWidth="20"
+                            strokeLinecap="round"
+                            style={{ pointerEvents: 'stroke' }}
+                          />
+                        )}
+                      </svg>
                     )}
                     {!is3DView && (item.type === 'goal' || item.type === 'fence' || item.type === 'ladder') && isItemSelected && !item.locked && (
                       <button

@@ -1517,7 +1517,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   </div>
                 )
               } />
-              <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} />} />
+              <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} allSquad={currentClubSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
                 <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
