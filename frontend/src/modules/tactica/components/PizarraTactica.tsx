@@ -5,6 +5,8 @@ import type { TacticalArrow } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import html2canvas from 'html2canvas';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '4-4-2': [
@@ -845,6 +847,23 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const selectedSquadPlayer = selectedSquadPlayerId ? squad.find(p => p.id === selectedSquadPlayerId) : null;
   const selectedMyTeam = selectedMyTeamId ? myTeams.find(team => String(team.id) === selectedMyTeamId) : null;
 
+  const ffmpegRef = useRef(new FFmpeg());
+  const [isRecording, setIsRecording] = useState(false);
+
+  useEffect(() => {
+    const initFFmpeg = async () => {
+      const ffmpeg = ffmpegRef.current;
+      if (!ffmpeg.isLoaded()) {
+        try {
+          await ffmpeg.load();
+        } catch (err) {
+          console.error('Error loading FFmpeg:', err);
+        }
+      }
+    };
+    initFFmpeg();
+  }, []);
+
   const downloadImage = async () => {
     if (!pitchRef.current) return;
     const canvas = await html2canvas(pitchRef.current, {
@@ -859,7 +878,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   };
 
   const startVideoRecording = async () => {
-    if (!pitchRef.current) return;
+    if (!pitchRef.current || isRecording) return;
+    setIsRecording(true);
+
     try {
       const canvas = await html2canvas(pitchRef.current, {
         backgroundColor: null,
@@ -871,20 +892,45 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       const chunks: BlobPart[] = [];
 
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.webm`;
-        a.click();
-        URL.revokeObjectURL(url);
+      mediaRecorder.onstop = async () => {
+        const webmBlob = new Blob(chunks, { type: 'video/webm' });
+        const ffmpeg = ffmpegRef.current;
+
+        try {
+          if (ffmpeg.isLoaded()) {
+            await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+            await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', 'output.mp4']);
+            const data = await ffmpeg.readFile('output.mp4');
+            const mp4Blob = new Blob([data], { type: 'video/mp4' });
+            const url = URL.createObjectURL(mp4Blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.mp4`;
+            a.click();
+            URL.revokeObjectURL(url);
+            await ffmpeg.deleteFile('input.webm');
+            await ffmpeg.deleteFile('output.mp4');
+          } else {
+            throw new Error('FFmpeg no está cargado');
+          }
+        } catch (err) {
+          console.error('Error convirtiendo a MP4:', err);
+          const url = URL.createObjectURL(webmBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } finally {
+          setIsRecording(false);
+        }
       };
 
       mediaRecorder.start();
       setTimeout(() => mediaRecorder.stop(), 10000);
     } catch (err) {
       console.error('Error al grabar video:', err);
+      setIsRecording(false);
     }
   };
 
@@ -963,11 +1009,16 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </button>
               <button
                 onClick={startVideoRecording}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Grabar 10 segundos de video"
+                disabled={isRecording}
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  isRecording
+                    ? 'border-red-300 bg-red-100 text-red-600 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-300 cursor-not-allowed'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+                title={isRecording ? 'Grabando...' : 'Grabar 10 segundos de video en MP4'}
               >
-                <i className="fa-solid fa-video mr-2 text-[11px]" />
-                VIDEO
+                <i className={`fa-solid ${isRecording ? 'fa-circle-notch animate-spin' : 'fa-video'} mr-2 text-[11px]`} />
+                {isRecording ? 'GRABANDO' : 'VIDEO'}
               </button>
               <button
                 onClick={() => setDrawingMode(!drawingMode)}
