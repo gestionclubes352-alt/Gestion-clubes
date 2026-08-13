@@ -245,11 +245,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const [textSize, setTextSize] = useState<SizePreset>('M');
   const [textColor, setTextColor] = useState('#ffffff');
   
-  const [showStructure, setShowStructure] = useState(true);
+  const [showStructure, setShowStructure] = useState(false);
   const [showPlayers, setShowPlayers] = useState(true);
   const [showCones, setShowCones] = useState(true);
-  const [showText, setShowText] = useState(true);
-  const [showArrows, setShowArrows] = useState(true);
+  const [showText, setShowText] = useState(false);
+  const [showArrows, setShowArrows] = useState(false);
   const [showMaterial, setShowMaterial] = useState(true);
   const [arrowColor, setArrowColor] = useState('#ffffff');
   const [arrowStrokeWidth, setArrowStrokeWidth] = useState(0.3);
@@ -268,6 +268,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
   const draggingRef = useRef<string | null>(null);
   const draggingIdsRef = useRef<string[]>([]);
   const dragStartPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const dragStartArrowPointsRef = useRef<Record<string, { arrowStart: { x: number; y: number }; arrowEnd: { x: number; y: number } }>>({});
   const hasDragged = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const dragStartPercentRef = useRef({ x: 0, y: 0 });
@@ -738,6 +739,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
         return [id, { x: currentItem?.x ?? item.x, y: currentItem?.y ?? item.y }];
       })
     );
+    dragStartArrowPointsRef.current = Object.fromEntries(
+      draggingIdsRef.current.map(id => {
+        const currentItem = items.find(entry => entry.id === id);
+        if (currentItem?.arrowStart && currentItem?.arrowEnd) {
+          return [id, { arrowStart: { ...currentItem.arrowStart }, arrowEnd: { ...currentItem.arrowEnd } }];
+        }
+        return [id, { arrowStart: { x: 0, y: 0 }, arrowEnd: { x: 0, y: 0 } }];
+      })
+    );
 
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
@@ -879,15 +889,18 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             y: newY,
           };
           // Para flechas, también actualizar arrowStart y arrowEnd
-          if (item.type?.startsWith('arrow-') && item.arrowStart && item.arrowEnd) {
-            updated.arrowStart = {
-              x: item.arrowStart.x + deltaX,
-              y: item.arrowStart.y + deltaY,
-            };
-            updated.arrowEnd = {
-              x: item.arrowEnd.x + deltaX,
-              y: item.arrowEnd.y + deltaY,
-            };
+          if (item.type?.startsWith('arrow-')) {
+            const arrowPoints = dragStartArrowPointsRef.current[item.id];
+            if (arrowPoints && arrowPoints.arrowStart && arrowPoints.arrowEnd) {
+              updated.arrowStart = {
+                x: Math.min(100, Math.max(0, arrowPoints.arrowStart.x + deltaX)),
+                y: Math.min(100, Math.max(0, arrowPoints.arrowStart.y + deltaY)),
+              };
+              updated.arrowEnd = {
+                x: Math.min(100, Math.max(0, arrowPoints.arrowEnd.x + deltaX)),
+                y: Math.min(100, Math.max(0, arrowPoints.arrowEnd.y + deltaY)),
+              };
+            }
           }
           return updated;
         }));
@@ -962,6 +975,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
         pushHistoryNow();
         updateFrames(prev => [...prev, newItem]);
         selectItemOnly(newItem.id);
+        setSelectedTool(null);
         return;
       }
 
@@ -995,6 +1009,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
       draggingRef.current = null;
       draggingIdsRef.current = [];
       dragStartPositionsRef.current = {};
+      dragStartArrowPointsRef.current = {};
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       setDraggingId(null);
@@ -1185,10 +1200,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     { id: 'ne', shape: 'corner' as const, className: 'top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize' },
     { id: 'sw', shape: 'corner' as const, className: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize' },
     { id: 'se', shape: 'corner' as const, className: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize' },
-    { id: 'n', shape: 'edge-h' as const, className: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize' },
-    { id: 's', shape: 'edge-h' as const, className: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 cursor-ns-resize' },
-    { id: 'w', shape: 'edge-v' as const, className: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize' },
-    { id: 'e', shape: 'edge-v' as const, className: 'right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-ew-resize' },
   ];
   const resizeHandleHitClass = (shape: 'corner' | 'edge-h' | 'edge-v') =>
     shape === 'corner' ? 'w-7 h-7' : shape === 'edge-h' ? 'w-9 h-6' : 'w-6 h-9';
@@ -1262,18 +1273,31 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
     clearSelection();
   };
 
+  const handleFullscreen = async () => {
+    if (!canvasRef.current) return;
+    try {
+      if (!document.fullscreenElement) {
+        await canvasRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Error al cambiar a pantalla completa:', err);
+    }
+  };
+
   return (
     <div className="relative flex min-h-[calc(100vh-60px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl animate-fade-in lg:h-[calc(100vh-60px)] lg:flex-row">
       <aside className="flex w-full flex-col gap-6 overflow-y-visible border-b border-slate-200 bg-[#f1f5f9] p-4 scrollbar-hide sm:p-5 lg:w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:overflow-y-auto">
         <div className="flex flex-col gap-3">
           <button onClick={() => setShowStructure(!showStructure)} className="flex justify-between items-center px-2 w-full">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">ESTRUCTURA</h4>
+            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">ESTRUCTURA</h4>
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showStructure ? '' : '-rotate-90'}`}></i>
           </button>
           {showStructure && (
             <div className="flex flex-col gap-2 px-1">
               { [{ id: 'campo-total', label: 'Campo Total', icon: 'fa-up-right-and-down-left-from-center' }, { id: 'ataque', label: 'Ataque', icon: 'fa-chevron-up' }, { id: 'defensa', label: 'Defensa', icon: 'fa-chevron-down' }, { id: 'libre', label: 'Libre', icon: 'fa-square' }].map((s) => (
-                <button key={s.id} onClick={() => setActiveStructure(s.id)} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all w-full border ${activeStructure === s.id ? 'bg-[var(--accent)] text-white shadow-lg border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
+                <button key={s.id} onClick={() => { setShowStructure(false); setActiveStructure(s.id); }} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all w-full border ${activeStructure === s.id ? 'bg-[var(--accent)] text-white shadow-lg border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
                   <i className={`fa-solid ${s.icon} text-[10px] ${activeStructure === s.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
                   <span className="text-[11px] font-black uppercase">{s.label}</span>
                 </button>
@@ -1287,14 +1311,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
         <div className="flex flex-col gap-4 px-2">
           <div className="flex flex-col gap-2 mb-1">
             <button type="button" onClick={() => setShowPlayers(v => !v)} className="flex items-center gap-2">
-              <h4 className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em]">JUGADORES</h4>
+              <h4 className="text-[8px] font-black text-[var(--accent)] uppercase tracking-[0.1em]">JUGADORES</h4>
               <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showPlayers ? '' : '-rotate-90'}`}></i>
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setShowPlayerNumbers(v => !v)}
-                className={`px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 ${
+                className={`px-2 py-1.5 rounded-lg font-black text-[8px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1 ${
                   showPlayerNumbers
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -1308,7 +1332,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
               <button
                 type="button"
                 onClick={() => setOrientationModeEnabled(v => !v)}
-                className={`px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1.5 ${
+                className={`px-2 py-1.5 rounded-lg font-black text-[8px] uppercase tracking-widest border transition-all flex items-center justify-center gap-1 ${
                   orientationModeEnabled
                     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -1330,7 +1354,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                     key={size}
                     type="button"
                     onClick={() => applyPlayerSize(size)}
-                    className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                    className={`rounded-lg border py-1 text-[8px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                     aria-label={`Tamano de jugador ${size}`}
                     title={`Tamano de jugador ${size}`}
                   >
@@ -1405,35 +1429,51 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 mt-2">
-          <button type="button" onClick={() => setShowCones(v => !v)} className="flex justify-between items-center px-2 w-full">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">CONOS</h4>
-            <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showCones ? '' : '-rotate-90'}`}></i>
+        <div className="flex flex-col gap-3 pb-8">
+          <button type="button" onClick={() => setShowMaterial(v => !v)} className="flex justify-between items-center px-2 w-full">
+            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">MATERIAL</h4>
+            <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showMaterial ? '' : '-rotate-90'}`}></i>
           </button>
-          {showCones && (
+          {showMaterial && (
             <div className="flex flex-col gap-2 px-1">
               <div className="grid grid-cols-4 gap-1.5">
                 {SIZE_PRESETS.map((size) => {
-                  const activeSize = isConeItem(selectedItem) ? selectedElementSize : coneSize;
+                  const activeSize = (isMaterialItem(selectedItem) || isConeItem(selectedItem)) ? selectedElementSize : materialSize;
                   return (
                     <button
                       key={size}
                       type="button"
-                      onClick={() => applyConeSize(size)}
-                      className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                      aria-label={`Tamano de cono ${size}`}
-                      title={`Tamano de cono ${size}`}
+                      onClick={() => {
+                        applyMaterialSize(size);
+                        applyConeSize(size);
+                      }}
+                      className={`rounded-lg border py-1 text-[8px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                      aria-label={`Tamano ${size}`}
+                      title={`Tamano ${size}`}
                     >
                       {size}
                     </button>
                   );
                 })}
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                {tools.material.map((m) => (
+                  <button key={m.id} onClick={() => setSelectedTool(selectedTool === m.id ? null : m.id)} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
+                    {m.id === 'slalom'
+                      ? <SlalomPoleIcon size={28} />
+                      : m.id === 'ball'
+                      ? <SoccerBallIcon size={14} />
+                      : <i className={`fa-solid ${m.icon} text-lg ${selectedTool === m.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
+                    }
+                    <span className="text-[7px] font-black uppercase tracking-tight">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
                 {tools.conos.map((cone) => (
-                  <button key={cone.id} onClick={() => setSelectedTool(selectedTool === cone.id ? null : cone.id)} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border bg-[#121212] ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#f1f5f9] scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
-                    <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[20px]" style={{ borderBottomColor: cone.color }}></div>
-                    <div className="w-6 h-1 bg-white/40 rounded-full mt-1"></div>
+                  <button key={cone.id} onClick={() => setSelectedTool(selectedTool === cone.id ? null : cone.id)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all border bg-white ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-white scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
+                    <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[14px]" style={{ borderBottomColor: cone.color }}></div>
+                    <div className="w-4 h-0.5 bg-white/40 rounded-full mt-0.5"></div>
                   </button>
                 ))}
               </div>
@@ -1443,7 +1483,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
 
         <div className="flex flex-col gap-3 mt-2">
           <button type="button" onClick={() => setShowText(v => !v)} className="flex justify-between items-center px-2 w-full">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">TEXTO</h4>
+            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">TEXTO</h4>
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showText ? '' : '-rotate-90'}`}></i>
           </button>
           {showText && (
@@ -1511,7 +1551,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
 
         <div className="flex flex-col gap-3 mt-2">
           <button type="button" onClick={() => setShowArrows(v => !v)} className="flex justify-between items-center px-2 w-full">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">FLECHAS</h4>
+            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">FLECHAS</h4>
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showArrows ? '' : '-rotate-90'}`}></i>
           </button>
           {showArrows && (
@@ -1556,47 +1596,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                   </div>
                 </>
               )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 pb-8">
-          <button type="button" onClick={() => setShowMaterial(v => !v)} className="flex justify-between items-center px-2 w-full">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">MATERIAL</h4>
-            <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showMaterial ? '' : '-rotate-90'}`}></i>
-          </button>
-          {showMaterial && (
-            <div className="flex flex-col gap-2 px-1">
-              <div className="grid grid-cols-4 gap-1.5">
-                {SIZE_PRESETS.map((size) => {
-                  const activeSize = isMaterialItem(selectedItem) ? selectedElementSize : materialSize;
-                  return (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => applyMaterialSize(size)}
-                      className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${activeSize === size ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                      aria-label={`Tamano de material ${size}`}
-                      title={`Tamano de material ${size}`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {tools.material.map((m) => (
-                  <button key={m.id} onClick={() => setSelectedTool(selectedTool === m.id ? null : m.id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
-                    {m.id === 'slalom'
-                      ? <SlalomPoleIcon size={28} />
-                      : m.id === 'ball'
-                      ? <SoccerBallIcon size={14} />
-                      : <i className={`fa-solid ${m.icon} text-lg ${selectedTool === m.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
-                    }
-                    <span className="text-[9px] font-black uppercase tracking-tight">{m.label}</span>
-                  </button>
-                ))}
-              </div>
             </div>
           )}
         </div>
@@ -1749,6 +1748,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
             >
               <i className="fa-solid fa-rotate-left text-[11px]" />
               Deshacer
+            </button>
+            <button
+              type="button"
+              onClick={handleFullscreen}
+              className="flex h-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all hover:bg-slate-50"
+              title="Pantalla completa"
+              aria-label="Pantalla completa"
+            >
+              <i className="fa-solid fa-expand text-[11px]" />
             </button>
           </div>
         </div>
@@ -1934,6 +1942,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                           return [id, { x: currentItem?.x ?? item.x, y: currentItem?.y ?? item.y }];
                         })
                       );
+                      dragStartArrowPointsRef.current = Object.fromEntries(
+                        draggingIdsRef.current.map(id => {
+                          const currentItem = items.find(entry => entry.id === id);
+                          if (currentItem?.arrowStart && currentItem?.arrowEnd) {
+                            return [id, { arrowStart: { ...currentItem.arrowStart }, arrowEnd: { ...currentItem.arrowEnd } }];
+                          }
+                          return [id, { arrowStart: { x: 0, y: 0 }, arrowEnd: { x: 0, y: 0 } }];
+                        })
+                      );
                       document.body.style.cursor = 'grabbing';
                       document.body.style.userSelect = 'none';
                       setDraggingId(item.id);
@@ -2006,10 +2023,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                   <div
                     key={item.id}
                     data-item-root={item.id}
-                    className={`absolute group cursor-grab touch-none ${(item.type === 'zone' && !isItemSelected) ? 'pointer-events-none' : ''} ${draggingId === item.id ? 'cursor-grabbing z-[9999] scale-105 opacity-75' : isPlaying ? 'transition-all duration-[2000ms] ease-in-out' : ''} ${isItemSelected ? (item.type === 'zone' || item.type === 'goal' ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716]' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716] rounded-full') : ''}`}
+                    className={`absolute group cursor-grab touch-none ${draggingId === item.id ? 'cursor-grabbing z-[9999] scale-105 opacity-75' : isPlaying ? 'transition-all duration-[2000ms] ease-in-out' : ''} ${isItemSelected ? (item.type === 'zone' || item.type === 'goal' ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716]' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a4716] rounded-full') : ''}`}
                     onPointerDown={(e) => {
                       const target = e.target as HTMLElement;
                       if (target.closest('[data-resize-handle="true"]') || target.closest('[data-orientation-handle="true"]')) return;
+                      if (item.type === 'zone' && !isItemSelected) return;
                       handleDragStart(e, item);
                     }}
                     onClick={(e) => {
@@ -2026,7 +2044,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       transformStyle: 'preserve-3d',
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
                       height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
-                      pointerEvents: (item.type === 'zone' && !isItemSelected) ? 'none' : 'auto'
+                      pointerEvents: 'auto'
                     }}
                   >
                     {resizingId === item.id && item.type !== 'goal' && (
@@ -2193,35 +2211,39 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                           isFlipped={item.rotation === 180}
                         />
                       ) : (
-                        <div className={`relative h-full w-full border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors overflow-hidden ${animationClass}`}>
-                        {showResizeHandles && (
-                          <>
-                            {resizeHandles.map(handle => (
-                              <div
-                                key={handle.id}
-                                data-resize-handle="true"
-                                onPointerDown={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  beginHistorySnapshot();
-                                  setResizingId(item.id);
-                                  setResizeHandle(handle.id);
-                                  setInitialResizeData({
-                                    x: e.clientX,
-                                    y: e.clientY,
-                                    w: item.width || RESIZABLE_DEFAULT_SIZES.goal.width,
-                                    h: item.height || RESIZABLE_DEFAULT_SIZES.goal.height,
-                                    itemX: item.x,
-                                    itemY: item.y
-                                  });
-                                }}
-                                className={`absolute flex items-center justify-center ${resizeHandleHitClass(handle.shape)} ${handle.className}`}
-                              >
-                                <div className={`bg-[var(--accent)] shadow-lg ${resizeHandleDotClass(handle.shape)}`} />
-                              </div>
-                            ))}
-                          </>
-                        )}
+                        <div className={`relative h-full w-full flex items-center justify-center ${animationClass}`}>
+                          <svg viewBox="0 0 100 50" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+                            <path d="M 10 50 Q 50 5 90 50" stroke="#111111" strokeWidth="6" fill="none" strokeLinecap="round" />
+                          </svg>
+                          <div className={`absolute border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors h-full w-full pointer-events-none`} />
+                          {showResizeHandles && (
+                            <>
+                              {resizeHandles.map(handle => (
+                                <div
+                                  key={handle.id}
+                                  data-resize-handle="true"
+                                  onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    beginHistorySnapshot();
+                                    setResizingId(item.id);
+                                    setResizeHandle(handle.id);
+                                    setInitialResizeData({
+                                      x: e.clientX,
+                                      y: e.clientY,
+                                      w: item.width || RESIZABLE_DEFAULT_SIZES.goal.width,
+                                      h: item.height || RESIZABLE_DEFAULT_SIZES.goal.height,
+                                      itemX: item.x,
+                                      itemY: item.y
+                                    });
+                                  }}
+                                  className={`absolute flex items-center justify-center ${resizeHandleHitClass(handle.shape)} ${handle.className}`}
+                                >
+                                  <div className={`bg-[var(--accent)] shadow-lg ${resizeHandleDotClass(handle.shape)}`} />
+                                </div>
+                              ))}
+                            </>
+                          )}
                         </div>
                       )
                     ) : item.type === 'cone' ? (
@@ -2254,6 +2276,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                       </div>
                     ) : item.type?.startsWith('arrow-') ? (
                       <div className={`absolute pointer-events-none select-none ${animationClass}`} />
+                    ) : item.type === 'fence' ? (
+                      <svg viewBox="0 0 120 80" className={`h-full w-full drop-shadow-lg ${animationClass}`} preserveAspectRatio="xMidYMid meet">
+                        <rect x="8" y="15" width="104" height="50" rx="4" fill="none" stroke="#fff" strokeWidth="4" />
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const rx = 28 + i * 20;
+                          return <line key={i} x1={rx} y1="15" x2={rx} y2="65" stroke="#fff" strokeWidth="3" />;
+                        })}
+                      </svg>
                     ) : item.type?.startsWith('player-') ? (
                       <div
                         style={{
@@ -2304,17 +2334,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                           />
                         )}
                       </svg>
-                    )}
-                    {!is3DView && canOrientItem(item) && orientationModeEnabled && isItemSelected && (
-                      <div
-                        data-orientation-handle="true"
-                        onPointerDown={(e) => handleRotateStart(e, item)}
-                        className="absolute left-1/2 top-1/2 z-20 flex h-8 w-8 cursor-grab items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg active:cursor-grabbing"
-                        style={{ transform: 'translate(-50%, calc(-50% - 28px))' }}
-                        title={item.type === 'goal' ? 'Arrastra para orientar la portería' : item.type === 'fence' ? 'Arrastra para orientar la valla' : 'Arrastra para orientar al jugador'}
-                      >
-                        <i className="fa-solid fa-rotate text-sm"></i>
-                      </div>
                     )}
                     {!is3DView && (item.type === 'goal' || item.type === 'fence') && isItemSelected && !item.locked && (
                       <button
@@ -2425,53 +2444,55 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [] }) => {
                         </button>
                       </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                          <div className="mb-2 flex items-center justify-between">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Rotación</span>
-                            <span className="text-[10px] font-black text-red-400">{selectedItem.rotation}°</span>
-                          </div>
-                          <div className="mb-2 grid grid-cols-4 gap-2">
-                            {[0, 45, 90, 180].map((angle) => (
-                              <button
-                                key={angle}
-                                onClick={() => updateSelectedItem({ rotation: angle })}
-                                className={`rounded-xl border px-2 py-1 text-[9px] font-black uppercase tracking-widest transition-all ${selectedItem.rotation === angle ? 'border-red-500 bg-red-500 text-white' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'}`}
-                              >
-                                {angle}°
-                              </button>
-                            ))}
-                          </div>
-                          <input type="range" min="0" max="360" value={selectedItem.rotation} onChange={(e) => updateSelectedItem({ rotation: parseInt(e.target.value) })} onMouseDown={beginHistorySnapshot} onMouseUp={commitHistorySnapshot} onTouchStart={beginHistorySnapshot} onTouchEnd={commitHistorySnapshot} className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer" />
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                          <div className="mb-2 flex items-center justify-between">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Escala</span>
-                            <span className="text-[10px] font-black text-red-400">{selectedScaleLabel}</span>
-                          </div>
-                          <input type="range" min="0.5" max="3" step="0.1" value={selectedItem.scale} onChange={(e) => updateSelectedItem({ scale: parseFloat(e.target.value) })} onMouseDown={beginHistorySnapshot} onMouseUp={commitHistorySnapshot} onTouchStart={beginHistorySnapshot} onTouchEnd={commitHistorySnapshot} className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer" />
-                          {(isPlayerItem(selectedItem) || isConeItem(selectedItem) || isMaterialItem(selectedItem)) && (
-                            <div className="mt-3 grid grid-cols-4 gap-2">
-                              {SIZE_PRESETS.map((size) => (
+                      {!selectedItem.type?.startsWith('arrow-') && (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Rotación</span>
+                              <span className="text-[10px] font-black text-red-400">{selectedItem.rotation}°</span>
+                            </div>
+                            <div className="mb-2 grid grid-cols-4 gap-2">
+                              {[0, 45, 90, 180].map((angle) => (
                                 <button
-                                  key={size}
-                                  type="button"
-                                  onClick={() => {
-                                    pushHistoryNow();
-                                    updateSelectedItem({ scale: ELEMENT_SCALES[size] });
-                                    if (isPlayerItem(selectedItem)) setPlayerSize(size);
-                                    if (isConeItem(selectedItem)) setConeSize(size);
-                                    if (isMaterialItem(selectedItem)) setMaterialSize(size);
-                                  }}
-                                  className={`rounded-xl border px-2 py-1 text-[9px] font-black uppercase tracking-widest transition-all ${selectedElementSize === size ? 'border-red-500 bg-red-500 text-white' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'}`}
+                                  key={angle}
+                                  onClick={() => updateSelectedItem({ rotation: angle })}
+                                  className={`rounded-xl border px-2 py-1 text-[9px] font-black uppercase tracking-widest transition-all ${selectedItem.rotation === angle ? 'border-red-500 bg-red-500 text-white' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'}`}
                                 >
-                                  {size}
+                                  {angle}°
                                 </button>
                               ))}
                             </div>
-                          )}
+                            <input type="range" min="0" max="360" value={selectedItem.rotation} onChange={(e) => updateSelectedItem({ rotation: parseInt(e.target.value) })} onMouseDown={beginHistorySnapshot} onMouseUp={commitHistorySnapshot} onTouchStart={beginHistorySnapshot} onTouchEnd={commitHistorySnapshot} className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer" />
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Escala</span>
+                              <span className="text-[10px] font-black text-red-400">{selectedScaleLabel}</span>
+                            </div>
+                            <input type="range" min="0.5" max="3" step="0.1" value={selectedItem.scale} onChange={(e) => updateSelectedItem({ scale: parseFloat(e.target.value) })} onMouseDown={beginHistorySnapshot} onMouseUp={commitHistorySnapshot} onTouchStart={beginHistorySnapshot} onTouchEnd={commitHistorySnapshot} className="w-full accent-red-500 bg-white/10 h-1 rounded-lg appearance-none cursor-pointer" />
+                            {(isPlayerItem(selectedItem) || isConeItem(selectedItem) || isMaterialItem(selectedItem)) && (
+                              <div className="mt-3 grid grid-cols-4 gap-2">
+                                {SIZE_PRESETS.map((size) => (
+                                  <button
+                                    key={size}
+                                    type="button"
+                                    onClick={() => {
+                                      pushHistoryNow();
+                                      updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+                                      if (isPlayerItem(selectedItem)) setPlayerSize(size);
+                                      if (isConeItem(selectedItem)) setConeSize(size);
+                                      if (isMaterialItem(selectedItem)) setMaterialSize(size);
+                                    }}
+                                    className={`rounded-xl border px-2 py-1 text-[9px] font-black uppercase tracking-widest transition-all ${selectedElementSize === size ? 'border-red-500 bg-red-500 text-white' : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'}`}
+                                  >
+                                    {size}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {selectedItem.type?.startsWith('player-') && (
                         <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
