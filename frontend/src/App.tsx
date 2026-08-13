@@ -801,7 +801,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           competicion: equipoRow?.competicion || equipoFallback?.competicion || '',
           club: clubRow?.nombre || currentTeam?.name || '',
           equipo: equipoRow?.sub_equipo || equipoRow?.nombre || equipoFallback?.sub_equipo || equipoFallback?.nombre || '',
-          dorsal: p.dorsal ?? 0,
+          dorsal: p.dorsal ?? undefined,
           nombre: p.nombre,
           apodo: p.apodo,
           posicion: p.posicion,
