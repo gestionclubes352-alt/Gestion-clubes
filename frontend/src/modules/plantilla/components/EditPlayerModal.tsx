@@ -596,32 +596,16 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           {/* === CAMPOS DE CONFIGURACIÓN en grid compacto === */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{isHuesca ? t('editPlayer.demarcation', 'Demarcación') : t('common.position')}</label>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('common.position', 'Posición')}</label>
               <SearchableSelect
                 value={formData.posicion}
                 onChange={(e) => handleChange('posicion', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
               >
-                {isHuesca ? (
-                  <>
-                    <option value="Portero">Portero</option>
-                    <option value="Lateral">Lateral</option>
-                    <option value="Central">Central</option>
-                    <option value="Pivote">Pivote</option>
-                    <option value="Media punta">Media punta</option>
-                    <option value="Interior">Interior</option>
-                    <option value="Extremo">Extremo</option>
-                    <option value="Delantero">Delantero</option>
-                    <option value="–">–</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="Portero">{t('players.goalkeeper')}</option>
-                    <option value="Defensa">{t('players.defender')}</option>
-                    <option value="Medio">{t('players.midfielder')}</option>
-                    <option value="Delantero">{t('players.forward')}</option>
-                  </>
-                )}
+                <option value="Portero">{t('players.goalkeeper')}</option>
+                <option value="Defensa">{t('players.defender')}</option>
+                <option value="Medio">{t('players.midfielder')}</option>
+                <option value="Delantero">{t('players.forward')}</option>
               </SearchableSelect>
             </div>
             <div>

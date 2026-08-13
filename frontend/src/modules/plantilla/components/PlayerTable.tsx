@@ -147,161 +147,140 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   const textCell = (val: string | number | undefined | null) =>
     val != null && val !== '' ? <span className="text-slate-600 text-xs whitespace-nowrap">{val}</span> : <span className="text-slate-300">—</span>;
 
-  const columns = useMemo(() => [
-    // 1. Dorsal
-    columnHelper.accessor('dorsal', {
-      header: t('playerTable.dorsal', 'Dorsal'),
-      size: 70,
-      cell: info => (
-        <span className="bg-slate-900 text-white font-semibold px-2 py-0.5 rounded-md text-[11px] min-w-7 inline-block text-center tabular-nums">
-          {info.getValue()}
-        </span>
-      ),
-    }),
-    // 2. Foto
-    columnHelper.display({
-      id: 'foto',
-      header: t('playerTable.photo', 'Foto'),
-      size: 56,
-      cell: ({ row }) => {
-        const player = row.original;
-        const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
-        return (
-          <div className={`w-9 h-9 rounded-xl overflow-hidden border-2 ${posStyle.border} bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-xs`}>
-            {isImageUrl(player.fotoUrl) ? (
-              <img loading="lazy" decoding="async" src={player.fotoUrl} className="w-full h-full object-cover" />
-            ) : (
-              <span>{getInitials(player.nombre)}</span>
-            )}
-          </div>
-        );
-      },
-      enableSorting: false,
-    }),
-    // 3. Nombre
-    columnHelper.accessor('nombre', {
-      header: t('playerTable.name', 'Nombre'),
-      size: 180,
-      cell: info => <span className="text-slate-800 font-semibold text-sm whitespace-nowrap">{info.getValue()}</span>,
-    }),
-    // 4. Apodo
-    columnHelper.accessor('apodo', {
-      header: t('playerTable.nickname'),
-      size: 120,
-      cell: info => {
-        const val = info.getValue();
-        if (!val) return <span className="text-slate-300">—</span>;
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200 whitespace-nowrap">
-            {val}
+  const columns = useMemo(() => {
+    const allColumns = [
+      // 1. Dorsal
+      columnHelper.accessor('dorsal', {
+        header: t('playerTable.dorsal', 'Dorsal'),
+        size: 70,
+        cell: info => (
+          <span className="bg-slate-900 text-white font-semibold px-2 py-0.5 rounded-md text-[11px] min-w-7 inline-block text-center tabular-nums">
+            {info.getValue()}
           </span>
-        );
-      },
-    }),
-    // 5. Posición
-    columnHelper.accessor('posicion', {
-      header: isHuesca ? t('editPlayer.demarcation', 'Demarcación') : t('common.position'),
-      size: 130,
-      cell: info => {
-        const pos = info.getValue();
-        const style = positionStyles[pos] || positionStyles.Otros;
-        return (
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider border w-fit whitespace-nowrap ${style.chip}`}>
-            <i className={`fa-solid ${style.icon} text-[9px]`}></i>
-            {pos}
+        ),
+      }),
+      // 2. Foto
+      columnHelper.display({
+        id: 'foto',
+        header: t('playerTable.photo', 'Foto'),
+        size: 56,
+        cell: ({ row }) => {
+          const player = row.original;
+          const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
+          return (
+            <div className={`w-9 h-9 rounded-xl overflow-hidden border-2 ${posStyle.border} bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-xs`}>
+              {isImageUrl(player.fotoUrl) ? (
+                <img loading="lazy" decoding="async" src={player.fotoUrl} className="w-full h-full object-cover" />
+              ) : (
+                <span>{getInitials(player.nombre)}</span>
+              )}
+            </div>
+          );
+        },
+        enableSorting: false,
+      }),
+      // 3. Nombre
+      columnHelper.accessor('nombre', {
+        header: t('playerTable.name', 'Nombre'),
+        size: 180,
+        cell: info => <span className="text-slate-800 font-semibold text-sm whitespace-nowrap">{info.getValue()}</span>,
+      }),
+      // 4. Apodo
+      columnHelper.accessor('apodo', {
+        header: t('playerTable.nickname'),
+        size: 120,
+        cell: info => {
+          const val = info.getValue();
+          if (!val) return <span className="text-slate-300">—</span>;
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200 whitespace-nowrap">
+              {val}
+            </span>
+          );
+        },
+      }),
+      // 5. Posición
+      columnHelper.accessor('posicion', {
+        header: isHuesca ? t('editPlayer.demarcation', 'Demarcación') : t('common.position'),
+        size: 130,
+        cell: info => {
+          const pos = info.getValue();
+          const style = positionStyles[pos] || positionStyles.Otros;
+          return (
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider border w-fit whitespace-nowrap ${style.chip}`}>
+              <i className={`fa-solid ${style.icon} text-[9px]`}></i>
+              {pos}
+            </span>
+          );
+        },
+      }),
+      // 6. Posición de juego
+      columnHelper.accessor('posicionJuego', {
+        header: t('playerTable.tacticalRole', 'Pos. Juego'),
+        size: 140,
+        cell: info => {
+          const val = info.getValue();
+          return val ? <span className="text-slate-500 text-xs whitespace-nowrap">{val}</span> : <span className="text-slate-300">—</span>;
+        },
+      }),
+      // 7. Perfil
+      columnHelper.accessor('perfil', {
+        header: t('playerTable.profile'),
+        size: 70,
+        cell: info => (
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
+            {info.getValue()}
           </span>
-        );
-      },
-    }),
-    // 6. Posición de juego
-    columnHelper.accessor('posicionJuego', {
-      header: t('playerTable.tacticalRole', 'Pos. Juego'),
-      size: 140,
-      cell: info => {
-        const val = info.getValue();
-        return val ? <span className="text-slate-500 text-xs whitespace-nowrap">{val}</span> : <span className="text-slate-300">—</span>;
-      },
-    }),
-    // 7. Perfil
-    columnHelper.accessor('perfil', {
-      header: t('playerTable.profile'),
-      size: 70,
-      cell: info => (
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
-          {info.getValue()}
-        </span>
-      ),
-    }),
-    // 8. Fecha de nacimiento
-    columnHelper.accessor('fechaNacimiento', {
-      header: t('playerTable.birthDate', 'F. Nacimiento'),
-      size: 120,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 9. Club
-    columnHelper.accessor('club', {
-      header: t('playerTable.club', 'Club'),
-      size: 130,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 11. Equipo
-    columnHelper.accessor('equipo', {
-      header: t('playerTable.team'),
-      size: 130,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 12. Estado
-    columnHelper.accessor('estado', {
-      header: t('playerTable.status', 'Estado'),
-      size: 100,
-      cell: info => {
-        const val = info.getValue();
-        if (!val) return <span className="text-slate-300">—</span>;
-        const color = val === 'LESIONADO' ? 'bg-red-100 text-red-700 border-red-200' : val === 'OTRO' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200';
-        return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${color}`}>{val}</span>;
-      },
-    }),
-    // 13. Partidos jugados
-    columnHelper.accessor('partidosJugados', {
-      header: t('playerTable.matchesPlayed', 'PJ'),
-      size: 60,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 14. Minutos
-    columnHelper.accessor('minutos', {
-      header: t('playerTable.minutes', 'Min'),
-      size: 60,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 15. Titular
-    columnHelper.accessor('titular', {
-      header: t('playerTable.starter', 'Titular'),
-      size: 70,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 16. Goles
-    columnHelper.accessor('goles', {
-      header: t('playerTable.goals', 'Goles'),
-      size: 70,
-      cell: info => textCell(info.getValue()),
-    }),
-    // 17. Campos extendidos (Huesca)
-    columnHelper.accessor('etapa', {
-      header: t('playerTable.stage', 'Etapa'),
-      size: 100,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('telefono', {
-      header: t('playerTable.phone', 'Teléfono'),
-      size: 110,
-      cell: info => textCell(info.getValue()),
-    }),
-    columnHelper.accessor('correo', {
-      header: t('playerTable.email', 'Correo'),
-      size: 180,
-      cell: info => textCell(info.getValue()),
-    }),
-  ], []);
+        ),
+      }),
+      // 8. Fecha de nacimiento
+      columnHelper.accessor('fechaNacimiento', {
+        header: t('playerTable.birthDate', 'F. Nacimiento'),
+        size: 120,
+        cell: info => textCell(info.getValue()),
+      }),
+      // 9. Club
+      columnHelper.accessor('club', {
+        header: t('playerTable.club', 'Club'),
+        size: 130,
+        cell: info => textCell(info.getValue()),
+      }),
+      // 11. Equipo
+      columnHelper.accessor('equipo', {
+        header: t('playerTable.team'),
+        size: 130,
+        cell: info => textCell(info.getValue()),
+      }),
+      // 12. Estado
+      columnHelper.accessor('estado', {
+        header: t('playerTable.status', 'Estado'),
+        size: 100,
+        cell: info => {
+          const val = info.getValue();
+          if (!val) return <span className="text-slate-300">—</span>;
+          const color = val === 'LESIONADO' ? 'bg-red-100 text-red-700 border-red-200' : val === 'OTRO' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200';
+          return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${color}`}>{val}</span>;
+        },
+      }),
+      // 17. Campos extendidos (Huesca)
+      columnHelper.accessor('etapa', {
+        header: t('playerTable.stage', 'Etapa'),
+        size: 100,
+        cell: info => textCell(info.getValue()),
+      }),
+      columnHelper.accessor('telefono', {
+        header: t('playerTable.phone', 'Teléfono'),
+        size: 110,
+        cell: info => textCell(info.getValue()),
+      }),
+      columnHelper.accessor('correo', {
+        header: t('playerTable.email', 'Correo'),
+        size: 180,
+        cell: info => textCell(info.getValue()),
+      }),
+    ];
+    return allColumns;
+  }, [t, isHuesca]);
 
   const actions = useMemo<DataTableAction<Player>[]>(() => {
     const acts: DataTableAction<Player>[] = [
