@@ -50,6 +50,19 @@ const getBirthYear = (fecha?: string): number | undefined => {
   return match ? parseInt(match[1], 10) : undefined;
 };
 
+const calculateAge = (fecha?: string): number | undefined => {
+  if (!fecha) return undefined;
+  const birthDate = new Date(fecha);
+  if (isNaN(birthDate.getTime())) return undefined;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const normalizeTeamKey = (value?: string | number | null): string =>
   String(value ?? '')
     .normalize('NFD')
@@ -690,11 +703,90 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   <option value="OTRO">{t('editPlayer.otherStatus')} {'\u{1F7E0}'}</option>
                 </SearchableSelect>
               </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.laterality')}</label>
+                <SearchableSelect
+                  value={formData.perfil}
+                  onChange={(e) => handleChange('perfil', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+                >
+                  <option value="D">{t('editPlayer.rightFootLabel', 'Diestro')}</option>
+                  <option value="I">{t('editPlayer.leftFootLabel', 'Zurdo')}</option>
+                  <option value="A">{t('editPlayer.bothFeetLabel', 'Ambas')}</option>
+                </SearchableSelect>
+              </div>
             </div>
           </div>
 
-          {/* === CAMPOS DE CONFIGURACIÓN en grid compacto === */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-3 mb-4">
+          {/* === ETAPA, CLUB, EQUIPO (3 columnas) === */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 mb-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.stage', 'Etapa')}</label>
+              <SearchableSelect
+                value={formData.etapa || ''}
+                onChange={(e) => handleChange('etapa' as keyof Player, e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+              >
+                <option value="">–</option>
+                <option value="Senior">Senior</option>
+                <option value="Juvenil">Juvenil</option>
+                <option value="Cadete">Cadete</option>
+                <option value="Infantil">Infantil</option>
+                <option value="Alevín">Alevín</option>
+                <option value="Benjamín">Benjamín</option>
+              </SearchableSelect>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.club', 'Club')}</label>
+              {(clubes || []).length === 0 ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
+                  <i className="fa-solid fa-circle-info"></i>
+                  No hay clubes disponibles.
+                </div>
+              ) : (
+                <SearchableSelect
+                  value={formData.clubId || ''}
+                  onChange={(e) => handleClubSelect(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+                >
+                  <option value="">-- Selecciona un club --</option>
+                  {[...clubes]
+                    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+                    .map(c => (
+                      <option key={c.id} value={String(c.id)}>
+                        {String(c.id) === String(clubId) ? `${c.nombre} (mi club)` : c.nombre}
+                      </option>
+                    ))}
+                </SearchableSelect>
+              )}
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.team')}</label>
+              {!formData.clubId ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-bold">
+                  <i className="fa-solid fa-circle-info"></i>
+                  Selecciona antes un club.
+                </div>
+              ) : equiposDelClubSeleccionado.length === 0 ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
+                  <i className="fa-solid fa-circle-info"></i>
+                  Crea antes un equipo en la sección Equipos.
+                </div>
+              ) : (
+                <SearchableSelect
+                  value={formData.equipoId || ''}
+                  onChange={(e) => handleEquipoSelect(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+                >
+                  <option value="">-- Selecciona un equipo --</option>
+                  {teamOptions}
+                </SearchableSelect>
+              )}
+            </div>
+          </div>
+
+          {/* === CAMPOS DE POSICIÓN (4 columnas) === */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('common.position', 'Posición')}</label>
               <SearchableSelect
@@ -786,81 +878,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 <option value="Delantero">Delantero</option>
               </SearchableSelect>
             </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.laterality')}</label>
-              <SearchableSelect
-                value={formData.perfil}
-                onChange={(e) => handleChange('perfil', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-              >
-                <option value="D">{t('editPlayer.rightFootLabel', 'Diestro')}</option>
-                <option value="I">{t('editPlayer.leftFootLabel', 'Zurdo')}</option>
-                <option value="A">{t('editPlayer.bothFeetLabel', 'Ambas')}</option>
-              </SearchableSelect>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.stage', 'Etapa')}</label>
-              <SearchableSelect
-                value={formData.etapa || ''}
-                onChange={(e) => handleChange('etapa' as keyof Player, e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-              >
-                <option value="">–</option>
-                <option value="Senior">Senior</option>
-                <option value="Juvenil">Juvenil</option>
-                <option value="Cadete">Cadete</option>
-                <option value="Infantil">Infantil</option>
-                <option value="Alevín">Alevín</option>
-                <option value="Benjamín">Benjamín</option>
-              </SearchableSelect>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.club', 'Club')}</label>
-              {(clubes || []).length === 0 ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
-                  <i className="fa-solid fa-circle-info"></i>
-                  No hay clubes disponibles.
-                </div>
-              ) : (
-                <SearchableSelect
-                  value={formData.clubId || ''}
-                  onChange={(e) => handleClubSelect(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-                >
-                  <option value="">-- Selecciona un club --</option>
-                  {[...clubes]
-                    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-                    .map(c => (
-                      <option key={c.id} value={String(c.id)}>
-                        {String(c.id) === String(clubId) ? `${c.nombre} (mi club)` : c.nombre}
-                      </option>
-                    ))}
-                </SearchableSelect>
-              )}
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.team')}</label>
-              {!formData.clubId ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-bold">
-                  <i className="fa-solid fa-circle-info"></i>
-                  Selecciona antes un club.
-                </div>
-              ) : equiposDelClubSeleccionado.length === 0 ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
-                  <i className="fa-solid fa-circle-info"></i>
-                  Crea antes un equipo en la sección Equipos.
-                </div>
-              ) : (
-                <SearchableSelect
-                  value={formData.equipoId || ''}
-                  onChange={(e) => handleEquipoSelect(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-                >
-                  <option value="">-- Selecciona un equipo --</option>
-                  {teamOptions}
-                </SearchableSelect>
-              )}
-            </div>
+          </div>
+
+          {/* === FECHA DE NACIMIENTO === */}
+          <div className={`grid ${isHuesca ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-2'} gap-3 mb-4`}>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.birthDate')}</label>
               <input
@@ -868,6 +889,17 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 value={formData.fechaNacimiento || ''}
                 onChange={(e) => handleChange('fechaNacimiento', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.age', 'Edad')}</label>
+              <input
+                type="text"
+                value={calculateAge(formData.fechaNacimiento) ?? ''}
+                readOnly
+                disabled
+                placeholder="–"
+                className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-[var(--accent)] disabled:cursor-not-allowed text-center"
               />
             </div>
             {isHuesca && (
@@ -959,8 +991,19 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 </div>
               </div>
 
-              {/* === DATOS DEL TUTOR/A === */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.observations')}</label>
+                <textarea
+                  value={formData.observaciones || ''}
+                  onChange={(e) => handleChange('observaciones', e.target.value)}
+                  placeholder={t('editPlayer.observationsPlaceholder')}
+                  rows={4}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
+                />
+              </div>
+
+              {/* === DATOS DEL TUTOR/A (ÚLTIMO) === */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
                   <i className="fa-solid fa-user-shield mr-1"></i>
                   {t('editPlayer.guardianData', 'Datos del tutor/a')}
@@ -982,17 +1025,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                       className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.observations')}</label>
-                <textarea
-                  value={formData.observaciones || ''}
-                  onChange={(e) => handleChange('observaciones', e.target.value)}
-                  placeholder={t('editPlayer.observationsPlaceholder')}
-                  rows={4}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
-                />
               </div>
             </>
           )}
