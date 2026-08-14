@@ -1514,6 +1514,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       showStarterBadge={false}
                       showConvocadoControl={false}
                       mainTeamName={activeCampograma.equipo}
+                      isCampograma={true}
                     />
                   </div>
                 ) : (

@@ -120,7 +120,7 @@ interface LatestMatchesProps {
 const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [], ownClubId, onSelectPlayer }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'MATCHES' | 'STATS'>('MATCHES');
-  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'calendar'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'calendar'>('table');
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);

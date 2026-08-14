@@ -58,6 +58,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'CLUBES',
     'EQUIPOS',
     'EQUIPOS_INTERNOS',
+    'COMPETICIONES',
     'LOCALIDADES',
     'INSTALACIONES',
     'SESIONES',

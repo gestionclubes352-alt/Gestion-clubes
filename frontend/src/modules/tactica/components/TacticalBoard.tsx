@@ -31,6 +31,7 @@ interface TacticalBoardProps {
   campogramas?: Campograma[];
   selectedCampogramaId?: string | number;
   onSelectCampograma?: (campograma: Campograma) => void;
+  isCampograma?: boolean;
 }
 
 const TacticalBoard: React.FC<TacticalBoardProps> = ({
@@ -49,7 +50,8 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
   mainTeamName = '',
   campogramas = [],
   selectedCampogramaId,
-  onSelectCampograma
+  onSelectCampograma,
+  isCampograma = false,
 }) => {
   const [activePosId, setActivePosId] = useState<string | null>(positions.length > 0 ? positions[0].id : null);
   const [selectedTeam, setSelectedTeam] = useState<string>('');
@@ -181,7 +183,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
           <div className="absolute inset-4 md:inset-6 z-10">
             {positions.map((pos) => {
               const assignedPlayers = (pos.playerIds || []).map(id => squad.find(p => String(p.id) === String(id))).filter(Boolean) as Player[];
-              const displayPlayers = assignedPlayers.slice(-1);
+              const displayPlayers = isCampograma ? assignedPlayers : assignedPlayers.slice(-1);
               const isActive = activePosId === pos.id;
               const adjustedX = clamp(50 + (pos.x - 50) * spacingFactor, 3, 97);
               const adjustedY = clamp(50 + (pos.y - 50) * spacingFactor, 3, 97);

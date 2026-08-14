@@ -67,6 +67,7 @@ interface PitchPlayer {
   playerName?: string;
   playerInitials?: string;
   playerDorsal?: number;
+  playerFotoUrl?: string;
   rotation?: number;
 }
 
@@ -90,7 +91,7 @@ interface RivalPlayer {
   dorsal?: number;
 }
 
-type AssignableEntity = { id: string; nombre: string; apodo?: string; dorsal?: number };
+type AssignableEntity = { id: string; nombre: string; apodo?: string; dorsal?: number; fotoUrl?: string };
 
 type TeamKey = 'my' | 'rival';
 
@@ -824,7 +825,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     updatePitchPlayers(prev => prev.map(p => (
       p.id === pitchId
-        ? { ...p, playerId: player.id, playerName: displayName, playerInitials: initials, playerDorsal: player.dorsal }
+        ? { ...p, playerId: player.id, playerName: displayName, playerInitials: initials, playerDorsal: player.dorsal, playerFotoUrl: player.fotoUrl }
         : p
     )));
     setSelectedPitchIds([]);
@@ -834,7 +835,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   const removeAssignment = (pitchId: string) => {
     updatePitchPlayers(prev => prev.map(p => (
-      p.id === pitchId ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined } : p
+      p.id === pitchId ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined, playerFotoUrl: undefined } : p
     )));
   };
 
@@ -854,7 +855,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const removeRivalPlayer = (id: string) => {
     setRivalPlayers(prev => prev.filter(p => p.id !== id));
     updatePitchPlayers(prev => prev.map(p => (
-      p.playerId === id ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined } : p
+      p.playerId === id ? { ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined, playerFotoUrl: undefined } : p
     )));
     if (selectedRivalPlayerId === id) setSelectedRivalPlayerId(null);
   };
@@ -1113,7 +1114,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => {
-                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined })));
+                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined, playerFotoUrl: undefined })));
                   setSelectedPitchIds([]);
                   setSelectedSquadPlayerId(null);
                 }}
@@ -1524,7 +1525,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       )}
 
                       <div
-                        className={`flex items-center justify-center rounded-full border-[3px] font-black shadow-lg ${player.number === 1 ? 'text-white' : 'text-white'} ${isSelected ? 'ring-2 ring-white/60' : ''}`}
+                        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] font-black shadow-lg ${player.number === 1 ? 'text-white' : 'text-white'} ${isSelected ? 'ring-2 ring-white/60' : ''}`}
                         style={{
                           width: displaySize,
                           height: displaySize,
@@ -1537,10 +1538,25 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                               : '0 8px 18px rgba(0,0,0,0.35)',
                         }}
                       >
-                        {showPlayerNumbers && (
-                          <span className="text-[15px] leading-none">{player.playerDorsal !== undefined ? player.playerDorsal : player.playerInitials ? player.playerInitials : player.number}</span>
+                        {showPlayerPhotos && player.playerFotoUrl ? (
+                          <img src={player.playerFotoUrl} alt={player.playerName || ''} className="h-full w-full object-cover" />
+                        ) : (
+                          showPlayerNumbers && (
+                            <span className="text-[15px] leading-none">{player.playerDorsal !== undefined ? player.playerDorsal : player.playerInitials ? player.playerInitials : player.number}</span>
+                          )
                         )}
                       </div>
+
+                      {showPlayerPhotos && player.playerFotoUrl && player.playerDorsal !== undefined && (
+                        <div
+                          className="absolute top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-black/80 px-1 shadow-lg"
+                          style={{ left: `calc(50% + ${displaySize / 2 - 6}px)`, pointerEvents: 'none' }}
+                        >
+                          <span className="whitespace-nowrap text-[10px] font-black leading-none text-white">
+                            #{player.playerDorsal}
+                          </span>
+                        </div>
+                      )}
 
                       {player.playerName && (
                         <div className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap text-[11px] font-black uppercase text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
@@ -1689,7 +1705,16 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                               <button
                                 key={player.id}
                                 type="button"
-                                onClick={() => setSelectedRivalPlayerId(prev => (prev === player.id ? null : player.id))}
+                                onClick={() => {
+                                  if (selectedPitchId) {
+                                    const pitchPlayer = pitchPlayers.find(p => p.id === selectedPitchId);
+                                    if (pitchPlayer && pitchPlayer.team === 'rival') {
+                                      assignPlayer(player, selectedPitchId);
+                                      return;
+                                    }
+                                  }
+                                  setSelectedRivalPlayerId(prev => (prev === player.id ? null : player.id));
+                                }}
                                 className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
                                   isSelected
                                     ? 'border-blue-400 bg-blue-200 text-blue-800 dark:border-blue-400/60 dark:bg-blue-500/30 dark:text-blue-100'
@@ -1782,7 +1807,16 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                                     <button
                                       key={player.id}
                                       type="button"
-                                      onClick={() => setSelectedSquadPlayerId(prev => (prev === player.id ? null : player.id))}
+                                      onClick={() => {
+                                        if (selectedPitchId) {
+                                          const pitchPlayer = pitchPlayers.find(p => p.id === selectedPitchId);
+                                          if (pitchPlayer && pitchPlayer.team === 'my') {
+                                            assignPlayer(player, selectedPitchId);
+                                            return;
+                                          }
+                                        }
+                                        setSelectedSquadPlayerId(prev => (prev === player.id ? null : player.id));
+                                      }}
                                       className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
                                         isSelected
                                           ? 'border-red-400 bg-red-200 text-red-800 dark:border-red-400/60 dark:bg-red-500/30 dark:text-red-100'

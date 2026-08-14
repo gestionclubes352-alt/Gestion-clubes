@@ -63,10 +63,12 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [createdCompetitionTeams, setCreatedCompetitionTeams] = useState<CompetitionTeam[]>([]);
   const [isAddingLocalTeam, setIsAddingLocalTeam] = useState(false);
   const [isAddingVisitorTeam, setIsAddingVisitorTeam] = useState(false);
+  const [isCreatingTeamFromButton, setIsCreatingTeamFromButton] = useState(false);
+  const [newTeamFormData, setNewTeamFormData] = useState({ clubId: '', teamName: '', clubName: '', clubLogo: null as File | null });
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [instalacionesFiltradas, setInstalacionesFiltradas] = useState<InstalacionCampo[]>([]);
-  const hasPendingTeamCreation = isAddingLocalTeam || isAddingVisitorTeam;
+  const hasPendingTeamCreation = isAddingLocalTeam || isAddingVisitorTeam || isCreatingTeamFromButton;
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -458,7 +460,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35]"
                 >
                   <option value="">{t('newEvent.sessionType')}</option>
                   <option value="Sesión equipo">{t('newEvent.teamSession')}</option>
@@ -472,7 +474,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                   value={formData.title}
                   onChange={handleChange}
                   placeholder={t('newEvent.titleField')}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#8b2b35]"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black focus:outline-none focus:border-[#8b2b35]"
                 />
               ) : null}
 
@@ -496,7 +498,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                     name="sessionNumber"
                     value={formData.sessionNumber}
                     onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35]"
                   >
                     <option value="">{t('newEvent.sessionNumber')}</option>
                     {Array.from({ length: 200 }, (_, i) => i + 1).map((n) => (
@@ -514,56 +516,76 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                   type="date"
                   value={formData.date}
                   onChange={handleChange}
-                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#8b2b35]"
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-black focus:outline-none focus:border-[#8b2b35]"
                 />
                 <input
                   name="time"
                   type="time"
                   value={formData.time}
                   onChange={handleChange}
-                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#8b2b35]"
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-black focus:outline-none focus:border-[#8b2b35]"
                 />
               </div>
 
               {typeSelected === 'Partido' && (
                 <>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">{t('newEvent.competition')}</p>
+                    <SearchableSelect
+                      name="competition"
+                      value={formData.competition}
+                      onChange={handleChange}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                    >
+                      <option value="">{t('newEvent.competition')}</option>
+                      {competitions.map((c) => (
+                        <option key={c.id} value={c.nombre}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                      <option value="Amistoso">{t('newEvent.friendly')}</option>
+                    </SearchableSelect>
+                  </div>
                   <SearchableSelect
-                    name="competition"
-                    value={formData.competition}
+                    name="jornada"
+                    value={formData.jornada}
                     onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35]"
                   >
-                    <option value="">{t('newEvent.competition')}</option>
-                    {competitions.map((c) => (
-                      <option key={c.id} value={c.nombre}>
-                        {c.nombre}
+                    <option value="">{t('newEvent.matchday')}</option>
+                    <option value="-">-</option>
+                    {Array.from({ length: 38 }, (_, i) => (
+                      <option key={i + 1} value={String(i + 1)}>
+                        {i + 1}
                       </option>
                     ))}
-                    <option value="Amistoso">{t('newEvent.friendly')}</option>
                   </SearchableSelect>
                 </>
               )}
 
-              <select
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
-              >
-                <option value="">Selecciona localidad</option>
-                {localidades.map(loc => (
-                  <option key={loc.id} value={loc.id || ''}>
-                    {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Localidad</p>
+                <select
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                >
+                  <option value="">Selecciona localidad</option>
+                  {localidades.map(loc => (
+                    <option key={loc.id} value={loc.id || ''}>
+                      {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {formData.location && (
                 <select
                   name="instalacion_campo_id"
                   value={formData.instalacion_campo_id || ''}
                   onChange={(e) => setFormData({ ...formData, instalacion_campo_id: e.target.value || undefined })}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
                 >
                   <option value="">Selecciona instalación / campo</option>
                   {instalacionesFiltradas.map(ic => (
@@ -577,7 +599,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
               {typeSelected === 'Partido' && (
                 <div className="space-y-3 pt-2 border-t border-slate-100">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{t('newEvent.team')}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">{t('newEvent.team')}</p>
                     <EquipoSelect
                       value={formData.team}
                       onChange={(team) => setFormData({ ...formData, team })}
@@ -586,21 +608,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none cursor-pointer bg-white"
                     />
                   </div>
-                  <SearchableSelect
-                    name="jornada"
-                    value={formData.jornada}
-                    onChange={handleChange}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35]"
-                  >
-                    <option value="">{t('newEvent.matchday')}</option>
-                    <option value="-">-</option>
-                    {Array.from({ length: 38 }, (_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>
-                        {i + 1}
-                      </option>
-                    ))}
-                  </SearchableSelect>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>
+                  <p className="text-[10px] font-black text-slate-700 font-black uppercase tracking-widest mt-2">{t('newEvent.teams')}</p>
                   <div className="grid grid-cols-2 gap-4 mt-1">
                     <EquipoSelect
                       value={formData.localTeam}
@@ -629,6 +637,16 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                       className="border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 appearance-none cursor-pointer bg-white focus:outline-none focus:border-[#8b2b35]"
                     />
                   </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4 mb-4">
+                    <p className="text-[12px] font-semibold text-slate-700 mb-3">Busca el rival para asignar, si no existe crea uno nuevo</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingTeamFromButton(true)}
+                      className="text-[11px] font-black text-blue-600 hover:text-blue-800 transition flex items-center gap-1"
+                    >
+                      <i className="fa-solid fa-plus"></i> Crear nuevo equipo
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -645,6 +663,128 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
             >
               <i className="fa-solid fa-floppy-disk"></i> {t('newEvent.saveEvent')}
             </button>
+          </div>
+        )}
+
+        {isCreatingTeamFromButton && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 rounded-3xl">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-sport-primary font-black text-lg uppercase tracking-tight">Crear nuevo Club / Equipo</h3>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[9px] font-black text-slate-700 uppercase tracking-widest mb-1 block">Club</label>
+                  <SearchableSelect
+                    value={newTeamFormData.clubId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      setNewTeamFormData(prev => ({
+                        ...prev,
+                        clubId: selectedId,
+                        clubName: selectedId === '__CREATE_NEW__' ? '' : clubs.find(c => String(c.id) === selectedId)?.nombre || ''
+                      }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-900 focus:outline-none"
+                  >
+                    <option value="">Selecciona un club...</option>
+                    {[...clubs]
+                      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+                      .map(club => (
+                        <option key={club.id} value={String(club.id)}>
+                          {club.nombre}
+                        </option>
+                      ))}
+                    <option value="__CREATE_NEW__">━━━ 🔴 Crear nuevo club... 🔴 ━━━</option>
+                  </SearchableSelect>
+                </div>
+
+                {newTeamFormData.clubId === '__CREATE_NEW__' && (
+                  <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <div>
+                      <label className="text-[9px] font-black text-slate-700 uppercase tracking-widest mb-1 block">Nombre del club</label>
+                      <input
+                        type="text"
+                        value={newTeamFormData.clubName}
+                        onChange={(e) => setNewTeamFormData(prev => ({ ...prev, clubName: e.target.value }))}
+                        placeholder="ej: Athletic Bilbao"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-700 uppercase tracking-widest mb-1 block">Logo del club</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setNewTeamFormData(prev => ({ ...prev, clubLogo: file }));
+                        }}
+                        className="w-full text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[9px] font-black text-slate-700 uppercase tracking-widest mb-1 block">Nombre del equipo</label>
+                  <input
+                    type="text"
+                    value={newTeamFormData.teamName}
+                    onChange={(e) => setNewTeamFormData(prev => ({ ...prev, teamName: e.target.value }))}
+                    placeholder="ej: Juvenil A"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (newTeamFormData.clubId === '__CREATE_NEW__') {
+                        if (!newTeamFormData.clubName.trim() || !newTeamFormData.teamName.trim()) {
+                          alert('Completa el nombre del club y equipo');
+                          return;
+                        }
+                      } else {
+                        if (!newTeamFormData.clubId || !newTeamFormData.teamName.trim()) {
+                          alert('Completa todos los campos');
+                          return;
+                        }
+                      }
+
+                      if (selectedCompetitionId) {
+                        try {
+                          const clubNameForTeam = newTeamFormData.clubId === '__CREATE_NEW__' ? newTeamFormData.clubName : newTeamFormData.clubName;
+                          await handleCreateTeamForCompetition({
+                            value: newTeamFormData.teamName,
+                            club: clubNameForTeam,
+                            escudoFile: newTeamFormData.clubId === '__CREATE_NEW__' ? newTeamFormData.clubLogo || undefined : undefined,
+                          });
+                          setFormData(prev => ({ ...prev, visitorTeam: newTeamFormData.teamName }));
+                          setIsCreatingTeamFromButton(false);
+                          setNewTeamFormData({ clubId: '', teamName: '', clubName: '', clubLogo: null });
+                        } catch (err) {
+                          alert('Error al crear el equipo');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2.5 bg-[var(--accent)] text-white rounded-xl text-xs font-black hover:opacity-90"
+                  >
+                    <i className="fa-solid fa-check mr-1"></i> Crear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingTeamFromButton(false);
+                      setNewTeamFormData({ clubId: '', teamName: '', clubName: '', clubLogo: null });
+                    }}
+                    className="flex-1 px-3 py-2.5 bg-slate-200 text-slate-600 rounded-xl text-xs font-black hover:bg-slate-300"
+                  >
+                    <i className="fa-solid fa-xmark mr-1"></i> Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

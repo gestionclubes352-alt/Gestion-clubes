@@ -7,22 +7,24 @@ interface EditInstalacionModalProps {
   instalacion?: InstalacionCampoFormData | null;
   localidades: Localidad[];
   clubes: Club[];
+  camposExistentes?: Array<{ id: string; nombre: string; tipo?: string }>;
   isOpen: boolean;
   onClose: () => void;
   onSave: (instalacion: InstalacionCampoFormData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
-  onOpenAddLocalidad?: () => void;
+  onCreateLocalidad?: (nombre: string) => Promise<Localidad>;
 }
 
 const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
   instalacion,
   localidades,
   clubes,
+  camposExistentes = [],
   isOpen,
   onClose,
   onSave,
   onDelete,
-  onOpenAddLocalidad,
+  onCreateLocalidad,
 }) => {
   const [formData, setFormData] = useState<InstalacionCampoFormData>({
     nombre: '',
@@ -31,6 +33,8 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
     clubes_ids: [],
   });
   const [showAddCampoModal, setShowAddCampoModal] = useState(false);
+  const [showAddLocalidadInput, setShowAddLocalidadInput] = useState(false);
+  const [newLocalidadNombre, setNewLocalidadNombre] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +86,10 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
         nombre: nombre,
         tipo: superficie,
         descripcion: formData.descripcion || undefined,
-      });
+        parent_instalacion_id: formData.id,
+      } as any);
+      // Cerrar el modal de agregar campo
+      setShowAddCampoModal(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al agregar el campo';
       setError(msg);
@@ -149,6 +156,30 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
     }
   };
 
+  const handleCreateLocalidad = async () => {
+    if (!newLocalidadNombre.trim()) {
+      setError('Ingresa el nombre de la localidad');
+      return;
+    }
+
+    if (!onCreateLocalidad) return;
+
+    try {
+      setLoading(true);
+      const nuevaLocalidad = await onCreateLocalidad(newLocalidadNombre);
+      setFormData(prev => ({ ...prev, localidad_id: nuevaLocalidad.id }));
+      setShowAddLocalidadInput(false);
+      setNewLocalidadNombre('');
+      setError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear la localidad';
+      setError(msg);
+      console.error('Error creating localidad:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -167,6 +198,32 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {isField && !instalacion?.id && camposExistentes.length > 0 && (
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <div>
+                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">
+                  <i className="fa-solid fa-list mr-2 text-slate-400"></i>
+                  Campos existentes
+                </p>
+                <div className="space-y-2">
+                  {camposExistentes.map(campo => (
+                    <div key={campo.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-100">
+                      <div className="flex-1">
+                        <p className="font-semibold text-slate-700 text-sm">{campo.nombre}</p>
+                      </div>
+                      {campo.tipo && (
+                        <span className="px-2 py-1 rounded bg-green-50 text-green-700 text-[9px] font-black ml-2">
+                          {campo.tipo}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-px bg-slate-200"></div>
+            </div>
+          )}
+
           <div>
             <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Nombre de la instalación *
@@ -185,30 +242,62 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
             <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Localidad *
             </label>
-            <div className="flex gap-2">
-              <select
-                name="localidad_id"
-                value={formData.localidad_id || ''}
-                onChange={handleChange}
-                className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
-              >
-                <option value="">Selecciona localidad</option>
-                {localidades.map(loc => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={onOpenAddLocalidad}
-                title="Agregar nueva localidad"
-                className="px-4 py-3 rounded-xl bg-[var(--accent)] text-white font-black text-[11px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg flex items-center gap-1 whitespace-nowrap"
-              >
-                <i className="fa-solid fa-plus text-sm"></i>
-                <span>Agregar</span>
-              </button>
-            </div>
+            {showAddLocalidadInput ? (
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newLocalidadNombre}
+                  onChange={e => setNewLocalidadNombre(e.target.value)}
+                  placeholder="Nombre de la localidad..."
+                  onKeyPress={e => e.key === 'Enter' && handleCreateLocalidad()}
+                  autoFocus
+                  className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateLocalidad}
+                  disabled={loading}
+                  className="px-4 py-3 rounded-xl bg-[var(--accent)] text-white font-black text-[11px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg whitespace-nowrap disabled:opacity-50"
+                >
+                  <i className="fa-solid fa-check text-sm"></i>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddLocalidadInput(false);
+                    setNewLocalidadNombre('');
+                  }}
+                  className="px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all whitespace-nowrap"
+                >
+                  <i className="fa-solid fa-xmark text-sm"></i>
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <select
+                  name="localidad_id"
+                  value={formData.localidad_id || ''}
+                  onChange={handleChange}
+                  className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
+                >
+                  <option value="">Selecciona localidad</option>
+                  {localidades.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowAddLocalidadInput(true)}
+                  title="Agregar nueva localidad"
+                  className="px-4 py-3 rounded-xl bg-[var(--accent)] text-white font-black text-[11px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg flex items-center gap-1 whitespace-nowrap"
+                >
+                  <i className="fa-solid fa-plus text-sm"></i>
+                  <span>Agregar</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

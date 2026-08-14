@@ -62,9 +62,10 @@ const EditLocalidadModal: React.FC<EditLocalidadModalProps> = ({
       await onSave(formData);
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar la localidad';
+      console.error('Error saving localidad (full):', err);
+      const errorDetails = err instanceof Error ? err.message : JSON.stringify(err);
+      const msg = `Error al guardar: ${errorDetails}`;
       setError(msg);
-      console.error('Error saving localidad:', err);
     } finally {
       setLoading(false);
     }

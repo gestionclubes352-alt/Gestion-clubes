@@ -191,7 +191,22 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   const handleCreate = async () => {
     const teamName = newName.trim();
     const clubName = newClubName.trim();
-    if (!teamName || (addNewMode === 'clubTeam' && !newClubId)) return;
+
+    if (!teamName) {
+      setCreateError('El nombre del equipo es obligatorio');
+      return;
+    }
+
+    if (addNewMode === 'clubTeam' && !newClubId) {
+      setCreateError('Debes seleccionar o crear un club');
+      return;
+    }
+
+    if (addNewMode === 'clubTeam' && newClubId === '__CREATE_NEW__' && !clubName) {
+      setCreateError('El nombre del club es obligatorio');
+      return;
+    }
+
     setCreateError(null);
     try {
       setIsCreating(true);

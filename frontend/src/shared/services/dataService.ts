@@ -283,6 +283,7 @@ export interface InstalacionCampo {
   tipo?: string | null;
   capacidad?: number | null;
   descripcion?: string | null;
+  parent_instalacion_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }

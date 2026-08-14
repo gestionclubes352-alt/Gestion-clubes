@@ -490,20 +490,20 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
 
       {/* TABLA DE COMPETICIONES */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <div className="min-w-[760px]">
+        <div className="w-full overflow-x-auto">
+          <div className="w-full inline-block min-w-full">
             {/* Encabezado */}
             <div
               className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-              style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 120px 140px' }}
+              style={{ gridTemplateColumns: '2fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
             >
               <div className="px-6 py-4">Competición</div>
-              <div className="px-6 py-4 text-center">Tipo</div>
-              <div className="px-6 py-4 text-center">Partes</div>
-              <div className="px-6 py-4 text-center">Min/Parte</div>
-              <div className="px-6 py-4 text-center">Total Minutos</div>
-              <div className="px-6 py-4 text-center">Equipos Añadidos</div>
-              <div className="px-6 py-4 text-right">Acciones</div>
+              <div className="px-3 py-4 text-center">Tipo</div>
+              <div className="px-3 py-4 text-center">Partes</div>
+              <div className="px-3 py-4 text-center">Min/Parte</div>
+              <div className="px-3 py-4 text-center">Total Minutos</div>
+              <div className="px-3 py-4 text-center">Equipos Añadidos</div>
+              <div className="px-4 py-4 text-right">Acciones</div>
             </div>
 
             {/* Filas */}
@@ -522,40 +522,40 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <div
                   key={comp.id}
                   className="grid items-center border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '1fr 120px 100px 100px 120px 120px 140px' }}
+                  style={{ gridTemplateColumns: '2fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
                 >
                   <div className="px-6 py-4">
                     <span className="font-semibold text-slate-800">{comp.nombre}</span>
                   </div>
-                  <div className="px-6 py-4 text-center">
+                  <div className="px-3 py-4 text-center">
                     <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wide">
                       {comp.tipo || 'Liga'}
                     </span>
                   </div>
-                  <div className="px-6 py-4 text-center">
+                  <div className="px-3 py-4 text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-bold text-sm">
                       {comp.numero_partes}
                     </span>
                   </div>
-                  <div className="px-6 py-4 text-center">
+                  <div className="px-3 py-4 text-center">
                     <span className="text-sm font-semibold text-slate-700">{comp.minutos_por_parte}'</span>
                   </div>
-                  <div className="px-6 py-4 text-center">
+                  <div className="px-3 py-4 text-center">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-bold">
                       <i className="fa-solid fa-clock text-[10px]"></i>
                       {comp.total_minutos} min
                     </span>
                   </div>
-                  <div className="px-6 py-4 text-center">
+                  <div className="px-3 py-4 text-center">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
                       <i className="fa-solid fa-people-group text-[10px]"></i>
                       {equiposPorCompeticion.get(comp.id) || 0}
                     </span>
                   </div>
-                  <div className="px-6 py-4 flex items-center justify-end gap-2">
+                  <div className="px-4 py-4 flex items-center justify-end gap-2">
                     <button
                       onClick={() => handleOpenEquiposSelector(comp)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-all flex-shrink-0"
                       title="Configurar equipos"
                       disabled={loading}
                     >
@@ -563,7 +563,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                     </button>
                     <button
                       onClick={() => setCalendarioCompeticion(comp)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all flex-shrink-0"
                       title="Calendario"
                       disabled={loading}
                     >
@@ -571,7 +571,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                     </button>
                     <button
                       onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, tipo: comp.tipo || 'Liga', partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte })}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all flex-shrink-0"
                       title="Editar"
                       disabled={loading}
                     >
@@ -579,7 +579,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                     </button>
                     <button
                       onClick={() => handleDelete(comp.id)}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all flex-shrink-0"
                       title="Eliminar"
                       disabled={loading}
                     >
