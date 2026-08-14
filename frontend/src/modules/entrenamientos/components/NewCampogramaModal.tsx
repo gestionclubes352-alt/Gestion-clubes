@@ -14,7 +14,7 @@ const NewCampogramaModal: React.FC<NewCampogramaModalProps> = ({ onClose, onCrea
   const [formData, setFormData] = useState({
     nombre: '',
     club: clubName || '',
-    equipo: equipos?.[0] || 'Primer Equipo',
+    equipo: 'Juvenil A',
     formacion: '4-3-3'
   });
 
@@ -69,7 +69,7 @@ const NewCampogramaModal: React.FC<NewCampogramaModalProps> = ({ onClose, onCrea
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Sistema Táctico (Formación)</label>
             <div className="grid grid-cols-3 gap-2">
-              {['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2', '4-5-1'].map(sys => (
+              {['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2', '4-5-1', '1-4-2-3-1'].map(sys => (
                 <button
                   key={sys}
                   type="button"

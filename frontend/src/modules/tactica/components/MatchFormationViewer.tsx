@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { TacticalPosition, getInitialPositions } from '../types';
 import SoccerField from './SoccerField';
 
@@ -11,7 +11,7 @@ interface PlayerInfo {
 }
 
 interface MatchFormationViewerProps {
-  /** Formation name (e.g., '4-3-3', '4-4-2', etc.) */
+  /** Formation name (e.g., '1-4-3-3', '1-4-4-2', etc.) */
   formation?: string;
   /** Array of player IDs/names currently in field positions */
   players?: PlayerInfo[];
@@ -32,7 +32,7 @@ interface MatchFormationViewerProps {
 }
 
 const MatchFormationViewer: React.FC<MatchFormationViewerProps> = ({
-  formation = '4-3-3',
+  formation = '1-4-3-3',
   players = [],
   substitutes = [],
   highlightPlayerId,
@@ -425,3 +425,4 @@ const MatchFormationViewer: React.FC<MatchFormationViewerProps> = ({
 };
 
 export default MatchFormationViewer;
+

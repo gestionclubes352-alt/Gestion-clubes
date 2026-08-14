@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { MatchTacticalChange } from '../types/match-changes';
 import { TacticalPosition } from '../types';
 import MatchTacticalTimeline from './MatchTacticalTimeline';
@@ -36,7 +36,7 @@ interface MatchTacticalSectionProps {
 const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
   matchId,
   changes,
-  initialFormation = '4-3-3',
+  initialFormation = '1-4-3-3',
   initialLineup = [],
   squad,
   substituteIds = [],
@@ -344,3 +344,4 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
 };
 
 export default MatchTacticalSection;
+

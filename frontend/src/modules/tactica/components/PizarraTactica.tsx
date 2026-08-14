@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
 import type { Club, Equipo } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
@@ -10,29 +10,30 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
-  '4-4-2': [
-    { x: 50, y: 92 }, { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
-    { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 },
-    { x: 38, y: 52 }, { x: 62, y: 52 }, { x: 18, y: 68 },
+  '1-4-4-2': [
+    { x: 50, y: 92 },
+    { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
+    { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 }, { x: 18, y: 68 },
+    { x: 38, y: 52 }, { x: 62, y: 52 },
   ],
-  '4-3-3': [
+  '1-4-3-3': [
     { x: 50, y: 92 },
     { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
     { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 },
     { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 18, y: 68 },
   ],
-  '4-2-3-1': [
+  '1-4-2-3-1': [
     { x: 50, y: 92 },
     { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
     { x: 38, y: 73 }, { x: 62, y: 73 },
     { x: 82, y: 60 }, { x: 50, y: 58 }, { x: 20, y: 60 },
-    { x: 50, y: 42 }, { x: 18, y: 68 },
+    { x: 50, y: 42 },
   ],
-  '5-3-2': [
+  '1-5-3-2': [
     { x: 50, y: 92 },
     { x: 88, y: 80 }, { x: 12, y: 80 }, { x: 30, y: 84 }, { x: 70, y: 84 }, { x: 50, y: 86 },
     { x: 50, y: 66 }, { x: 72, y: 66 }, { x: 28, y: 66 },
-    { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 18, y: 68 },
+    { x: 38, y: 48 }, { x: 62, y: 48 },
   ],
 };
 
@@ -144,8 +145,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [selectedRivalPlayerId, setSelectedRivalPlayerId] = useState<string | null>(null);
   const [mobileTeamPanelOpen, setMobileTeamPanelOpen] = useState(false);
   const [mobileAssignPanelOpen, setMobileAssignPanelOpen] = useState(false);
-  const [myFormation, setMyFormation] = useState('4-4-2');
-  const [rivalFormation, setRivalFormation] = useState('4-4-2');
+  const [myFormation, setMyFormation] = useState('1-4-4-2');
+  const [rivalFormation, setRivalFormation] = useState('1-4-4-2');
   const [showMyTeam, setShowMyTeam] = useState(true);
   const [showRivalTeam, setShowRivalTeam] = useState(true);
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
@@ -170,6 +171,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const arrowStartPosition = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [showFieldLines, setShowFieldLines] = useState(true);
   const [dragOutsideField, setDragOutsideField] = useState(false);
+  const [showPlayerPhotos, setShowPlayerPhotos] = useState(false);
   const DROP_OUTSIDE_MARGIN_PX = 30;
 
   useEffect(() => {
@@ -313,7 +315,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, []);
 
   const buildTeamPlayers = useCallback((formation: string, team: TeamKey): PitchPlayer[] => {
-    const coords = FORMATIONS[formation] || FORMATIONS['4-4-2'];
+    const coords = FORMATIONS[formation] || FORMATIONS['1-4-4-2'];
     const baseColor = team === 'my' ? myTeamColor : rivalTeamColor;
     const keeperColor = team === 'my' ? MY_KEEPER_COLOR : RIVAL_KEEPER_COLOR;
 
@@ -1040,15 +1042,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 Más
               </button>
               <button
-                type="button"
-                onClick={() => setPlayerScale(1)}
-                className="col-span-2 h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Restablecer tamaño de todos los jugadores"
-              >
-                <i className="fa-solid fa-rotate-left mr-2 text-[11px]" />
-                Resetear
-              </button>
-              <button
                 onClick={downloadImage}
                 disabled={isExportingImage}
                 className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
@@ -1115,20 +1108,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
                 BORRAR FLECHAS
               </button>
-              <button className="col-span-2 h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5">
-                <i className="fa-solid fa-user mr-2 text-[11px]" />
-                FOTOS JUGADORES
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
-              <button
-                onClick={() => { setFrames([[]]); setCurrentFrameIndex(0); setSelectedPitchIds([]); setSelectedSquadPlayerId(null); }}
-                className="h-12 rounded-md bg-[var(--accent)] text-[12px] font-black uppercase tracking-[0.16em] text-white"
-              >
-                <i className="fa-solid fa-square mr-2 text-[11px]" />
-                RESETEAR
-              </button>
               <button
                 onClick={() => {
                   updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined })));
@@ -1139,13 +1121,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               >
                 <i className="fa-solid fa-broom mr-2 text-[11px]" />
                 QUITAR JUGADORES
-              </button>
-              <button
-                onClick={() => setBall({ x: 50, y: 88 })}
-                className="col-span-2 h-12 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.13em] text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-              >
-                <i className="fa-solid fa-futbol mr-2 text-[11px]" />
-                Resetear balón
               </button>
             </div>
           </div>
@@ -1193,8 +1168,34 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           >
             <i className="fa-solid fa-plus text-[12px]" />
           </button>
-          <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-            {mode}
+          <div className="flex gap-2 items-center">
+            <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+              {mode}
+            </div>
+
+            <select
+              value={myFormation}
+              onChange={e => setMyFormation(e.target.value)}
+              title="Sistema de mi equipo"
+              className="h-8 rounded-md border border-red-200 bg-red-50 px-2 text-[12px] font-black uppercase tracking-[0.06em] text-red-700 outline-none dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200"
+            >
+              <option value="1-4-4-2">MI: 1-4-4-2</option>
+              <option value="1-4-3-3">MI: 1-4-3-3</option>
+              <option value="1-4-2-3-1">MI: 1-4-2-3-1</option>
+              <option value="1-5-3-2">MI: 1-5-3-2</option>
+            </select>
+
+            <select
+              value={rivalFormation}
+              onChange={e => setRivalFormation(e.target.value)}
+              title="Sistema del equipo rival"
+              className="h-8 rounded-md border border-blue-200 bg-blue-50 px-2 text-[12px] font-black uppercase tracking-[0.06em] text-blue-700 outline-none dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200"
+            >
+              <option value="1-4-4-2">RIVAL: 1-4-4-2</option>
+              <option value="1-4-3-3">RIVAL: 1-4-3-3</option>
+              <option value="1-4-2-3-1">RIVAL: 1-4-2-3-1</option>
+              <option value="1-5-3-2">RIVAL: 1-5-3-2</option>
+            </select>
           </div>
           <button
             type="button"
@@ -1375,7 +1376,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           x2={arrow.x2}
                           y2={arrow.y2}
                           stroke={arrow.color}
-                          strokeWidth={isSelected ? 0.8 : 0.4}
+                          strokeWidth="0.4"
                           strokeOpacity="0.9"
                           style={{ pointerEvents: 'none' }}
                         />
@@ -1385,9 +1386,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           fillOpacity="0.9"
                           style={{ pointerEvents: 'none' }}
                         />
-                        {isSelected && (
-                          <circle cx={arrow.x1} cy={arrow.y1} r="2" fill={arrow.color} fillOpacity="0.6" style={{ pointerEvents: 'none' }} />
-                        )}
                       </g>
                     );
                   })}
@@ -1667,10 +1665,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           onChange={e => setRivalFormation(e.target.value)}
                           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
                         >
-                          <option value="4-4-2">4-4-2</option>
-                          <option value="4-3-3">4-3-3</option>
-                          <option value="4-2-3-1">4-2-3-1</option>
-                          <option value="5-3-2">5-3-2</option>
+                          <option value="1-4-4-2">1-4-4-2</option>
+                          <option value="1-4-3-3">1-4-3-3</option>
+                          <option value="1-4-2-3-1">1-4-2-3-1</option>
+                          <option value="1-5-3-2">1-5-3-2</option>
                         </select>
                       </div>
 
@@ -1752,10 +1750,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           onChange={e => setMyFormation(e.target.value)}
                           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
                         >
-                          <option value="4-4-2">4-4-2</option>
-                          <option value="4-3-3">4-3-3</option>
-                          <option value="4-2-3-1">4-2-3-1</option>
-                          <option value="5-3-2">5-3-2</option>
+                          <option value="1-4-4-2">1-4-4-2</option>
+                          <option value="1-4-3-3">1-4-3-3</option>
+                          <option value="1-4-2-3-1">1-4-2-3-1</option>
+                          <option value="1-5-3-2">1-5-3-2</option>
                         </select>
                       </div>
 
@@ -1806,6 +1804,39 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           ))}
                         </div>
                       )}
+
+                      {selectedMyTeamId && !isMySquadLoading && squad.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPlayerPhotos(!showPlayerPhotos)}
+                          className="w-full h-10 rounded-md border border-red-200 bg-white text-[12px] font-black uppercase tracking-[0.12em] text-red-700 hover:bg-red-50 transition-all dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-200 dark:hover:bg-red-500/10"
+                        >
+                          <i className="fa-solid fa-image mr-2 text-[11px]" />
+                          {showPlayerPhotos ? 'OCULTAR FOTOS' : 'FOTOS JUGADORES'}
+                        </button>
+                      )}
+
+                      {showPlayerPhotos && squad.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                          {squad.map(player => (
+                            <div key={player.id} className="flex flex-col items-center gap-1">
+                              <div className="w-16 h-16 rounded-lg overflow-hidden border border-red-200 bg-red-50 flex items-center justify-center dark:border-red-500/20 dark:bg-red-500/10">
+                                {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                                  <img src={player.fotoUrl} alt={player.nombre} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[20px] font-black text-red-600 dark:text-red-300">{(player.apodo || player.nombre).slice(0, 1).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <span className="text-[9px] font-black text-red-600 text-center truncate w-full px-0.5 dark:text-red-300">
+                                {player.dorsal ? `#${player.dorsal}` : '-'}
+                              </span>
+                              <span className="text-[8px] text-red-500 text-center truncate w-full px-0.5 dark:text-red-300/70">
+                                {(player.apodo || player.nombre).slice(0, 8)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1820,3 +1851,4 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 };
 
 export default PizarraTactica;
+

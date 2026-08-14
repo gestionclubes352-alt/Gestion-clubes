@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview Servicio de acceso a datos sobre las tablas de Supabase.
  * Cada helper es un CRUD delgado sobre una tabla concreta.
  * Sustituye al antiguo shared/services/dataService.ts (localStorage + Firestore).
@@ -725,7 +725,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         abp_def_corners: item.abpDefCorners || [],
         abp_def_lateral_fouls: item.abpDefLateralFouls || [],
         abp_def_frontal_fouls: item.abpDefFrontalFouls || [],
-        formation: item.formation || '4-3-3',
+        formation: item.formation || '1-4-3-3',
         lineup_positions: item.lineupPositions || [],
         substitute_ids: item.substituteIds || [],
         not_convocado_ids: item.notConvocadoIds || [],
@@ -806,3 +806,4 @@ export function getTeamConfig(): LegacyTeamConfig | null {
     return null;
   }
 }
+

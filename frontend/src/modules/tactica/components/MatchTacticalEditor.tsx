@@ -27,7 +27,7 @@ interface MatchTacticalEditorProps {
   onCancel: () => void;
 }
 
-const formationNames: FormationName[] = ['4-3-3', '4-4-2', '4-2-3-1', '5-3-2'];
+const formationNames: FormationName[] = ['1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'];
 
 const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
   change,
@@ -42,7 +42,7 @@ const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
   const [type, setType] = useState<MatchTacticalChange['type']>(change?.type ?? 'entrada');
   const [playerInId, setPlayerInId] = useState(change?.playerInId ?? '');
   const [playerOutId, setPlayerOutId] = useState(change?.playerOutId ?? '');
-  const [newFormation, setNewFormation] = useState(change?.newFormation ?? '4-3-3');
+  const [newFormation, setNewFormation] = useState(change?.newFormation ?? '1-4-3-3');
   const [description, setDescription] = useState(change?.description ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 

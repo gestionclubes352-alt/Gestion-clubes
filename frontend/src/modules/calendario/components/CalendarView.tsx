@@ -264,9 +264,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo]);
 
   useEffect(() => {
-    const state = location.state as { openEventId?: string; newTaskId?: string } | null;
+    const state = location.state as { openEventId?: string; newTaskId?: string; editSessionTaskId?: string } | null;
     const openEventId = state?.openEventId;
     const newTaskId = state?.newTaskId;
+    const editSessionTaskId = state?.editSessionTaskId;
     if (!openEventId && !newTaskId) return;
 
     const applyIncomingState = async () => {
@@ -278,20 +279,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
           const { data } = await db.task_templates.get();
           const newTask = (data as TrainingTask[])?.find(t => t.id === newTaskId);
           if (newTask) {
-            const sessionTask: SessionTask = {
-              id: `rt-${newTask.id}-${Date.now()}`,
-              linkedTaskId: newTask.id,
-              title: newTask.name,
-              category: newTask.category,
-              sessionPhase: 'Parte Principal',
-              durationMinutes: 15,
-              thumbnail: newTask.thumbnail,
-              designerSnapshot: newTask.designerSnapshot,
-              fieldStructure: newTask.fieldStructure,
-            };
-            target = { ...target, tasks: [...(target.tasks || []), sessionTask] };
+            const existingTask = editSessionTaskId
+              ? (target.tasks || []).find(t => t.id === editSessionTaskId)
+              : undefined;
+
+            if (existingTask) {
+              // Veníamos de editar el dibujo de una tarea ya presente en la sesión: actualizamos su snapshot in situ
+              const updatedTask: SessionTask = {
+                ...existingTask,
+                title: newTask.name,
+                category: newTask.category,
+                thumbnail: newTask.thumbnail,
+                designerSnapshot: newTask.designerSnapshot,
+                fieldStructure: newTask.fieldStructure,
+              };
+              target = {
+                ...target,
+                tasks: (target.tasks || []).map(t => (t.id === editSessionTaskId ? updatedTask : t)),
+              };
+            } else {
+              const sessionTask: SessionTask = {
+                id: `rt-${newTask.id}-${Date.now()}`,
+                linkedTaskId: newTask.id,
+                title: newTask.name,
+                category: newTask.category,
+                sessionPhase: 'Parte Principal',
+                durationMinutes: 15,
+                thumbnail: newTask.thumbnail,
+                designerSnapshot: newTask.designerSnapshot,
+                fieldStructure: newTask.fieldStructure,
+              };
+              target = { ...target, tasks: [...(target.tasks || []), sessionTask] };
+            }
             // Persistir de inmediato: si el usuario navega fuera sin pulsar "Guardar",
-            // la tarea recién creada en el diseñador no debe perderse.
+            // los cambios del diseñador no deben perderse.
             onSaveEvent(target);
           }
         } catch (err) {

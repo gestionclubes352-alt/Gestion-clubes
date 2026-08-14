@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import type { TacticalPosition } from '../types';
+import type { TacticalPosition, FormationName } from '../types';
 import type { Player } from '@modules/plantilla';
+import type { Campograma } from '@modules/entrenamientos';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
 const NOT_CONVOCADO_REASONS: Array<{ value: string; label: string }> = [
@@ -27,6 +28,9 @@ interface TacticalBoardProps {
   showStarterBadge?: boolean;
   showConvocadoControl?: boolean;
   mainTeamName?: string;
+  campogramas?: Campograma[];
+  selectedCampogramaId?: string | number;
+  onSelectCampograma?: (campograma: Campograma) => void;
 }
 
 const TacticalBoard: React.FC<TacticalBoardProps> = ({
@@ -42,9 +46,14 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
   onPlayerSelect,
   showStarterBadge = true,
   showConvocadoControl = true,
-  mainTeamName = ''
+  mainTeamName = '',
+  campogramas = [],
+  selectedCampogramaId,
+  onSelectCampograma
 }) => {
   const [activePosId, setActivePosId] = useState<string | null>(positions.length > 0 ? positions[0].id : null);
+  const [selectedTeam, setSelectedTeam] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   const isConvocado = (playerId: string | number) => !notConvocadoIds.some(id => String(id) === String(playerId));
   const isOtherTeam = (player: Player) => mainTeamName && player.equipo && player.equipo !== mainTeamName;
@@ -92,6 +101,22 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
     return groups;
   }, [convocadoSquad]);
 
+  const uniqueTeams = useMemo(() => {
+    const teams = Array.from(new Set(otherTeamsSquad.map(p => p.equipo).filter(Boolean)));
+    return teams.sort();
+  }, [otherTeamsSquad]);
+
+  const filteredOtherTeamsSquad = useMemo(() => {
+    return otherTeamsSquad.filter(player => {
+      const matchesTeam = !selectedTeam || player.equipo === selectedTeam;
+      const matchesSearch = !searchTerm ||
+        player.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        player.apodo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        player.dorsal?.toString().includes(searchTerm);
+      return matchesTeam && matchesSearch;
+    });
+  }, [otherTeamsSquad, selectedTeam, searchTerm]);
+
   const handlePickPlayer = (playerId: string | number) => {
     if (activePosId) {
       onAssignPlayer(activePosId, playerId);
@@ -113,23 +138,10 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 items-stretch w-full max-w-375 mx-auto min-h-150 lg:h-[calc(100vh-180px)] pb-20 lg:pb-0 px-4">
-      
-      {/* Columna Izquierda: El Campo */}
+
+      {/* Columna Centro: El Campo */}
       <div className="w-full flex-1 min-h-125 flex flex-col">
         <div className="relative flex-1 rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center p-4 md:p-8 border-[6px] md:border-12 border-white/5 overflow-hidden" style={fieldBackground}>
-          
-          {/* Sistemas Flotantes */}
-          <div className="absolute top-4 left-4 md:top-8 md:left-8 flex bg-white/10 backdrop-blur-md rounded-lg md:rounded-xl p-1 border border-white/10 z-30 shadow-2xl overflow-x-auto max-w-50 md:max-w-none">
-            {['4-3-3', '4-4-2', '4-2-3-1', '5-3-2'].map(f => (
-              <button 
-                key={f}
-                onClick={() => onChangeFormation(f)}
-                className={`px-3 md:px-4 py-1 md:py-1.5 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${formacion === f ? 'bg-[var(--accent)] text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
 
           {/* Líneas del campo */}
           <div className="absolute inset-0 pointer-events-none p-4 md:p-6 opacity-62">
@@ -338,8 +350,36 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
               <h4 className="text-[7px] md:text-[7.5px] font-black text-orange-500 px-2 py-0.5 bg-orange-50 rounded-lg tracking-widest uppercase">
                 <i className="fa-solid fa-arrow-down-short-wide mr-1"></i>Otros Equipos
               </h4>
+
+              <div className="space-y-2 px-2">
+                <input
+                  type="text"
+                  placeholder="Buscar jugador..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-orange-200 bg-orange-50 text-[10px] font-bold uppercase placeholder-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+                {uniqueTeams.length > 0 && (
+                  <select
+                    value={selectedTeam}
+                    onChange={(e) => setSelectedTeam(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-orange-200 bg-orange-50 text-[10px] font-bold uppercase text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  >
+                    <option value="">Todos los equipos</option>
+                    {uniqueTeams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
               <div className="space-y-2">
-                {otherTeamsSquad.map((player) => {
+                {filteredOtherTeamsSquad.length === 0 ? (
+                  <p className="text-[9px] text-orange-500 font-bold p-2 text-center">
+                    No hay jugadores que coincidan con la búsqueda
+                  </p>
+                ) : (
+                  filteredOtherTeamsSquad.map((player) => {
                   const inThisPos = selectedPos?.playerIds?.some(id => String(id) === String(player.id));
                   const isOnField = positions.some(p => p.playerIds?.some(id => String(id) === String(player.id)));
                   const isDisabled = isOnField && !inThisPos;
@@ -415,7 +455,8 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                       )}
                     </div>
                   );
-                })}
+                })
+                )}
               </div>
             </div>
           )}

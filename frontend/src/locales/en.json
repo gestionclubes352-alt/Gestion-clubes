@@ -766,6 +766,7 @@
     "fieldDescription": "Description",
     "describeTaskPlaceholder": "Describe the task...",
     "viewFullscreen": "View fullscreen",
+    "editDrawing": "Edit drawing",
     "closeFullscreen": "Close",
     "dragToDuplicate": "Drag to duplicate"
   },

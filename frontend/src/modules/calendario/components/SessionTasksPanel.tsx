@@ -102,6 +102,19 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     onChange(tasks.filter(task => task.id !== id));
   };
 
+  /** Abre el diseñador táctico sobre el dibujo ya guardado de esta tarea de sesión, para modificarlo */
+  const editTaskDrawing = (task: SessionTask) => {
+    if (!task.linkedTaskId) return;
+    navigate('/disenador', {
+      state: {
+        selectTaskId: task.linkedTaskId,
+        fromSessionCreation: true,
+        returnEventId: eventId,
+        editSessionTaskId: task.id,
+      },
+    });
+  };
+
   const filteredRepository = useMemo(() => {
     if (!repoSearch) return repositoryTasks;
     const q = repoSearch.toLowerCase();
@@ -458,6 +471,16 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         />
                       )}
                     </div>
+                    {task.linkedTaskId && (
+                      <button
+                        type="button"
+                        onClick={() => editTaskDrawing(task)}
+                        className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                        title={t('calendarView.editDrawing') || 'Editar dibujo'}
+                      >
+                        <i className="fa-solid fa-pen text-[14px]"></i>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setFullscreenTaskId(task.id)}
@@ -490,7 +513,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
                 {/* Vista previa y Descripción lado a lado */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div>
+                  <div
+                    className={`group/preview relative ${task.linkedTaskId ? 'cursor-pointer' : ''}`}
+                    onClick={() => task.linkedTaskId && editTaskDrawing(task)}
+                    title={task.linkedTaskId ? (t('calendarView.editDrawing') || 'Editar dibujo') : undefined}
+                  >
                     {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
                       <div className="rounded-xl overflow-hidden">
                         <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
@@ -502,6 +529,14 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                     ) : (
                       <div className={`w-full aspect-[105/68] rounded-xl flex items-center justify-center text-white border border-slate-100 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
                         <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[28px]`}></i>
+                      </div>
+                    )}
+                    {task.linkedTaskId && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 opacity-0 transition-all group-hover/preview:bg-black/40 group-hover/preview:opacity-100">
+                        <span className="flex items-center gap-2 rounded-lg bg-white/90 px-3 py-1.5 text-[12px] font-black uppercase tracking-widest text-slate-700">
+                          <i className="fa-solid fa-pen"></i>
+                          {t('calendarView.editDrawing') || 'Editar dibujo'}
+                        </span>
                       </div>
                     )}
                   </div>

@@ -208,6 +208,15 @@ const OFFICIAL_SCORERS_BY_CLUB: Record<string, Omit<ScorerRow, 'pos'>[]> = {
   ],
 };
 
+/**
+ * URL embebida de clasificación oficial de la Federación Aragonesa de Fútbol (futbolaragon.com)
+ * por club. Cuando existe, se muestra un iframe con la clasificación en vivo en lugar de la
+ * tabla calculada/hardcodeada.
+ */
+const FEDERATION_STANDINGS_URL_BY_CLUB: Record<string, string> = {
+  'escuela-huesca': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisClasificacion?cod_primaria=1000120&codjornada=1&codcompeticion=23183382&codgrupo=23183383&codjornada=1',
+};
+
 const normalizeTeam = (name: string) => name
   .toLowerCase()
   .normalize('NFD')
@@ -496,6 +505,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
   const hasRealMatchData = matchStandings.some(row => row.played > 0);
 
   // Decidir qué datos mostrar: oficiales del club > partidos registrados > IA > (0 en todo si no hay nada)
+  const federationStandingsUrl = FEDERATION_STANDINGS_URL_BY_CLUB[currentClubId];
   const officialStandings = useMemo(() => buildOfficialStandings(filteredTeams, standingsKey), [filteredTeams, standingsKey]);
   const hasOfficialData = officialStandings.length > 0;
   const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData && !hasRealMatchData;
@@ -886,7 +896,25 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
         </p>
       )}
 
-      {activeSection === 'clasificacion' && (
+      {activeSection === 'clasificacion' && federationStandingsUrl && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+            Clasificación oficial · Federación Aragonesa de Fútbol
+          </p>
+          <div className="rounded-2xl border border-slate-100 overflow-hidden bg-white">
+            <iframe
+              src={federationStandingsUrl}
+              title="Clasificación oficial - Federación Aragonesa de Fútbol"
+              className="w-full"
+              style={{ height: '70vh', border: 'none' }}
+              loading="lazy"
+              sandbox="allow-scripts allow-same-origin allow-popups"
+            />
+          </div>
+        </div>
+      )}
+
+      {activeSection === 'clasificacion' && !federationStandingsUrl && (
         <DataTable<StandingTeam>
           data={standings}
           columns={columns}

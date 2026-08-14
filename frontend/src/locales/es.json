@@ -766,6 +766,7 @@
     "fieldDescription": "Descripción",
     "describeTaskPlaceholder": "Describe la tarea...",
     "viewFullscreen": "Ver en pantalla grande",
+    "editDrawing": "Editar dibujo",
     "closeFullscreen": "Cerrar",
     "dragToDuplicate": "Arrastra para duplicar"
   },

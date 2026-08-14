@@ -88,6 +88,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const incomingSelectTaskIdRef = useRef<string | null>((location.state as any)?.selectTaskId ?? null);
   const fromSessionCreationRef = useRef<boolean>((location.state as any)?.fromSessionCreation ?? false);
   const returnEventIdRef = useRef<string | null>((location.state as any)?.returnEventId ?? null);
+  // Id de la tarea de sesión (SessionTask) cuyo dibujo se está editando, para actualizarla en vez de añadir una nueva al volver
+  const editSessionTaskIdRef = useRef<string | null>((location.state as any)?.editSessionTaskId ?? null);
   const [incomingTaskApplied, setIncomingTaskApplied] = useState(false);
   const [frames, setFrames] = useState<DesignerItem[][]>([[]]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -553,7 +555,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   /** Volver a la sesión de origen tras confirmar el guardado desde el banner */
   const handleReturnToSession = () => {
     navigate('/sesiones', {
-      state: { newTaskId: activeTaskId, openEventId: returnEventIdRef.current },
+      state: {
+        newTaskId: activeTaskId,
+        openEventId: returnEventIdRef.current,
+        editSessionTaskId: editSessionTaskIdRef.current,
+      },
     });
   };
 
@@ -567,7 +573,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       console.log('Volviendo a la sesión con newTaskId:', activeTaskId, 'openEventId:', returnEventIdRef.current);
       navigate('/sesiones', {
         state: activeTaskId
-          ? { newTaskId: activeTaskId, openEventId: returnEventIdRef.current }
+          ? { newTaskId: activeTaskId, openEventId: returnEventIdRef.current, editSessionTaskId: editSessionTaskIdRef.current }
           : { openEventId: returnEventIdRef.current },
       });
     } else {
@@ -1724,8 +1730,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
               onClick={handleSaveClick}
               className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-[var(--accent-dark)]"
             >
-              <i className={`fa-solid ${fromSessionCreationRef.current ? 'fa-plus' : 'fa-floppy-disk'}`}></i>
-              {fromSessionCreationRef.current ? 'AÑADIR' : 'Guardar'}
+              <i className={`fa-solid ${fromSessionCreationRef.current && !editSessionTaskIdRef.current ? 'fa-plus' : 'fa-floppy-disk'}`}></i>
+              {fromSessionCreationRef.current && !editSessionTaskIdRef.current ? 'AÑADIR' : 'GUARDAR'}
             </button>
           </div>
         </header>
