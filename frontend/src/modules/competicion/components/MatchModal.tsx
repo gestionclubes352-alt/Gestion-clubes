@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { CompetitionTeam } from '../types';
 import type { Club } from '@modules/clubes/types';
-import type { Equipo, EquipoRival } from '@/shared/services/dataService';
+import type { Equipo, EquipoRival, Localidad, InstalacionCampo } from '@/shared/services/dataService';
 import EquipoSelect, { type EquipoOption, compareEquipoNames } from '@shared/components/EquipoSelect';
-import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
+import { clubesService, equiposRivalesService, equiposService, localidadesService, instalacionesCamposService } from '@shared/services';
 import { competicionEquiposService } from '../services/competicionEquiposService';
+import { uploadClubLogo } from '@shared/services/photoService';
 import { useAuth } from '@/context/AuthContext';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
@@ -14,6 +15,8 @@ export interface MatchFormData {
   time: string;
   competition: string;
   location: string;
+  localidad_id?: string;
+  instalacion_campo_id?: string;
   jornada: string;
   localTeam: string;
   visitorTeam: string;
@@ -66,6 +69,9 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [rivalCatalog, setRivalCatalog] = useState<EquipoRival[]>([]);
   const [allEquiposCatalog, setAllEquiposCatalog] = useState<CompetitionTeam[]>([]);
   const [dynamicCompetitionTeams, setDynamicCompetitionTeams] = useState<CompetitionTeam[]>([]);
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
+  const [instalacionesFiltradas, setInstalacionesFiltradas] = useState<InstalacionCampo[]>([]);
 
   // Resolver el id de la competición seleccionada (por nombre, ya que el selector guarda el nombre)
   const selectedCompetitionId = useMemo(() => {
@@ -85,6 +91,41 @@ const MatchModal: React.FC<MatchModalProps> = ({
     };
     loadClubs();
   }, []);
+
+  useEffect(() => {
+    const loadLocalidades = async () => {
+      try {
+        const data = await localidadesService.list();
+        setLocalidades(data || []);
+      } catch (err) {
+        console.error('Error loading localidades:', err);
+      }
+    };
+    loadLocalidades();
+  }, []);
+
+  useEffect(() => {
+    const loadInstalaciones = async () => {
+      try {
+        const data = await instalacionesCamposService.list();
+        setInstalacionesCampos(data || []);
+      } catch (err) {
+        console.error('Error loading instalaciones:', err);
+      }
+    };
+    loadInstalaciones();
+  }, []);
+
+  useEffect(() => {
+    if (formData.localidad_id) {
+      const filtradas = instalacionesCampos.filter(
+        ic => ic.localidad_id === formData.localidad_id
+      );
+      setInstalacionesFiltradas(filtradas);
+    } else {
+      setInstalacionesFiltradas(instalacionesCampos);
+    }
+  }, [formData.localidad_id, instalacionesCampos]);
 
   useEffect(() => {
     const loadRivalCatalog = async () => {
@@ -299,7 +340,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
     }
   };
 
-  const handleCreateEquipo = async (input: { value: string; club?: string }) => {
+  const handleCreateEquipo = async (input: { value: string; club?: string; escudoFile?: File }) => {
     try {
       const clubName = input.club?.trim();
       const teamName = input.value.trim();
@@ -317,6 +358,14 @@ const MatchModal: React.FC<MatchModalProps> = ({
       if (!dbClub) {
         const createdClub = await clubesService.create({ nombre: clubName } as any);
         dbClub = createdClub as Club;
+        if (input.escudoFile && perfil?.club_id) {
+          try {
+            const escudoUrl = await uploadClubLogo(input.escudoFile, String(dbClub.id), String(perfil.club_id));
+            dbClub = await clubesService.update(dbClub.id, { escudo_url: escudoUrl } as any) as Club;
+          } catch (err) {
+            console.error('Error uploading club logo:', err);
+          }
+        }
         setClubs(prev => [...prev, dbClub as Club]);
       }
 
@@ -448,19 +497,47 @@ const MatchModal: React.FC<MatchModalProps> = ({
                 </SearchableSelect>
               </div>
 
-              {/* Ubicación */}
+              {/* Localidad */}
               <div>
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  <i className="fa-solid fa-map-pin mr-1"></i>Ubicación
+                  <i className="fa-solid fa-map-pin mr-1"></i>Localidad
                 </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  placeholder="Ej: Estadio San Mamés, Campo de Derio..."
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-                />
+                <select
+                  name="localidad_id"
+                  value={formData.localidad_id || ''}
+                  onChange={(e) => setFormData({ ...formData, localidad_id: e.target.value || undefined, instalacion_campo_id: undefined })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
+                >
+                  <option value="">Selecciona localidad</option>
+                  {localidades.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Instalación/Campo */}
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  <i className="fa-solid fa-fence mr-1"></i>Instalación / Campo
+                </label>
+                <select
+                  name="instalacion_campo_id"
+                  value={formData.instalacion_campo_id || ''}
+                  onChange={(e) => setFormData({ ...formData, instalacion_campo_id: e.target.value || undefined })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
+                  disabled={!formData.localidad_id}
+                >
+                  <option value="">
+                    {formData.localidad_id ? 'Selecciona instalación' : 'Selecciona localidad primero'}
+                  </option>
+                  {instalacionesFiltradas.map(ic => (
+                    <option key={ic.id} value={ic.id}>
+                      {ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Jornada */}

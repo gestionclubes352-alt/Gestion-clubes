@@ -171,6 +171,8 @@ export interface Partido {
   visitor_team_club_id?: string;
   time?: string;
   location?: string;
+  localidad_id?: string | null;
+  instalacion_campo_id?: string | null;
   nombre_interno?: string;
   created_at?: string;
   updated_at?: string;
@@ -197,6 +199,8 @@ export interface EventoCalendario {
   time?: string | null;
   team?: string | null;
   location?: string | null;
+  localidad_id?: string | null;
+  instalacion_campo_id?: string | null;
   notes?: string | null;
   video_url?: string | null;
   doc_url?: string | null;
@@ -261,6 +265,28 @@ export interface EquipoRival {
   updated_at?: string;
 }
 
+export interface Localidad {
+  id: string;
+  club_id?: string | null;
+  nombre: string;
+  provincia?: string | null;
+  pais?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InstalacionCampo {
+  id: string;
+  club_id?: string | null;
+  localidad_id?: string | null;
+  nombre: string;
+  tipo?: string | null;
+  capacidad?: number | null;
+  descripcion?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ── Servicios por tabla ────────────────────────────────────────────────────
 export const clubesService = createTableService<Club>('clubes');
 export const equiposService = createTableService<Equipo>('equipos');
@@ -275,6 +301,8 @@ export const calendarioCompeticionService = createTableService<CalendarioCompeti
 export const pizarrasService = createTableService<PizarraTactica>('pizarras_tacticas');
 export const tareasService = createTableService<Tarea>('tareas');
 export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
+export const localidadesService = createTableService<Localidad>('localidades');
+export const instalacionesCamposService = createTableService<InstalacionCampo>('instalaciones_campos');
 
 // Ejemplo de uso en un componente:
 //

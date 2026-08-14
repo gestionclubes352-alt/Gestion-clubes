@@ -35,6 +35,8 @@ export interface CalendarEvent {
   team?: string;
   clubId?: string;
   location?: string;
+  localidad_id?: string;
+  instalacion_campo_id?: string;
   notes?: string;
   videoUrl?: string;
   docUrl?: string;
@@ -70,6 +72,8 @@ export interface EventFormData {
   date: string;
   time: string;
   location: string;
+  localidad_id?: string;
+  instalacion_campo_id?: string;
   team: string;
   competition: string;
   jornada: string;

@@ -4,9 +4,10 @@ import type { CalendarEvent, EventType, EventFormData } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import EquipoSelect, { type EquipoOption, compareEquipoNames } from '../../../shared/components/EquipoSelect';
-import { clubesService, equiposRivalesService, equiposService } from '@shared/services';
+import { clubesService, equiposRivalesService, equiposService, localidadesService, instalacionesCamposService } from '@shared/services';
+import { uploadClubLogo } from '@shared/services/photoService';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
-import type { Competicion, Equipo, EquipoRival } from '@shared/services/dataService';
+import type { Competicion, Equipo, EquipoRival, Localidad, InstalacionCampo } from '@shared/services/dataService';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
 const toLocalDateString = (d: Date): string => {
@@ -62,6 +63,9 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [createdCompetitionTeams, setCreatedCompetitionTeams] = useState<CompetitionTeam[]>([]);
   const [isAddingLocalTeam, setIsAddingLocalTeam] = useState(false);
   const [isAddingVisitorTeam, setIsAddingVisitorTeam] = useState(false);
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
+  const [instalacionesFiltradas, setInstalacionesFiltradas] = useState<InstalacionCampo[]>([]);
   const hasPendingTeamCreation = isAddingLocalTeam || isAddingVisitorTeam;
 
   useEffect(() => {
@@ -94,6 +98,26 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       }
     };
     loadRivalCatalog();
+
+    const loadLocalidades = async () => {
+      try {
+        const data = await localidadesService.list();
+        setLocalidades(data || []);
+      } catch (err) {
+        console.error('Error loading localidades:', err);
+      }
+    };
+    loadLocalidades();
+
+    const loadInstalaciones = async () => {
+      try {
+        const data = await instalacionesCamposService.list();
+        setInstalacionesCampos(data || []);
+      } catch (err) {
+        console.error('Error loading instalaciones:', err);
+      }
+    };
+    loadInstalaciones();
   }, []);
 
   const typeTranslations: Record<EventType, string> = {
@@ -134,6 +158,17 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       }));
     }
   }, [initialDate, currentEvent]);
+
+  useEffect(() => {
+    if (formData.location) {
+      const filtradas = instalacionesCampos.filter(
+        ic => ic.localidad_id === formData.location
+      );
+      setInstalacionesFiltradas(filtradas);
+    } else {
+      setInstalacionesFiltradas(instalacionesCampos);
+    }
+  }, [formData.location, instalacionesCampos]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -263,7 +298,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
   const matchOwnTeamOptions = subTeamOptions;
 
-  const handleCreateTeamForCompetition = async ({ value, club }: { value: string; club?: string }): Promise<EquipoOption> => {
+  const handleCreateTeamForCompetition = async ({ value, club, escudoFile }: { value: string; club?: string; escudoFile?: File }): Promise<EquipoOption> => {
     if (!selectedCompetitionId) throw new Error('Selecciona una competición antes de añadir equipos');
     const clubName = club?.trim();
     const teamName = value.trim();
@@ -273,6 +308,14 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     if (!dbClub) {
       const createdClub = await clubesService.create({ nombre: clubName } as any);
       dbClub = { id: createdClub.id, nombre: createdClub.nombre };
+      if (escudoFile && ownClubId) {
+        try {
+          const escudoUrl = await uploadClubLogo(escudoFile, String(createdClub.id), String(ownClubId));
+          await clubesService.update(createdClub.id, { escudo_url: escudoUrl } as any);
+        } catch (err) {
+          console.error('Error uploading club logo:', err);
+        }
+      }
       setClubs(prev => [...prev, dbClub as Club]);
     }
 
@@ -501,13 +544,35 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                 </>
               )}
 
-              <input
+              <select
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                placeholder={t('common.location')}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#8b2b35]"
-              />
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+              >
+                <option value="">Selecciona localidad</option>
+                {localidades.map(loc => (
+                  <option key={loc.id} value={loc.id || ''}>
+                    {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
+                  </option>
+                ))}
+              </select>
+
+              {formData.location && (
+                <select
+                  name="instalacion_campo_id"
+                  value={formData.instalacion_campo_id || ''}
+                  onChange={(e) => setFormData({ ...formData, instalacion_campo_id: e.target.value || undefined })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                >
+                  <option value="">Selecciona instalación / campo</option>
+                  {instalacionesFiltradas.map(ic => (
+                    <option key={ic.id} value={ic.id || ''}>
+                      {ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {typeSelected === 'Partido' && (
                 <div className="space-y-3 pt-2 border-t border-slate-100">
