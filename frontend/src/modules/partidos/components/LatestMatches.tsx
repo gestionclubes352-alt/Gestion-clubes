@@ -701,66 +701,125 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       </div>
 
       {viewMode === 'calendar' ? (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
-          <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30">
-            <div className="flex items-center justify-between gap-3">
-              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-sport-primary hover:border-sport-primary/30 transition-all shadow-sm">
+        <div className="flex-1 w-full space-y-6">
+          <div className="bg-white/60 backdrop-blur rounded-3xl border border-slate-100 shadow-xl p-8 md:p-12">
+            <div className="text-center mb-8">
+              <h2 className="text-[var(--accent)] font-black text-3xl md:text-4xl uppercase tracking-widest">
+                {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+              </h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">
+                {t('calendarView.monthlyCalendar')}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between mb-6">
+              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm">
                 <i className="fa-solid fa-chevron-left text-sm"></i>
               </button>
-              <div className="text-center">
-                <h4 className="text-[var(--accent)] font-black text-lg md:text-2xl uppercase tracking-wider">
-                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                </h4>
-              </div>
-              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-sport-primary hover:border-sport-primary/30 transition-all shadow-sm">
+              <div className="flex-1"></div>
+              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm">
                 <i className="fa-solid fa-chevron-right text-sm"></i>
               </button>
             </div>
-          </div>
-          <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-            <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
+
+            <div className="grid grid-cols-7 gap-3 md:gap-4 mb-3">
               {orderedDayNamesLong.map(day => (
-                <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0, 3)}</div>
+                <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-2">{day.slice(0,3)}</div>
               ))}
             </div>
+
             {getMonthMatrix(currentMonth).map((week, i) => (
-              <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
-                {week.map((date, j) => (
-                  <div
-                    key={j}
-                    className={`min-h-24 md:min-h-32 lg:min-h-40 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${
-                      date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'
-                    }`}
-                  >
-                    <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
-                    <div className="flex-1 flex flex-col gap-1">
-                      {date && matchesByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`]?.map((match) => {
-                        const local = match.localTeam || 'DEMO';
-                        const visitor = match.visitorTeam || 'Rival';
-                        const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
-                        const visitorDisplay = sideDisplayOf(match, visitor, match.visitorTeamClubId);
-                        const isReadOnly = match.readonly;
-                        return (
-                          <div
-                            key={match.id}
-                            onClick={() => !isReadOnly && onClickMatch && onClickMatch(match)}
-                            className="rounded px-1 py-1 text-[8px] font-bold flex flex-col gap-0.5 border-2 bg-red-100 text-red-800 border-red-400 hover:bg-red-200 transition-all cursor-pointer"
-                          >
-                            <div className="text-[9px] font-bold leading-tight">{match.time || '—'}</div>
-                            <div className="truncate leading-tight">
-                              {(localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName))}
-                              {' vs '}
-                              {(visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName))}
+              <div key={i} className="grid grid-cols-7 gap-3 md:gap-4 mb-3">
+                {week.map((date, j) => {
+                  const dayMatches = date ? matchesByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`] || [] : [];
+                  const isCurrentMonth = date && date.getMonth() === currentMonth.getMonth();
+
+                  return (
+                    <div
+                      key={j}
+                      className={`relative min-h-32 md:min-h-40 lg:min-h-48 rounded-lg border-2 p-2.5 md:p-3 flex flex-col transition-all ${
+                        isCurrentMonth ? 'bg-white border-slate-200' : 'bg-slate-50/40 border-slate-100 opacity-30'
+                      }`}
+                    >
+                      <div className="absolute top-2 right-2 text-xs md:text-sm font-black text-slate-800">{date ? date.getDate() : ''}</div>
+
+                      {isCurrentMonth && (
+                        <button
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-[var(--accent)] hover:bg-[var(--accent)]/80 text-white flex items-center justify-center font-black text-sm shadow-md transition-all"
+                          onClick={() => onCreate && onCreate()}
+                          title={t('matchesList.newMatch')}
+                        >
+                          <i className="fa-solid fa-plus text-xs"></i>
+                        </button>
+                      )}
+
+                      <div className="flex-1 flex flex-col gap-1.5 pt-4">
+                        {dayMatches.map((match) => {
+                          const local = match.localTeam || 'DEMO';
+                          const visitor = match.visitorTeam || 'Rival';
+                          const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
+                          const visitorDisplay = sideDisplayOf(match, visitor, match.visitorTeamClubId);
+                          const isReadOnly = match.readonly;
+                          const bgColor = match.status === 'Finished'
+                            ? 'bg-pink-50 border-pink-300 hover:bg-pink-100'
+                            : 'bg-lime-50 border-lime-300 hover:bg-lime-100';
+
+                          return (
+                            <div
+                              key={match.id}
+                              className={`rounded-lg border-2 p-2 flex flex-col gap-1 cursor-pointer group/match transition-all ${bgColor} ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
+                              onClick={() => !isReadOnly && onClickMatch && onClickMatch(match)}
+                            >
+                              <div className="flex items-center gap-1.5 justify-between text-[9px] md:text-[10px]">
+                                <div className="flex items-center gap-1">
+                                  <i className="fa-solid fa-clock text-[8px]"></i>
+                                  <span className="font-black">{match.time || '—'}</span>
+                                </div>
+                                {!isReadOnly && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); onDelete(String(match.id)); }}
+                                    className="hidden group-hover/match:block w-4 h-4 rounded-full flex-shrink-0 transition-all"
+                                    style={{
+                                      color: match.status === 'Finished' ? 'rgb(219, 39, 119)' : 'rgb(101, 163, 13)',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      const color = match.status === 'Finished' ? 'rgb(190, 24, 93)' : 'rgb(84, 140, 4)';
+                                      e.currentTarget.style.backgroundColor = color;
+                                    }}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    title={t('common.delete')}
+                                  >
+                                    <i className="fa-solid fa-xmark text-[7px]"></i>
+                                  </button>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-[7px] md:text-[8px] font-bold leading-tight">
+                                <div className="flex items-center gap-0.5 min-w-0">
+                                  {localDisplay.logo && (
+                                    <img loading="lazy" decoding="async" src={localDisplay.logo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
+                                  )}
+                                  <span className="truncate">{localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName)}</span>
+                                </div>
+                                <span className={`font-black text-[7px] flex-shrink-0 ${match.status === 'Finished' ? 'text-pink-600' : 'text-lime-600'}`}>VS</span>
+                                <div className="flex items-center gap-0.5 min-w-0 justify-end">
+                                  <span className="truncate">{visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName)}</span>
+                                  {visitorDisplay.logo && (
+                                    <img loading="lazy" decoding="async" src={visitorDisplay.logo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
+                                  )}
+                                </div>
+                              </div>
+                              {match.status === 'Finished' && match.score && (
+                                <div className={`text-[7px] font-black text-center py-0.5 rounded ${match.status === 'Finished' ? 'text-pink-700' : 'text-lime-700'}`}>
+                                  {match.score}
+                                </div>
+                              )}
                             </div>
-                            {match.status === 'Finished' && match.score && (
-                              <div className="text-[7px] font-bold text-red-700 text-center">{match.score}</div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>

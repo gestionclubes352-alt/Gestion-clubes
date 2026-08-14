@@ -1354,7 +1354,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           {clubLoadError ? <ClubErrorScreen /> : isLoading ? <LoadingScreen /> : (
             <React.Suspense fallback={<LoadingScreen />}>
             <Routes>
-              <Route path="/" element={<Navigate to="/partidos" replace />} />
+              <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
                 <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
