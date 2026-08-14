@@ -350,14 +350,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('admin') && userRole !== 'Tecnico' && (
-          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'INSTALACIONES', 'USUARIOS', 'CONFIGURACIÓN', 'FUENTE DE DATOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'INSTALACIONES'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('CLUBES') && <SidebarItem icon="fa-shield-halved" label={t('sidebar.clubsLabel')} active={activeSection === 'CLUBES'} onClick={() => handleItemClick('CLUBES')} collapsed={isCollapsed} />}
             {isVisible('EQUIPOS') && <SidebarItem icon="fa-trophy" label={t('sidebar.teamsLabel')} active={activeSection === 'EQUIPOS'} onClick={() => handleItemClick('EQUIPOS')} collapsed={isCollapsed} />}
             {isVisible('EQUIPOS_INTERNOS') && <SidebarItem icon="fa-users-rectangle" label={t('sidebar.internalTeamsLabel')} active={activeSection === 'EQUIPOS_INTERNOS'} onClick={() => handleItemClick('EQUIPOS_INTERNOS')} collapsed={isCollapsed} />}
             {isVisible('INSTALACIONES') && <SidebarItem icon="fa-fence" label="Instalaciones y Campos" active={activeSection === 'INSTALACIONES'} onClick={() => handleItemClick('INSTALACIONES')} collapsed={isCollapsed} />}
-            {isVisible('USUARIOS') && <SidebarItem icon="fa-user-gear" label={t('sidebar.usersLabel')} active={activeSection === 'USUARIOS'} onClick={() => handleItemClick('USUARIOS')} collapsed={isCollapsed} />}
-            {isVisible('CONFIGURACIÓN') && (userRole === 'Responsable' || userRole === 'Administrador') && <SidebarItem icon="fa-gear" label={t('sidebar.settingsLabel')} active={activeSection === 'CONFIGURACIÓN'} onClick={() => handleItemClick('CONFIGURACIÓN')} collapsed={isCollapsed} />}
-            <SidebarItem icon="fa-database" label={t('header.dataSource')} active={activeSection === 'FUENTE DE DATOS'} onClick={() => handleItemClick('FUENTE DE DATOS')} collapsed={isCollapsed} />
           </SidebarSection>
           )}
         </nav>
