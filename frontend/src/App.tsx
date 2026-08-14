@@ -78,20 +78,21 @@ const PizarraTactica = React.lazy(() => import('@modules/tactica/components/Piza
 const AIModeView = React.lazy(() => import('@modules/ai-mode/components/AIModeView'));
 
 // Error Boundary para capturar errores en componentes lazy
-class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback?: React.ReactNode }, { hasError: boolean }> {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback?: React.ReactNode }, { hasError: boolean; errorMsg?: string }> {
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMsg: error?.message };
   }
-  componentDidCatch(err: any) {
-    console.error('[ErrorBoundary]', err);
+  componentDidCatch(err: any, info: any) {
+    console.error('[ErrorBoundary] Error:', err);
+    console.error('[ErrorBoundary] Info:', info);
   }
   render() {
     if (this.state.hasError) {
-      return this.props.fallback || <div className="p-12 text-center text-red-600"><i className="fa-solid fa-triangle-exclamation text-3xl mb-4"></i><p>Error al cargar el componente</p></div>;
+      return this.props.fallback || <div className="p-12 text-center space-y-4"><div className="text-4xl text-red-500">⚠️</div><p className="font-bold text-slate-700">Error al cargar el componente</p>{this.state.errorMsg && <p className="text-sm text-slate-500 max-w-md mx-auto break-words">{this.state.errorMsg}</p>}</div>;
     }
     return this.props.children;
   }
@@ -170,10 +171,11 @@ const MatchReportWrapper: React.FC<{
   filteredEventsList: CalendarEvent[];
   currentTeamId?: string;
   competitionTeams: CompetitionTeam[];
+  campogramasList?: Campograma[];
   onSave: (event: CalendarEvent) => void | Promise<void>;
   onDelete: (id: string | number) => void | Promise<void>;
   onTeamCreated?: () => void;
-}> = ({ filteredEventsList, currentTeamId, competitionTeams, onSave, onDelete, onTeamCreated }) => {
+}> = ({ filteredEventsList, currentTeamId, competitionTeams, campogramasList = [], onSave, onDelete, onTeamCreated }) => {
   const { t } = useTranslation();
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
@@ -256,6 +258,7 @@ const MatchReportWrapper: React.FC<{
           onBack={() => navigate(backPath)}
           ownClubId={currentTeamId || ''}
           competitionTeams={competitionTeams}
+          campogramasList={campogramasList}
           onSave={onSave}
           onDelete={onDelete}
           onTeamCreated={onTeamCreated}
@@ -1550,6 +1553,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   filteredEventsList={filteredEventsList}
                   currentTeamId={currentTeam?.id}
                   competitionTeams={competitionTeams}
+                  campogramasList={campogramasList}
                   onSave={handleSaveEvent}
                   onDelete={handleDeleteEvent}
                   onTeamCreated={fetchData}

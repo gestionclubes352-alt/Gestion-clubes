@@ -1,10 +1,11 @@
-// Force Vercel redeploy - v2
+﻿// Force Vercel redeploy - v2
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Player } from '@modules/plantilla';
 import type { TacticalPosition } from '@modules/tactica';
 import { getInitialPositions } from '@modules/tactica';
 import type { CalendarEvent } from '@modules/calendario';
 import type { CompetitionTeam } from '@modules/competicion';
+import type { Campograma } from '@modules/entrenamientos';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
 import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
@@ -62,6 +63,7 @@ interface MatchReportViewProps {
   /** Id de mi club (currentTeam.id) — cualquier otro equipo se trata como rival. */
   ownClubId?: string;
   competitionTeams?: CompetitionTeam[];
+  campogramasList?: Campograma[];
   onSave?: (event: CalendarEvent) => void;
   onDelete?: (id: string | number) => void;
   /** Notifica al resto de la app que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
@@ -188,7 +190,7 @@ function findTeamByName<T>(teams: T[], wantedNames: string[], getName: (t: T) =>
   return partial || null;
 }
 
-const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], onSave, onDelete, onTeamCreated }) => {
+const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], campogramasList = [], onSave, onDelete, onTeamCreated }) => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('DATOS GENERALES');
   const [isSaving, setIsSaving] = useState(false);
@@ -423,6 +425,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // Selector de equipo en la alineación (mi equipo vs rival)
   const [lineupTeamView, setLineupTeamView] = useState<'own' | 'rival'>('own');
   const [rivalLineupSquad, setRivalLineupSquad] = useState<Player[]>([]);
+  const [selectedCampogramaId, setSelectedCampogramaId] = useState<string | number | null>(null);
 
   const samePlayerId = (a?: string | number, b?: string | number) => String(a) === String(b);
 
@@ -480,7 +483,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     abpDefCorners: [newAbpItem()],
     abpDefLateralFouls: [newAbpItem()],
     abpDefFrontalFouls: [newAbpItem()],
-    formation: '4-3-3',
+    formation: '1-4-3-3',
     lineupPositions: [],
     substituteIds: [],
     notConvocadoIds: [],
@@ -510,6 +513,25 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     return uniqueIds.map(id => squad.find(p => samePlayerId(p.id, id))).filter(Boolean) as Player[];
   }, [report.lineupPositions, squad]);
 
+  const campogramasDelEquipo = useMemo(() => {
+    if (!campogramasList) return [];
+    // Si estamos en el equipo local, mostrar campogramas del equipo local
+    // Permitir coincidencia flexible (sin distinción mayúsculas/minúsculas y parcial)
+    if (lineupTeamView === 'own') {
+      const teamName = match.localTeam?.toLowerCase().trim();
+      return campogramasList.filter(c =>
+        c.equipo?.toLowerCase().includes(teamName || '') ||
+        teamName?.includes(c.equipo?.toLowerCase() || '')
+      );
+    }
+    // Para el equipo visitante, mostrar campogramas del visitante
+    const teamName = match.visitorTeam?.toLowerCase().trim();
+    return campogramasList.filter(c =>
+      c.equipo?.toLowerCase().includes(teamName || '') ||
+      teamName?.includes(c.equipo?.toLowerCase() || '')
+    );
+  }, [campogramasList, match.localTeam, match.visitorTeam, lineupTeamView]);
+
   const startingXIEntries = useMemo(() => {
     const positions = report.lineupPositions || [];
     return positions
@@ -533,7 +555,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const substitutionSnapshots = useMemo(() => {
     const basePositions = report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
-      : getInitialPositions(report.formation || '4-3-3');
+      : getInitialPositions(report.formation || '1-4-3-3');
     let current = basePositions.map(pos => ({ ...pos, playerIds: [...(pos.playerIds || [])] }));
 
     const subEntries = (report.substitutions || []).map(sub => ({ id: sub.id, minute: sub.minute, kind: 'sub' as const, sub }));
@@ -562,7 +584,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
     return report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
-      : getInitialPositions(report.formation || '4-3-3');
+      : getInitialPositions(report.formation || '1-4-3-3');
   }, [substitutionSnapshots, report.lineupPositions, report.formation]);
 
   // Coordenadas de cada jugador en el campo, separando a quienes caen en
@@ -843,7 +865,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // hasta el primer cambio de sistema, y así sucesivamente hasta el final.
   const formationWindows = useMemo(() => {
     const changes = [...(report.formationChanges || [])].sort((a, b) => a.minute - b.minute);
-    const marks = [{ minute: 0, formation: report.formation || '4-3-3' }, ...changes.map(c => ({ minute: c.minute, formation: c.formation }))];
+    const marks = [{ minute: 0, formation: report.formation || '1-4-3-3' }, ...changes.map(c => ({ minute: c.minute, formation: c.formation }))];
     return marks
       .map((mark, i) => ({
         formation: mark.formation,
@@ -949,16 +971,18 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         const { data: reportsData } = await db.match_reports.get(match.id);
         const existing = reportsData?.find((r: any) => String(r.id) === String(match.id));
         if (existing) {
-            const formation = existing.formation || '4-3-3';
-            const positions = existing.lineupPositions && existing.lineupPositions.length > 0 
-                ? existing.lineupPositions 
+            const formation = existing.formation || '1-4-3-3';
+            const positions = existing.lineupPositions && existing.lineupPositions.length > 0
+                ? existing.lineupPositions
                 : getInitialPositions(formation);
-            
-            setReport({ ...report, ...existing, formation, lineupPositions: positions });
+
+            setReport(prev => ({ ...prev, ...existing, formation, lineupPositions: positions }));
         } else {
-             setReport(prev => ({ ...prev, lineupPositions: getInitialPositions('4-3-3') }));
+             setReport(prev => ({ ...prev, lineupPositions: getInitialPositions('1-4-3-3') }));
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error loading match report:', e);
+      }
     };
     loadData();
   }, [match.id]);
@@ -1423,7 +1447,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const handleOpenWindowPanel = (minute: string) => {
     setWindowPanelMinute(minute);
-    setWindowPanelOriginalFormation(report.formation || '4-3-3');
+    setWindowPanelOriginalFormation(report.formation || '1-4-3-3');
     setIsWindowPanelOpen(true);
     setSelectedPlayerForEvent(null);
     setEventActionMenu({ type: null, minute: '' });
@@ -1473,7 +1497,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       ? tempLineupPositions
                       : (report.lineupPositions && report.lineupPositions.length > 0
                           ? report.lineupPositions
-                          : getInitialPositions(report.formation || '4-3-3')),
+                          : getInitialPositions(report.formation || '1-4-3-3')),
                     handlePitchDrop
                   )}
                 </div>
@@ -1486,7 +1510,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <div>
                 <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-3 tracking-widest">{t('tactics.formation')}</label>
                 <div className="flex gap-2 flex-wrap">
-                  {['4-3-3', '4-4-2', '4-2-3-1', '5-3-2'].map(f => (
+                  {['1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'].map(f => (
                     <button
                       key={f}
                       onClick={() => handleChangeFormation(f)}
@@ -1522,7 +1546,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 <p className="text-[10px] font-bold text-[var(--text-muted)] mb-3">Arrastra un jugador al campo para ubicarlo</p>
                 <div className="flex flex-wrap gap-3">
                   {onPitchPlayers.map(p => {
-                    const currentPositions = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'));
+                    const currentPositions = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '1-4-3-3'));
                     const assignedPos = currentPositions.find(pos => (pos.playerIds || []).some(id => samePlayerId(id, p.id)));
                     const isValidPhoto = p.fotoUrl && p.fotoUrl.length > 1;
                     return (
@@ -1600,7 +1624,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </button>
             <button
               onClick={() => {
-                const formationChanged = (report.formation || '4-3-3') !== windowPanelOriginalFormation;
+                const formationChanged = (report.formation || '1-4-3-3') !== windowPanelOriginalFormation;
                 if (formationChanged && !windowPanelMinute) {
                   alert('Introduce el minuto del cambio de sistema antes de confirmar.');
                   return;
@@ -1615,7 +1639,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   const change: MatchFormationChange = {
                     id: crypto.randomUUID(),
                     minute: Number(windowPanelMinute),
-                    formation: report.formation || '4-3-3',
+                    formation: report.formation || '1-4-3-3',
                     positions: tempLineupPositions,
                   };
                   const next = { ...report, formationChanges: [...(report.formationChanges || []), change] };
@@ -1693,9 +1717,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             onClick={() => {
               const current = report.lineupPositions && report.lineupPositions.length > 0
                 ? report.lineupPositions
-                : getInitialPositions(report.formation || '4-3-3');
+                : getInitialPositions(report.formation || '1-4-3-3');
               setTempLineupPositions(current);
-              setWindowPanelOriginalFormation(report.formation || '4-3-3');
+              setWindowPanelOriginalFormation(report.formation || '1-4-3-3');
               setIsWindowPanelOpen(true);
             }}
             className="mb-3 px-4 py-2 bg-sport-primary hover:bg-sport-primary-dark text-white rounded-lg font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all self-center"
@@ -2372,7 +2396,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const handleChangeFormation = async (newForm: string) => {
     // Obtener posiciones actuales del campo (después de sustituciones)
-    const currentPositions = currentLineupPositions || getInitialPositions(report.formation || '4-3-3');
+    const currentPositions = currentLineupPositions || getInitialPositions(report.formation || '1-4-3-3');
     const newPositions = getInitialPositions(newForm);
 
     // Reasignar jugadores actuales a la nueva formación
@@ -2414,7 +2438,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
     const base = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
-      : getInitialPositions(report.formation || '4-3-3'));
+      : getInitialPositions(report.formation || '1-4-3-3'));
     const targetPos = base.find(pos => pos.id === positionId);
     const outgoingPlayerId = targetPos?.playerIds?.[0];
 
@@ -2449,7 +2473,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const handleRepositionPlayer = (positionId: string, playerId: string | number) => {
     const base = tempLineupPositions || (report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
-      : getInitialPositions(report.formation || '4-3-3'));
+      : getInitialPositions(report.formation || '1-4-3-3'));
     const updated = base.map(pos => {
       if (pos.id === positionId) return { ...pos, playerIds: [String(playerId)] };
       return { ...pos, playerIds: (pos.playerIds || []).filter(id => String(id) !== String(playerId)) };
@@ -3212,10 +3236,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <div className="flex-1 overflow-auto">
           {currentSquad.length > 0 ? (
             <TacticalBoard
-              formacion={report.formation || '4-3-3'}
+              formacion={report.formation || '1-4-3-3'}
               positions={lineupTeamView === 'own' && report.lineupPositions && report.lineupPositions.length > 0
                 ? report.lineupPositions
-                : getInitialPositions(report.formation || '4-3-3')}
+                : getInitialPositions(report.formation || '1-4-3-3')}
               squad={currentSquad}
               notConvocadoIds={lineupTeamView === 'own' ? report.notConvocadoIds || [] : []}
               notConvocadoReasons={lineupTeamView === 'own' ? report.notConvocadoReasons || {} : {}}
@@ -3226,6 +3250,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               onPlayerSelect={setSelectedPlayerForModal}
               mainTeamName={mainTeamName}
               showConvocadoControl={canEdit}
+              campogramas={campogramasDelEquipo}
+              selectedCampogramaId={selectedCampogramaId}
+              onSelectCampograma={(campograma) => {
+                setSelectedCampogramaId(campograma.id);
+                if (campograma.formacion) handleChangeFormation(campograma.formacion);
+                if (campograma.positions) setTempLineupPositions(campograma.positions);
+              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -3269,10 +3300,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               tabIndex={0}
             >
               <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                {t('matchReport.generalData.startingXI')} · {report.formation || '4-3-3'}
+                {t('matchReport.generalData.startingXI')} · {report.formation || '1-4-3-3'}
               </p>
               <div className="relative">
-                {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '4-3-3'))}
+                {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '1-4-3-3'))}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <i className="fa-solid fa-expand text-white text-lg drop-shadow-lg"></i>
                 </div>
@@ -4134,7 +4165,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const renderResumenSection = () => {
     const positions = report.lineupPositions && report.lineupPositions.length > 0
       ? report.lineupPositions
-      : getInitialPositions(report.formation || '4-3-3');
+      : getInitialPositions(report.formation || '1-4-3-3');
 
     const goals = report.matchGoals || [];
     const favorGoals = goals.filter(g => g.side === 'FAVOR').length;
@@ -4240,11 +4271,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <div className="w-full lg:w-auto lg:flex-1 order-1 lg:order-2 flex justify-center">
             <div className="w-full max-w-lg">
               <h4 className="text-base font-black text-[var(--text-muted)] uppercase tracking-widest mb-4 flex items-center gap-2 justify-center">
-                <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '4-3-3'}
+                <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '1-4-3-3'}
               </h4>
               <div
                 className="cursor-pointer transition-transform hover:scale-[1.02]"
-                onClick={() => setPitchDiagramPreview({ label: `${t('matchReport.generalData.initialSystem')} · ${report.formation || '4-3-3'}`, positions })}
+                onClick={() => setPitchDiagramPreview({ label: `${t('matchReport.generalData.initialSystem')} · ${report.formation || '1-4-3-3'}`, positions })}
               >
                 {renderPitchDiagram(positions, undefined, 1.6, true)}
               </div>
@@ -4944,7 +4975,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-soft)] bg-[var(--surface-1)] shrink-0">
               <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">
                 {expandedFormation.type === 'initial'
-                  ? `${t('matchReport.generalData.startingXI')} · ${report.formation || '4-3-3'}`
+                  ? `${t('matchReport.generalData.startingXI')} · ${report.formation || '1-4-3-3'}`
                   : windowSnapshots.find(w => w.id === expandedFormation.id)?.minute
                   ? `${windowSnapshots.find(w => w.id === expandedFormation.id)?.minute}' - ${t('matchReport.matchEvents.systemAfterSubstitutions')}`
                   : 'Formación'}
@@ -4966,7 +4997,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       {renderPitchDiagram(
                         report.lineupPositions && report.lineupPositions.length > 0
                           ? report.lineupPositions
-                          : getInitialPositions(report.formation || '4-3-3')
+                          : getInitialPositions(report.formation || '1-4-3-3')
                       )}
                     </div>
                   </div>
@@ -5009,5 +5040,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 };
 
 export default MatchReportView;
+
 
 
