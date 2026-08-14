@@ -432,11 +432,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // YouTube upload state
   const [ytUploadProgress, setYtUploadProgress] = useState<YouTubeUploadProgress | null>(null);
   const [ytSelectedFile, setYtSelectedFile] = useState<File | null>(null);
-  const [ytTargetField, setYtTargetField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl'>('videoUrl');
+  const [ytTargetField, setYtTargetField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl' | 'planConBalonVideo' | 'planSinBalonVideo' | 'planAbpVideo' | 'rivalConBalonVideo' | 'rivalSinBalonVideo' | 'rivalAbpVideo'>('videoUrl');
   const ytAbortRef = useRef<AbortController | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
   const ytRivalFileInputRef = useRef<HTMLInputElement>(null);
+  const ytPlanConBalonFileInputRef = useRef<HTMLInputElement>(null);
+  const ytPlanSinBalonFileInputRef = useRef<HTMLInputElement>(null);
+  const ytPlanAbpFileInputRef = useRef<HTMLInputElement>(null);
+  const ytRivalConBalonFileInputRef = useRef<HTMLInputElement>(null);
+  const ytRivalSinBalonFileInputRef = useRef<HTMLInputElement>(null);
+  const ytRivalAbpFileInputRef = useRef<HTMLInputElement>(null);
 
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
@@ -3558,7 +3564,64 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 <div className="bg-[var(--surface-1)] p-4 rounded-2xl space-y-3 animate-fade-in border border-[var(--border-soft)]">
                     <div>
                         <label className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest block mb-1">{t('matchReport.specificVideo')}</label>
-                        <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="w-full bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
+                        <div className="flex gap-2">
+                          <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="flex-1 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
+                          <input
+                            ref={block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : block.id === 'planSinBalon' ? ytPlanSinBalonFileInputRef : block.id === 'planAbp' ? ytPlanAbpFileInputRef : block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef}
+                            type="file"
+                            accept="video/*"
+                            onChange={(e) => handleYtFileSelect(e, `${block.id}Video` as any)}
+                            className="hidden"
+                          />
+                          <button
+                            onClick={() => {
+                              const inputRef = block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : block.id === 'planSinBalon' ? ytPlanSinBalonFileInputRef : block.id === 'planAbp' ? ytPlanAbpFileInputRef : block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef;
+                              inputRef.current?.click();
+                            }}
+                            title={t('matchReport.video.uploadToYoutubeTitle')}
+                            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-lg text-red-400 transition-colors shrink-0"
+                          >
+                            <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                          </button>
+                        </div>
+                        {ytTargetField === `${block.id}Video` && ytSelectedFile && !ytUploadProgress && (
+                          <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2 animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <i className="fa-solid fa-film text-slate-400 dark:text-white/30 text-xs"></i>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[var(--text-strong)] text-[10px] font-bold truncate">{ytSelectedFile.name}</p>
+                                <p className="text-slate-400 dark:text-white/30 text-[9px]">{formatFileSize(ytSelectedFile.size)}</p>
+                              </div>
+                              <button onClick={handleYtCancel} className="text-slate-300 dark:text-white/20 hover:text-slate-500 dark:hover:text-white/60 text-xs">
+                                <i className="fa-solid fa-xmark"></i>
+                              </button>
+                            </div>
+                            <button
+                              onClick={handleYtUpload}
+                              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 text-[9px] font-black uppercase tracking-widest transition-colors"
+                            >
+                              <i className="fa-brands fa-youtube mr-1"></i>{t('matchReport.video.uploadToYoutube')}
+                            </button>
+                          </div>
+                        )}
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
+                          <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black text-slate-500 dark:text-white/50 uppercase tracking-widest">{ytUploadProgress.message}</span>
+                              <button onClick={handleYtCancel} className="text-slate-300 dark:text-white/20 hover:text-red-400 text-[9px] font-bold uppercase">{t('common.cancel')}</button>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
+                              <div className="h-full bg-red-500 rounded-full transition-all duration-300" style={{ width: `${ytUploadProgress.percent}%` }}></div>
+                            </div>
+                            <p className="text-slate-400 dark:text-white/30 text-[8px] text-center">{ytUploadProgress.percent}%</p>
+                          </div>
+                        )}
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress?.stage === 'error' && (
+                          <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
+                            <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{ytUploadProgress.error}</p>
+                            <button onClick={handleYtCancel} className="text-slate-400 dark:text-white/40 hover:text-slate-500 dark:hover:text-white/60 text-[9px] font-bold uppercase">{t('matchReport.video.retry')}</button>
+                          </div>
+                        )}
                         {(report as any)[`${block.id}Video`] && !isBlockedEmbed((report as any)[`${block.id}Video`]) && (
                           <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
                             <iframe title={`${block.id}-video-plan`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
@@ -3863,7 +3926,64 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 <div className="bg-[var(--surface-1)] p-4 rounded-2xl space-y-3 animate-fade-in border border-[var(--border-soft)]">
                     <div>
                         <label className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest block mb-1">{t('matchReport.specificVideo')}</label>
-                        <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="w-full bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
+                        <div className="flex gap-2">
+                          <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="flex-1 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
+                          <input
+                            ref={block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef}
+                            type="file"
+                            accept="video/*"
+                            onChange={(e) => handleYtFileSelect(e, `${block.id}Video` as any)}
+                            className="hidden"
+                          />
+                          <button
+                            onClick={() => {
+                              const inputRef = block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef;
+                              inputRef.current?.click();
+                            }}
+                            title={t('matchReport.video.uploadToYoutubeTitle')}
+                            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-lg text-red-400 transition-colors shrink-0"
+                          >
+                            <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                          </button>
+                        </div>
+                        {ytTargetField === `${block.id}Video` && ytSelectedFile && !ytUploadProgress && (
+                          <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2 animate-fade-in">
+                            <div className="flex items-center gap-2">
+                              <i className="fa-solid fa-film text-slate-400 dark:text-white/30 text-xs"></i>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[var(--text-strong)] text-[10px] font-bold truncate">{ytSelectedFile.name}</p>
+                                <p className="text-slate-400 dark:text-white/30 text-[9px]">{formatFileSize(ytSelectedFile.size)}</p>
+                              </div>
+                              <button onClick={handleYtCancel} className="text-slate-300 dark:text-white/20 hover:text-slate-500 dark:hover:text-white/60 text-xs">
+                                <i className="fa-solid fa-xmark"></i>
+                              </button>
+                            </div>
+                            <button
+                              onClick={handleYtUpload}
+                              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 text-[9px] font-black uppercase tracking-widest transition-colors"
+                            >
+                              <i className="fa-brands fa-youtube mr-1"></i>{t('matchReport.video.uploadToYoutube')}
+                            </button>
+                          </div>
+                        )}
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
+                          <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black text-slate-500 dark:text-white/50 uppercase tracking-widest">{ytUploadProgress.message}</span>
+                              <button onClick={handleYtCancel} className="text-slate-300 dark:text-white/20 hover:text-red-400 text-[9px] font-bold uppercase">{t('common.cancel')}</button>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
+                              <div className="h-full bg-red-500 rounded-full transition-all duration-300" style={{ width: `${ytUploadProgress.percent}%` }}></div>
+                            </div>
+                            <p className="text-slate-400 dark:text-white/30 text-[8px] text-center">{ytUploadProgress.percent}%</p>
+                          </div>
+                        )}
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress?.stage === 'error' && (
+                          <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
+                            <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{ytUploadProgress.error}</p>
+                            <button onClick={handleYtCancel} className="text-slate-400 dark:text-white/40 hover:text-slate-500 dark:hover:text-white/60 text-[9px] font-bold uppercase">{t('matchReport.video.retry')}</button>
+                          </div>
+                        )}
                         {(report as any)[`${block.id}Video`] && !isBlockedEmbed((report as any)[`${block.id}Video`]) && (
                           <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
                             <iframe title={`${block.id}-video`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
