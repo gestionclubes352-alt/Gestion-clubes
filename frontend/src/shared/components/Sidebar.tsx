@@ -328,14 +328,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('planning') && (
-          <SidebarSection title={t('sidebar.sportsAreaLabel')} sectionKey="planning" collapsed={isCollapsed} hasActiveChild={['DISEÑADOR', 'PIZARRA TÁCTICA', 'SESIONES', 'COMPETICIÓN', 'PARTIDOS', 'VIDEOTECA', 'REPOSITORIO DE TAREAS', 'INSTALACIONES'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.sportsAreaLabel')} sectionKey="planning" collapsed={isCollapsed} hasActiveChild={['DISEÑADOR', 'PIZARRA TÁCTICA', 'SESIONES', 'COMPETICIÓN', 'PARTIDOS', 'VIDEOTECA', 'REPOSITORIO DE TAREAS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('PIZARRA TÁCTICA') && <SidebarItem icon="fa-chalkboard-user" label={t('sidebar.tacticalBoardLabel')} active={activeSection === 'PIZARRA TÁCTICA'} onClick={() => handleItemClick('PIZARRA TÁCTICA')} collapsed={isCollapsed} />}
             {isVisible('DISEÑADOR') && <SidebarItem icon="fa-person-running" label={t('sidebar.designerLabel')} active={activeSection === 'DISEÑADOR'} onClick={() => handleItemClick('DISEÑADOR')} collapsed={isCollapsed} />}
             {isVisible('REPOSITORIO DE TAREAS') && <SidebarItem icon="fa-book-open" label={t('sidebar.taskRepositoryLabel')} active={activeSection === 'REPOSITORIO DE TAREAS'} onClick={() => handleItemClick('REPOSITORIO DE TAREAS')} collapsed={isCollapsed} />}
             {isVisible('SESIONES') && <SidebarItem icon="fa-calendar-days" label={t('sidebar.sessionsLabel')} active={activeSection === 'SESIONES'} onClick={() => handleItemClick('SESIONES')} collapsed={isCollapsed} />}
             {isVisible('COMPETICIÓN') && <SidebarItem icon="fa-ranking-star" label={t('sidebar.competitionLabel')} active={activeSection === 'COMPETICIÓN'} onClick={() => handleItemClick('COMPETICIÓN')} collapsed={isCollapsed} />}
             {isVisible('PARTIDOS') && <SidebarItem icon="fa-futbol" label={t('sidebar.matchesLabel')} active={activeSection === 'PARTIDOS'} onClick={() => handleItemClick('PARTIDOS')} collapsed={isCollapsed} />}
-            {isVisible('INSTALACIONES') && <SidebarItem icon="fa-fence" label="Instalaciones" active={activeSection === 'INSTALACIONES'} onClick={() => handleItemClick('INSTALACIONES')} collapsed={isCollapsed} />}
             {isVisible('VIDEOTECA') && <SidebarItem icon="fa-video" label={t('sidebar.videoLibraryLabel')} active={activeSection === 'VIDEOTECA'} onClick={() => handleItemClick('VIDEOTECA')} collapsed={isCollapsed} />}
           </SidebarSection>
           )}
@@ -351,10 +350,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('admin') && userRole !== 'Tecnico' && (
-          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'USUARIOS', 'CONFIGURACIÓN', 'FUENTE DE DATOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'INSTALACIONES', 'USUARIOS', 'CONFIGURACIÓN', 'FUENTE DE DATOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('CLUBES') && <SidebarItem icon="fa-shield-halved" label={t('sidebar.clubsLabel')} active={activeSection === 'CLUBES'} onClick={() => handleItemClick('CLUBES')} collapsed={isCollapsed} />}
             {isVisible('EQUIPOS') && <SidebarItem icon="fa-trophy" label={t('sidebar.teamsLabel')} active={activeSection === 'EQUIPOS'} onClick={() => handleItemClick('EQUIPOS')} collapsed={isCollapsed} />}
             {isVisible('EQUIPOS_INTERNOS') && <SidebarItem icon="fa-users-rectangle" label={t('sidebar.internalTeamsLabel')} active={activeSection === 'EQUIPOS_INTERNOS'} onClick={() => handleItemClick('EQUIPOS_INTERNOS')} collapsed={isCollapsed} />}
+            {isVisible('INSTALACIONES') && <SidebarItem icon="fa-fence" label="Instalaciones y Campos" active={activeSection === 'INSTALACIONES'} onClick={() => handleItemClick('INSTALACIONES')} collapsed={isCollapsed} />}
             {isVisible('USUARIOS') && <SidebarItem icon="fa-user-gear" label={t('sidebar.usersLabel')} active={activeSection === 'USUARIOS'} onClick={() => handleItemClick('USUARIOS')} collapsed={isCollapsed} />}
             {isVisible('CONFIGURACIÓN') && (userRole === 'Responsable' || userRole === 'Administrador') && <SidebarItem icon="fa-gear" label={t('sidebar.settingsLabel')} active={activeSection === 'CONFIGURACIÓN'} onClick={() => handleItemClick('CONFIGURACIÓN')} collapsed={isCollapsed} />}
             <SidebarItem icon="fa-database" label={t('header.dataSource')} active={activeSection === 'FUENTE DE DATOS'} onClick={() => handleItemClick('FUENTE DE DATOS')} collapsed={isCollapsed} />
