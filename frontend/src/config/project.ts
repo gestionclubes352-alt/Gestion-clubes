@@ -58,6 +58,8 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'CLUBES',
     'EQUIPOS',
     'EQUIPOS_INTERNOS',
+    'LOCALIDADES',
+    'INSTALACIONES',
     'SESIONES',
     'PARTIDOS',
     'COMPETICIÓN',
@@ -71,8 +73,6 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'PIZARRA TÁCTICA',
     'REPOSITORIO DE TAREAS',
     'VIDEOTECA',
-    'USUARIOS',
-    'COMPETICIONES',
     'CONFIGURACIÓN',
   ],
   defaultVisibleSections: [
