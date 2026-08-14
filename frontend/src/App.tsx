@@ -70,6 +70,9 @@ import { InjuriesView, MedicalHistoryView, MedicalCheckupsView, RehabilitationVi
 // Modules - Settings
 import { SettingsPage } from '@modules/settings';
 
+// Modules - Instalaciones
+import { InstalacionesView } from '@modules/instalaciones';
+
 // Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
 // Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
@@ -116,6 +119,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/videoteca': 'VIDEOTECA',
   '/competicion': 'COMPETICIÓN',
   '/competiciones': 'COMPETICIONES',
+  '/instalaciones': 'INSTALACIONES',
   '/lesiones': 'LESIONES',
   '/historial-medico': 'HISTORIAL MÉDICO',
   '/reconocimientos': 'RECONOCIMIENTOS',
@@ -142,6 +146,7 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'VIDEOTECA': '/videoteca',
   'COMPETICIÓN': '/competicion',
   'COMPETICIONES': '/competiciones',
+  'INSTALACIONES': '/instalaciones',
   'LESIONES': '/lesiones',
   'HISTORIAL MÉDICO': '/historial-medico',
   'RECONOCIMIENTOS': '/reconocimientos',
@@ -1349,7 +1354,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           {clubLoadError ? <ClubErrorScreen /> : isLoading ? <LoadingScreen /> : (
             <React.Suspense fallback={<LoadingScreen />}>
             <Routes>
-              <Route path="/" element={<HomeSectionsView />} />
+              <Route path="/" element={<Navigate to="/partidos" replace />} />
               <Route path="/plantillas" element={
                 <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
@@ -1565,6 +1570,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                 <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
               <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
+              <Route path="/instalaciones" element={<InstalacionesView />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
