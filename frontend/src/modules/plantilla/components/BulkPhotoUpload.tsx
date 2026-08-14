@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
+import { removePhotoBackground } from '../../../shared/services/backgroundRemoval';
 import { Player } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
@@ -115,7 +116,8 @@ const BulkPhotoUpload: React.FC<BulkPhotoUploadProps> = ({ squad, clubId, onClos
       if (!row.playerId || row.status === 'done') continue;
       setRows(prev => prev.map(r => (r.key === row.key ? { ...r, status: 'uploading' } : r)));
       try {
-        const fotoUrl = await uploadPlayerPhoto(row.file, row.playerId, clubId);
+        const processedFile = await removePhotoBackground(row.file);
+        const fotoUrl = await uploadPlayerPhoto(processedFile, row.playerId, clubId);
         await onUploaded(row.playerId, fotoUrl);
         setRows(prev => prev.map(r => (r.key === row.key ? { ...r, status: 'done' } : r)));
       } catch (err) {

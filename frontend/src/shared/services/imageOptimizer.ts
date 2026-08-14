@@ -71,8 +71,8 @@ export async function optimizeImageFile(file: File, preset: ImagePreset = 'photo
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    // Los PNG con transparencia (logos) se mantienen en PNG; el resto pasa a JPEG
-    const keepPng = file.type === 'image/png' && preset === 'logo';
+    // Los PNG con transparencia (logos, fotos con el fondo eliminado) se mantienen en PNG; el resto pasa a JPEG
+    const keepPng = file.type === 'image/png';
     const outputType = keepPng ? 'image/png' : 'image/jpeg';
     const blob = await canvasToBlob(canvas, outputType, quality);
 

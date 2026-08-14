@@ -2364,24 +2364,28 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   };
 
   const handleAssignPlayer = async (posId: string, playerId: string | number) => {
-    const updatedPositions = (report.lineupPositions || []).map(pos => {
-      if (pos.id === posId) {
-        const playerIds = pos.playerIds || [];
-        if (playerIds.some(id => samePlayerId(id, playerId))) return pos;
-        return { ...pos, playerIds: [...playerIds, playerId].slice(-3) };
-      }
-      return pos;
+    const basePositions = tempLineupPositions || report.lineupPositions || [];
+    const updatedPositions = (basePositions).map(pos => {
+      if (pos.id === posId) return { ...pos, playerIds: [playerId] };
+      return { ...pos, playerIds: (pos.playerIds || []).filter(id => !samePlayerId(id, playerId)) };
     });
+    if (tempLineupPositions) {
+      setTempLineupPositions(updatedPositions);
+    }
     const next = { ...report, lineupPositions: updatedPositions };
     setReport(next);
     persistReport(next);
   };
 
   const handleRemovePlayer = async (posId: string, playerId: string | number) => {
-    const updatedPositions = (report.lineupPositions || []).map(pos => {
+    const basePositions = tempLineupPositions || report.lineupPositions || [];
+    const updatedPositions = (basePositions).map(pos => {
       if (pos.id === posId) return { ...pos, playerIds: (pos.playerIds || []).filter(id => !samePlayerId(id, playerId)) };
       return pos;
     });
+    if (tempLineupPositions) {
+      setTempLineupPositions(updatedPositions);
+    }
     const next = { ...report, lineupPositions: updatedPositions };
     setReport(next);
     persistReport(next);
@@ -3238,12 +3242,33 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </button>
             )}
           </div>
+          {canEdit && (
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+                  <i className="fa-solid fa-diagram-project mr-2"></i>Sistema
+                </label>
+                <select
+                  value={report.formation || '1-4-3-3'}
+                  onChange={(e) => handleChangeFormation(e.target.value)}
+                  className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                >
+                  <option value="1-4-4-2">1-4-4-2</option>
+                  <option value="1-4-3-3">1-4-3-3</option>
+                  <option value="1-4-2-3-1">1-4-2-3-1</option>
+                  <option value="1-5-3-2">1-5-3-2</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-auto">
           {currentSquad.length > 0 ? (
             <TacticalBoard
               formacion={report.formation || '1-4-3-3'}
-              positions={lineupTeamView === 'own' && report.lineupPositions && report.lineupPositions.length > 0
+              positions={lineupTeamView === 'own' && tempLineupPositions && tempLineupPositions.length > 0
+                ? tempLineupPositions
+                : lineupTeamView === 'own' && report.lineupPositions && report.lineupPositions.length > 0
                 ? report.lineupPositions
                 : getInitialPositions(report.formation || '1-4-3-3')}
               squad={currentSquad}

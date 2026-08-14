@@ -16,9 +16,17 @@ interface PlayerTableProps {
   onDelete?: (id: number | string) => void;
   clubId?: string;
   onBulkPhotoUpload?: () => void;
+  onRemoveBackgrounds?: () => void;
 }
 
 const columnHelper = createColumnHelper<Player>();
+
+const formatDate = (dateStr?: string, locale: string = 'es') => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString(locale);
+};
 
 const defaultPositionOrder = ['Portero', 'Defensa', 'Medio', 'Delantero'];
 const huescaPositionOrder = ['Portero', 'Lateral', 'Central', 'Pivote', 'Media punta', 'Interior', 'Extremo', 'Delantero'];
@@ -54,8 +62,8 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload }) => {
-  const { t } = useTranslation();
+const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload, onRemoveBackgrounds }) => {
+  const { t, i18n } = useTranslation();
   const { isMobile } = useIsMobile();
   const isHuesca = clubId === 'escuela-huesca';
   const positionOrder = isHuesca ? huescaPositionOrder : defaultPositionOrder;
@@ -490,6 +498,16 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               {t('bulkPhotoUpload.button')}
             </button>
           )}
+          {onRemoveBackgrounds && (
+            <button
+              onClick={onRemoveBackgrounds}
+              className="inline-flex items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] hover:border-[var(--surface-3)] text-[var(--text)] px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
+              title="Quitar el fondo de las fotos de la plantilla"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+              Quitar fondos
+            </button>
+          )}
           <button
             onClick={openNewPlayerCard}
             className={`inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] ${
@@ -549,42 +567,51 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                 </button>
 
                 {!isCollapsed && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 gap-2">
                     {group.players.map((player) => {
                       const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
                       const hasPhoto = isImageUrl(player.fotoUrl);
+                      const hasTransparentPhoto = /^data:image\/png|\.png(\?|$)/i.test(player.fotoUrl || '');
                       const estadoColor = player.estado === 'LESIONADO' ? 'bg-red-500' : player.estado === 'OTRO' ? 'bg-amber-500' : 'bg-emerald-500';
 
                       return (
                         <div
                           key={player.id}
-                          className="group relative bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg overflow-hidden shadow-sm hover:shadow-lg hover:border-[var(--surface-3)] transition-all duration-300 cursor-pointer hover:scale-[1.05] h-56 flex flex-col"
+                          className="group relative bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg overflow-hidden shadow-sm hover:shadow-lg hover:border-[var(--surface-3)] transition-all duration-300 cursor-pointer hover:scale-[1.05] aspect-[4/5] flex flex-col"
                           onClick={() => onEdit(player)}
                         >
                           {/* Imagen o iniciales - ocupa todo el espacio disponible */}
                           {hasPhoto ? (
-                            <img loading="lazy" decoding="async"
-                              src={player.fotoUrl}
-                              alt={player.nombre}
-                              className="flex-1 w-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
-                            />
+                            <div className={`flex-1 overflow-hidden ${hasTransparentPhoto ? 'bg-gradient-to-b from-[var(--surface-1)] to-[var(--surface-2)]' : ''}`}>
+                              <img loading="lazy" decoding="async"
+                                src={player.fotoUrl}
+                                alt={player.nombre}
+                                className={`w-full h-full group-hover:scale-110 transition-transform duration-500 ${hasTransparentPhoto ? 'object-contain object-bottom' : 'object-cover object-[50%_20%]'}`}
+                              />
+                            </div>
                           ) : (
                             <div className="flex-1 bg-[var(--surface-1)] flex items-center justify-center">
-                              <span className="text-5xl font-black text-[var(--surface-3)] select-none">{getInitials(player.nombre)}</span>
+                              <span className="text-3xl font-black text-[var(--surface-3)] select-none">{getInitials(player.nombre)}</span>
                             </div>
                           )}
 
                           {/* Dorsal + estado */}
-                          <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
-                            <div className="bg-slate-900 text-white w-8 h-8 rounded-md flex items-center justify-center font-black text-sm shadow-lg tabular-nums leading-none">
+                          <div className="absolute top-1.5 right-1.5 flex flex-col items-center gap-1">
+                            <div className="bg-slate-900 text-white w-6 h-6 rounded-md flex items-center justify-center font-black text-[11px] shadow-lg tabular-nums leading-none">
                               {player.dorsal}
                             </div>
-                            <div className={`w-2 h-2 rounded-full ${estadoColor} ring-2 ring-white/80`}></div>
+                            <div className={`w-1.5 h-1.5 rounded-full ${estadoColor} ring-2 ring-white/80`}></div>
                           </div>
 
                           {/* Info inferior - mínima y compacta */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent p-2">
-                            <h3 className="text-xs font-bold text-white uppercase leading-tight truncate">{player.nombre}</h3>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent p-1.5">
+                            <h3 className="text-[10px] font-bold text-white uppercase leading-tight truncate">{player.nombre}</h3>
+                            {player.posicionJuego && (
+                              <p className="text-[8px] text-slate-300 uppercase leading-tight truncate">{player.posicionJuego}</p>
+                            )}
+                            {player.fechaNacimiento && (
+                              <p className="text-[8px] text-slate-400 leading-tight truncate">{formatDate(player.fechaNacimiento, i18n.language)}</p>
+                            )}
                           </div>
                         </div>
                       );

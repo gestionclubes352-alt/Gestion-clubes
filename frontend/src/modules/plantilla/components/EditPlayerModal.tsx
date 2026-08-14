@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploadPlayerPhoto } from '../../../shared/services/photoService';
+import { removePhotoBackground } from '../../../shared/services/backgroundRemoval';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { Player } from '../types';
@@ -111,6 +112,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File|null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isRemovingBg, setIsRemovingBg] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -277,15 +279,25 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setPreview(result);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Quitar el fondo en segundo plano; si tarda o falla, se queda la foto original
+    setIsRemovingBg(true);
+    removePhotoBackground(file)
+      .then((processed) => {
+        setPhotoFile(processed);
+        const processedReader = new FileReader();
+        processedReader.onloadend = () => setPreview(processedReader.result as string);
+        processedReader.readAsDataURL(processed);
+      })
+      .finally(() => setIsRemovingBg(false));
   };
 
   const handleChange = (field: keyof Player, value: any) => {
@@ -601,19 +613,25 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 />
                 <div
                   onClick={triggerFileInput}
-                  className="w-28 h-32 rounded-2xl border-2 border-dashed border-[var(--accent)]/20 flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all overflow-hidden group shadow-inner"
+                  className="relative w-28 h-32 rounded-2xl border-2 border-dashed border-[var(--accent)]/20 flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all overflow-hidden group shadow-inner"
                 >
                   {preview ? (
                     <img loading="lazy" decoding="async"
                       src={preview}
                       alt="Preview"
-                      className="w-full h-full object-cover object-top group-hover:opacity-75 transition-opacity"
+                      className="w-full h-full object-cover object-[50%_20%] group-hover:opacity-75 transition-opacity"
                     />
                   ) : (
                     <>
                       <i className="fa-solid fa-camera text-[var(--accent)] text-xl mb-1 opacity-20"></i>
                       <span className="text-[var(--accent)] text-[9px] font-black uppercase opacity-40">{t('editPlayer.uploadPhoto')}</span>
                     </>
+                  )}
+                  {isRemovingBg && (
+                    <div className="absolute inset-0 bg-white/70 flex flex-col items-center justify-center gap-1">
+                      <i className="fa-solid fa-wand-magic-sparkles text-[var(--accent)] text-sm animate-pulse"></i>
+                      <span className="text-[8px] font-black uppercase text-[var(--accent)] text-center px-1">Quitando fondo…</span>
+                    </div>
                   )}
                 </div>
                 <div
@@ -1138,7 +1156,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             </button>
           </div>
           <button
-            disabled={isSaving || !formData.nombre?.trim()}
+            disabled={isSaving || isRemovingBg || !formData.nombre?.trim()}
             onClick={handleSave}
             className="flex-2 py-4 bg-[var(--accent)] text-white rounded-2xl font-black hover:bg-[var(--accent-dark)] transition-all shadow-xl shadow-[var(--accent)]/20 uppercase text-xs tracking-widest flex items-center justify-center gap-3 disabled:opacity-70"
           >

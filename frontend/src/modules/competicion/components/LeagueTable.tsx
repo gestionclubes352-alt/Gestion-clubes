@@ -28,6 +28,13 @@ interface LeagueTableProps {
   matches?: Match[];
   myTeamName?: string;
   leagueName?: string;
+  /**
+   * Id del club real (Supabase, `perfil.club_id`) del usuario activo. Tiene prioridad sobre el
+   * equipo demo de `useTeam()`, que no refleja el club real cuando se ha iniciado sesión.
+   */
+  clubId?: string;
+  /** Nombre del club real, para poder identificar clubs con datos hardcodeados (ej. Huesca) aunque su id de Supabase no coincida con el id demo. */
+  clubName?: string;
 }
 
 interface ScorerRow {
@@ -405,15 +412,19 @@ const TeamCrest: React.FC<{ name: string; logoUrl?: string; size?: string }> = (
 
 const columnHelper = createColumnHelper<StandingTeam>();
 
-const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myTeamName = '', leagueName = '' }) => {
+const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myTeamName = '', leagueName = '', clubId, clubName }) => {
   const [useAI, setUseAI] = useState(true);
   const [activeSection, setActiveSection] = useState<CompetitionSection>('clasificacion');
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
   const [selectedEquipo, setSelectedEquipo] = useState<string>('TODOS');
 
-  // Obtener el club activo para aislar datos por club
+  // Obtener el club activo para aislar datos por club. `clubId` (club real de Supabase) tiene
+  // prioridad; si no se pasa, se cae al equipo demo de useTeam() (compatibilidad). Si el club real
+  // no coincide con el id demo pero su nombre indica Huesca, se usa igualmente la clave 'escuela-huesca'
+  // para poder reutilizar los datos hardcodeados de esa escuela.
   const { selectedTeam: currentTeam } = useTeam();
-  const currentClubId = currentTeam?.id || '';
+  const isRealHuescaClub = !!clubName && normalizeTeam(clubName).includes('huesca');
+  const currentClubId = isRealHuescaClub ? 'escuela-huesca' : (clubId || currentTeam?.id || '');
 
   // Extraer sub-equipos disponibles (ej: 'Juvenil A', 'Cadete A') para poder filtrar
   const availableEquipos = useMemo(() => {
@@ -897,21 +908,25 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
       )}
 
       {activeSection === 'clasificacion' && federationStandingsUrl && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-            Clasificación oficial · Federación Aragonesa de Fútbol
-          </p>
-          <div className="rounded-2xl border border-slate-100 overflow-hidden bg-white">
-            <iframe
-              src={federationStandingsUrl}
-              title="Clasificación oficial - Federación Aragonesa de Fútbol"
-              className="w-full"
-              style={{ height: '70vh', border: 'none' }}
-              loading="lazy"
-              sandbox="allow-scripts allow-same-origin allow-popups"
-            />
+        <a
+          href={federationStandingsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 hover:border-amber-200 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shrink-0">
+              <i className="fa-solid fa-trophy text-white text-lg"></i>
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-800">Clasificación oficial · Federación Aragonesa de Fútbol</p>
+              <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                El portal de la federación no permite mostrarse embebido; se abre en una pestaña nueva.
+              </p>
+            </div>
           </div>
-        </div>
+          <i className="fa-solid fa-arrow-up-right-from-square text-slate-300 group-hover:text-amber-500 transition-colors shrink-0"></i>
+        </a>
       )}
 
       {activeSection === 'clasificacion' && !federationStandingsUrl && (

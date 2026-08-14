@@ -19,7 +19,7 @@ import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
 import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES, HUESCA_JUVENIL_2627_COMPETITION_TEAMS } from '@shared/constants';
 
 // Modules - Plantilla
-import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
+import { PlayerTable, EditPlayerModal, BulkPhotoUpload, BulkBackgroundRemoval } from '@modules/plantilla';
 import type { Player } from '@modules/plantilla';
 
 // Modules - Staff
@@ -625,6 +625,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
+  const [showBulkBackgroundRemoval, setShowBulkBackgroundRemoval] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Personal | null>(null);
@@ -1367,7 +1368,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     console.error('✗ Error guardando jugador:', msg);
                     alert(`Error al guardar: ${msg}`);
                   }
-                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
+                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} onRemoveBackgrounds={() => setShowBulkBackgroundRemoval(true)} />
               } />
               <Route path="/staff" element={
                 <StaffTable
@@ -1561,7 +1562,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/videoteca" element={<Videoteca />} />
               <Route path="/competicion" element={
-                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} />
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
               <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
               <Route path="/lesiones" element={<InjuriesView />} />
@@ -1703,6 +1704,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         clubId={currentTeam?.id || ''}
         onClose={() => setShowBulkPhotoUpload(false)}
         onUploaded={async (playerId, fotoUrl) => {
+          await plantillasService.update(String(playerId), { foto_url: fotoUrl });
+          setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
+        }}
+      />}
+      {showBulkBackgroundRemoval && <BulkBackgroundRemoval
+        squad={filteredSquadList}
+        clubId={currentTeam?.id || ''}
+        onClose={() => setShowBulkBackgroundRemoval(false)}
+        onUpdated={async (playerId, fotoUrl) => {
           await plantillasService.update(String(playerId), { foto_url: fotoUrl });
           setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
         }}

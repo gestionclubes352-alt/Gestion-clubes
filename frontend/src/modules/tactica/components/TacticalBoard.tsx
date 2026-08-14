@@ -181,7 +181,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
           <div className="absolute inset-4 md:inset-6 z-10">
             {positions.map((pos) => {
               const assignedPlayers = (pos.playerIds || []).map(id => squad.find(p => String(p.id) === String(id))).filter(Boolean) as Player[];
-              const displayPlayers = assignedPlayers.slice(-3);
+              const displayPlayers = assignedPlayers.slice(-1);
               const isActive = activePosId === pos.id;
               const adjustedX = clamp(50 + (pos.x - 50) * spacingFactor, 3, 97);
               const adjustedY = clamp(50 + (pos.y - 50) * spacingFactor, 3, 97);
@@ -243,7 +243,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
       <div className="w-full lg:w-80 bg-white rounded-3xl md:rounded-3xl border border-slate-100 shadow-xl flex flex-col max-h-125 lg:max-h-none overflow-hidden shrink-0">
         <div className="p-2 md:p-3 border-b border-slate-50 bg-slate-50/50">
           <p className="text-[7px] md:text-[7.5px] font-bold text-slate-300 uppercase italic leading-tight">
-            {activePosId ? 'Toca un jugador para añadir (máx 3)' : 'Toca una posición arriba'}
+            {activePosId ? 'Toca un jugador para asignarlo (sustituye al actual)' : 'Toca una posición arriba'}
           </p>
         </div>
 
