@@ -349,11 +349,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           </SidebarSection>
           )}
 
-          {isSectionVisible('admin') && userRole !== 'Tecnico' && (
-          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'INSTALACIONES'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          {isSectionVisible('admin') && (
+          <SidebarSection title={t('sidebar.admin')} sectionKey="admin" collapsed={isCollapsed} hasActiveChild={['CLUBES', 'EQUIPOS', 'EQUIPOS_INTERNOS', 'COMPETICIONES', 'LOCALIDADES', 'INSTALACIONES'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('CLUBES') && <SidebarItem icon="fa-shield-halved" label={t('sidebar.clubsLabel')} active={activeSection === 'CLUBES'} onClick={() => handleItemClick('CLUBES')} collapsed={isCollapsed} />}
             {isVisible('EQUIPOS') && <SidebarItem icon="fa-trophy" label={t('sidebar.teamsLabel')} active={activeSection === 'EQUIPOS'} onClick={() => handleItemClick('EQUIPOS')} collapsed={isCollapsed} />}
             {isVisible('EQUIPOS_INTERNOS') && <SidebarItem icon="fa-users-rectangle" label={t('sidebar.internalTeamsLabel')} active={activeSection === 'EQUIPOS_INTERNOS'} onClick={() => handleItemClick('EQUIPOS_INTERNOS')} collapsed={isCollapsed} />}
+            {isVisible('COMPETICIONES') && <SidebarItem icon="fa-ranking-star" label={t('sidebar.competitionsLabel')} active={activeSection === 'COMPETICIONES'} onClick={() => handleItemClick('COMPETICIONES')} collapsed={isCollapsed} />}
+            {isVisible('LOCALIDADES') && <SidebarItem icon="fa-map-pin" label={t('sidebar.locationsLabel')} active={activeSection === 'LOCALIDADES'} onClick={() => handleItemClick('LOCALIDADES')} collapsed={isCollapsed} />}
             {isVisible('INSTALACIONES') && <SidebarItem icon="fa-fence" label="Instalaciones y Campos" active={activeSection === 'INSTALACIONES'} onClick={() => handleItemClick('INSTALACIONES')} collapsed={isCollapsed} />}
           </SidebarSection>
           )}

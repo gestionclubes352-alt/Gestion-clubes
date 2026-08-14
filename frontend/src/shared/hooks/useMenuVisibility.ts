@@ -14,7 +14,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 14;
+const MENU_VERSION = 17;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -55,10 +55,10 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'CLUBES', labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', section: 'admin' },
   { id: 'EQUIPOS', labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', section: 'admin' },
   { id: 'EQUIPOS_INTERNOS', labelKey: 'sidebar.internalTeamsLabel', icon: 'fa-users-rectangle', section: 'admin' },
+  { id: 'COMPETICIONES', labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', section: 'admin' },
   { id: 'LOCALIDADES', labelKey: 'sidebar.locationsLabel', icon: 'fa-map-pin', section: 'admin' },
   { id: 'INSTALACIONES', labelKey: 'sidebar.installationsLabel', icon: 'fa-fence', section: 'admin' },
   { id: 'USUARIOS', labelKey: 'sidebar.usersLabel', icon: 'fa-user-gear', section: 'admin' },
-  { id: 'COMPETICIONES', labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', section: 'admin' },
   { id: 'CONFIGURACIÓN', labelKey: 'sidebar.settingsLabel', icon: 'fa-gear', section: 'admin', locked: true },
   { id: 'FUENTE DE DATOS', labelKey: 'header.dataSource', icon: 'fa-database', section: 'admin' },
 ];
