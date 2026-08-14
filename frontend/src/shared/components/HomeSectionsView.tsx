@@ -74,9 +74,7 @@ const HOME_SECTIONS: HomeSection[] = [
       { labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', route: '/clubes', menuId: 'CLUBES' },
       { labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', route: '/equipos', menuId: 'EQUIPOS' },
       { labelKey: 'sidebar.internalTeamsLabel', icon: 'fa-users-rectangle', route: '/equipos-internos', menuId: 'EQUIPOS_INTERNOS' },
-      { labelKey: 'sidebar.usersLabel', icon: 'fa-user-gear', route: '/usuarios', menuId: 'USUARIOS' },
-      { labelKey: 'sidebar.competitionsLabel', icon: 'fa-trophy', route: '/competiciones', menuId: 'COMPETICIONES' },
-      { labelKey: 'sidebar.settingsLabel', icon: 'fa-gear', route: '/settings', menuId: 'CONFIGURACIÓN' },
+      { labelKey: 'sidebar.installationsLabel', icon: 'fa-fence', route: '/instalaciones', menuId: 'INSTALACIONES' },
     ],
   },
 ];
