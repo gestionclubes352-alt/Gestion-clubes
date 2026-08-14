@@ -11,7 +11,7 @@ type HomeSection = {
   bgLight: string;
   borderColor: string;
   textColor: string;
-  items: Array<{ labelKey: string; icon: string; route: string; menuId: string }>;
+  items: Array<{ labelKey?: string; label?: string; icon: string; route: string; menuId: string }>;
 };
 
 const HOME_SECTIONS: HomeSection[] = [
@@ -74,8 +74,8 @@ const HOME_SECTIONS: HomeSection[] = [
       { labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', route: '/clubes', menuId: 'CLUBES' },
       { labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', route: '/equipos', menuId: 'EQUIPOS' },
       { labelKey: 'sidebar.internalTeamsLabel', icon: 'fa-users-rectangle', route: '/equipos-internos', menuId: 'EQUIPOS_INTERNOS' },
-      { labelKey: 'sidebar.locationsLabel', icon: 'fa-map-pin', route: '/instalaciones', menuId: 'LOCALIDADES' },
-      { labelKey: 'sidebar.installationsLabel', icon: 'fa-fence', route: '/instalaciones', menuId: 'INSTALACIONES' },
+      { label: 'Localidades', icon: 'fa-map-pin', route: '/instalaciones', menuId: 'LOCALIDADES' },
+      { label: 'Instalaciones y Campos', icon: 'fa-fence', route: '/instalaciones', menuId: 'INSTALACIONES' },
     ],
   },
 ];
@@ -121,7 +121,7 @@ const HomeSectionsView: React.FC = () => {
                   >
                     <i className={`fa-solid ${item.icon} text-sm ${section.textColor} opacity-90 group-hover:opacity-100`}></i>
                     <span className="text-base md:text-lg font-bold text-white/90 group-hover:text-white truncate">
-                      {t(item.labelKey)}
+                      {item.label || t(item.labelKey!)}
                     </span>
                   </button>
                 ))}
