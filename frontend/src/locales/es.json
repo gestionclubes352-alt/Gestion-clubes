@@ -609,7 +609,18 @@
     "tabMatches": "Partidos",
     "tabStats": "Datos Partidos",
     "filterJornada": "Jornada",
-    "allJornadas": "Todas las jornadas"
+    "allJornadas": "Todas las jornadas",
+    "tableView": "Vista tabla",
+    "cardsView": "Vista tarjetas",
+    "colCompetition": "Competición",
+    "colJornada": "Jornada",
+    "colDate": "Fecha",
+    "colTime": "Hora",
+    "colLocal": "Local",
+    "colVisitor": "Visitante",
+    "colResult": "Resultado",
+    "colStatus": "Estado",
+    "colLocation": "Ubicación"
   },
   "playerStatsSummary": {
     "title": "Datos Partidos",

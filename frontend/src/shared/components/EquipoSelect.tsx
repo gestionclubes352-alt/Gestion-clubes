@@ -64,6 +64,8 @@ export interface EquipoOption {
 export interface CreateEquipoOptionInput {
   value: string;
   club?: string;
+  /** Escudo del club, cuando se crea uno nuevo desde este formulario */
+  escudoFile?: File;
 }
 
 /** Clave única de una opción: el nombre del equipo por sí solo puede repetirse entre clubes distintos */
@@ -110,10 +112,21 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
   const [newName, setNewName] = useState('');
   const [newClubName, setNewClubName] = useState('');
   const [newClubId, setNewClubId] = useState('');
+  const [newClubLogoFile, setNewClubLogoFile] = useState<File | null>(null);
+  const [newClubLogoPreview, setNewClubLogoPreview] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [clubsLoading, setClubsLoading] = useState(false);
+
+  const handleNewClubLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setNewClubLogoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setNewClubLogoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const normalizedTeams = useMemo(
     () => extraTeams
@@ -170,6 +183,8 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
     setNewName('');
     setNewClubName('');
     setNewClubId('');
+    setNewClubLogoFile(null);
+    setNewClubLogoPreview(null);
     setCreateError(null);
   };
 
@@ -186,7 +201,8 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
       if (onCreateOption) {
         const created = await onCreateOption({
           value: teamName,
-          club: addNewMode === 'clubTeam' ? clubNameForOption : undefined
+          club: addNewMode === 'clubTeam' ? clubNameForOption : undefined,
+          escudoFile: addNewMode === 'clubTeam' && newClubId === '__CREATE_NEW__' ? newClubLogoFile || undefined : undefined,
         });
         if (created) onChange(created.value, created.clubId);
       } else {
@@ -265,17 +281,33 @@ const EquipoSelect: React.FC<EquipoSelectProps> = ({
               </select>
             </div>
             {newClubId === '__CREATE_NEW__' && (
-              <input
-                type="text"
-                value={newClubName}
-                onChange={(e) => setNewClubName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') resetAddForm();
-                }}
-                placeholder="Nombre del nuevo club..."
-                disabled={isCreating}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 disabled:opacity-50"
-              />
+              <div className="flex items-center gap-3">
+                <label className="shrink-0 w-11 h-11 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white cursor-pointer hover:bg-slate-50 transition-colors overflow-hidden">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleNewClubLogoChange}
+                    disabled={isCreating}
+                    className="hidden"
+                  />
+                  {newClubLogoPreview ? (
+                    <img loading="lazy" decoding="async" src={newClubLogoPreview} alt="Escudo" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <i className="fa-solid fa-shield-halved text-slate-300 text-base"></i>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={newClubName}
+                  onChange={(e) => setNewClubName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') resetAddForm();
+                  }}
+                  placeholder="Nombre del nuevo club..."
+                  disabled={isCreating}
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 disabled:opacity-50"
+                />
+              </div>
             )}
           </div>
         )}

@@ -567,7 +567,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                 </button>
 
                 {!isCollapsed && (
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 xl:grid-cols-10 gap-2">
+                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
                     {group.players.map((player) => {
                       const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
                       const hasPhoto = isImageUrl(player.fotoUrl);

@@ -16,7 +16,7 @@ import EquipoSelect from '@shared/components/EquipoSelect';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemMinutesCharts from './SystemMinutesCharts';
 import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
-import { uploadMatchReportFile } from '@shared/services/photoService';
+import { uploadMatchReportFile, uploadClubLogo } from '@shared/services/photoService';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
@@ -280,7 +280,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     [allTeamsForSelectors, clubNameById]
   );
 
-  const handleCreateTeamForCompetition = async ({ value, club }: { value: string; club?: string }) => {
+  const handleCreateTeamForCompetition = async ({ value, club, escudoFile }: { value: string; club?: string; escudoFile?: File }) => {
     const clubName = club?.trim();
     const teamName = value.trim();
     if (!clubName || !teamName) throw new Error('Indica club y equipo');
@@ -289,6 +289,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     if (!dbClub) {
       const createdClub = await clubesService.create({ nombre: clubName } as any);
       dbClub = createdClub as Club;
+      if (escudoFile && ownClubId) {
+        try {
+          const escudoUrl = await uploadClubLogo(escudoFile, String(dbClub.id), String(ownClubId));
+          dbClub = await clubesService.update(dbClub.id, { escudo_url: escudoUrl } as any) as Club;
+        } catch (err) {
+          console.error('Error uploading club logo:', err);
+        }
+      }
       setClubs(prev => [...prev, dbClub as Club]);
     }
 

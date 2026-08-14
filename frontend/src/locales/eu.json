@@ -609,7 +609,18 @@
     "tabMatches": "Partidak",
     "tabStats": "Partiduen Datuak",
     "filterJornada": "Jardunaldia",
-    "allJornadas": "Jardunaldi guztiak"
+    "allJornadas": "Jardunaldi guztiak",
+    "tableView": "Taula ikuspegia",
+    "cardsView": "Txartel ikuspegia",
+    "colCompetition": "Lehiaketa",
+    "colJornada": "Jardunaldia",
+    "colDate": "Data",
+    "colTime": "Ordua",
+    "colLocal": "Etxekoa",
+    "colVisitor": "Kanpokoa",
+    "colResult": "Emaitza",
+    "colStatus": "Egoera",
+    "colLocation": "Kokapena"
   },
   "playerStatsSummary": {
     "title": "Partiduen Datuak",

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { createColumnHelper } from '@tanstack/react-table';
 import type { Match } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
@@ -7,6 +8,8 @@ import { getTeamConfig } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
+import { DataTable } from '@shared/components/DataTable';
+import type { DataTableAction } from '@shared/components/DataTable';
 
 const getMyClubIdsForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
   const ids = new Set<string>();
@@ -89,6 +92,18 @@ const ownTeamNameOf = (match: Match, competitionTeams: CompetitionTeam[]): strin
 
 const ALL_FILTER = 'ALL';
 
+const getCompetitionType = (competition: string | undefined): string => {
+  if (!competition) return '-';
+  const normalized = competition.trim().toUpperCase();
+  if (normalized.includes('LIGA')) return 'LIGA';
+  if (normalized.includes('COPA')) return 'COPA';
+  if (normalized.includes('AMISTOSO')) return 'AMISTOSO';
+  if (normalized.includes('TORNEO')) return 'TORNEO';
+  if (normalized.includes('CAMPEONATO')) return 'CAMPEONATO';
+  const firstWord = normalized.split(/[\s,]+/)[0];
+  return firstWord || '-';
+};
+
 interface LatestMatchesProps {
   matches: Match[];
   onSave: (match: Match) => Promise<void>;
@@ -105,7 +120,13 @@ interface LatestMatchesProps {
 const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete, onEdit, onClickMatch, onCreate, competitionTeams = [], clubes = [], ownClubId, onSelectPlayer }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'MATCHES' | 'STATS'>('MATCHES');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'calendar'>('cards');
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
+  const [tipoFilter, setTipoFilter] = useState<string>(ALL_FILTER);
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
   const [jornadaFilter, setJornadaFilter] = useState<string>(ALL_FILTER);
   const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
@@ -200,6 +221,18 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return normalizeInternalCandidate(match.nombreInterno) || normalizeInternalCandidate(match.team) || own || match.nombreInterno || match.team || '';
   };
 
+  // Tipos de Competición: calculados a partir de todas las competiciones
+  const tipoOptions = useMemo(() => {
+    const types = new Set<string>();
+    matches.forEach((m) => {
+      if (m.competition) {
+        const type = getCompetitionType(m.competition);
+        if (type !== '-') types.add(type);
+      }
+    });
+    return Array.from(types).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matches]);
+
   // Equipos Internos: filtrados por Competición si está seleccionada
   const equipoInternoOptions = useMemo(() => {
     const names = new Map<string, string>();
@@ -226,20 +259,25 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return Array.from(names.values()).sort(compareEquipoNames);
   }, [ownCompetitionTeams, matches, competitionFilter]);
 
-  // Competiciones: filtradas por Equipo Interno si está seleccionado
+  // Competiciones: filtradas por Equipo Interno y Tipo si está seleccionados
   const competitionOptions = useMemo(() => {
     const names = new Set<string>();
 
     // Si hay equipo seleccionado, solo mostrar competiciones de ese equipo
-    const sourceMatches = equipoInternoFilter === ALL_FILTER
+    let sourceMatches = equipoInternoFilter === ALL_FILTER
       ? matches
       : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
 
+    // Si hay tipo seleccionado, filtrar por tipo
+    if (tipoFilter !== ALL_FILTER) {
+      sourceMatches = sourceMatches.filter((m) => getCompetitionType(m.competition) === tipoFilter);
+    }
+
     sourceMatches.forEach((m) => { if (m.competition) names.add(m.competition); });
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+  }, [matches, equipoInternoFilter, tipoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
 
-  // Filtro combinado para Equipo Interno y Competición
+  // Filtro combinado para Equipo Interno, Tipo y Competición
   const filteredByEquipoAndCompetition = useMemo(() => {
     let result = matches;
 
@@ -247,12 +285,16 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       result = result.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
     }
 
+    if (tipoFilter !== ALL_FILTER) {
+      result = result.filter((m) => getCompetitionType(m.competition) === tipoFilter);
+    }
+
     if (competitionFilter !== ALL_FILTER) {
       result = result.filter((m) => m.competition === competitionFilter);
     }
 
     return result;
-  }, [matches, equipoInternoFilter, competitionFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
 
   // Jornada depende de Equipo Interno y Competición
   const jornadaOptions = useMemo(() => {
@@ -261,9 +303,18 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
   }, [filteredByEquipoAndCompetition]);
 
-  // Filtro final: aplicar filtro de Jornada
+  // Filtro final: aplicar filtro de Jornada y excluir partidos de hoy
+  const today = new Date('2026-08-14').toISOString().split('T')[0];
   const filteredMatches = useMemo(
-    () => (jornadaFilter === ALL_FILTER ? filteredByEquipoAndCompetition : filteredByEquipoAndCompetition.filter((m) => m.jornada === jornadaFilter)),
+    () => {
+      let result = jornadaFilter === ALL_FILTER ? filteredByEquipoAndCompetition : filteredByEquipoAndCompetition.filter((m) => m.jornada === jornadaFilter);
+      // Excluir partidos de hoy
+      result = result.filter((m) => {
+        const matchDate = m.date ? new Date(m.date).toISOString().split('T')[0] : null;
+        return matchDate !== today;
+      });
+      return result;
+    },
     [filteredByEquipoAndCompetition, jornadaFilter]
   );
 
@@ -275,13 +326,21 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipoInternoOptions]);
 
-  // Si cambia Equipo Interno, la competición elegida puede dejar de ser válida
+  // Si cambia Tipo, la competición elegida puede dejar de ser válida
   useEffect(() => {
     if (competitionFilter !== ALL_FILTER && !competitionOptions.includes(competitionFilter)) {
       setCompetitionFilter(ALL_FILTER);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionOptions]);
+
+  // Si cambia Equipo Interno o Tipo, la competición elegida puede dejar de ser válida
+  useEffect(() => {
+    if (competitionFilter !== ALL_FILTER && !competitionOptions.includes(competitionFilter)) {
+      setCompetitionFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoFilter, competitionOptions]);
 
   // Si cambian Equipo Interno o Competición, la jornada elegida puede dejar de ser válida
   useEffect(() => {
@@ -376,6 +435,147 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     });
   }, [filteredMatches]);
 
+  const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
+  const dayNamesLong = t('calendarView.daysLong', { returnObjects: true }) as string[];
+  const orderedDayNamesLong = useMemo(() => [...dayNamesLong.slice(1), dayNamesLong[0]], [dayNamesLong]);
+
+  const getMonthMatrix = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const matrix: (Date | null)[][] = [];
+    let week: (Date | null)[] = [];
+    let day = new Date(firstDay);
+    const leadingBlanks = (firstDay.getDay() + 6) % 7;
+    for (let i = 0; i < leadingBlanks; i++) week.push(null);
+    while (day <= lastDay) {
+      week.push(new Date(day));
+      if (week.length === 7) {
+        matrix.push(week);
+        week = [];
+      }
+      day = new Date(day);
+      day.setDate(day.getDate() + 1);
+    }
+    if (week.length > 0) {
+      while (week.length < 7) week.push(null);
+      matrix.push(week);
+    }
+    return matrix;
+  };
+
+  const matchesByDay = useMemo(() => {
+    const map = {} as Record<string, Match[]>;
+    filteredMatches.forEach((match) => {
+      const d = new Date(match.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(match);
+    });
+    return map;
+  }, [filteredMatches]);
+
+  interface MatchRow {
+    match: Match;
+    tipo: string;
+    competition: string;
+    jornada: string;
+    dateLabel: string;
+    time: string;
+    localLabel: string;
+    localLogo?: string;
+    localIsOwn: boolean;
+    visitorLabel: string;
+    visitorLogo?: string;
+    visitorIsOwn: boolean;
+    resultLabel: string;
+    statusLabel: string;
+    location: string;
+  }
+
+  const tableRows: MatchRow[] = useMemo(() => {
+    const rows = filteredMatches.map((match) => {
+      const local = match.localTeam || 'DEMO';
+      const visitor = match.visitorTeam || 'Rival';
+      const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
+      const visitorDisplay = sideDisplayOf(match, visitor, match.visitorTeamClubId);
+      return {
+        match,
+        tipo: getCompetitionType(match.competition),
+        competition: match.competition || '-',
+        jornada: match.jornada || '-',
+        dateLabel: match.date ? new Date(match.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-',
+        time: match.time || '-',
+        localLabel: `${localDisplay.teamName}${localDisplay.clubName && localDisplay.clubName !== localDisplay.teamName ? ` (${localDisplay.clubName})` : ''}`,
+        localLogo: localDisplay.logo,
+        localIsOwn: localDisplay.isOwn,
+        visitorLabel: `${visitorDisplay.teamName}${visitorDisplay.clubName && visitorDisplay.clubName !== visitorDisplay.teamName ? ` (${visitorDisplay.clubName})` : ''}`,
+        visitorLogo: visitorDisplay.logo,
+        visitorIsOwn: visitorDisplay.isOwn,
+        resultLabel: match.status === 'Finished' ? (match.score || '-') : 'VS',
+        statusLabel: match.status === 'Finished' ? 'Finalizado' : 'Próximo',
+        location: match.location || '-',
+      };
+    });
+    // Ordenar por fecha ascendente (más cercano primero)
+    return rows.sort((a, b) => new Date(a.match.date).getTime() - new Date(b.match.date).getTime());
+  }, [filteredMatches, ownCompetitionTeams, competitionTeams, clubes]);
+
+  const matchColumnHelper = createColumnHelper<MatchRow>();
+  const tableColumns = useMemo(() => [
+    matchColumnHelper.accessor('tipo', { header: 'TIPO' }),
+    matchColumnHelper.accessor('competition', { header: t('matchesList.colCompetition') }),
+    matchColumnHelper.accessor('jornada', { header: t('matchesList.colJornada') }),
+    matchColumnHelper.accessor('dateLabel', { header: t('matchesList.colDate') }),
+    matchColumnHelper.accessor('time', { header: t('matchesList.colTime') }),
+    matchColumnHelper.accessor('localLabel', {
+      header: t('matchesList.colLocal'),
+      cell: (info) => (
+        <div className="flex items-center gap-2">
+          {info.row.original.localLogo && (
+            <img loading="lazy" decoding="async" src={info.row.original.localLogo} alt="" className="h-5 w-5 object-contain shrink-0" />
+          )}
+          <span className={`truncate ${info.row.original.localIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
+        </div>
+      ),
+    }),
+    matchColumnHelper.accessor('visitorLabel', {
+      header: t('matchesList.colVisitor'),
+      cell: (info) => (
+        <div className="flex items-center gap-2">
+          {info.row.original.visitorLogo && (
+            <img loading="lazy" decoding="async" src={info.row.original.visitorLogo} alt="" className="h-5 w-5 object-contain shrink-0" />
+          )}
+          <span className={`truncate ${info.row.original.visitorIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
+        </div>
+      ),
+    }),
+    matchColumnHelper.accessor('resultLabel', { header: t('matchesList.colResult') }),
+    matchColumnHelper.accessor('statusLabel', { header: t('matchesList.colStatus') }),
+    matchColumnHelper.accessor('location', { header: t('matchesList.colLocation') }),
+  ], [t]);
+
+  const tableActions: DataTableAction<MatchRow>[] = useMemo(() => {
+    const actions: DataTableAction<MatchRow>[] = [];
+    if (onEdit) {
+      actions.push({
+        icon: 'fa-regular fa-pen-to-square',
+        label: t('matchesList.editViaEvents'),
+        onClick: (row) => onEdit(row.match),
+        hidden: (row) => !!row.match.readonly,
+      });
+    }
+    actions.push({
+      icon: 'fa-regular fa-trash-can',
+      label: t('matchesList.deleteEvent'),
+      onClick: (row) => onDelete(String(row.match.id)),
+      hidden: (row) => !!row.match.readonly,
+      danger: true,
+    });
+    return actions;
+  }, [onEdit, onDelete, t]);
+
   return (
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
@@ -413,7 +613,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
       ) : (
       <>
-      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             Equipo Interno
@@ -425,6 +625,19 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           >
             <option value={ALL_FILTER}>Todos los equipos</option>
             {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </SearchableSelect>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            TIPO
+          </label>
+          <SearchableSelect
+            value={tipoFilter}
+            onChange={(e) => setTipoFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>Todos los tipos</option>
+            {tipoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
@@ -455,6 +668,120 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         </div>
       </div>
 
+      <div className="flex justify-start">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+              viewMode === 'cards' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+            }`}
+            title={t('matchesList.cardsView')}
+          >
+            <i className="fa-solid fa-grip text-sm"></i>
+          </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+              viewMode === 'table' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+            }`}
+            title={t('matchesList.tableView')}
+          >
+            <i className="fa-solid fa-table text-sm"></i>
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+              viewMode === 'calendar' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+            }`}
+            title={t('calendarView.viewCalendar')}
+          >
+            <i className="fa-solid fa-calendar-days text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'calendar' ? (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-125 flex flex-col overflow-hidden">
+          <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30">
+            <div className="flex items-center justify-between gap-3">
+              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-sport-primary hover:border-sport-primary/30 transition-all shadow-sm">
+                <i className="fa-solid fa-chevron-left text-sm"></i>
+              </button>
+              <div className="text-center">
+                <h4 className="text-[var(--accent)] font-black text-lg md:text-2xl uppercase tracking-wider">
+                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                </h4>
+              </div>
+              <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-sport-primary hover:border-sport-primary/30 transition-all shadow-sm">
+                <i className="fa-solid fa-chevron-right text-sm"></i>
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 p-3 md:p-6 overflow-y-auto">
+            <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
+              {orderedDayNamesLong.map(day => (
+                <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0, 3)}</div>
+              ))}
+            </div>
+            {getMonthMatrix(currentMonth).map((week, i) => (
+              <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
+                {week.map((date, j) => (
+                  <div
+                    key={j}
+                    className={`min-h-24 md:min-h-32 lg:min-h-40 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative ${
+                      date && date.getMonth() === currentMonth.getMonth() ? '' : 'opacity-30'
+                    }`}
+                  >
+                    <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
+                    <div className="flex-1 flex flex-col gap-1">
+                      {date && matchesByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`]?.map((match) => {
+                        const local = match.localTeam || 'DEMO';
+                        const visitor = match.visitorTeam || 'Rival';
+                        const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
+                        const visitorDisplay = sideDisplayOf(match, visitor, match.visitorTeamClubId);
+                        const isReadOnly = match.readonly;
+                        return (
+                          <div
+                            key={match.id}
+                            onClick={() => !isReadOnly && onClickMatch && onClickMatch(match)}
+                            className="rounded px-1 py-1 text-[8px] font-bold flex flex-col gap-0.5 border-2 bg-red-100 text-red-800 border-red-400 hover:bg-red-200 transition-all cursor-pointer"
+                          >
+                            <div className="text-[9px] font-bold leading-tight">{match.time || '—'}</div>
+                            <div className="truncate leading-tight">
+                              {(localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName))}
+                              {' vs '}
+                              {(visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName))}
+                            </div>
+                            {match.status === 'Finished' && match.score && (
+                              <div className="text-[7px] font-bold text-red-700 text-center">{match.score}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : viewMode === 'table' ? (
+        <DataTable<MatchRow>
+          data={tableRows}
+          columns={tableColumns}
+          actions={tableActions}
+          searchable
+          sortable
+          paginated
+          pageSize={30}
+          pageSizeOptions={[30, 50, 100]}
+          exportable
+          exportFilename="partidos"
+          emptyMessage={t('matchesList.noMatches')}
+          emptyIcon="fa-solid fa-calendar-xmark"
+          onRowClick={(row) => !row.match.readonly && onClickMatch && onClickMatch(row.match)}
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {groupedMatches.map(({ groupKey, competition, jornada, matches }) => (
           <div key={groupKey} className="space-y-4">
@@ -477,8 +804,8 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
               </div>
             </div>
 
-            <div className="space-y-2">
-              {matches.map((match) => {
+            <div className="bg-white rounded-lg border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+              {matches.map((match, idx) => {
           const local = match.localTeam || 'DEMO';
           const visitor = match.visitorTeam || 'Rival';
           const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
@@ -489,66 +816,36 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             <div
               key={match.id}
               onClick={() => !isReadOnly && onClickMatch && onClickMatch(match)}
-              className={`bg-white p-1.5 md:p-2 rounded-lg shadow-sm transition-all border border-slate-100 flex flex-col gap-1 group relative overflow-hidden ${isReadOnly ? '' : 'hover:shadow-md cursor-pointer hover:border-red-200'}`}
+              className={`group flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 transition-all ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'} ${isReadOnly ? '' : 'hover:bg-red-50/40 cursor-pointer'}`}
             >
-              <div className="flex items-center justify-end">
-                <span className={`px-1 py-0.5 rounded-md text-[5px] font-black uppercase tracking-wider shrink-0 ${
-                  match.status === 'Finished' ? 'bg-slate-100 text-slate-400' : 'bg-red-100 text-red-600 animate-pulse'
-                }`}>
-                  {match.status}
+              <div className="flex-1 min-w-0 flex items-center justify-end gap-2 text-right">
+                <span className={`font-black text-xs md:text-sm uppercase truncate ${localDisplay.isOwn ? 'text-[var(--accent)]' : 'text-slate-800'}`}>
+                  {localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName)}
+                </span>
+                {localDisplay.logo ? (
+                  <img loading="lazy" decoding="async" src={localDisplay.logo} alt={localDisplay.clubName} className="h-6 w-6 object-contain shrink-0" />
+                ) : (
+                  <span className="h-6 w-6 rounded-full bg-slate-100 shrink-0" />
+                )}
+              </div>
+
+              <div className="shrink-0 bg-slate-800 text-white font-black text-[9px] md:text-[10px] uppercase tracking-widest px-2.5 md:px-3 py-1.5 rounded-md">
+                {match.status === 'Finished' ? (match.score || '-') : 'VS'}
+              </div>
+
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                {visitorDisplay.logo ? (
+                  <img loading="lazy" decoding="async" src={visitorDisplay.logo} alt={visitorDisplay.clubName} className="h-6 w-6 object-contain shrink-0" />
+                ) : (
+                  <span className="h-6 w-6 rounded-full bg-slate-100 shrink-0" />
+                )}
+                <span className={`font-black text-xs md:text-sm uppercase truncate ${visitorDisplay.isOwn ? 'text-[var(--accent)]' : 'text-slate-800'}`}>
+                  {visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName)}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between gap-1 min-h-16">
-                <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-[5px] font-black text-slate-400 uppercase tracking-widest mb-0.5">LOCAL</p>
-                  {localDisplay.logo && (
-                    <img loading="lazy" decoding="async" src={localDisplay.logo} alt={localDisplay.clubName} className="h-5 w-5 object-contain mb-0.5" />
-                  )}
-                  <p className="text-[5px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
-                    {localDisplay.clubName}
-                  </p>
-                  <p className={`font-black text-xs md:text-sm uppercase leading-tight truncate w-full ${localDisplay.isOwn ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                    {localDisplay.teamName}
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-center shrink-0 gap-0.5">
-                  <p className="text-red-600 font-black text-sm md:text-base">
-                    {match.time || '—'}
-                  </p>
-                  {match.status === 'Finished' ? (
-                    <div className="bg-[var(--accent)] text-white font-black text-[10px] px-1.5 py-0.5 rounded-md shadow-lg shadow-[var(--accent)]/20">
-                      {match.score}
-                    </div>
-                  ) : (
-                    <div className="bg-red-50 text-red-600 font-black text-[8px] px-1.5 py-0.5 rounded-md border border-red-200">
-                      VS
-                    </div>
-                  )}
-                  {match.location && (
-                    <p className="text-[5px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-16 text-center">
-                      {match.location}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0 flex flex-col items-center justify-center text-center">
-                  <p className="text-[5px] font-black text-slate-400 uppercase tracking-widest mb-0.5">VISITANTES</p>
-                  {visitorDisplay.logo && (
-                    <img loading="lazy" decoding="async" src={visitorDisplay.logo} alt={visitorDisplay.clubName} className="h-5 w-5 object-contain mb-0.5" />
-                  )}
-                  <p className="text-[5px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 leading-tight truncate w-full">
-                    {visitorDisplay.clubName}
-                  </p>
-                  <p className={`font-black text-xs md:text-sm uppercase leading-tight truncate w-full ${visitorDisplay.isOwn ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                    {visitorDisplay.teamName}
-                  </p>
-                </div>
-              </div>
-
               {!isReadOnly && (
-              <div className="flex items-center justify-end gap-0.5 border-t border-slate-100 pt-1">
+              <div className="hidden group-hover:flex items-center gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -556,10 +853,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                       e.stopPropagation();
                       onEdit && onEdit(match);
                   }}
-                  className="w-5 h-5 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm text-[8px]"
+                  className="w-6 h-6 bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm"
                   title={t('matchesList.editViaEvents')}
                 >
-                  <i className="fa-regular fa-pen-to-square text-[8px]"></i>
+                  <i className="fa-regular fa-pen-to-square text-[10px]"></i>
                 </button>
                 <button
                   type="button"
@@ -568,10 +865,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                       e.stopPropagation();
                       onDelete(String(match.id));
                   }}
-                  className="w-5 h-5 bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm text-[8px]"
+                  className="w-6 h-6 bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 rounded-md transition-all flex items-center justify-center shadow-sm"
                   title={t('matchesList.deleteEvent')}
                 >
-                  <i className="fa-regular fa-trash-can text-[8px]"></i>
+                  <i className="fa-regular fa-trash-can text-[10px]"></i>
                 </button>
               </div>
               )}
@@ -589,6 +886,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           </div>
         )}
       </div>
+      )}
       </>
       )}
     </div>

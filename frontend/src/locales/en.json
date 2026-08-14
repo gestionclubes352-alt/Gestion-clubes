@@ -609,7 +609,18 @@
     "tabMatches": "Matches",
     "tabStats": "Match Data",
     "filterJornada": "Matchday",
-    "allJornadas": "All matchdays"
+    "allJornadas": "All matchdays",
+    "tableView": "Table view",
+    "cardsView": "Card view",
+    "colCompetition": "Competition",
+    "colJornada": "Matchday",
+    "colDate": "Date",
+    "colTime": "Time",
+    "colLocal": "Home",
+    "colVisitor": "Away",
+    "colResult": "Result",
+    "colStatus": "Status",
+    "colLocation": "Location"
   },
   "playerStatsSummary": {
     "title": "Match Data",

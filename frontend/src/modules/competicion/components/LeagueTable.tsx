@@ -517,6 +517,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
 
   // Decidir qué datos mostrar: oficiales del club > partidos registrados > IA > (0 en todo si no hay nada)
   const federationStandingsUrl = FEDERATION_STANDINGS_URL_BY_CLUB[currentClubId];
+
   const officialStandings = useMemo(() => buildOfficialStandings(filteredTeams, standingsKey), [filteredTeams, standingsKey]);
   const hasOfficialData = officialStandings.length > 0;
   const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData && !hasRealMatchData;
@@ -921,7 +922,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
             <div>
               <p className="text-sm font-black text-slate-800">Clasificación oficial · Federación Aragonesa de Fútbol</p>
               <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                El portal de la federación no permite mostrarse embebido; se abre en una pestaña nueva.
+                El portal de la federación bloquea el acceso automático; se abre en una pestaña nueva.
               </p>
             </div>
           </div>
