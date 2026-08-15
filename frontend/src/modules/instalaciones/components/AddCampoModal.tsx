@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AddCampoModalProps {
   isOpen: boolean;
@@ -15,12 +15,14 @@ const AddCampoModal: React.FC<AddCampoModalProps> = ({
   const [superficie, setSuperficie] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const superficieOptions = ['Artificial', 'Natural', 'Pabellón'];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     if (!nombre.trim()) {
       setError('Debes ingresar un nombre para el campo');
@@ -35,11 +37,16 @@ const AddCampoModal: React.FC<AddCampoModalProps> = ({
     try {
       setLoading(true);
       await onSave(nombre, superficie);
+      setSuccess(`Campo "${nombre}" agregado correctamente`);
       setNombre('');
       setSuperficie('');
-      onClose();
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al agregar el campo';
+      let msg = err instanceof Error ? err.message : 'Error al agregar el campo';
+      // Detectar si es un error de duplicado
+      if (msg.includes('23505') || msg.includes('already exists') || msg.includes('Duplicate')) {
+        msg = `Ya existe un campo llamado "${nombre}" en esta instalación`;
+      }
       setError(msg);
       console.error('Error adding campo:', err);
     } finally {
@@ -110,6 +117,13 @@ const AddCampoModal: React.FC<AddCampoModalProps> = ({
               {error}
             </div>
           )}
+
+          {success && (
+            <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs font-semibold">
+              <i className="fa-solid fa-check-circle mr-2"></i>
+              {success}
+            </div>
+          )}
         </form>
 
         {/* Footer */}
@@ -119,7 +133,7 @@ const AddCampoModal: React.FC<AddCampoModalProps> = ({
             disabled={loading}
             className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all disabled:opacity-50"
           >
-            CANCELAR
+            LISTO
           </button>
           <button
             onClick={handleSubmit}

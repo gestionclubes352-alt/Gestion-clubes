@@ -641,7 +641,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.information')}</h4>
                 <button
                   type="button"
-                  onClick={() => setEditingSessionEvent(activeTraining)}
+                  onClick={() => {
+                    console.log('[EDITAR BUTTON] Clicked, activeTraining:', activeTraining);
+                    setEditingSessionEvent(activeTraining);
+                  }}
                   className="text-[10px] font-black text-slate-400 hover:text-[var(--accent)] uppercase tracking-widest flex items-center gap-1"
                 >
                   <i className="fa-solid fa-pen"></i> {t('common.edit', 'Editar')}
@@ -920,6 +923,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
           </div>
         </div>
         )}
+
+      {editingSessionEvent && (
+        <NewEventModal
+          editEvent={editingSessionEvent}
+          onClose={() => setEditingSessionEvent(null)}
+          onSave={(updatedEvent) => {
+            onSaveEvent(updatedEvent);
+            if (activeTraining && activeTraining.id === updatedEvent.id) {
+              setActiveTraining(updatedEvent);
+            }
+            setEditingSessionEvent(null);
+          }}
+          onDelete={(id) => {
+            onDeleteEvent(String(id));
+            setEditingSessionEvent(null);
+            if (activeTraining && String(activeTraining.id) === String(id)) {
+              setActiveTraining(null);
+            }
+          }}
+          competitionTeams={competitionTeams}
+          ownClubId={ownClubId}
+        />
+      )}
       </div>
     );
   }
@@ -1364,29 +1390,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             onSaveEvent(newEvent);
             if (newEvent.type === 'Partido') {
               setActiveMatch(newEvent);
-            }
-          }}
-          competitionTeams={competitionTeams}
-          ownClubId={ownClubId}
-        />
-      )}
-
-      {editingSessionEvent && (
-        <NewEventModal
-          editEvent={editingSessionEvent}
-          onClose={() => setEditingSessionEvent(null)}
-          onSave={(updatedEvent) => {
-            onSaveEvent(updatedEvent);
-            if (activeTraining && activeTraining.id === updatedEvent.id) {
-              setActiveTraining(updatedEvent);
-            }
-            setEditingSessionEvent(null);
-          }}
-          onDelete={(id) => {
-            onDeleteEvent(String(id));
-            setEditingSessionEvent(null);
-            if (activeTraining && String(activeTraining.id) === String(id)) {
-              setActiveTraining(null);
             }
           }}
           competitionTeams={competitionTeams}

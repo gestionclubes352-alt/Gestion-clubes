@@ -432,15 +432,11 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
         try {
           fotoUrl = await uploadPlayerPhoto(photoFile, resolvedId || String(Date.now()), clubId);
         } catch (uploadErr) {
-          console.warn('No se pudo subir la foto:', uploadErr);
-          try {
-            fotoUrl = await createCompressedPhotoDataUrl(photoFile);
-          } catch (compressErr) {
-            console.warn('No se pudo comprimir la foto:', compressErr);
-            if (preview && preview.startsWith('data:image/')) {
-              fotoUrl = preview;
-            }
-          }
+          console.warn('No se pudo subir la foto a Supabase:', uploadErr);
+          // NO guardar data: URLs en la BD - no son persistentes entre sesiones.
+          // Mantener la foto anterior o dejar vacío en lugar de guardar data: URL.
+          alert('No se pudo subir la foto. Se mantiene la foto anterior. Por favor, intenta nuevamente.');
+          fotoUrl = formData.fotoUrl; // Mantener la anterior
         }
       }
       // Si no hay foto, permitir guardar sin fotoUrl

@@ -115,7 +115,7 @@ const MATCH_REPORT_DEFAULTS = {
   referee_name: '', referee_description: '',
 };
 
-async function persistVideoUrl({ supabaseUrl, supabaseAnonKey, supabaseAccessToken, matchId, targetField, videoUrl }) {
+async function persistVideoUrl({ supabaseUrl, supabaseAnonKey, supabaseAccessToken, matchId, targetField, videoUrl, videoOriginalUrl }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
 
@@ -134,12 +134,16 @@ async function persistVideoUrl({ supabaseUrl, supabaseAnonKey, supabaseAccessTok
     const rows = await getRes.json();
     const existing = rows && rows[0];
     const field = snakeCase(targetField);
-    const row = existing ? { ...existing, [field]: videoUrl } : { id: matchId, ...MATCH_REPORT_DEFAULTS, [field]: videoUrl };
+    const baseRow = existing ? { ...existing } : { id: matchId, ...MATCH_REPORT_DEFAULTS };
+    baseRow[field] = videoUrl;
+    if (videoOriginalUrl) {
+      baseRow.video_originals = { ...(baseRow.video_originals || {}), [targetField]: videoOriginalUrl };
+    }
 
     const upsertRes = await fetch(`${supabaseUrl}/rest/v1/match_reports`, {
       method: 'POST',
       headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(row),
+      body: JSON.stringify(baseRow),
       signal: controller.signal,
     });
     if (!upsertRes.ok) {
@@ -150,6 +154,31 @@ async function persistVideoUrl({ supabaseUrl, supabaseAnonKey, supabaseAccessTok
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Sube una copia del archivo original a Supabase Storage (best-effort: si falla no bloquea la subida a YouTube). */
+async function uploadOriginalToStorage({ supabaseUrl, supabaseAnonKey, supabaseAccessToken, matchId, targetField, taskId, file }) {
+  const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'mp4';
+  const path = `${matchId}/${targetField}/${taskId}.${ext}`;
+  console.log('[upload-worker] Guardando copia original en Storage...', path);
+
+  const putRes = await fetch(`${supabaseUrl}/storage/v1/object/match-video-originals/${path}`, {
+    method: 'PUT',
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAccessToken}`,
+      'Content-Type': file.type || 'video/mp4',
+      'x-upsert': 'true',
+    },
+    body: file,
+  });
+  if (!putRes.ok) {
+    const text = await putRes.text().catch(() => '');
+    throw new Error(`No se pudo guardar la copia original: ${putRes.status} ${text}`);
+  }
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/match-video-originals/${path}`;
+  console.log('[upload-worker] Copia original guardada:', publicUrl);
+  return publicUrl;
 }
 
 async function getYoutubeAccessToken({ supabaseUrl, supabaseAnonKey, supabaseAccessToken }) {
@@ -420,6 +449,15 @@ async function runUpload(taskId, meta, retry) {
       updateTaskProgress(taskId, { percent, stage: 'uploading', message: `Subiendo vídeo... ${percent}%` });
     });
 
+    // Guardar copia del archivo original en Storage (best-effort: si falla, no bloquea la subida a YouTube)
+    let videoOriginalUrl;
+    try {
+      console.log('[upload-worker] Subiendo copia original a Storage...');
+      videoOriginalUrl = await uploadOriginalToStorage({ ...meta, taskId, file });
+    } catch (originalErr) {
+      console.error('[upload-worker] Error guardando la copia original (no bloqueante):', originalErr);
+    }
+
     // Intentar guardar la URL con timeout — no bloquear aunque falle
     try {
       console.log('[upload-worker] Intentando guardar URL del vídeo en la base de datos...');
@@ -430,7 +468,7 @@ async function runUpload(taskId, meta, retry) {
       }, 10000);
 
       await Promise.race([
-        persistVideoUrl({ ...meta, videoUrl }),
+        persistVideoUrl({ ...meta, videoUrl, videoOriginalUrl }),
         new Promise((_, reject) => persistController.signal.addEventListener('abort', () => reject(new DOMException('Persist timeout', 'AbortError'))))
       ]);
       clearTimeout(persistTimeout);

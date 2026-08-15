@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
       },
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
       },
       // En desarrollo, proxy a los emuladores de Firebase Functions
       proxy: {
@@ -26,6 +27,15 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            ffmpeg: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+          }
+        }
+      }
+    },
     // SEGURIDAD: NO se exponen API keys al frontend.
     // Las llamadas a APIs externas pasan por el backend (Cloud Functions).
     define: {

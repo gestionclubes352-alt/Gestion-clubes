@@ -1107,6 +1107,7 @@
       "downloadStarted": "Descargando corte...",
       "downloadError": "Error al descargar el corte",
       "downloadNotAvailable": "Este vídeo no se puede descargar directamente. Se ha abierto en una pestaña nueva para que puedas guardarlo manualmente.",
+      "downloadNoOriginal": "Este partido no tiene una copia original guardada para recortar el clip (se subió antes de activar esta función). Se ha abierto en YouTube en el minuto exacto.",
       "noEventsToExport": "No hay eventos para exportar",
       "sessionExpired": "La sesión ha expirado",
       "deleteEventConfirm": "¿Eliminar este evento?",

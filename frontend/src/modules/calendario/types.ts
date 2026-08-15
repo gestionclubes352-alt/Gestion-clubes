@@ -43,7 +43,6 @@ export interface CalendarEvent {
   staffRoles?: string;
   // Campos específicos de partido
   competition?: string;
-  competicion_tipo?: string;
   jornada?: string;
   sessionNumber?: number;
   localTeam?: string;
@@ -77,7 +76,6 @@ export interface EventFormData {
   instalacion_campo_id?: string;
   team: string;
   competition: string;
-  competicion_tipo: string;
   jornada: string;
   sessionNumber: string;
   localTeam: string;

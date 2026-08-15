@@ -212,21 +212,28 @@ const InstalacionesView: React.FC = () => {
   };
 
   const handleAddCampo = async (nombre: string, superficie: string) => {
-    if (!addingCampoToInstalacion) return;
+    if (!addingCampoToInstalacion) {
+      throw new Error('No hay instalación seleccionada');
+    }
+    if (!perfil?.club_id) {
+      throw new Error('No tienes un club asignado');
+    }
+    if (!addingCampoToInstalacion.localidad_id) {
+      throw new Error('La instalación no tiene localidad asignada');
+    }
     try {
       await instalacionesCamposService.create({
-        club_id: perfil?.club_id,
-        nombre: nombre,
-        tipo: superficie,
+        club_id: perfil.club_id,
+        nombre: nombre.trim(),
+        tipo: superficie.trim(),
         localidad_id: addingCampoToInstalacion.localidad_id,
         parent_instalacion_id: addingCampoToInstalacion.id,
       } as any);
       await loadData();
-      setIsAddingCampo(false);
-      setAddingCampoToInstalacion(null);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido al agregar el campo';
       console.error('Error adding campo:', err);
-      throw err;
+      throw new Error(msg);
     }
   };
 
@@ -406,9 +413,9 @@ const InstalacionesView: React.FC = () => {
                         )}
                         {getClubesNombres(instalacion.id).length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {getClubesNombres(instalacion.id).map(nombre => (
+                            {getClubesNombres(instalacion.id).map((nombre, idx) => (
                               <span
-                                key={nombre}
+                                key={`${instalacion.id}-${nombre}-${idx}`}
                                 className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[8px] font-black uppercase tracking-widest"
                               >
                                 <i className="fa-solid fa-shield-halved mr-1 text-slate-400"></i>
@@ -514,9 +521,9 @@ const InstalacionesView: React.FC = () => {
                               </div>
                               {getClubesNombres(campo.id).length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                  {getClubesNombres(campo.id).map(nombre => (
+                                  {getClubesNombres(campo.id).map((nombre, idx) => (
                                     <span
-                                      key={nombre}
+                                      key={`${campo.id}-${nombre}-${idx}`}
                                       className="px-1.5 py-0.5 rounded bg-white text-slate-500 text-[8px] font-black uppercase tracking-widest border border-slate-200"
                                     >
                                       <i className="fa-solid fa-shield-halved mr-1 text-slate-400"></i>

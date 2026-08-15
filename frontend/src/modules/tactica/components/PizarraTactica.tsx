@@ -7,8 +7,8 @@ import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import html2canvas from 'html2canvas-pro';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import { getFFmpeg } from '@shared/utils/ffmpegClient';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '1-4-4-2': [
@@ -931,23 +931,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const selectedSquadPlayer = selectedSquadPlayerId ? squad.find(p => p.id === selectedSquadPlayerId) : null;
   const selectedMyTeam = selectedMyTeamId ? myTeams.find(team => String(team.id) === selectedMyTeamId) : null;
 
-  const ffmpegRef = useRef(new FFmpeg());
   const [isRecording, setIsRecording] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
 
   useEffect(() => {
-    const initFFmpeg = async () => {
-      const ffmpeg = ffmpegRef.current;
-      if (!ffmpeg.isLoaded()) {
-        try {
-          await ffmpeg.load();
-        } catch (err) {
-          console.error('Error loading FFmpeg:', err);
-        }
-      }
-    };
-    initFFmpeg();
+    getFFmpeg().catch(err => console.error('Error loading FFmpeg:', err));
   }, []);
 
   const downloadImage = async () => {
@@ -992,25 +981,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
       mediaRecorder.onstop = async () => {
         const webmBlob = new Blob(chunks, { type: 'video/webm' });
-        const ffmpeg = ffmpegRef.current;
 
         try {
-          if (ffmpeg.isLoaded()) {
-            await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
-            await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']);
-            const data = await ffmpeg.readFile('output.mp4');
-            const mp4Blob = new Blob([data], { type: 'video/mp4' });
-            const url = URL.createObjectURL(mp4Blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.mp4`;
-            a.click();
-            URL.revokeObjectURL(url);
-            await ffmpeg.deleteFile('input.webm');
-            await ffmpeg.deleteFile('output.mp4');
-          } else {
-            throw new Error('FFmpeg no está cargado');
-          }
+          const ffmpeg = await getFFmpeg();
+          await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+          await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']);
+          const data = await ffmpeg.readFile('output.mp4');
+          const mp4Blob = new Blob([data], { type: 'video/mp4' });
+          const url = URL.createObjectURL(mp4Blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `pizarra-tactica-${new Date().toISOString().split('T')[0]}.mp4`;
+          a.click();
+          URL.revokeObjectURL(url);
+          await ffmpeg.deleteFile('input.webm');
+          await ffmpeg.deleteFile('output.mp4');
         } catch (err) {
           console.error('Error convirtiendo a MP4:', err);
           const url = URL.createObjectURL(webmBlob);

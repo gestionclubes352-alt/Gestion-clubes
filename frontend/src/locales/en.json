@@ -1097,6 +1097,7 @@
       "downloadStarted": "Downloading clip...",
       "downloadError": "Error downloading the clip",
       "downloadNotAvailable": "This video can't be downloaded directly. It has been opened in a new tab so you can save it manually.",
+      "downloadNoOriginal": "This match doesn't have a saved original copy to trim the clip (it was uploaded before this feature was enabled). It has been opened on YouTube at the exact minute.",
       "noEventsToExport": "No events to export",
       "sessionExpired": "Session expired",
       "deleteEventConfirm": "Delete this event?",

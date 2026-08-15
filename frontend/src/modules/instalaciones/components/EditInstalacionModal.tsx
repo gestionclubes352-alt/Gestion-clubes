@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { InstalacionCampoFormData } from '../types';
 import type { Localidad, Club } from '@shared/services/dataService';
-import AddCampoModal from './AddCampoModal';
 
 interface EditInstalacionModalProps {
   instalacion?: InstalacionCampoFormData | null;
@@ -32,11 +31,12 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
     descripcion: '',
     clubes_ids: [],
   });
-  const [showAddCampoModal, setShowAddCampoModal] = useState(false);
   const [showAddLocalidadInput, setShowAddLocalidadInput] = useState(false);
   const [newLocalidadNombre, setNewLocalidadNombre] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clubSearchTerm, setClubSearchTerm] = useState('');
+  const [localidadSearchTerm, setLocalidadSearchTerm] = useState('');
 
   const isField = Boolean((instalacion as any)?.parent_instalacion_id);
 
@@ -58,8 +58,9 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
         clubes_ids: [],
       });
     }
-    setShowAddCampoModal(false);
     setError(null);
+    setClubSearchTerm('');
+    setLocalidadSearchTerm('');
   }, [instalacion, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -75,29 +76,6 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
         : [...current, clubId];
       return { ...prev, clubes_ids: next };
     });
-  };
-
-  const handleAddCampo = async (nombre: string, superficie: string) => {
-    try {
-      setLoading(true);
-      // Guardar el campo como una instalación hija
-      await onSave({
-        localidad_id: formData.localidad_id,
-        nombre: nombre,
-        tipo: superficie,
-        descripcion: formData.descripcion || undefined,
-        parent_instalacion_id: formData.id,
-      } as any);
-      // Cerrar el modal de agregar campo
-      setShowAddCampoModal(false);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al agregar el campo';
-      setError(msg);
-      console.error('Error adding campo:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -273,29 +251,43 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Buscar localidad..."
+                    value={localidadSearchTerm}
+                    onChange={e => setLocalidadSearchTerm(e.target.value)}
+                    className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddLocalidadInput(true)}
+                    title="Crear nueva localidad"
+                    className="px-4 py-3 rounded-xl bg-[var(--accent)] text-white font-black text-[11px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg flex items-center gap-1 whitespace-nowrap"
+                  >
+                    <i className="fa-solid fa-plus text-sm"></i>
+                    <span>Nueva</span>
+                  </button>
+                </div>
                 <select
                   name="localidad_id"
                   value={formData.localidad_id || ''}
                   onChange={handleChange}
-                  className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
                 >
                   <option value="">Selecciona localidad</option>
-                  {localidades.map(loc => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
-                    </option>
-                  ))}
+                  {localidades
+                    .filter(loc =>
+                      loc.nombre.toLowerCase().includes(localidadSearchTerm.toLowerCase()) ||
+                      (loc.provincia || '').toLowerCase().includes(localidadSearchTerm.toLowerCase())
+                    )
+                    .map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
+                      </option>
+                    ))}
                 </select>
-                <button
-                  type="button"
-                  onClick={() => setShowAddLocalidadInput(true)}
-                  title="Agregar nueva localidad"
-                  className="px-4 py-3 rounded-xl bg-[var(--accent)] text-white font-black text-[11px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg flex items-center gap-1 whitespace-nowrap"
-                >
-                  <i className="fa-solid fa-plus text-sm"></i>
-                  <span>Agregar</span>
-                </button>
               </div>
             )}
           </div>
@@ -304,27 +296,40 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
             <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
               Clubes *
             </label>
+            <div className="mb-2">
+              <input
+                type="text"
+                placeholder="Buscar club..."
+                value={clubSearchTerm}
+                onChange={e => setClubSearchTerm(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
             <div className="w-full border border-slate-200 rounded-xl px-2 py-2 max-h-[180px] overflow-y-auto bg-white space-y-1">
-              {clubes.map(club => {
-                const checked = (formData.clubes_ids || []).includes(club.id);
-                return (
-                  <label
-                    key={club.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => handleClubToggle(club.id)}
-                      className="w-4 h-4 rounded border-slate-300 text-[var(--accent)] focus:ring-[var(--accent)]"
-                    />
-                    <span className="text-sm font-bold text-slate-700">{club.nombre}</span>
-                  </label>
-                );
-              })}
+              {clubes
+                .filter(club =>
+                  club.nombre.toLowerCase().includes(clubSearchTerm.toLowerCase())
+                )
+                .map(club => {
+                  const checked = (formData.clubes_ids || []).includes(club.id);
+                  return (
+                    <label
+                      key={club.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleClubToggle(club.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-[var(--accent)] focus:ring-[var(--accent)]"
+                      />
+                      <span className="text-sm font-bold text-slate-700">{club.nombre}</span>
+                    </label>
+                  );
+                })}
             </div>
             <p className="text-[9px] text-slate-400 mt-1">
-              Selecciona uno o varios clubes
+              {clubSearchTerm ? `Selecciona uno o varios clubes (${clubes.filter(c => c.nombre.toLowerCase().includes(clubSearchTerm.toLowerCase())).length} encontrados)` : 'Selecciona uno o varios clubes'}
             </p>
           </div>
 
@@ -361,17 +366,6 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)] resize-none"
             />
           </div>
-
-          {!isField && (
-            <button
-              type="button"
-              onClick={() => setShowAddCampoModal(true)}
-              className="w-full px-4 py-2 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
-            >
-              <i className="fa-solid fa-plus mr-2"></i>
-              AGREGAR CAMPO
-            </button>
-          )}
 
           {error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
@@ -412,12 +406,6 @@ const EditInstalacionModal: React.FC<EditInstalacionModalProps> = ({
           </div>
         </div>
       </div>
-
-      <AddCampoModal
-        isOpen={showAddCampoModal}
-        onClose={() => setShowAddCampoModal(false)}
-        onSave={handleAddCampo}
-      />
     </div>
   );
 };

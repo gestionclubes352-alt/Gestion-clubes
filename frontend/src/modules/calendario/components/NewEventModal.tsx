@@ -141,7 +141,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     instalacion_campo_id: currentEvent?.instalacion_campo_id || '',
     team: currentEvent?.team || '',
     competition: currentEvent?.competition || '',
-    competicion_tipo: currentEvent?.competicion_tipo || '',
     jornada: currentEvent?.jornada || '',
     sessionNumber: currentEvent?.sessionNumber ? String(currentEvent.sessionNumber) : '',
     localTeam: currentEvent?.localTeam || '',
@@ -168,7 +167,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
         instalacion_campo_id: currentEvent.instalacion_campo_id || '',
         team: currentEvent.team || '',
         competition: currentEvent.competition || '',
-        competicion_tipo: currentEvent.competicion_tipo || '',
         jornada: currentEvent.jornada || '',
         sessionNumber: currentEvent.sessionNumber ? String(currentEvent.sessionNumber) : '',
         localTeam: currentEvent.localTeam || '',
@@ -187,7 +185,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
         date: toLocalDateString(initialDate)
       }));
     }
-  }, [initialDate, currentEvent]);
+  }, [currentEvent?.id]);
 
   const instalacionesPrincipales = useMemo(
     () => instalacionesCampos.filter(
@@ -429,7 +427,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       videoUrl: formData.videoUrl || undefined,
       docUrl: formData.docUrl || undefined,
       competition: formData.competition || undefined,
-      competicion_tipo: formData.competicion_tipo || undefined,
       jornada: formData.jornada || undefined,
       sessionNumber: formData.sessionNumber ? Number(formData.sessionNumber) : undefined,
       localTeam: formData.localTeam || undefined,
@@ -582,23 +579,6 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
               {typeSelected === 'Partido' && (
                 <>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Tipo de competición</p>
-                    <select
-                      name="competicion_tipo"
-                      value={formData.competicion_tipo}
-                      onChange={handleChange}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
-                    >
-                      <option value="">Selecciona tipo</option>
-                      <option value="Liga">Liga</option>
-                      <option value="Copa">Copa</option>
-                      <option value="Amistoso">Amistoso</option>
-                      <option value="Torneo">Torneo</option>
-                      <option value="Fase previa">Fase previa</option>
-                      <option value="Playoff">Playoff</option>
-                    </select>
-                  </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">{t('newEvent.competition')}</p>
                     <SearchableSelect

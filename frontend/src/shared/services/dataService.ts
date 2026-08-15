@@ -515,6 +515,7 @@ interface StoredMatchReport {
   id: string;
   general_notes: string;
   video_url: string;
+  video_originals?: Record<string, string>;
 
   // Informe Rival
   rival_video_url: string;
@@ -629,6 +630,7 @@ function createMatchReportsStore(): LegacyStore<any> {
           id: row.id,
           generalNotes: row.general_notes,
           videoUrl: row.video_url,
+          videoOriginals: row.video_originals || {},
 
           rivalVideoUrl: row.rival_video_url,
           rivalDocUrl: row.rival_doc_url,
@@ -724,6 +726,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         id: item.id,
         general_notes: item.generalNotes || '',
         video_url: item.videoUrl || '',
+        video_originals: item.videoOriginals || {},
 
         rival_video_url: item.rivalVideoUrl || '',
         rival_doc_url: item.rivalDocUrl || '',

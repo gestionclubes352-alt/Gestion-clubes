@@ -1085,6 +1085,7 @@
       "downloadStarted": "Mozketa deskargatzen...",
       "downloadError": "Errorea mozketa deskargatzean",
       "downloadNotAvailable": "Bideo hau ezin da zuzenean deskargatu. Fitxa berri batean ireki da eskuz gorde ahal izateko.",
+      "downloadNoOriginal": "Partida honek ez du jatorrizko kopiarik gordeta klipa mozteko (funtzio hau aktibatu aurretik igo zen). YouTuben ireki da minutu zehatzean.",
       "noEventsToExport": "Ez dago gertaerarik esportatzeko",
       "sessionExpired": "Saioa iraungi da",
       "deleteEventConfirm": "Gertaera hau ezabatu?",
