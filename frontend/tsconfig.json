@@ -30,6 +30,9 @@
       ],
       "@context/*": [
         "./src/context/*"
+      ],
+      "@hooks/*": [
+        "./src/hooks/*"
       ]
     },
     "allowImportingTsExtensions": true,

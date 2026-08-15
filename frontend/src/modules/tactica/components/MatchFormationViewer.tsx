@@ -96,7 +96,7 @@ const MatchFormationViewer: React.FC<MatchFormationViewerProps> = ({
         <div className="rounded-lg border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-[#1a1a1a]">
           <div
             className="relative w-full rounded-md overflow-hidden"
-            style={{ aspectRatio: '1 / 1.05', background: '#2d7a34' }}
+            style={{ aspectRatio: '1 / 1.4', background: '#2d7a34' }}
           >
             {/* Mini field SVG */}
             <svg

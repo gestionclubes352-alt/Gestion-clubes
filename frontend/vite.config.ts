@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
         '@modules': path.resolve(rootDir, './src/modules'),
         '@shared': path.resolve(rootDir, './src/shared'),
         '@context': path.resolve(rootDir, './src/context'),
+        '@hooks': path.resolve(rootDir, './src/hooks'),
       }
     }
   };

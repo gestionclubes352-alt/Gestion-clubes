@@ -706,7 +706,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   return (
                     <div
                       key={`${date.toISOString()}-${hour}`}
-                      className={`min-h-14 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
+                      className={`min-h-12 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
                     >
                       <div className={hourEvents.length > 0 ? 'flex flex-row gap-1 items-stretch' : 'space-y-1'}>
                         {hourEvents.map(ev => {
@@ -852,7 +852,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             return (
               <div
                 key={j}
-                className={`min-h-14 md:min-h-20 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
+                className={`min-h-12 md:min-h-16 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
                   !inMonth ? 'opacity-30' : ''
                 } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
                 onDragOver={(e) => {
@@ -1082,7 +1082,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     return (
                       <div
                         key={`${team}-${date.toISOString()}`}
-                        className={`min-h-16 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
+                        className={`min-h-14 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
                       >
                         <div className="space-y-1">
                           {cellEvents.map(ev => {
@@ -1256,12 +1256,12 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   return (
     <div className="animate-fade-in flex h-full min-h-[calc(100vh-110px)] flex-col gap-4 pb-6">
       {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
-      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 -mx-2 px-3 py-2 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="sticky top-0 z-30 flex items-center gap-3 -mx-2 px-3 py-1 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
+        <div className="flex items-center gap-2 flex-wrap flex-1">
           <SearchableSelect
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">{t('calendarView.filterAllTeams', 'Todos los equipos')}</option>
             {availableTeams.map(team => (
@@ -1271,7 +1271,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <SearchableSelect
             value={playerFilter}
             onChange={(e) => setPlayerFilter(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">{t('calendarView.filterAllPlayers', 'Jugadores')}</option>
             {availablePlayers.map(player => (
@@ -1286,7 +1286,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               setTypeFilter(e.target.value);
               setActivityFilter('all');
             }}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">{t('calendarView.filterAllEvents', 'Todos los eventos')}</option>
             {availableTypes.map(type => (
@@ -1311,7 +1311,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <SearchableSelect
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">{t('calendarView.filterAllMonths', 'Todos los meses')}</option>
             {monthNames.map((name, index) => (
@@ -1321,7 +1321,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <SearchableSelect
             value={localidadId}
             onChange={(e) => setLocalidadId(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">Todas las localidades</option>
             {localidades.map(loc => (
@@ -1331,7 +1331,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <SearchableSelect
             value={instalacionPrincipalId}
             onChange={(e) => setInstalacionPrincipalId(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">Todas las instalaciones</option>
             {instalacionesPrincipales.map(inst => (
@@ -1341,44 +1341,44 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <SearchableSelect
             value={instalacionId}
             onChange={(e) => setInstalacionId(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           >
             <option value="all">Todos los campos</option>
             {camposDisponibles.map(campo => (
               <option key={campo.id} value={campo.id}>{campo.nombre}</option>
             ))}
           </SearchableSelect>
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
+          <div className="flex items-center gap-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
             <input
               type="date"
               value={filterDateFrom}
               onChange={(e) => setFilterDateFrom(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateTo', 'Hasta')}:</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateTo', 'Hasta')}:</label>
             <input
               type="date"
               value={filterDateTo}
               onChange={(e) => setFilterDateTo(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
             {(filterDateFrom || filterDateTo || localidadId !== 'all' || instalacionPrincipalId !== 'all' || instalacionId !== 'all') && (
               <button
                 type="button"
                 onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setLocalidadId('all'); setInstalacionPrincipalId('all'); setInstalacionId('all'); }}
-                className="px-3 py-2.5 text-[10px] font-black text-red-600 hover:text-red-700 uppercase"
+                className="px-2 py-1 text-[9px] font-black text-red-600 hover:text-red-700 uppercase"
               >
                 ✕ {t('calendarView.clearFilter', 'Limpiar')}
               </button>
             )}
           </div>
         </div>
-        <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm ml-auto">
           <button
             type="button"
             onClick={() => setActiveView('monthly')}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
               activeView === 'monthly'
                 ? 'bg-[var(--accent)] text-white shadow-md'
                 : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
@@ -1391,7 +1391,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <button
             type="button"
             onClick={() => setActiveView('annual')}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
               activeView === 'annual'
                 ? 'bg-[var(--accent)] text-white shadow-md'
                 : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
@@ -1404,7 +1404,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <button
             type="button"
             onClick={() => setActiveView('weekly')}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
               activeView === 'weekly'
                 ? 'bg-[var(--accent)] text-white shadow-md'
                 : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
@@ -1417,7 +1417,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <button
             type="button"
             onClick={() => setActiveView('schedule')}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
               activeView === 'schedule'
                 ? 'bg-[var(--accent)] text-white shadow-md'
                 : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
@@ -1430,22 +1430,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         </div>
       </div>
 
-      {teamColorLegend.length > 0 && (
-        <div className="flex items-center gap-2 px-1 flex-wrap">
-          {teamColorLegend.map(({ key, color }) => (
-            <span
-              key={key}
-              className={`w-2.5 h-2.5 rounded-full ${color.dot}`}
-              title={key}
-              aria-label={key}
-            ></span>
-          ))}
-        </div>
-      )}
 
       <div className="flex-1 w-full">
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[78dvh] flex flex-col overflow-hidden">
-          <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between gap-3">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden">
+          <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between gap-3">
             <button
               onClick={() => {
                 if (activeView === 'annual') {
@@ -1462,12 +1450,12 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               <i className="fa-solid fa-chevron-left text-sm"></i>
             </button>
             <div className="text-center">
-              <h4 className="text-[var(--accent)] font-black text-lg md:text-2xl uppercase tracking-wider">
+              <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
                 {activeView === 'annual'
                   ? String(currentMonth.getFullYear())
                   : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
               </h4>
-              <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.25em] mt-1">
+              <p className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.25em] mt-0.5">
                 {activeView === 'annual'
                   ? 'Vista anual'
                   : activeView === 'weekly'

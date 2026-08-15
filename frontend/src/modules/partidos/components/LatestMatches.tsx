@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createColumnHelper } from '@tanstack/react-table';
-import type { Match } from '../types';
+import type { Match, MatchReport } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
-import { getTeamConfig, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
+import { db, getTeamConfig, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
 import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
 import SearchableSelect from '@shared/components/SearchableSelect';
@@ -93,6 +93,19 @@ const ownTeamNameOf = (match: Match, competitionTeams: CompetitionTeam[]): strin
 
 const ALL_FILTER = 'ALL';
 
+/** Convierte una URL de YouTube/Vimeo en su URL de embebido para reproducir en un modal. */
+const getMatchVideoEmbedUrl = (url: string): string => {
+  if (!url) return '';
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  const vimeoMatch = url.match(/(?:vimeo\.com\/)(\d+)(?:\/([a-zA-Z0-9]+))?/);
+  if (vimeoMatch) {
+    const hash = vimeoMatch[2];
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash ? `?h=${hash}` : ''}`;
+  }
+  return url;
+};
+
 const getCompetitionType = (competition: string | undefined): string => {
   if (!competition) return '-';
   const normalized = competition.trim().toUpperCase();
@@ -136,6 +149,8 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const [campoFilter, setCampoFilter] = useState<string>(ALL_FILTER);
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
+  const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
+  const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -150,14 +165,21 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     })();
   }, []);
 
-  const instalacionesPrincipalesOptions = useMemo(
-    () => instalacionesCampos.filter(i => !i.parent_instalacion_id && (localidadFilter === ALL_FILTER || i.localidad_id === localidadFilter)),
-    [instalacionesCampos, localidadFilter]
-  );
-  const camposOptions = useMemo(
-    () => instalacionesCampos.filter(i => !!i.parent_instalacion_id && (instalacionPrincipalFilter === ALL_FILTER || i.parent_instalacion_id === instalacionPrincipalFilter)),
-    [instalacionesCampos, instalacionPrincipalFilter]
-  );
+  // Vídeo, goles a favor/contra y ocasiones vienen del informe de partido (match_reports),
+  // no del propio Match, así que se cargan aparte y se cruzan por id.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await db.match_reports.get();
+        const map = new Map<string, MatchReport>();
+        (data || []).forEach((report: MatchReport) => map.set(String(report.id), report));
+        setMatchReportsById(map);
+      } catch (err) {
+        console.error('Error al cargar los informes de partido:', err);
+      }
+    })();
+  }, []);
+
   const campoParentMap = useMemo(
     () => new Map(instalacionesCampos.filter(i => i.parent_instalacion_id).map(i => [i.id, i.parent_instalacion_id as string])),
     [instalacionesCampos]
@@ -259,17 +281,20 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return normalizeInternalCandidate(match.nombreInterno) || normalizeInternalCandidate(match.team) || own || match.nombreInterno || match.team || '';
   };
 
-  // Tipos de Competición: calculados a partir de todas las competiciones
+  // Tipos de Competición: filtrados por Equipo Interno si está seleccionado
   const tipoOptions = useMemo(() => {
     const types = new Set<string>();
-    matches.forEach((m) => {
+    const sourceMatches = equipoInternoFilter === ALL_FILTER
+      ? matches
+      : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+    sourceMatches.forEach((m) => {
       if (m.competition) {
         const type = getCompetitionType(m.competition);
         if (type !== '-') types.add(type);
       }
     });
     return Array.from(types).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matches]);
+  }, [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
 
   // Equipos Internos: filtrados por Competición si está seleccionada
   const equipoInternoOptions = useMemo(() => {
@@ -356,6 +381,66 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
   }, [filteredByEquipoAndCompetition]);
 
+  // Partidos filtrados por Equipo Interno, Tipo, Competición y Jornada: base para los filtros de ubicación,
+  // para que Localidad/Instalación/Campo solo muestren opciones con partidos reales (no todo el catálogo).
+  const matchesForLocationFilters = useMemo(() => {
+    let result = matches;
+    if (equipoInternoFilter !== ALL_FILTER) {
+      result = result.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+    }
+    if (tipoFilter !== ALL_FILTER) {
+      result = result.filter((m) => getCompetitionType(m.competition) === tipoFilter);
+    }
+    if (competitionFilter !== ALL_FILTER) {
+      result = result.filter((m) => m.competition === competitionFilter);
+    }
+    if (jornadaFilter !== ALL_FILTER) {
+      result = result.filter((m) => m.jornada === jornadaFilter);
+    }
+    return result;
+  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, jornadaFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+
+  // Localidad: solo las que tienen partidos reales dentro del filtrado anterior
+  const localidadOptions = useMemo(() => {
+    const ids = new Set<string>();
+    matchesForLocationFilters.forEach((m) => { if (m.localidad_id) ids.add(m.localidad_id); });
+    return localidades
+      .filter((loc) => ids.has(loc.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [matchesForLocationFilters, localidades]);
+
+  // Instalación: depende de Localidad, solo las que tienen partidos reales
+  const instalacionesPrincipalesOptions = useMemo(() => {
+    const ids = new Set<string>();
+    matchesForLocationFilters
+      .filter((m) => localidadFilter === ALL_FILTER || m.localidad_id === localidadFilter)
+      .forEach((m) => {
+        if (!m.instalacion_campo_id) return;
+        ids.add(campoParentMap.get(m.instalacion_campo_id) || m.instalacion_campo_id);
+      });
+    return instalacionesCampos
+      .filter((i) => !i.parent_instalacion_id && ids.has(i.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [matchesForLocationFilters, localidadFilter, campoParentMap, instalacionesCampos]);
+
+  // Campo: depende de Localidad e Instalación, solo los que tienen partidos reales
+  const camposOptions = useMemo(() => {
+    const ids = new Set<string>();
+    matchesForLocationFilters
+      .filter((m) => localidadFilter === ALL_FILTER || m.localidad_id === localidadFilter)
+      .filter((m) =>
+        instalacionPrincipalFilter === ALL_FILTER
+        || m.instalacion_campo_id === instalacionPrincipalFilter
+        || (m.instalacion_campo_id ? campoParentMap.get(m.instalacion_campo_id) === instalacionPrincipalFilter : false)
+      )
+      .forEach((m) => {
+        if (m.instalacion_campo_id && campoParentMap.has(m.instalacion_campo_id)) ids.add(m.instalacion_campo_id);
+      });
+    return instalacionesCampos
+      .filter((i) => !!i.parent_instalacion_id && ids.has(i.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [matchesForLocationFilters, localidadFilter, instalacionPrincipalFilter, campoParentMap, instalacionesCampos]);
+
   // Filtro final: aplicar filtro de Jornada y excluir partidos de hoy
   const today = new Date('2026-08-14').toISOString().split('T')[0];
   const filteredMatches = useMemo(
@@ -402,6 +487,38 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jornadaOptions]);
+
+  // Si cambia Equipo Interno, el tipo elegido puede dejar de ser válido
+  useEffect(() => {
+    if (tipoFilter !== ALL_FILTER && !tipoOptions.includes(tipoFilter)) {
+      setTipoFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoOptions]);
+
+  // Si cambian los filtros anteriores, la localidad elegida puede dejar de ser válida
+  useEffect(() => {
+    if (localidadFilter !== ALL_FILTER && !localidadOptions.some((loc) => loc.id === localidadFilter)) {
+      setLocalidadFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localidadOptions]);
+
+  // Si cambian Localidad u otros filtros anteriores, la instalación elegida puede dejar de ser válida
+  useEffect(() => {
+    if (instalacionPrincipalFilter !== ALL_FILTER && !instalacionesPrincipalesOptions.some((i) => i.id === instalacionPrincipalFilter)) {
+      setInstalacionPrincipalFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instalacionesPrincipalesOptions]);
+
+  // Si cambian Instalación u otros filtros anteriores, el campo elegido puede dejar de ser válido
+  useEffect(() => {
+    if (campoFilter !== ALL_FILTER && !camposOptions.some((c) => c.id === campoFilter)) {
+      setCampoFilter(ALL_FILTER);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camposOptions]);
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
 
@@ -545,6 +662,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     resultLabel: string;
     statusLabel: string;
     location: string;
+    videoUrl: string;
+    goalsFavor: number;
+    goalsContra: number;
+    ocasionesCount: number;
   }
 
   const tableRows: MatchRow[] = useMemo(() => {
@@ -553,6 +674,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       const visitor = match.visitorTeam || 'Rival';
       const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
       const visitorDisplay = sideDisplayOf(match, visitor, match.visitorTeamClubId);
+      const report = matchReportsById.get(String(match.id));
+      const goalsFavor = (report?.matchGoals || []).filter((g) => g.side === 'FAVOR').length;
+      const goalsContra = (report?.matchGoals || []).filter((g) => g.side === 'CONTRA').length;
+      const ocasionesCount = (report?.videoEvents || []).filter((e) => e.type === 'OCASION').length;
       return {
         match,
         tipo: getCompetitionType(match.competition),
@@ -569,11 +694,15 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         resultLabel: match.status === 'Finished' ? (match.score || '-') : 'VS',
         statusLabel: match.status === 'Finished' ? 'Finalizado' : 'Próximo',
         location: match.location || '-',
+        videoUrl: report?.videoUrl || '',
+        goalsFavor,
+        goalsContra,
+        ocasionesCount,
       };
     });
     // Ordenar por fecha ascendente (más cercano primero)
     return rows.sort((a, b) => new Date(a.match.date).getTime() - new Date(b.match.date).getTime());
-  }, [filteredMatches, ownCompetitionTeams, competitionTeams, clubes]);
+  }, [filteredMatches, ownCompetitionTeams, competitionTeams, clubes, matchReportsById]);
 
   const matchColumnHelper = createColumnHelper<MatchRow>();
   const tableColumns = useMemo(() => [
@@ -607,6 +736,31 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     matchColumnHelper.accessor('resultLabel', { header: t('matchesList.colResult') }),
     matchColumnHelper.accessor('statusLabel', { header: t('matchesList.colStatus') }),
     matchColumnHelper.accessor('location', { header: t('matchesList.colLocation') }),
+    matchColumnHelper.accessor('videoUrl', {
+      header: 'VÍDEO',
+      cell: (info) =>
+        info.getValue() ? (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVideoModalUrl(info.getValue()); }}
+            className="w-7 h-7 rounded-full bg-sport-primary/10 text-sport-primary hover:bg-sport-primary hover:text-white transition-all flex items-center justify-center"
+            title="Ver vídeo completo del partido"
+          >
+            <i className="fa-solid fa-play text-[10px]"></i>
+          </button>
+        ) : (
+          <span className="text-slate-300">-</span>
+        ),
+    }),
+    matchColumnHelper.accessor('goalsFavor', {
+      header: 'GOLES F',
+      cell: (info) => <span className="font-black text-emerald-600">{info.getValue()}</span>,
+    }),
+    matchColumnHelper.accessor('goalsContra', {
+      header: 'GOLES C',
+      cell: (info) => <span className="font-black text-red-500">{info.getValue()}</span>,
+    }),
+    matchColumnHelper.accessor('ocasionesCount', { header: 'OCASIONES' }),
   ], [t]);
 
   const tableActions: DataTableAction<MatchRow>[] = useMemo(() => {
@@ -666,129 +820,128 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
       ) : (
       <>
-      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <div className="flex items-end">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-full lg:w-auto lg:justify-start">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+                viewMode === 'cards' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title={t('matchesList.cardsView')}
+            >
+              <i className="fa-solid fa-grip text-sm"></i>
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+                viewMode === 'table' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title={t('matchesList.tableView')}
+            >
+              <i className="fa-solid fa-table text-sm"></i>
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+                viewMode === 'calendar' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title={t('calendarView.viewCalendar')}
+            >
+              <i className="fa-solid fa-calendar-days text-sm"></i>
+            </button>
+          </div>
+        </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-            Equipo Interno
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Equipo
           </label>
           <SearchableSelect
             value={equipoInternoFilter}
             onChange={(e) => setEquipoInternoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos los equipos</option>
             {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             TIPO
           </label>
           <SearchableSelect
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos los tipos</option>
             {tipoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-            {t('playerStatsSummary.filterCompetition')}
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Competición
           </label>
           <SearchableSelect
             value={competitionFilter}
             onChange={(e) => setCompetitionFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>{t('playerStatsSummary.allCompetitions')}</option>
             {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-            {t('matchesList.filterJornada')}
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Jornada
           </label>
           <SearchableSelect
             value={jornadaFilter}
             onChange={(e) => setJornadaFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>{t('matchesList.allJornadas')}</option>
             {jornadaOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Localidad
           </label>
           <SearchableSelect
             value={localidadFilter}
             onChange={(e) => setLocalidadFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
-            <option value={ALL_FILTER}>Todas las localidades</option>
-            {localidades.map((loc) => <option key={loc.id} value={loc.id}>{loc.nombre}</option>)}
+            <option value={ALL_FILTER}>Todas</option>
+            {localidadOptions.map((loc) => <option key={loc.id} value={loc.id}>{loc.nombre}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Instalación
           </label>
           <SearchableSelect
             value={instalacionPrincipalFilter}
             onChange={(e) => setInstalacionPrincipalFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
-            <option value={ALL_FILTER}>Todas las instalaciones</option>
+            <option value={ALL_FILTER}>Todas</option>
             {instalacionesPrincipalesOptions.map((inst) => <option key={inst.id} value={inst.id}>{inst.nombre}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Campo
           </label>
           <SearchableSelect
             value={campoFilter}
             onChange={(e) => setCampoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
-            <option value={ALL_FILTER}>Todos los campos</option>
+            <option value={ALL_FILTER}>Todos</option>
             {camposOptions.map((campo) => <option key={campo.id} value={campo.id}>{campo.nombre}</option>)}
           </SearchableSelect>
-        </div>
-      </div>
-
-      <div className="flex justify-start">
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-          <button
-            onClick={() => setViewMode('cards')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              viewMode === 'cards' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
-            }`}
-            title={t('matchesList.cardsView')}
-          >
-            <i className="fa-solid fa-grip text-sm"></i>
-          </button>
-          <button
-            onClick={() => setViewMode('table')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              viewMode === 'table' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
-            }`}
-            title={t('matchesList.tableView')}
-          >
-            <i className="fa-solid fa-table text-sm"></i>
-          </button>
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-              viewMode === 'calendar' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
-            }`}
-            title={t('calendarView.viewCalendar')}
-          >
-            <i className="fa-solid fa-calendar-days text-sm"></i>
-          </button>
         </div>
       </div>
 
@@ -1039,6 +1192,30 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       </div>
       )}
       </>
+      )}
+
+      {videoModalUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setVideoModalUrl(null)}
+        >
+          <div className="relative w-full max-w-4xl aspect-video" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setVideoModalUrl(null)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white flex items-center gap-2 text-xs font-black uppercase tracking-widest"
+            >
+              <i className="fa-solid fa-xmark"></i> Cerrar
+            </button>
+            <iframe
+              src={getMatchVideoEmbedUrl(videoModalUrl)}
+              className="w-full h-full rounded-2xl border-0"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              title="Vídeo del partido"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

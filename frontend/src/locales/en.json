@@ -1016,7 +1016,8 @@
       "uploadUnlisted": "Will be uploaded as unlisted",
       "retry": "Retry",
       "matchUrl": "Match URL",
-      "pasteLink": "Paste link here..."
+      "pasteLink": "Paste link here...",
+      "myChannel": "My Channel"
     },
     "matchTimes": {
       "title": "Match Times",
@@ -1050,6 +1051,7 @@
       "noEvents": "No events recorded",
       "playClip": "Play clip",
       "copyEventLink": "Copy event link",
+      "downloadClip": "Download clip",
       "editTimeNote": "Edit time and note",
       "deleteRecord": "Delete record",
       "noDescription": "No description"
@@ -1092,6 +1094,9 @@
       "saveError": "Error saving the report",
       "linkCopied": "Link copied to clipboard",
       "copyManually": "Copy this link:",
+      "downloadStarted": "Downloading clip...",
+      "downloadError": "Error downloading the clip",
+      "downloadNotAvailable": "This video can't be downloaded directly. It has been opened in a new tab so you can save it manually.",
       "noEventsToExport": "No events to export",
       "sessionExpired": "Session expired",
       "deleteEventConfirm": "Delete this event?",
@@ -1158,29 +1163,29 @@
       "descriptionPlaceholder": "Notes about the referee, style, criteria..."
     }
   },
-  “pwa”: {
-    “offline”: “Offline — showing already loaded data”,
-    “updateTitle”: “Update available”,
-    “updateBody”: “A new version of the app is ready.”,
-    “later”: “Later”,
-    “reload”: “Update”,
-    “installTitle”: “Install Sport Management”,
-    “installBody”: “Add it to your home screen to open it like an app.”,
-    “installIos”: “Tap Share and then \”Add to Home Screen\”.”,
-    “install”: “Install”,
-    “dismiss”: “Close”
+  "pwa": {
+    "offline": "Offline — showing already loaded data",
+    "updateTitle": "Update available",
+    "updateBody": "A new version of the app is ready.",
+    "later": "Later",
+    "reload": "Update",
+    "installTitle": "Install Sport Management",
+    "installBody": "Add it to your home screen to open it like an app.",
+    "installIos": "Tap Share and then \"Add to Home Screen\".",
+    "install": "Install",
+    "dismiss": "Close"
   },
-  “share”: {
-    “button”: “Share”,
-    “copied”: “Link copied to clipboard”,
-    “invalid”: “The shared link is invalid or has expired”,
-    “expiration”: “This link expires on”,
-    “videoShared”: “Shared video”,
-    “matchInfo”: “Match information”,
-    “rival”: “Opponent”,
-    “date”: “Date”,
-    “competition”: “Competition”,
-    “jornada”: “Matchday”,
-    “privateShare”: “This video has been shared privately”
+  "share": {
+    "button": "Share",
+    "copied": "Link copied to clipboard",
+    "invalid": "The shared link is invalid or has expired",
+    "expiration": "This link expires on",
+    "videoShared": "Shared video",
+    "matchInfo": "Match information",
+    "rival": "Opponent",
+    "date": "Date",
+    "competition": "Competition",
+    "jornada": "Matchday",
+    "privateShare": "This video has been shared privately"
   }
 }

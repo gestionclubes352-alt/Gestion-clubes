@@ -10,6 +10,8 @@ body,
 body {
   margin: 0;
   overflow-x: hidden;
+  /* Reducción sutil global de tamaño de fuente */
+  font-size: 15px;
 }
 
 /* ============================================================================
@@ -277,4 +279,372 @@ body {
   aside {
     display: none !important;
   }
+}
+
+/* ============================================================================
+   REDUCCIÓN GLOBAL SUTIL DE TAMAÑOS
+   Reduce ligeramente textos y espacios en todas las páginas
+   ============================================================================ */
+
+/* Reducir tamaños de fuente en tablas */
+table {
+  font-size: 0.95em;
+}
+
+/* Reducir padding en botones sutilmente */
+button {
+  padding: calc(var(--button-py, 0.5rem) * 0.95) calc(var(--button-px, 1rem) * 0.95);
+}
+
+/* Reducir padding en inputs */
+input,
+select,
+textarea {
+  padding: calc(0.5rem * 0.95);
+}
+
+/* Reducir márgenes globales sutilmente */
+h1 { @apply mb-2.5; }
+h2 { @apply mb-2; }
+h3 { @apply mb-1.5; }
+p { @apply mb-2; }
+
+/* Reducir espaciado en listas */
+ul, ol {
+  margin-bottom: 0.75rem;
+}
+
+/* Reducir gap en grids sutilmente */
+.gap-3 { @apply gap-2.5; }
+.gap-4 { @apply gap-3.5; }
+.gap-5 { @apply gap-4; }
+.gap-6 { @apply gap-5; }
+
+/* ============================================================================
+   BREAKPOINTS GRANDES CUSTOMIZADOS
+   Optimización para portátiles 15-17" y monitores 24"+
+   ============================================================================ */
+
+/* Portátiles 15-17" (1920×1080) / Monitores 24" */
+@media (min-width: 1920px) {
+  /* Padding y espaciado aumentado */
+  .px-2 { @apply px-4; }
+  .px-3 { @apply px-5; }
+  .px-4 { @apply px-6; }
+  .gap-2 { @apply gap-3; }
+  .gap-3 { @apply gap-4; }
+  .gap-4 { @apply gap-6; }
+
+  /* Tamaños de fuente aumentados en tablas */
+  table {
+    font-size: 1rem;
+  }
+
+  table th,
+  table td {
+    padding: 0.75rem 1rem;
+  }
+
+  /* Header más espacioso */
+  header {
+    padding: 1rem 2rem;
+  }
+
+  /* Ancho máximo para contenido */
+  main {
+    max-width: 100%;
+  }
+}
+
+/* Monitores 27-28" (2560×1440) */
+@media (min-width: 2560px) {
+  /* Padding generoso */
+  .px-4 { padding-left: 2rem; padding-right: 2rem; }
+  .py-4 { padding-top: 2rem; padding-bottom: 2rem; }
+  .gap-4 { gap: 2rem; }
+
+  /* Tamaños de fuente*/
+  html {
+    font-size: 18px;
+  }
+
+  table {
+    font-size: 1.125rem;
+  }
+
+  table th,
+  table td {
+    padding: 1rem 1.5rem;
+  }
+
+  h1 {
+    font-size: 2.25rem;
+  }
+
+  h2 {
+    font-size: 1.875rem;
+  }
+
+  /* Header más grande */
+  header {
+    padding: 1.5rem 3rem;
+  }
+
+  /* Sidebar más ancho */
+  aside {
+    width: 320px;
+  }
+}
+
+/* Monitores 32" (3840×2160) 4K */
+@media (min-width: 3840px) {
+  html {
+    font-size: 20px;
+  }
+
+  /* Padding muy generoso */
+  .px-4 { padding-left: 3rem; padding-right: 3rem; }
+  .py-4 { padding-top: 3rem; padding-bottom: 3rem; }
+  .gap-4 { gap: 3rem; }
+
+  /* Tamaños de fuente grandes */
+  table {
+    font-size: 1.25rem;
+  }
+
+  table th,
+  table td {
+    padding: 1.25rem 2rem;
+  }
+
+  h1 {
+    font-size: 3rem;
+  }
+
+  h2 {
+    font-size: 2.25rem;
+  }
+
+  /* Header muy grande */
+  header {
+    padding: 2rem 4rem;
+    min-height: 100px;
+  }
+
+  /* Sidebar con ancho generoso */
+  aside {
+    width: 360px;
+  }
+
+  /* Botones más grandes */
+  button {
+    min-height: 48px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1.125rem;
+  }
+}
+
+/* ============================================================================
+   PORTÁTILES 13" (1280×800) - ALTURA LIMITADA
+   Prioridad: Evitar desbordamientos verticales
+   ============================================================================ */
+
+@media (min-width: 1024px) and (max-height: 900px) {
+  /* Reducir padding vertical en alturas limitadas */
+  .py-2 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .py-4 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+
+  /* Espacios entre items reducidos */
+  .gap-3 { gap: 0.5rem; }
+  .gap-4 { gap: 0.5rem; }
+
+  /* Tablas más compactas */
+  table thead th {
+    padding: 0.5rem 0.75rem;
+  }
+
+  table tbody td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Modales con altura máxima */
+  .modal-mobile-full,
+  [role="dialog"] {
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+
+  /* Sidebar con menos padding */
+  aside nav {
+    padding: 0.5rem 0;
+  }
+
+  /* Bottom nav reducida si existe */
+  nav[class*="bottom"] {
+    padding: 0.25rem 0;
+  }
+}
+
+/* ============================================================================
+   OPTIMIZACIÓN DE CONTENEDORES POR ANCHO
+   ============================================================================ */
+
+/* En ancho < 1280px: Contenido a pantalla completa */
+@media (max-width: 1279px) {
+  main {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Tablas con scroll */
+  table {
+    min-width: max-content;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Ancho >= 1920px: Máximo contenido con margen */
+@media (min-width: 1920px) {
+  main {
+    max-width: calc(100% - 320px); /* Sidebar + main */
+    margin: 0 auto;
+  }
+
+  .content-container {
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+}
+
+/* Ancho >= 2560px: Grid de multi-columna */
+@media (min-width: 2560px) {
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+  }
+
+  /* Widgets en grid */
+  .widget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+    gap: 2rem;
+  }
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING ADAPTATIVO
+   Scrollbar más visible en pantallas grandes
+   ============================================================================ */
+
+/* Scrollbar para navegadores modernos */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+@media (min-width: 1920px) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+@media (min-width: 2560px) {
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* ============================================================================
+   FLUID TYPOGRAPHY & SPACING
+   Escalado suave sin saltos entre breakpoints
+   ============================================================================ */
+
+:root {
+  /* Padding fluido */
+  --padding-sm: clamp(0.5rem, 1vw, 1rem);
+  --padding-md: clamp(1rem, 2vw, 2rem);
+  --padding-lg: clamp(1.5rem, 3vw, 3rem);
+
+  /* Gaps fluidos */
+  --gap-sm: clamp(0.5rem, 1vw, 1rem);
+  --gap-md: clamp(1rem, 1.5vw, 1.5rem);
+  --gap-lg: clamp(1.5rem, 2.5vw, 2.5rem);
+
+  /* Font sizes fluidos */
+  --text-sm: clamp(0.875rem, 1vw, 1rem);
+  --text-base: clamp(1rem, 1.2vw, 1.25rem);
+  --text-lg: clamp(1.125rem, 1.5vw, 1.5rem);
+  --text-xl: clamp(1.25rem, 2vw, 2rem);
+  --text-2xl: clamp(1.5rem, 2.5vw, 2.5rem);
+  --text-3xl: clamp(1.875rem, 3vw, 3rem);
+
+  /* Width fluido para contenedores */
+  --container-padding: clamp(1rem, 2vw, 3rem);
+}
+
+/* Aplicar variables fluidas */
+.fluid-padding { padding: var(--padding-md); }
+.fluid-padding-sm { padding: var(--padding-sm); }
+.fluid-padding-lg { padding: var(--padding-lg); }
+
+.fluid-gap { gap: var(--gap-md); }
+.fluid-gap-sm { gap: var(--gap-sm); }
+.fluid-gap-lg { gap: var(--gap-lg); }
+
+.fluid-text-lg { font-size: var(--text-lg); }
+.fluid-text-xl { font-size: var(--text-xl); }
+.fluid-text-2xl { font-size: var(--text-2xl); }
+
+/* ============================================================================
+   LANDSCAPE MODE (Portátiles en horizontal)
+   ============================================================================ */
+
+@media (orientation: landscape) and (max-height: 800px) {
+  /* Reducir alturas en landscape con altura pequeña */
+  header {
+    height: auto;
+    padding: 0.5rem;
+  }
+
+  main {
+    padding-top: 3.5rem;
+  }
+
+  /* Sidebar colapsado automáticamente */
+  aside {
+    width: 72px;
+  }
+
+  /* Espaciado mínimo */
+  .py-3 { @apply py-1; }
+  .py-4 { @apply py-2; }
+  .gap-3 { @apply gap-1; }
 }

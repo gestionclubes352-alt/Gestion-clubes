@@ -10,6 +10,8 @@ import { TeamProvider } from './context/TeamContext';
 import { TeamFilterProvider } from './context/TeamFilterContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { UndoRedoProvider } from './context/UndoRedoContext';
+import { YouTubeUploadProvider } from './context/YouTubeUploadContext';
+import YouTubeUploadStatusWidget from './shared/components/YouTubeUploadStatusWidget';
 import { PwaPrompts, registerServiceWorker } from './pwa';
 
 // Importar configuración de i18n (debe estar antes de renderizar)
@@ -30,8 +32,11 @@ root.render(
             <TeamFilterProvider>
               <DataSourceProvider>
                 <UndoRedoProvider>
-                  <App />
-                  <PwaPrompts />
+                  <YouTubeUploadProvider>
+                    <App />
+                    <PwaPrompts />
+                    <YouTubeUploadStatusWidget />
+                  </YouTubeUploadProvider>
                 </UndoRedoProvider>
               </DataSourceProvider>
             </TeamFilterProvider>

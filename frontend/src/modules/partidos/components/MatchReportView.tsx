@@ -19,6 +19,7 @@ import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@
 import { useYouTubeUpload } from '@context/YouTubeUploadContext';
 import { uploadMatchReportFile, uploadClubLogo } from '@shared/services/photoService';
 import ShareButton from './ShareButton';
+import { createShareLink, copyShareUrlToClipboard, getShareUrl } from '@shared/services/shareService';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
@@ -2114,15 +2115,51 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const handleShareEvent = async (ev: VideoEvent) => {
     const seconds = timeToSeconds(ev.minute);
-    const baseUrl = window.location.href.split('?')[0];
-    const shareUrl = `${baseUrl}?matchId=${match.id}&t=${seconds}`;
-    
     try {
-        await navigator.clipboard.writeText(shareUrl);
-        alert(`${t('matchReport.alerts.linkCopied')}\n\n${shareUrl}`);
+        const shareToken = await createShareLink(match.id, ev.id, seconds, null);
+        await copyShareUrlToClipboard(shareToken.token);
+        alert(`${t('matchReport.alerts.linkCopied')}\n\n${getShareUrl(shareToken.token)}`);
     } catch (err) {
-        prompt(t('matchReport.alerts.copyManually'), shareUrl);
+        console.error('[handle-share-event]', err);
+        alert(t('matchReport.alerts.saveError'));
     }
+  };
+
+  const handleDownloadEvent = async (ev: VideoEvent) => {
+    const url = report.videoUrl;
+    if (!url) return;
+    const seconds = timeToSeconds(ev.minute);
+
+    if (isDirectVideoUrl(url)) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `corte_${match.id}_${ev.minute.replace(':', '-')}_${ev.type}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(blobUrl);
+      } catch (err) {
+        console.error('[download-event]', err);
+        alert(t('matchReport.alerts.downloadError'));
+      }
+      return;
+    }
+
+    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    const vimeoMatch = url.match(/(?:vimeo\.com\/)(\d+)/);
+    let openUrl = url;
+    if (ytMatch) {
+      openUrl = `https://www.youtube.com/watch?v=${ytMatch[1]}&t=${seconds}s`;
+    } else if (vimeoMatch) {
+      openUrl = `https://vimeo.com/${vimeoMatch[1]}#t=${seconds}s`;
+    }
+    window.open(openUrl, '_blank', 'noopener,noreferrer');
+    alert(t('matchReport.alerts.downloadNotAvailable'));
   };
 
   const startEditing = (ev: VideoEvent) => {
@@ -2600,29 +2637,31 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     setYtUploadProgress(null);
   };
 
-  // Si ya hay una subida en curso para este partido (iniciada antes de navegar
-  // a otra página), la recupera al volver a montar el componente.
+  // Mantiene el progreso local sincronizado con la subida que corre en segundo
+  // plano (Service Worker). Como el contexto recupera el estado desde
+  // IndexedDB de forma asíncrona (para sobrevivir a un refresco completo del
+  // navegador), este efecto también localiza y "adopta" la subida en curso de
+  // este partido si aún no la teníamos enganchada.
   useEffect(() => {
-    const activeTask = ytTasks.find(t => String(t.matchId) === String(match.id));
-    if (activeTask) {
-      ytActiveTaskIdRef.current = activeTask.id;
-      setYtTargetField(activeTask.targetField as any);
-      setYtUploadProgress(activeTask.progress);
+    if (!ytActiveTaskIdRef.current) {
+      const found = ytTasks.find(t => String(t.matchId) === String(match.id));
+      if (found) {
+        ytActiveTaskIdRef.current = found.id;
+        setYtTargetField(found.targetField as any);
+        setYtUploadProgress(found.progress);
+      }
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match.id]);
-
-  // Mantiene el progreso local sincronizado con la subida que corre en segundo plano.
-  useEffect(() => {
-    const taskId = ytActiveTaskIdRef.current;
-    if (!taskId) return;
-    const task = ytTasks.find(t => t.id === taskId);
-    if (!task) return;
+    const task = ytTasks.find(t => t.id === ytActiveTaskIdRef.current);
+    if (!task) {
+      ytActiveTaskIdRef.current = null;
+      return;
+    }
     setYtUploadProgress(task.progress);
     if (task.progress.stage === 'done' && task.progress.videoUrl) {
       setReport(prev => (prev[task.targetField] === task.progress.videoUrl ? prev : { ...prev, [task.targetField]: task.progress.videoUrl }));
     }
-  }, [ytTasks]);
+  }, [match.id, ytTasks]);
 
   const handleYtUpload = () => {
     if (!ytSelectedFile) return;
@@ -2822,6 +2861,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 <p className="text-[8px] text-slate-400 dark:text-white/30 font-bold">{ytUploadProgress.message}</p>
               </div>
             )}
+            <button
+              onClick={() => window.open('https://studio.youtube.com/channel/UCFZFzmx3KNm9ZkCRrFZDC_Q/videos/upload?filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D', '_blank')}
+              className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
+              title="Abrir Mi Canal"
+            >
+              <i className="fa-brands fa-youtube text-base"></i>
+              {t('matchReport.video.myChannel') || 'Mi Canal'}
+            </button>
          </div>
          <div className="p-5 border-b border-slate-200 dark:border-white/10 space-y-6">
             <div className="space-y-4">
@@ -3197,10 +3244,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 filteredEvents.map((ev) => {
                     const isEditing = editingEventId === ev.id;
                     return (
-                        <div key={ev.id} className={`p-4 rounded-3xl bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/5 transition-all group relative z-10 ${isEditing ? 'ring-2 ring-red-500/50 bg-slate-100 dark:bg-[#1a1a1a]' : 'hover:bg-slate-100 dark:hover:bg-[#1a1a1a]'}`}>
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xl font-black text-red-500 font-mono tracking-tighter">{ev.minute}</span>
+                        <div key={ev.id} className={`p-3 sm:p-4 rounded-3xl bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/5 transition-all group relative z-10 ${isEditing ? 'ring-2 ring-red-500/50 bg-slate-100 dark:bg-[#1a1a1a]' : 'hover:bg-slate-100 dark:hover:bg-[#1a1a1a]'}`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+                                    <span className="text-lg sm:text-xl font-black text-red-500 font-mono tracking-tighter">{ev.minute}</span>
                                     <span className="text-[var(--text-strong)] text-[10px] font-black uppercase tracking-widest">{eventTypeLabels[ev.type] || ev.type}</span>
                                     {ev.playerId && (
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">
@@ -3218,45 +3265,53 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-1.5 sm:gap-2 shrink-0">
                                     {!isEditing && (
                                         <>
-                                            <button 
+                                            <button
                                               type="button"
                                               onClick={(e) => { e.stopPropagation(); playVideoAt(timeToSeconds(ev.minute)); }}
-                                              className="w-10 h-10 rounded-xl bg-red-600 text-white shadow-lg active:scale-90 transition-all flex items-center justify-center cursor-pointer hover:bg-red-500 z-20"
+                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-600 text-white shadow-lg active:scale-90 transition-all flex items-center justify-center cursor-pointer hover:bg-red-500 z-20 shrink-0"
                                               title={t('matchReport.events.playClip')}
                                             >
                                               <i className="fa-solid fa-play text-[11px]"></i>
                                             </button>
-                                            <button 
+                                            <button
                                               type="button"
                                               onClick={(e) => { e.stopPropagation(); handleShareEvent(ev); }}
-                                              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20" 
+                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.copyEventLink')}
                                             >
                                               <i className="fa-solid fa-share-nodes text-[11px]"></i>
                                             </button>
-                                            <button 
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); handleDownloadEvent(ev); }}
+                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0"
+                                              title={t('matchReport.events.downloadClip')}
+                                            >
+                                              <i className="fa-solid fa-download text-[11px]"></i>
+                                            </button>
+                                            <button
                                               type="button"
                                               onClick={(e) => { e.stopPropagation(); startEditing(ev); }}
-                                              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-[var(--text-strong)] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center cursor-pointer z-20"
+                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-[var(--text-strong)] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.editTimeNote')}
                                             >
                                               <i className="fa-solid fa-pencil text-[11px]"></i>
                                             </button>
-                                            <button 
+                                            <button
                                               type="button"
-                                              onClick={(e) => { 
+                                              onClick={(e) => {
                                                 e.stopPropagation();
                                                 if(confirm(t('matchReport.alerts.deleteEventConfirm'))) {
                                                   const nextEvents = report.videoEvents?.filter(x=>x.id!==ev.id);
                                                   const next = {...report, videoEvents: nextEvents};
-                                                  setReport(next); 
+                                                  setReport(next);
                                                   persistReport(next);
-                                                } 
-                                              }} 
-                                              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-500 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center cursor-pointer z-20"
+                                                }
+                                              }}
+                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-500 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.deleteRecord')}
                                             >
                                               <i className="fa-solid fa-trash text-[11px]"></i>
@@ -4696,9 +4751,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
-            <table className="w-full text-xs">
+            <table className="w-full text-[10px]">
               <thead>
-                <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
                   <th className="px-3 py-3 text-left">#</th>
                   <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
                   <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
@@ -4759,9 +4814,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     {formation} — {minutes}' {t('matchReport.playerStats.totalMinutes')}
                   </h3>
                   <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-[10px]">
                       <thead>
-                        <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                        <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
                           <th className="px-3 py-3 text-left">#</th>
                           <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
                           <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>

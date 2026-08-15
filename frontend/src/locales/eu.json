@@ -1004,7 +1004,8 @@
       "uploadUnlisted": "Zerrendatu gabe igoko da",
       "retry": "Berriro saiatu",
       "matchUrl": "Partiduaren URLa",
-      "pasteLink": "Itsatsi esteka hemen..."
+      "pasteLink": "Itsatsi esteka hemen...",
+      "myChannel": "Nire Kanala"
     },
     "matchTimes": {
       "title": "Partidu Denborak",
@@ -1038,6 +1039,7 @@
       "noEvents": "Ez dago gertaerarik erregistratuta",
       "playClip": "Klipa erreproduzitu",
       "copyEventLink": "Gertaeraren esteka kopiatu",
+      "downloadClip": "Mozketa deskargatu",
       "editTimeNote": "Denbora eta oharra editatu",
       "deleteRecord": "Erregistroa ezabatu",
       "noDescription": "Deskribapenik ez"
@@ -1080,6 +1082,9 @@
       "saveError": "Errorea txostena gordetzean",
       "linkCopied": "Esteka arbelera kopiatuta",
       "copyManually": "Kopiatu esteka hau:",
+      "downloadStarted": "Mozketa deskargatzen...",
+      "downloadError": "Errorea mozketa deskargatzean",
+      "downloadNotAvailable": "Bideo hau ezin da zuzenean deskargatu. Fitxa berri batean ireki da eskuz gorde ahal izateko.",
       "noEventsToExport": "Ez dago gertaerarik esportatzeko",
       "sessionExpired": "Saioa iraungi da",
       "deleteEventConfirm": "Gertaera hau ezabatu?",
@@ -1146,29 +1151,29 @@
       "descriptionPlaceholder": "Oharrak arbitroari buruz, estiloa, irizpidea..."
     }
   },
-  “pwa”: {
-    “offline”: “Konexiorik gabe — kargatutako datuak erakusten”,
-    “updateTitle”: “Eguneraketa eskuragarri”,
-    “updateBody”: “Aplikazioaren bertsio berri bat dago.”,
-    “later”: “Geroago”,
-    “reload”: “Eguneratu”,
-    “installTitle”: “Instalatu Sport Management”,
-    “installBody”: “Gehitu hasierako pantailan aplikazio gisa irekitzeko.”,
-    “installIos”: “Sakatu Partekatu eta gero “Gehitu hasierako pantailan”.”,
-    “install”: “Instalatu”,
-    “dismiss”: “Itxi”
+  "pwa": {
+    "offline": "Konexiorik gabe — kargatutako datuak erakusten",
+    "updateTitle": "Eguneraketa eskuragarri",
+    "updateBody": "Aplikazioaren bertsio berri bat dago.",
+    "later": "Geroago",
+    "reload": "Eguneratu",
+    "installTitle": "Instalatu Sport Management",
+    "installBody": "Gehitu hasierako pantailan aplikazio gisa irekitzeko.",
+    "installIos": "Sakatu Partekatu eta gero \"Gehitu hasierako pantailan\".",
+    "install": "Instalatu",
+    "dismiss": "Itxi"
   },
-  “share”: {
-    “button”: “Partekatu”,
-    “copied”: “Esteka arbelean kopiatuta”,
-    “invalid”: “Partekatutako esteka baliogabea da edo iraungi da”,
-    “expiration”: “Esteka hau iraungi egingo da”,
-    “videoShared”: “Partekatutako bideoa”,
-    “matchInfo”: “Partiduaren informazioa”,
-    “rival”: “Aurkaria”,
-    “date”: “Data”,
-    “competition”: “Lehiaketa”,
-    “jornada”: “Jornada”,
-    “privateShare”: “Bideo hau pribatuki partekatu da”
+  "share": {
+    "button": "Partekatu",
+    "copied": "Esteka arbelean kopiatuta",
+    "invalid": "Partekatutako esteka baliogabea da edo iraungi da",
+    "expiration": "Esteka hau iraungi egingo da",
+    "videoShared": "Partekatutako bideoa",
+    "matchInfo": "Partiduaren informazioa",
+    "rival": "Aurkaria",
+    "date": "Data",
+    "competition": "Lehiaketa",
+    "jornada": "Jornada",
+    "privateShare": "Bideo hau pribatuki partekatu da"
   }
 }

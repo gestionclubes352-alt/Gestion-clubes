@@ -1026,7 +1026,8 @@
       "uploadUnlisted": "Se subirá como no listado",
       "retry": "Reintentar",
       "matchUrl": "URL del partido",
-      "pasteLink": "Pega el enlace aquí..."
+      "pasteLink": "Pega el enlace aquí...",
+      "myChannel": "Mi Canal"
     },
     "matchTimes": {
       "title": "Tiempos de Partido",
@@ -1060,6 +1061,7 @@
       "noEvents": "Sin eventos registrados",
       "playClip": "Reproducir clip",
       "copyEventLink": "Copiar enlace del evento",
+      "downloadClip": "Descargar corte",
       "editTimeNote": "Editar tiempo y nota",
       "deleteRecord": "Eliminar registro",
       "noDescription": "Sin descripción"
@@ -1102,6 +1104,9 @@
       "saveError": "Error al guardar el informe",
       "linkCopied": "Enlace copiado al portapapeles",
       "copyManually": "Copia este enlace:",
+      "downloadStarted": "Descargando corte...",
+      "downloadError": "Error al descargar el corte",
+      "downloadNotAvailable": "Este vídeo no se puede descargar directamente. Se ha abierto en una pestaña nueva para que puedas guardarlo manualmente.",
       "noEventsToExport": "No hay eventos para exportar",
       "sessionExpired": "La sesión ha expirado",
       "deleteEventConfirm": "¿Eliminar este evento?",
@@ -1168,29 +1173,29 @@
       "descriptionPlaceholder": "Notas sobre el árbitro, estilo, criterio..."
     }
   },
-  “pwa”: {
-    “offline”: “Sin conexión — mostrando datos ya cargados”,
-    “updateTitle”: “Actualización disponible”,
-    “updateBody”: “Hay una versión nueva de la aplicación.”,
-    “later”: “Más tarde”,
-    “reload”: “Actualizar”,
-    “installTitle”: “Instalar Sport Management”,
-    “installBody”: “Añádela a tu pantalla de inicio para abrirla como una app.”,
-    “installIos”: “Pulsa Compartir y luego “Añadir a pantalla de inicio”.”,
-    “install”: “Instalar”,
-    “dismiss”: “Cerrar”
+  "pwa": {
+    "offline": "Sin conexión — mostrando datos ya cargados",
+    "updateTitle": "Actualización disponible",
+    "updateBody": "Hay una versión nueva de la aplicación.",
+    "later": "Más tarde",
+    "reload": "Actualizar",
+    "installTitle": "Instalar Sport Management",
+    "installBody": "Añádela a tu pantalla de inicio para abrirla como una app.",
+    "installIos": "Pulsa Compartir y luego \"Añadir a pantalla de inicio\".",
+    "install": "Instalar",
+    "dismiss": "Cerrar"
   },
-  “share”: {
-    “button”: “Compartir”,
-    “copied”: “Enlace copiado al portapapeles”,
-    “invalid”: “El enlace compartido no es válido o ha expirado”,
-    “expiration”: “Este enlace expira el”,
-    “videoShared”: “Vídeo compartido”,
-    “matchInfo”: “Información del partido”,
-    “rival”: “Rival”,
-    “date”: “Fecha”,
-    “competition”: “Competición”,
-    “jornada”: “Jornada”,
-    “privateShare”: “Este vídeo ha sido compartido de forma privada”
+  "share": {
+    "button": "Compartir",
+    "copied": "Enlace copiado al portapapeles",
+    "invalid": "El enlace compartido no es válido o ha expirado",
+    "expiration": "Este enlace expira el",
+    "videoShared": "Vídeo compartido",
+    "matchInfo": "Información del partido",
+    "rival": "Rival",
+    "date": "Fecha",
+    "competition": "Competición",
+    "jornada": "Jornada",
+    "privateShare": "Este vídeo ha sido compartido de forma privada"
   }
 }
