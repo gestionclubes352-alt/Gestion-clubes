@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 
 export interface AppState {
   squadList: any[];
@@ -26,16 +26,17 @@ interface UndoRedoContextType {
   historyLength: number;
   historyIndex: number;
   clearHistory: () => void;
-  onStateRestore?: (state: AppState) => void;
+  setOnStateRestore: (callback: (state: AppState) => void) => void;
 }
 
 const UndoRedoContext = createContext<UndoRedoContextType | undefined>(undefined);
 
 const HISTORY_MAX_SIZE = 50;
 
-export const UndoRedoProvider: React.FC<{ children: ReactNode; onStateRestore?: (state: AppState) => void }> = ({ children, onStateRestore }) => {
+export const UndoRedoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [history, setHistory] = useState<AppState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const onStateRestoreRef = useRef<((state: AppState) => void) | null>(null);
 
   const pushState = useCallback((newState: Partial<AppState>) => {
     setHistory(prev => {
@@ -77,35 +78,33 @@ export const UndoRedoProvider: React.FC<{ children: ReactNode; onStateRestore?: 
   }, [historyIndex]);
 
   const undo = useCallback((): AppState | null => {
-    let restoredState: AppState | null = null;
     setHistory(prev => {
       setHistoryIndex(current => {
-        const newIndex = Math.max(-1, current - 1);
+        const newIndex = Math.max(0, current - 1);
         if (newIndex >= 0 && newIndex < prev.length) {
-          restoredState = prev[newIndex];
-          onStateRestore?.(prev[newIndex]);
+          onStateRestoreRef.current?.(prev[newIndex]);
+          return newIndex;
         }
-        return newIndex;
+        return current;
       });
       return prev;
     });
-    return restoredState;
+    return null;
   }, []);
 
   const redo = useCallback((): AppState | null => {
-    let restoredState: AppState | null = null;
     setHistory(prev => {
       setHistoryIndex(current => {
         const newIndex = Math.min(prev.length - 1, current + 1);
         if (newIndex >= 0 && newIndex < prev.length) {
-          restoredState = prev[newIndex];
-          onStateRestore?.(prev[newIndex]);
+          onStateRestoreRef.current?.(prev[newIndex]);
+          return newIndex;
         }
-        return newIndex;
+        return current;
       });
       return prev;
     });
-    return restoredState;
+    return null;
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -116,6 +115,10 @@ export const UndoRedoProvider: React.FC<{ children: ReactNode; onStateRestore?: 
   const getCurrentState = useCallback((): AppState | null => {
     return historyIndex >= 0 && historyIndex < history.length ? history[historyIndex] : null;
   }, [history, historyIndex]);
+
+  const setOnStateRestore = useCallback((callback: (state: AppState) => void) => {
+    onStateRestoreRef.current = callback;
+  }, []);
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
@@ -132,7 +135,7 @@ export const UndoRedoProvider: React.FC<{ children: ReactNode; onStateRestore?: 
         historyLength: history.length,
         historyIndex,
         clearHistory,
-        onStateRestore,
+        setOnStateRestore,
       }}
     >
       {children}

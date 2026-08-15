@@ -7,6 +7,8 @@ import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 're
 import { useAuth } from '@context/AuthContext';
 import { useTeamFilter } from '@context/TeamFilterContext';
 import { useTheme } from '@context/ThemeContext';
+import { useUndoRedo } from '@context/UndoRedoContext';
+import useAppStateHistory from '@hooks/useAppStateHistory';
 import { LoginPage } from '@modules/auth';
 
 // Shared
@@ -664,6 +666,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     return saved === 'true';
   });
   const [showStatus, setShowStatus] = useState<string | null>(null);
+
+  // Rastrear historial de cambios en el estado principal
+  const { setOnStateRestore } = useUndoRedo();
+
+  // Configurar callback para restaurar estado
+  useEffect(() => {
+    setOnStateRestore((state: any) => {
+      if (state.squadList) setSquadList(state.squadList);
+      if (state.usersList) setUsersList(state.usersList);
+      if (state.personalList) setPersonalList(state.personalList);
+      if (state.competitionTeams) setCompetitionTeams(state.competitionTeams);
+      if (state.clubesList) setClubesList(state.clubesList);
+      if (state.campogramasList) setCampogramasList(state.campogramasList);
+      if (state.eventsList) setEventsList(state.eventsList);
+    });
+  }, [setOnStateRestore]);
+
+  // Rastrear cambios de estado para historial
+  useAppStateHistory({
+    squadList,
+    usersList,
+    personalList,
+    competitionTeams,
+    clubesList,
+    campogramasList,
+    eventsList,
+  });
 
   const teamFilterOptions = useMemo(() => {
     const ownCompetitionTeamNames = competitionTeams
