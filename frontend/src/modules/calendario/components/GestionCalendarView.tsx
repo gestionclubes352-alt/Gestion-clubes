@@ -7,7 +7,8 @@ import type { Player } from '@modules/plantilla';
 import type { MatchReport } from '@modules/partidos/types';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
-import { db } from '@shared/services/dataService';
+import { db, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
+import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
 import { getPlayerSessionAttendance, hasRecordedAttendance, isSelectiveAttendanceSession } from '../utils/attendance';
 import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
 
@@ -384,6 +385,43 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [localidadId, setLocalidadId] = useState<string>('all');
+  const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string>('all');
+  const [instalacionId, setInstalacionId] = useState<string>('all');
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalaciones, setInstalaciones] = useState<InstalacionCampo[]>([]);
+
+  const instalacionesPrincipales = useMemo(
+    () => instalaciones.filter(i => !i.parent_instalacion_id && (localidadId === 'all' || i.localidad_id === localidadId)),
+    [instalaciones, localidadId]
+  );
+  const camposDisponibles = useMemo(
+    () => instalaciones.filter(i => !!i.parent_instalacion_id && (instalacionPrincipalId === 'all' || i.parent_instalacion_id === instalacionPrincipalId)),
+    [instalaciones, instalacionPrincipalId]
+  );
+  const campoParentMap = useMemo(
+    () => new Map(instalaciones.filter(i => i.parent_instalacion_id).map(i => [i.id, i.parent_instalacion_id as string])),
+    [instalaciones]
+  );
+
+  useEffect(() => {
+    if (instalacionPrincipalId !== 'all' && instalacionId !== 'all' && campoParentMap.get(instalacionId) !== instalacionPrincipalId) {
+      setInstalacionId('all');
+    }
+  }, [instalacionPrincipalId, instalacionId, campoParentMap]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const locs = await localidadesService.list();
+        const insts = await instalacionesCamposService.list();
+        if (locs) setLocalidades(locs as Localidad[]);
+        if (insts) setInstalaciones(insts as InstalacionCampo[]);
+      } catch (err) {
+        console.error('Error al cargar localidades e instalaciones:', err);
+      }
+    })();
+  }, []);
 
   const availableTeams = useMemo(() => {
     const teams = new Set<string>();
@@ -494,6 +532,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return events.filter(ev => {
       if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
       if (activityFilter !== 'all' && getEventActivity(ev) !== activityFilter) return false;
+      if (localidadId !== 'all' && ev.localidad_id !== localidadId) return false;
+      if (instalacionPrincipalId !== 'all') {
+        const matchesPrincipal = ev.instalacion_campo_id === instalacionPrincipalId
+          || (ev.instalacion_campo_id ? campoParentMap.get(ev.instalacion_campo_id) === instalacionPrincipalId : false);
+        if (!matchesPrincipal) return false;
+      }
+      if (instalacionId !== 'all' && ev.instalacion_campo_id !== instalacionId) return false;
       if (teamFilter !== 'all') {
         if (getEventTeamKey(ev) !== teamFilter) return false;
       }
@@ -511,7 +556,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       }
       return true;
     });
-  }, [events, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById]);
+  }, [events, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById, localidadId, instalacionPrincipalId, instalacionId, campoParentMap]);
 
   const teamColorLegend = useMemo(() => {
     const keys = new Set<string>();
@@ -1273,6 +1318,36 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               <option key={name} value={String(index)}>{name}</option>
             ))}
           </SearchableSelect>
+          <SearchableSelect
+            value={localidadId}
+            onChange={(e) => setLocalidadId(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">Todas las localidades</option>
+            {localidades.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.nombre}</option>
+            ))}
+          </SearchableSelect>
+          <SearchableSelect
+            value={instalacionPrincipalId}
+            onChange={(e) => setInstalacionPrincipalId(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">Todas las instalaciones</option>
+            {instalacionesPrincipales.map(inst => (
+              <option key={inst.id} value={inst.id}>{inst.nombre}</option>
+            ))}
+          </SearchableSelect>
+          <SearchableSelect
+            value={instalacionId}
+            onChange={(e) => setInstalacionId(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">Todos los campos</option>
+            {camposDisponibles.map(campo => (
+              <option key={campo.id} value={campo.id}>{campo.nombre}</option>
+            ))}
+          </SearchableSelect>
           <div className="flex items-center gap-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
             <input
@@ -1288,10 +1363,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               onChange={(e) => setFilterDateTo(e.target.value)}
               className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
-            {(filterDateFrom || filterDateTo) && (
+            {(filterDateFrom || filterDateTo || localidadId !== 'all' || instalacionPrincipalId !== 'all' || instalacionId !== 'all') && (
               <button
                 type="button"
-                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}
+                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setLocalidadId('all'); setInstalacionPrincipalId('all'); setInstalacionId('all'); }}
                 className="px-3 py-2.5 text-[10px] font-black text-red-600 hover:text-red-700 uppercase"
               >
                 ✕ {t('calendarView.clearFilter', 'Limpiar')}

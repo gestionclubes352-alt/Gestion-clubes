@@ -352,6 +352,8 @@ const eventRowToCalendarEvent = (row: EventoCalendario): CalendarEvent => ({
   time: row.time || '',
   team: row.team || undefined,
   location: row.location || undefined,
+  localidad_id: row.localidad_id || undefined,
+  instalacion_campo_id: row.instalacion_campo_id || undefined,
   notes: row.notes || undefined,
   videoUrl: row.video_url || undefined,
   docUrl: row.doc_url || undefined,
@@ -380,6 +382,8 @@ const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
   time: event.time || null,
   team: event.team || null,
   location: event.location || null,
+  localidad_id: event.localidad_id || null,
+  instalacion_campo_id: event.instalacion_campo_id || null,
   notes: event.notes || null,
   video_url: event.videoUrl || null,
   doc_url: event.docUrl || null,
@@ -714,6 +718,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location,
+        localidad_id: e.localidad_id,
+        instalacion_campo_id: e.instalacion_campo_id,
         nombreInterno: e.nombreInterno,
         team: e.team
       } as Match));
@@ -1249,6 +1255,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         visitorTeamClubId: e.visitorTeamClubId,
         time: e.time,
         location: e.location,
+        localidad_id: e.localidad_id,
+        instalacion_campo_id: e.instalacion_campo_id,
         nombreInterno: e.nombreInterno,
         team: e.team
       } as Match));
@@ -1581,7 +1589,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/usuarios" element={userRole !== 'Tecnico'
                 ? <UserTable
                     users={usersList}
-                    clubes={clubesList}
                     onEdit={setEditingUser}
                     onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
                     onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal' } as User); }}

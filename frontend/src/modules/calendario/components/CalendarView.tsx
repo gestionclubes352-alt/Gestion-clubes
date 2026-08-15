@@ -5,7 +5,8 @@ import type { AttendanceStatus, CalendarEvent, SessionTask } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
 import type { Player } from '@modules/plantilla';
-import { db } from '@shared/services/dataService';
+import { db, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
+import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import NewEventModal from './NewEventModal';
 import SessionTasksPanel from './SessionTasksPanel';
@@ -72,6 +73,37 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [localidadId, setLocalidadId] = useState<string>('all');
+  const [instalacionId, setInstalacionId] = useState<string>('all');
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
+  const [editingSessionEvent, setEditingSessionEvent] = useState<CalendarEvent | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [locs, insts] = await Promise.all([localidadesService.list(), instalacionesCamposService.list()]);
+        setLocalidades(locs || []);
+        setInstalacionesCampos(insts || []);
+      } catch (err) {
+        console.error('Error al cargar localidades e instalaciones:', err);
+      }
+    })();
+  }, []);
+
+  const resolveEventLocationLabel = (ev: CalendarEvent): string | null => {
+    const localidad = localidades.find(l => l.id === ev.localidad_id);
+    const instalacion = instalacionesCampos.find(i => i.id === ev.instalacion_campo_id);
+    const instalacionPrincipal = instalacion?.parent_instalacion_id
+      ? instalacionesCampos.find(i => i.id === instalacion.parent_instalacion_id)
+      : instalacion;
+    const parts = [
+      instalacionPrincipal?.nombre,
+      instalacion?.parent_instalacion_id ? instalacion.nombre : undefined,
+      localidad?.nombre,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  };
 
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNamesLong = t('calendarView.daysLong', { returnObjects: true }) as string[];
@@ -244,6 +276,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         return !!e.team && internalTeamNames.has(e.team.trim().toLowerCase());
       })
       .filter(e => sessionTypeFilter === 'all' || getSessionTypeLabel(e) === sessionTypeFilter)
+      .filter(e => localidadId === 'all' || e.localidad_id === localidadId)
+      .filter(e => instalacionId === 'all' || e.instalacion_campo_id === instalacionId)
       .filter(e => {
         const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
         if (monthFilter !== 'all' && eventDate.getMonth() !== Number(monthFilter)) return false;
@@ -261,7 +295,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         const db = b.date instanceof Date ? b.date : new Date(b.date);
         return da.getTime() - db.getTime();
       });
-  }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo]);
+  }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo, localidadId, instalacionId]);
 
   useEffect(() => {
     const state = location.state as { openEventId?: string; newTaskId?: string; editSessionTaskId?: string } | null;
@@ -603,7 +637,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <h4 className="text-[var(--accent)] font-black text-lg mb-4">{t('calendarView.information')}</h4>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.information')}</h4>
+                <button
+                  type="button"
+                  onClick={() => setEditingSessionEvent(activeTraining)}
+                  className="text-[10px] font-black text-slate-400 hover:text-[var(--accent)] uppercase tracking-widest flex items-center gap-1"
+                >
+                  <i className="fa-solid fa-pen"></i> {t('common.edit', 'Editar')}
+                </button>
+              </div>
               <div className="space-y-4 text-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[var(--accent)]"><i className="fa-solid fa-calendar-day"></i></div>
@@ -623,7 +666,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                   <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[var(--accent)]"><i className="fa-solid fa-location-dot"></i></div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('common.location')}</p>
-                    <p className="font-black text-black">{activeTraining.location || t('calendarView.notDefined')}</p>
+                    <p className="font-black text-black">{resolveEventLocationLabel(activeTraining) || activeTraining.location || t('calendarView.notDefined')}</p>
                   </div>
                 </div>
                 {activeTraining.team && (
@@ -921,6 +964,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <option key={name} value={String(index)}>{name}</option>
             ))}
           </SearchableSelect>
+          <select
+            value={localidadId}
+            onChange={(e) => setLocalidadId(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">Todas las localidades</option>
+            {localidades.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.nombre}</option>
+            ))}
+          </select>
+          <select
+            value={instalacionId}
+            onChange={(e) => setInstalacionId(e.target.value)}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          >
+            <option value="all">Todos los campos</option>
+            {instalacionesCampos.map(ic => (
+              <option key={ic.id} value={ic.id}>{ic.nombre}</option>
+            ))}
+          </select>
           <div className="flex items-center gap-2 flex-wrap">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
             <input
@@ -1270,6 +1333,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       </p>
                     </div>
                     <button
+                      onClick={() => setEditingSessionEvent(ev)}
+                      className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0"
+                      title={t('common.edit', 'Editar')}
+                    >
+                      <i className="fa-solid fa-pen text-sm"></i>
+                    </button>
+                    <button
                       onClick={() => onDeleteEvent(String(ev.id))}
                       className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0"
                       title={t('common.delete')}
@@ -1294,6 +1364,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             onSaveEvent(newEvent);
             if (newEvent.type === 'Partido') {
               setActiveMatch(newEvent);
+            }
+          }}
+          competitionTeams={competitionTeams}
+          ownClubId={ownClubId}
+        />
+      )}
+
+      {editingSessionEvent && (
+        <NewEventModal
+          editEvent={editingSessionEvent}
+          onClose={() => setEditingSessionEvent(null)}
+          onSave={(updatedEvent) => {
+            onSaveEvent(updatedEvent);
+            if (activeTraining && activeTraining.id === updatedEvent.id) {
+              setActiveTraining(updatedEvent);
+            }
+            setEditingSessionEvent(null);
+          }}
+          onDelete={(id) => {
+            onDeleteEvent(String(id));
+            setEditingSessionEvent(null);
+            if (activeTraining && String(activeTraining.id) === String(id)) {
+              setActiveTraining(null);
             }
           }}
           competitionTeams={competitionTeams}

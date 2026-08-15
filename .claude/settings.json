@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "preview_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "taskkill /F /IM node.exe /T 2>nul || echo 'No hay procesos node activos'",
+            "shell": "powershell",
+            "statusMessage": "Limpiando procesos Node viejos...",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "preview_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Start-Sleep -Seconds 3; Write-Host 'Verificando compilación del servidor...'; $logs = (Get-Process node -ErrorAction SilentlyContinue); if ($null -eq $logs) { Write-Error 'El servidor no está corriendo'; exit 1 } else { Write-Host 'Servidor iniciado correctamente' }",
+            "shell": "powershell",
+            "statusMessage": "Verificando que el servidor está compilando...",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

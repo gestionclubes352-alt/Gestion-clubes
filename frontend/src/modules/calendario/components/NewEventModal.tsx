@@ -67,7 +67,7 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [newTeamFormData, setNewTeamFormData] = useState({ clubId: '', teamName: '', clubName: '', clubLogo: null as File | null });
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
-  const [instalacionesFiltradas, setInstalacionesFiltradas] = useState<InstalacionCampo[]>([]);
+  const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string>('');
   const hasPendingTeamCreation = isAddingLocalTeam || isAddingVisitorTeam || isCreatingTeamFromButton;
 
   useEffect(() => {
@@ -136,7 +136,9 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       ? (currentEvent.date instanceof Date ? toLocalDateString(currentEvent.date) : String(currentEvent.date).slice(0, 10))
       : toLocalDateString(initialDate),
     time: currentEvent?.time || '18:00',
-    location: currentEvent?.location || (currentEvent?.type === 'Sesión' ? 'Derio' : ''),
+    location: currentEvent?.location || '',
+    localidad_id: currentEvent?.localidad_id || '',
+    instalacion_campo_id: currentEvent?.instalacion_campo_id || '',
     team: currentEvent?.team || '',
     competition: currentEvent?.competition || '',
     jornada: currentEvent?.jornada || '',
@@ -161,16 +163,38 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
     }
   }, [initialDate, currentEvent]);
 
+  const instalacionesPrincipales = useMemo(
+    () => instalacionesCampos.filter(
+      ic => !ic.parent_instalacion_id && (!formData.localidad_id || ic.localidad_id === formData.localidad_id)
+    ),
+    [instalacionesCampos, formData.localidad_id]
+  );
+
+  const camposDisponibles = useMemo(
+    () => instalacionesCampos.filter(ic => ic.parent_instalacion_id === instalacionPrincipalId),
+    [instalacionesCampos, instalacionPrincipalId]
+  );
+
+  // Al editar un evento existente, resolver a qué instalación principal pertenece el campo guardado
+  // (o si el propio instalacion_campo_id ya es una instalación principal sin campos hijos).
   useEffect(() => {
-    if (formData.location) {
-      const filtradas = instalacionesCampos.filter(
-        ic => ic.localidad_id === formData.location
-      );
-      setInstalacionesFiltradas(filtradas);
-    } else {
-      setInstalacionesFiltradas(instalacionesCampos);
+    if (!currentEvent?.instalacion_campo_id || instalacionesCampos.length === 0 || instalacionPrincipalId) return;
+    const saved = instalacionesCampos.find(ic => ic.id === currentEvent.instalacion_campo_id);
+    if (!saved) return;
+    setInstalacionPrincipalId(saved.parent_instalacion_id || saved.id);
+  }, [currentEvent, instalacionesCampos, instalacionPrincipalId]);
+
+  // Si la instalación principal seleccionada no tiene campos hijos, ella misma es el "campo" a guardar.
+  // Si tiene campos, esperar a que el usuario elija uno explícitamente.
+  useEffect(() => {
+    if (!instalacionPrincipalId) return;
+    const campos = instalacionesCampos.filter(ic => ic.parent_instalacion_id === instalacionPrincipalId);
+    if (campos.length === 0) {
+      setFormData(prev => (prev.instalacion_campo_id === instalacionPrincipalId ? prev : { ...prev, instalacion_campo_id: instalacionPrincipalId }));
+    } else if (!campos.some(c => c.id === formData.instalacion_campo_id)) {
+      setFormData(prev => (prev.instalacion_campo_id ? { ...prev, instalacion_campo_id: '' } : prev));
     }
-  }, [formData.location, instalacionesCampos]);
+  }, [instalacionPrincipalId, instalacionesCampos]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -373,6 +397,8 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       type: typeSelected,
       team: formData.team || undefined,
       location: formData.location || undefined,
+      localidad_id: formData.localidad_id || undefined,
+      instalacion_campo_id: formData.instalacion_campo_id || undefined,
       notes: formData.notes || undefined,
       videoUrl: formData.videoUrl || undefined,
       docUrl: formData.docUrl || undefined,
@@ -566,9 +592,13 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Localidad</p>
                 <select
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
+                  name="localidad_id"
+                  value={formData.localidad_id || ''}
+                  onChange={(e) => {
+                    const localidad_id = e.target.value;
+                    setFormData({ ...formData, localidad_id });
+                    setInstalacionPrincipalId('');
+                  }}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
                 >
                   <option value="">Selecciona localidad</option>
@@ -580,20 +610,38 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
                 </select>
               </div>
 
-              {formData.location && (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Instalación</p>
                 <select
-                  name="instalacion_campo_id"
-                  value={formData.instalacion_campo_id || ''}
-                  onChange={(e) => setFormData({ ...formData, instalacion_campo_id: e.target.value || undefined })}
+                  value={instalacionPrincipalId}
+                  onChange={(e) => setInstalacionPrincipalId(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
                 >
-                  <option value="">Selecciona instalación / campo</option>
-                  {instalacionesFiltradas.map(ic => (
-                    <option key={ic.id} value={ic.id || ''}>
+                  <option value="">Selecciona instalación</option>
+                  {instalacionesPrincipales.map(ic => (
+                    <option key={ic.id} value={ic.id}>
                       {ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {instalacionPrincipalId && camposDisponibles.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Campo</p>
+                  <select
+                    value={formData.instalacion_campo_id || ''}
+                    onChange={(e) => setFormData({ ...formData, instalacion_campo_id: e.target.value })}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                  >
+                    <option value="">Selecciona campo</option>
+                    {camposDisponibles.map(ic => (
+                      <option key={ic.id} value={ic.id}>
+                        {ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               {typeSelected === 'Partido' && (

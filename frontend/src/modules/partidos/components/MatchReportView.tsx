@@ -8,8 +8,8 @@ import type { CompetitionTeam } from '@modules/competicion';
 import type { Campograma } from '@modules/entrenamientos';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
-import { db, equiposService, clubesService, plantillasService } from '@shared/services/dataService';
-import type { Equipo, Jugador, Club, Competicion } from '@shared/services/dataService';
+import { db, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
+import type { Equipo, Jugador, Club, Competicion, Localidad, InstalacionCampo } from '@shared/services/dataService';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
@@ -213,6 +213,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     time: match.time || '18:00',
     competition: match.competition || '',
     location: match.location || '',
+    localidad_id: match.localidad_id || '',
+    instalacion_campo_id: match.instalacion_campo_id || '',
     jornada: match.jornada || '',
     localTeam: match.localTeam || '',
     visitorTeam: match.visitorTeam || '',
@@ -228,6 +230,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       time: match.time || '18:00',
       competition: match.competition || '',
       location: match.location || '',
+      localidad_id: match.localidad_id || '',
+      instalacion_campo_id: match.instalacion_campo_id || '',
       jornada: match.jornada || '',
       localTeam: match.localTeam || '',
       visitorTeam: match.visitorTeam || '',
@@ -238,6 +242,54 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id]);
+
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
+  const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string>('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [locs, insts] = await Promise.all([localidadesService.list(), instalacionesCamposService.list()]);
+        setLocalidades(locs || []);
+        setInstalacionesCampos(insts || []);
+      } catch (err) {
+        console.error('Error al cargar localidades e instalaciones:', err);
+      }
+    })();
+  }, []);
+
+  const instalacionesPrincipales = useMemo(
+    () => instalacionesCampos.filter(
+      ic => !ic.parent_instalacion_id && (!dgForm.localidad_id || ic.localidad_id === dgForm.localidad_id)
+    ),
+    [instalacionesCampos, dgForm.localidad_id]
+  );
+
+  const camposDisponibles = useMemo(
+    () => instalacionesCampos.filter(ic => ic.parent_instalacion_id === instalacionPrincipalId),
+    [instalacionesCampos, instalacionPrincipalId]
+  );
+
+  // Al abrir un partido ya guardado, resolver a qué instalación principal pertenece el campo guardado.
+  useEffect(() => {
+    if (!dgForm.instalacion_campo_id || instalacionesCampos.length === 0) return;
+    const saved = instalacionesCampos.find(ic => ic.id === dgForm.instalacion_campo_id);
+    if (!saved) return;
+    setInstalacionPrincipalId(saved.parent_instalacion_id || saved.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id, instalacionesCampos]);
+
+  useEffect(() => {
+    if (!instalacionPrincipalId) return;
+    const campos = instalacionesCampos.filter(ic => ic.parent_instalacion_id === instalacionPrincipalId);
+    if (campos.length === 0) {
+      setDgForm(prev => (prev.instalacion_campo_id === instalacionPrincipalId ? prev : { ...prev, instalacion_campo_id: instalacionPrincipalId }));
+    } else if (!campos.some(c => c.id === dgForm.instalacion_campo_id)) {
+      setDgForm(prev => (prev.instalacion_campo_id ? { ...prev, instalacion_campo_id: '' } : prev));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instalacionPrincipalId, instalacionesCampos]);
 
   const clubNameById = useMemo(() => new Map(clubs.map(c => [String(c.id), c.nombre])), [clubs]);
   // Fallback por nombre para partidos antiguos guardados sin clubId por equipo: si dos
@@ -346,6 +398,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       time: dgForm.time,
       competition: dgForm.competition || undefined,
       location: dgForm.location || undefined,
+      localidad_id: dgForm.localidad_id || undefined,
+      instalacion_campo_id: dgForm.instalacion_campo_id || undefined,
       jornada: dgForm.jornada || undefined,
       localTeam: dgForm.localTeam || undefined,
       visitorTeam: dgForm.visitorTeam || undefined,
@@ -1221,8 +1275,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     window.addEventListener('message', handleMessage);
     pollInterval.current = setInterval(() => {
       if (iframeRef.current && iframeRef.current.contentWindow) {
-        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'getCurrentTime', args: [] }), '*');
-        iframeRef.current.contentWindow.postMessage(JSON.stringify({ method: 'getCurrentTime' }), '*');
+        const win = iframeRef.current.contentWindow;
+        // Handshake requerido por YouTube para que empiece a enviar infoDelivery con currentTime
+        win.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
+        // Suscripción requerida por Vimeo para que empiece a emitir timeupdate
+        win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'timeupdate' }), '*');
+        win.postMessage(JSON.stringify({ event: 'command', func: 'getCurrentTime', args: [] }), '*');
+        win.postMessage(JSON.stringify({ method: 'getCurrentTime' }), '*');
       }
     }, 1000);
     return () => {
@@ -4830,6 +4889,59 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               ))}
             </SearchableSelect>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+              <i className="fa-solid fa-map-location-dot mr-2"></i>Localidad
+            </label>
+            <select
+              value={dgForm.localidad_id}
+              onChange={(e) => {
+                setDgForm({ ...dgForm, localidad_id: e.target.value });
+                setInstalacionPrincipalId('');
+              }}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)] appearance-none"
+            >
+              <option value="">Selecciona localidad</option>
+              {localidades.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+              <i className="fa-solid fa-building mr-2"></i>Instalación
+            </label>
+            <select
+              value={instalacionPrincipalId}
+              onChange={(e) => setInstalacionPrincipalId(e.target.value)}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)] appearance-none"
+            >
+              <option value="">Selecciona instalación</option>
+              {instalacionesPrincipales.map(ic => (
+                <option key={ic.id} value={ic.id}>{ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          {instalacionPrincipalId && camposDisponibles.length > 0 && (
+            <div>
+              <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
+                <i className="fa-solid fa-futbol mr-2"></i>Campo
+              </label>
+              <select
+                value={dgForm.instalacion_campo_id}
+                onChange={(e) => setDgForm({ ...dgForm, instalacion_campo_id: e.target.value })}
+                className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)] appearance-none"
+              >
+                <option value="">Selecciona campo</option>
+                {camposDisponibles.map(ic => (
+                  <option key={ic.id} value={ic.id}>{ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div>

@@ -4,7 +4,8 @@ import { createColumnHelper } from '@tanstack/react-table';
 import type { Match } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
 import type { Club } from '@modules/clubes/types';
-import { getTeamConfig } from '@shared/services/dataService';
+import { getTeamConfig, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
+import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
@@ -130,6 +131,43 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
   const [jornadaFilter, setJornadaFilter] = useState<string>(ALL_FILTER);
   const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
+  const [localidadFilter, setLocalidadFilter] = useState<string>(ALL_FILTER);
+  const [instalacionPrincipalFilter, setInstalacionPrincipalFilter] = useState<string>(ALL_FILTER);
+  const [campoFilter, setCampoFilter] = useState<string>(ALL_FILTER);
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const locs = await localidadesService.list();
+        const insts = await instalacionesCamposService.list();
+        if (locs) setLocalidades(locs as Localidad[]);
+        if (insts) setInstalacionesCampos(insts as InstalacionCampo[]);
+      } catch (err) {
+        console.error('Error al cargar localidades e instalaciones:', err);
+      }
+    })();
+  }, []);
+
+  const instalacionesPrincipalesOptions = useMemo(
+    () => instalacionesCampos.filter(i => !i.parent_instalacion_id && (localidadFilter === ALL_FILTER || i.localidad_id === localidadFilter)),
+    [instalacionesCampos, localidadFilter]
+  );
+  const camposOptions = useMemo(
+    () => instalacionesCampos.filter(i => !!i.parent_instalacion_id && (instalacionPrincipalFilter === ALL_FILTER || i.parent_instalacion_id === instalacionPrincipalFilter)),
+    [instalacionesCampos, instalacionPrincipalFilter]
+  );
+  const campoParentMap = useMemo(
+    () => new Map(instalacionesCampos.filter(i => i.parent_instalacion_id).map(i => [i.id, i.parent_instalacion_id as string])),
+    [instalacionesCampos]
+  );
+
+  useEffect(() => {
+    if (instalacionPrincipalFilter !== ALL_FILTER && campoFilter !== ALL_FILTER && campoParentMap.get(campoFilter) !== instalacionPrincipalFilter) {
+      setCampoFilter(ALL_FILTER);
+    }
+  }, [instalacionPrincipalFilter, campoFilter, campoParentMap]);
 
   // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
   const ownCompetitionTeams = useMemo(
@@ -293,8 +331,23 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       result = result.filter((m) => m.competition === competitionFilter);
     }
 
+    if (localidadFilter !== ALL_FILTER) {
+      result = result.filter((m) => m.localidad_id === localidadFilter);
+    }
+
+    if (instalacionPrincipalFilter !== ALL_FILTER) {
+      result = result.filter((m) =>
+        m.instalacion_campo_id === instalacionPrincipalFilter
+        || (m.instalacion_campo_id ? campoParentMap.get(m.instalacion_campo_id) === instalacionPrincipalFilter : false)
+      );
+    }
+
+    if (campoFilter !== ALL_FILTER) {
+      result = result.filter((m) => m.instalacion_campo_id === campoFilter);
+    }
+
     return result;
-  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName, localidadFilter, instalacionPrincipalFilter, campoFilter, campoParentMap]);
 
   // Jornada depende de Equipo Interno y Competición
   const jornadaOptions = useMemo(() => {
@@ -664,6 +717,45 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           >
             <option value={ALL_FILTER}>{t('matchesList.allJornadas')}</option>
             {jornadaOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </SearchableSelect>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            Localidad
+          </label>
+          <SearchableSelect
+            value={localidadFilter}
+            onChange={(e) => setLocalidadFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>Todas las localidades</option>
+            {localidades.map((loc) => <option key={loc.id} value={loc.id}>{loc.nombre}</option>)}
+          </SearchableSelect>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            Instalación
+          </label>
+          <SearchableSelect
+            value={instalacionPrincipalFilter}
+            onChange={(e) => setInstalacionPrincipalFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>Todas las instalaciones</option>
+            {instalacionesPrincipalesOptions.map((inst) => <option key={inst.id} value={inst.id}>{inst.nombre}</option>)}
+          </SearchableSelect>
+        </div>
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            Campo
+          </label>
+          <SearchableSelect
+            value={campoFilter}
+            onChange={(e) => setCampoFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>Todos los campos</option>
+            {camposOptions.map((campo) => <option key={campo.id} value={campo.id}>{campo.nombre}</option>)}
           </SearchableSelect>
         </div>
       </div>

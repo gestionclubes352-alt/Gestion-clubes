@@ -27,8 +27,6 @@ interface UserTableProps {
   onReject?: (user: User) => void;
   /** Recargar manualmente la lista de usuarios */
   onRefresh?: () => void;
-  /** Clubes dados de alta en el sistema */
-  clubes: Club[];
 }
 
 const columnHelper = createColumnHelper<User>();
@@ -65,24 +63,12 @@ const getRoleBadge = (role: string) => {
   return colors[role] || colors['Tecnico'];
 };
 
-const getDeptBadge = (dept: string) => {
-  const colors: Record<string, string> = {
-    'Personal': 'bg-blue-50 text-blue-600 border-blue-200',
-    'Directiva': 'bg-purple-50 text-purple-600 border-purple-200',
-    'Dirección Deportiva': 'bg-orange-50 text-orange-600 border-orange-200',
-  };
-  return colors[dept] || 'bg-slate-50 text-slate-500 border-slate-200';
-};
-
 // ── Componente ─────────────────────────────────────────────
 
-const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate, onApprove, onReject, onRefresh, clubes }) => {
+const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate, onApprove, onReject, onRefresh }) => {
   const { t } = useTranslation();
   const [busyId, setBusyId] = useState<string | number | null>(null);
   const [approveRole, setApproveRole] = useState<Record<string, Exclude<User['rol'], 'Pendiente'>>>({});
-
-  /** Mapa de clubes por id para lookup rápido */
-  const clubesById = useMemo(() => new Map(clubes.map(c => [String(c.id), c])), [clubes]);
 
   const pendingUsers = useMemo(() => users.filter(u => u.estado === 'Pendiente'), [users]);
 
@@ -146,23 +132,6 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
       header: t('common.email'),
       cell: info => <span className="text-slate-500">{info.getValue()}</span>,
     }),
-    columnHelper.accessor('departamento', {
-      header: t('userTable.department'),
-      cell: info => {
-        const dept = info.getValue();
-        const row = info.row.original;
-        return (
-          <div className="flex flex-col gap-1">
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider border w-fit ${getDeptBadge(dept)}`}>
-              {dept || t('userTable.unassigned')}
-            </span>
-            {dept === 'Personal' && row.rolTecnico && (
-              <span className="text-[10px] text-slate-400 font-bold">{row.rolTecnico}</span>
-            )}
-          </div>
-        );
-      },
-    }),
     columnHelper.accessor('rol', {
       header: t('users.role'),
       cell: info => (
@@ -170,43 +139,6 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
           {roleLabels[info.getValue()] || info.getValue()}
         </span>
       ),
-    }),
-    columnHelper.accessor('clubId', {
-      header: 'Club',
-      cell: info => {
-        const row = info.row.original;
-        const isAdmin = row.rol === 'Administrador' || row.rol === 'Responsable';
-
-        // Admins/Responsables tienen acceso a todos los clubs
-        if (isAdmin) {
-          return (
-            <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">Todos</span>
-          );
-        }
-
-        const cid = info.getValue();
-        const club = cid ? clubesById.get(String(cid)) : undefined;
-        if (!club) {
-          return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider border bg-slate-50 text-slate-400 border-slate-200">
-              <i className="fa-solid fa-minus text-[8px]"></i>
-              {t('userTable.unassigned')}
-            </span>
-          );
-        }
-        return (
-          <div className="flex items-center gap-2">
-            {club.logoUrl ? (
-              <img loading="lazy" decoding="async" src={club.logoUrl} alt={club.nombre} className="w-6 h-6 rounded object-contain" />
-            ) : (
-              <div className="w-6 h-6 rounded flex items-center justify-center text-[8px] font-black text-white bg-slate-400">
-                {club.nombre.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="text-xs font-bold text-slate-700">{club.nombre}</span>
-          </div>
-        );
-      },
     }),
     columnHelper.accessor('estado', {
       header: t('common.status'),
@@ -222,7 +154,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
       cell: info => <span className="text-slate-400 text-xs">{info.getValue() || t('userTable.never')}</span>,
     }),
   ];
-  }, [t, clubesById]);
+  }, [t]);
 
   const actions = useMemo<DataTableAction<User>[]>(() => {
     const acts: DataTableAction<User>[] = [

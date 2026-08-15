@@ -12,6 +12,7 @@ import { useTeamFilter } from '@context/TeamFilterContext';
 import { useTheme } from '@context/ThemeContext';
 import LanguageSelector from './LanguageSelector';
 import { compareEquipoNames } from './EquipoSelect';
+import escuelaHuescaLogo from '/logos/escuela-huesca.png';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -107,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
   const activeSourceInfo = sources.find(s => s.id === activeSource);
   const activeColors = DATA_SOURCE_COLORS[activeSource];
 
-  const clubLogo = selectedTeam?.logoUrl || '/logos/escuela-huesca.png';
+  const clubLogo = selectedTeam?.logoUrl || escuelaHuescaLogo;
   const clubName = 'HUESCA';
   const isHomeActive = location.pathname === '/';
   const isCalendarActive = location.pathname.startsWith('/calendario');

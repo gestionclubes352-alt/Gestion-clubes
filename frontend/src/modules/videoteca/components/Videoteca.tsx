@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { VideoItem, DetectionEvent, DetectionType } from '../types';
+import type { VideoItem, DetectionEvent, DetectionType, VideoClip } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
 declare global {
@@ -38,6 +38,9 @@ const Videoteca: React.FC = () => {
   const [activeVideoUrl, setActiveVideoUrl] = useState('');
   const [eventFilter, setEventFilter] = useState<DetectionType | 'TODOS'>('TODOS');
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [capturedClips, setCapturedClips] = useState<VideoClip[]>([]);
+  const [currentVideoTime, setCurrentVideoTime] = useState<number>(0);
+  const timeUpdateListenerRef = useRef<boolean>(false);
 
   const sampleEvents = useMemo<DetectionEvent[]>(() => ([
     { id: 'ev-1', minute: '03:12', type: 'OCASION', note: 'Remate tras centro desde banda derecha', confidence: 0.78, actions: ['Centro lateral', 'Remate de cabeza'] },
@@ -79,6 +82,51 @@ const Videoteca: React.FC = () => {
     if (parts.length === 2) return (parts[0] * 60) + parts[1];
     if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
     return 0;
+  };
+
+  const secondsToTimeString = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hours > 0) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const calculateClipTimes = (eventMinute: string) => {
+    const eventSeconds = getSecondsFromMinute(eventMinute);
+    const clipStartSeconds = Math.max(0, eventSeconds - 5);
+    const clipEndSeconds = eventSeconds + 5;
+    return {
+      clipStartSeconds,
+      clipEndSeconds,
+      clipStartTime: secondsToTimeString(clipStartSeconds),
+      clipEndTime: secondsToTimeString(clipEndSeconds),
+    };
+  };
+
+  const handleCaptureClip = (event: DetectionEvent, videoId: string | number) => {
+    const eventTime = secondsToTimeString(currentVideoTime);
+    const clipStartSeconds = Math.max(0, currentVideoTime - 5);
+    const clipEndSeconds = currentVideoTime + 5;
+    const clipStartTime = secondsToTimeString(clipStartSeconds);
+    const clipEndTime = secondsToTimeString(clipEndSeconds);
+
+    const clip: VideoClip = {
+      id: crypto.randomUUID(),
+      eventId: event.id,
+      videoId,
+      eventType: event.type,
+      eventTime: eventTime,
+      clipStartTime,
+      clipEndTime,
+      clipStartSeconds,
+      clipEndSeconds,
+      note: event.note,
+      capturedAt: new Date().toISOString(),
+    };
+    setCapturedClips(prev => [clip, ...prev]);
   };
 
   const buildVimeoTimestampUrl = (url: string, minute: string) => {
@@ -129,6 +177,16 @@ const Videoteca: React.FC = () => {
     try {
       await playerRef.current.loadVideo(id);
       await playerRef.current.setCurrentTime(seconds);
+      setCurrentVideoTime(seconds);
+
+      // Setup time tracking only once
+      if (!timeUpdateListenerRef.current && playerRef.current) {
+        playerRef.current.on('timeupdate', (data: any) => {
+          setCurrentVideoTime(Math.round(data.seconds * 100) / 100);
+        });
+        timeUpdateListenerRef.current = true;
+      }
+
       await playerRef.current.play();
     } catch (err) {
       console.error('Vimeo player error', err);
@@ -150,7 +208,9 @@ const Videoteca: React.FC = () => {
         autopause: true,
         muted: false
       });
-      playerRef.current.ready().then(() => setPlayerReady(true));
+      playerRef.current.ready().then(() => {
+        setPlayerReady(true);
+      });
     };
 
     if (!window.Vimeo?.Player) {
@@ -297,9 +357,16 @@ const Videoteca: React.FC = () => {
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               {t('videos.aiResults')} {selectedTitle ? `• ${selectedTitle}` : ''}
             </p>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              {filteredEvents.length} {t('videos.events')}
-            </p>
+            <div className="flex items-center gap-3">
+              {analysisVideoUrl && (
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                  Tiempo actual: {secondsToTimeString(currentVideoTime)}
+                </span>
+              )}
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {filteredEvents.length} {t('videos.events')}
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -358,16 +425,29 @@ const Videoteca: React.FC = () => {
                     {Math.round(event.confidence * 100)}%
                   </span>
                   {analysisVideoUrl && (
-                    <button
-                      onClick={() => {
-                        const startAt = event.startAt || event.minute;
-                        setActiveEventId(event.id);
-                        openPlayer(analysisVideoUrl, selectedTitle || 'Vimeo', startAt);
-                      }}
-                      className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all"
-                    >
-                      {t('videos.viewClip')}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          const startAt = event.startAt || event.minute;
+                          setActiveEventId(event.id);
+                          openPlayer(analysisVideoUrl, selectedTitle || 'Vimeo', startAt);
+                        }}
+                        className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all"
+                      >
+                        {t('videos.viewClip')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const videoId = activeVideoId || crypto.randomUUID();
+                          handleCaptureClip(event, videoId);
+                        }}
+                        className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all"
+                        title={`Capturar clip: ${event.minute} (5s antes - 5s después)`}
+                      >
+                        <i className="fa-solid fa-scissors mr-1"></i>
+                        {t('videos.captureClip') || 'Capturar'}
+                      </button>
+                    </>
                   )}
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t('videos.actionsLabel')}</span>
                   {event.actions.map((action) => (
@@ -420,6 +500,79 @@ const Videoteca: React.FC = () => {
           </div>
         )}
       </div>
+
+      {capturedClips.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-[28px] p-6 md:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h4 className="text-slate-900 font-black text-sm uppercase tracking-widest">{t('videos.capturedClips') || 'Clips Capturados'}</h4>
+              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                {capturedClips.length} {t('videos.clipsRecorded') || 'clips registrados'}
+              </p>
+            </div>
+            <button
+              onClick={() => setCapturedClips([])}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:text-red-600 hover:border-red-300 transition-all"
+            >
+              <i className="fa-solid fa-trash-can mr-1"></i>
+              {t('videos.clearClips') || 'Limpiar'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            {capturedClips.map((clip) => (
+              <div
+                key={clip.id}
+                className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 rounded-2xl border border-blue-200 bg-blue-50/60"
+              >
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[13px] font-black text-blue-600 min-w-[60px]">{clip.eventTime}</span>
+                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                      clip.eventType === 'GOL'
+                        ? 'bg-red-600 text-white'
+                        : clip.eventType === 'CORNER'
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-red-100 text-red-700'
+                    }`}>
+                      {clip.eventType === 'CORNER' ? t('videos.cornerKick') : clip.eventType === 'OCASION' ? t('videos.chance') : clip.eventType}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-600">{clip.note}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500">
+                    <i className="fa-solid fa-scissors text-blue-500"></i>
+                    <span>Clip registrado: {clip.clipStartTime} → {clip.clipEndTime}</span>
+                    <span className="text-blue-600 font-black">(5s antes • 5s después)</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {analysisVideoUrl && (
+                    <button
+                      onClick={() => {
+                        setActiveEventId(null);
+                        openPlayer(analysisVideoUrl, selectedTitle || 'Vimeo', clip.clipStartTime);
+                      }}
+                      className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white border border-blue-600 hover:bg-blue-700 transition-all flex items-center gap-1"
+                    >
+                      <i className="fa-solid fa-play"></i>
+                      {t('videos.play') || 'Ver'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setCapturedClips(prev => prev.filter(c => c.id !== clip.id));
+                    }}
+                    className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all"
+                    title="Eliminar clip"
+                  >
+                    <i className="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {videos.map((video) => (

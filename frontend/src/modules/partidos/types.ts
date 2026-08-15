@@ -18,6 +18,8 @@ export interface Match {
   visitorTeamClubId?: string;
   time?: string;
   location?: string;
+  localidad_id?: string;
+  instalacion_campo_id?: string;
   nombreInterno?: string;
   team?: string;
   readonly?: boolean;

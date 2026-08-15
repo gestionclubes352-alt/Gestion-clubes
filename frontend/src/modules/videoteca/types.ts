@@ -22,6 +22,20 @@ export interface DetectionEvent {
   actions: string[];
 }
 
+export interface VideoClip {
+  id: string;
+  eventId: string;
+  videoId: string | number;
+  eventType: DetectionType;
+  eventTime: string;
+  clipStartTime: string;
+  clipEndTime: string;
+  clipStartSeconds: number;
+  clipEndSeconds: number;
+  note: string;
+  capturedAt: string;
+}
+
 export interface VideoFilters {
   searchTerm: string;
   category: string;
