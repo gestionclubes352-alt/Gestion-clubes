@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       },
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Embedder-Policy': 'credentialless',
       },
       // En desarrollo, proxy a los emuladores de Firebase Functions
       proxy: {
