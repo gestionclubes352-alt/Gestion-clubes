@@ -8,18 +8,12 @@ import { supabase } from './supabaseClient';
 import { optimizeImageFile, type ImagePreset } from './imageOptimizer';
 
 const BUCKET = 'club-media';
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 async function uploadToStorage(path: string, file: File): Promise<string> {
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
-  // Retornar URL a través de la edge function (resuelve problemas de CORS)
-  if (!SUPABASE_URL) {
-    throw new Error('VITE_SUPABASE_URL no está configurada');
-  }
-  const projectId = new URL(SUPABASE_URL).hostname.split('.')[0];
-  const encodedPath = encodeURIComponent(path);
-  return `https://${projectId}.functions.supabase.co/serve-image?bucket=${BUCKET}&path=${encodedPath}`;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }
 
 /**
