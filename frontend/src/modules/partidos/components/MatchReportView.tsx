@@ -505,6 +505,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [ytUploadProgress, setYtUploadProgress] = useState<YouTubeUploadProgress | null>(null);
   const [ytSelectedFile, setYtSelectedFile] = useState<File | null>(null);
   const [ytTargetField, setYtTargetField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl' | 'planConBalonVideo' | 'planSinBalonVideo' | 'planAbpVideo' | 'rivalConBalonVideo' | 'rivalSinBalonVideo' | 'rivalAbpVideo'>('videoUrl');
+  const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
+  const [urlModalField, setUrlModalField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl'>('videoUrl');
+  const [urlModalValue, setUrlModalValue] = useState('');
   const ytActiveTaskIdRef = useRef<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
@@ -2887,32 +2890,45 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
       <div className="w-full lg:w-[420px] flex flex-col bg-white dark:bg-[#0f0f0f] overflow-y-auto lg:overflow-hidden shrink-0 order-2 lg:order-1 border-r border-slate-200 dark:border-white/5 shadow-2xl">
          <div className="p-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0b0b0b]">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest mb-2"><i className="fa-brands fa-youtube mr-2"></i>{t('matchReport.video.matchUrl')}</label>
-            <div className="flex gap-2">
-                <input
-                    type="text"
-                    value={report.videoUrl}
-                    onChange={(e) => { const val = e.target.value; setReport({...report, videoUrl: val}); }}
-                    onBlur={() => persistReport(report)}
-                    placeholder={t('matchReport.video.pasteLink')}
-                    className="flex-1 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-red-400 focus:border-red-500 outline-none font-bold placeholder:text-slate-300 dark:placeholder:text-white/10 font-mono"
-                />
-                {report.videoUrl && (
-                  <button
-                    onClick={() => { setReport({...report, videoUrl: ''}); persistReport({...report, videoUrl: ''}); }}
-                    title={t('common.delete') || 'Delete'}
-                    className="px-3 py-2 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 rounded-xl text-slate-600 dark:text-white/60 transition-colors shrink-0"
-                  >
-                    <i className="fa-solid fa-xmark text-xs"></i>
-                  </button>
-                )}
+            <label className="block text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3"><i className="fa-brands fa-youtube mr-2"></i>{t('matchReport.video.matchUrl')}</label>
+
+            {report.videoUrl && (
+              <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <i className="fa-solid fa-link text-red-500 shrink-0"></i>
+                  <span className="text-[9px] text-red-700 dark:text-red-300 font-bold truncate">{report.videoUrl.substring(0, 40)}...</span>
+                </div>
                 <button
-                  onClick={() => ytFileInputRef.current?.click()}
-                  title={t('matchReport.video.uploadToYoutubeTitle')}
-                  className="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-xl text-red-400 transition-colors shrink-0"
+                  onClick={() => { setReport({...report, videoUrl: ''}); persistReport({...report, videoUrl: ''}); }}
+                  title={t('common.delete') || 'Delete'}
+                  className="px-2 py-1 bg-red-200 dark:bg-red-900/40 hover:bg-red-300 dark:hover:bg-red-900/60 border border-red-300 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 transition-colors shrink-0"
                 >
-                  <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                  <i className="fa-solid fa-trash text-xs"></i>
                 </button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <button
+                onClick={() => ytFileInputRef.current?.click()}
+                disabled={ytUploadProgress?.stage !== undefined && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error'}
+                className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
+              >
+                <i className="fa-solid fa-video text-base"></i>
+                <span>Subir Video</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setUrlModalField('videoUrl');
+                  setUrlModalValue(report.videoUrl);
+                  setIsUrlModalOpen(true);
+                }}
+                className="w-full flex items-center justify-center gap-3 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white/70 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
+              >
+                <i className="fa-solid fa-link text-base"></i>
+                <span>Pegar URL</span>
+              </button>
             </div>
             {/* Mini progress bar in sidebar */}
             {ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
@@ -3131,6 +3147,51 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     >
                       {t('common.cancel')}
                     </button>
+                </div>
+            </div>
+         )}
+
+         {isUrlModalOpen && (
+            <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-md mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl">
+                    <div className="text-center space-y-2 mb-4">
+                        <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]"><i className="fa-solid fa-link mr-2"></i>URL</div>
+                        <h3 className="text-lg font-black text-[var(--text-strong)]">Pegar URL de Video</h3>
+                        <p className="text-[10px] text-slate-400 dark:text-white/40">YouTube, Vimeo o similar</p>
+                    </div>
+                    <div className="space-y-3">
+                        <input
+                            type="text"
+                            value={urlModalValue}
+                            onChange={(e) => setUrlModalValue(e.target.value)}
+                            placeholder="https://youtu.be/... o https://vimeo.com/..."
+                            className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[11px] text-[var(--text-strong)] focus:border-red-500 outline-none font-mono"
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                const field = urlModalField;
+                                setReport(prev => ({ ...prev, [field]: urlModalValue }));
+                                persistReport({ ...report, [field]: urlModalValue });
+                                setIsUrlModalOpen(false);
+                                setUrlModalValue('');
+                              }}
+                              className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest transition-colors"
+                            >
+                              {t('common.confirm')}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsUrlModalOpen(false);
+                                setUrlModalValue('');
+                              }}
+                              className="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[10px] uppercase tracking-widest transition-colors"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
          )}

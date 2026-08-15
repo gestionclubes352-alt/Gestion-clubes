@@ -281,7 +281,7 @@ async function queryResumeOffset(uploadUrl, fileSize, signal) {
   }
 }
 
-async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgress) {
+async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgress, taskId) {
   let uploadedBytes = startOffset || 0;
   onProgress(Math.round((uploadedBytes / file.size) * 100));
 
@@ -447,7 +447,7 @@ async function runUpload(taskId, meta, retry) {
 
     const videoUrl = await uploadFileInChunks(task.uploadUrl, file, abort.signal, uploadedBytes, (percent) => {
       updateTaskProgress(taskId, { percent, stage: 'uploading', message: `Subiendo vídeo... ${percent}%` });
-    });
+    }, taskId);
 
     // Guardar copia del archivo original en Storage (best-effort: si falla, no bloquea la subida a YouTube)
     let videoOriginalUrl;
