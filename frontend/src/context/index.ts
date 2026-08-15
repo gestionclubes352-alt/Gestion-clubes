@@ -20,3 +20,7 @@ export type { default as TeamFilterContext } from './TeamFilterContext';
 // Contexto de Undo/Redo
 export { UndoRedoProvider, useUndoRedo } from './UndoRedoContext';
 export type { AppState } from './UndoRedoContext';
+
+// Contexto de subidas a YouTube en segundo plano
+export { YouTubeUploadProvider, useYouTubeUpload } from './YouTubeUploadContext';
+export type { YouTubeUploadTask, YouTubeUploadTargetField } from './YouTubeUploadContext';
