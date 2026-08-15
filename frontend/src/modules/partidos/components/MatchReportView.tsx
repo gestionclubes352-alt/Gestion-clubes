@@ -24,6 +24,8 @@ import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { fetchFile } from '@ffmpeg/util';
+import { getFFmpeg } from '@shared/utils/ffmpegClient';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -198,6 +200,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [activeTab, setActiveTab] = useState('DATOS GENERALES');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
   const [squad, setSquad] = useState<Player[]>([]);
 
   // Formulario "Añadir cambio" en la pestaña Eventos
@@ -464,7 +467,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   // Estado para el flujo interactivo de eventos
   const [selectedPlayerForEvent, setSelectedPlayerForEvent] = useState<Player | null>(null);
-  const [eventActionMenu, setEventActionMenu] = useState<{ type: 'GOL' | 'CAMBIO' | 'TARJETA_AMARILLA' | 'TARJETA_ROJA' | null; minute: string; playerInId?: string }>({ type: null, minute: '' });
+  const [eventActionMenu, setEventActionMenu] = useState<{ type: 'GOL' | 'CAMBIO' | 'TARJETA_AMARILLA' | 'TARJETA_ROJA' | null; minute: string; playerInId?: string; videoTimestamp?: number }>({ type: null, minute: '' });
   const [isWindowPanelOpen, setIsWindowPanelOpen] = useState(false);
   const [windowPanelMinute, setWindowPanelMinute] = useState('');
   const [windowPanelOriginalFormation, setWindowPanelOriginalFormation] = useState('');
@@ -1477,6 +1480,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           minute,
           side: isGoalkeeper ? 'CONTRA' : 'FAVOR',
           playerId: selectedPlayerForEvent.id,
+          videoTimestamp: eventActionMenu.videoTimestamp,
         };
         const next = { ...report, matchGoals: [...(report.matchGoals || []), item].sort((a, b) => a.minute - b.minute) };
         setReport(next);
@@ -1522,7 +1526,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
 
     setSelectedPlayerForEvent(null);
-    setEventActionMenu({ type: null, minute: '' });
+    setEventActionMenu({ type: null, minute: '', videoTimestamp: undefined });
   };
 
   const handleOpenWindowPanel = (minute: string) => {
@@ -1530,7 +1534,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     setWindowPanelOriginalFormation(report.formation || '1-4-3-3');
     setIsWindowPanelOpen(true);
     setSelectedPlayerForEvent(null);
-    setEventActionMenu({ type: null, minute: '' });
+    setEventActionMenu({ type: null, minute: '', videoTimestamp: undefined });
   };
 
   const handleConfirmWindowSubstitution = (playerOutId: string | number, playerInId: string | number) => {
@@ -1875,7 +1879,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <button
                 onClick={() => {
                   setSelectedPlayerForEvent(null);
-                  setEventActionMenu({ type: null, minute: '' });
+                  setEventActionMenu({ type: null, minute: '', videoTimestamp: undefined });
                 }}
                 className="absolute top-4 right-4 p-2 text-[var(--text-muted)] hover:text-[var(--text-strong)] hover:bg-[var(--surface-1)] rounded-lg transition-all"
                 title="Cerrar"
@@ -1970,7 +1974,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   <button
                     onClick={() => {
                       setSelectedPlayerForEvent(null);
-                      setEventActionMenu({ type: null, minute: '' });
+                      setEventActionMenu({ type: null, minute: '', videoTimestamp: undefined });
                     }}
                     className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
                   >
@@ -2011,11 +2015,35 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 />
               </div>
 
+              {eventActionMenu.type === 'GOL' && (
+                <div className="space-y-2 pt-2 border-t border-[var(--border-soft)]">
+                  <label className="block text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">Timestamp del video (segundos)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={eventActionMenu.videoTimestamp || ''}
+                      onChange={e => setEventActionMenu({ ...eventActionMenu, videoTimestamp: e.target.value ? Number(e.target.value) : undefined })}
+                      placeholder="0"
+                      className="flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                    />
+                    <button
+                      type="button"
+                      title="Capturar tiempo actual del video (si está disponible)"
+                      className="px-4 py-2 rounded-xl bg-blue-600/20 text-blue-600 hover:bg-blue-600/40 font-black text-xs uppercase tracking-widest transition-all border border-blue-600/30"
+                    >
+                      <i className="fa-solid fa-circle-dot"></i>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)]">Ejemplo: 125 segundos = minuto 2:05</p>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button
                   onClick={() => {
                     setSelectedPlayerForEvent(null);
-                    setEventActionMenu({ type: null, minute: '' });
+                    setEventActionMenu({ type: null, minute: '', videoTimestamp: undefined });
                   }}
                   className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
                 >
@@ -2129,6 +2157,40 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const url = report.videoUrl;
     if (!url) return;
     const seconds = timeToSeconds(ev.minute);
+    const originalUrl = report.videoOriginals?.videoUrl;
+
+    if (originalUrl) {
+      setDownloadingEventId(ev.id);
+      try {
+        const response = await fetch(originalUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const originalBlob = await response.blob();
+
+        const ffmpeg = await getFFmpeg();
+        const clipStart = Math.max(0, seconds - 10);
+        const clipDuration = 20;
+        await ffmpeg.writeFile('input.mp4', await fetchFile(originalBlob));
+        await ffmpeg.exec(['-ss', String(clipStart), '-i', 'input.mp4', '-t', String(clipDuration), '-c', 'copy', 'output.mp4']);
+        const data = await ffmpeg.readFile('output.mp4');
+        const clipBlob = new Blob([data], { type: 'video/mp4' });
+        const blobUrl = URL.createObjectURL(clipBlob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `corte_${match.id}_${ev.minute.replace(':', '-')}_${ev.type}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(blobUrl);
+        await ffmpeg.deleteFile('input.mp4');
+        await ffmpeg.deleteFile('output.mp4');
+      } catch (err) {
+        console.error('[download-event]', err);
+        alert(t('matchReport.alerts.downloadError'));
+      } finally {
+        setDownloadingEventId(null);
+      }
+      return;
+    }
 
     if (isDirectVideoUrl(url)) {
       try {
@@ -2159,7 +2221,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       openUrl = `https://vimeo.com/${vimeoMatch[1]}#t=${seconds}s`;
     }
     window.open(openUrl, '_blank', 'noopener,noreferrer');
-    alert(t('matchReport.alerts.downloadNotAvailable'));
+    alert(t('matchReport.alerts.downloadNoOriginal'));
   };
 
   const startEditing = (ev: VideoEvent) => {
@@ -3286,11 +3348,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                             </button>
                                             <button
                                               type="button"
+                                              disabled={downloadingEventId === ev.id}
                                               onClick={(e) => { e.stopPropagation(); handleDownloadEvent(ev); }}
-                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0"
+                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0 disabled:opacity-60 disabled:cursor-wait"
                                               title={t('matchReport.events.downloadClip')}
                                             >
-                                              <i className="fa-solid fa-download text-[11px]"></i>
+                                              <i className={`fa-solid ${downloadingEventId === ev.id ? 'fa-spinner fa-spin' : 'fa-download'} text-[11px]`}></i>
                                             </button>
                                             <button
                                               type="button"
