@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Match, MatchReport } from '@modules/partidos';
-import { db, plantillasService } from '@shared/services/dataService';
+import { db, plantillasService, clubesService } from '@shared/services/dataService';
 import type { Jugador } from '@shared/services/dataService';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import ShareButton from '@modules/partidos/components/ShareButton';
 import { DataTable } from '@shared/components/DataTable';
 import type { DataTableAction } from '@shared/components/DataTable';
+import { getOrCreateChannelShareLink, getChannelShareUrl, copyChannelShareUrlToClipboard } from '@shared/services/shareService';
+import { useAuth } from '@context/AuthContext';
 
 interface VideotecaProps {
   matches?: Match[];
@@ -56,12 +58,16 @@ interface VideoRow {
 
 const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
   const [playersById, setPlayersById] = useState<Map<string | number, Jugador>>(new Map());
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalTimestamp, setVideoModalTimestamp] = useState<number | undefined>(undefined);
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [channelShareUrl, setChannelShareUrl] = useState<string | null>(null);
+  const [sharingLoading, setSharingLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // El vídeo completo, los goles a favor/contra y las ocasiones de cada partido vienen
   // del informe de partido (match_reports), no del propio Match.
@@ -85,6 +91,19 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
       }
     })();
   }, []);
+
+  // Generate channel share link on mount
+  useEffect(() => {
+    if (!profile?.club_id) return;
+    (async () => {
+      try {
+        const shareData = await getOrCreateChannelShareLink(profile.club_id);
+        setChannelShareUrl(getChannelShareUrl(shareData.token));
+      } catch (err) {
+        console.error('Error al generar enlace de canal:', err);
+      }
+    })();
+  }, [profile?.club_id]);
 
   const matchVideos = useMemo<MatchVideoItem[]>(() => {
     return matches
@@ -136,6 +155,24 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
     if (!playerId) return 'Gol';
     const player = playersById.get(playerId);
     return player ? player.nombre : `Jugador #${playerId}`;
+  };
+
+  const handleCopyChannelShareUrl = async () => {
+    if (!channelShareUrl) return;
+    setSharingLoading(true);
+    try {
+      // Extract token from URL
+      const token = channelShareUrl.split('/').pop();
+      if (token) {
+        await copyChannelShareUrlToClipboard(token);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      }
+    } catch (err) {
+      console.error('Error copiando enlace:', err);
+    } finally {
+      setSharingLoading(false);
+    }
   };
 
   const columnHelper = createColumnHelper<VideoRow>();
@@ -214,6 +251,21 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
             <i className="fa-brands fa-youtube text-lg"></i>
             Mi Canal
           </a>
+          {channelShareUrl && (
+            <button
+              onClick={handleCopyChannelShareUrl}
+              disabled={sharingLoading}
+              className={`flex-1 sm:flex-none px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                shareCopied
+                  ? 'bg-green-50 border border-green-200 text-green-600'
+                  : 'bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 hover:border-blue-300'
+              }`}
+              title="Copiar enlace privado para compartir el canal"
+            >
+              <i className={`fa-solid ${shareCopied ? 'fa-check' : 'fa-link'} text-lg`}></i>
+              {shareCopied ? 'Copiado' : 'Compartir Canal'}
+            </button>
+          )}
           <div className="w-full sm:w-64">
             <SearchableSelect
               value={competitionFilter}

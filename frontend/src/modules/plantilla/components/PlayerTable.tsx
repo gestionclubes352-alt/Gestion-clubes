@@ -498,16 +498,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               {t('bulkPhotoUpload.button')}
             </button>
           )}
-          {onRemoveBackgrounds && (
-            <button
-              onClick={onRemoveBackgrounds}
-              className="inline-flex items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] hover:border-[var(--surface-3)] text-[var(--text)] px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
-              title="Quitar el fondo de las fotos de la plantilla"
-            >
-              <i className="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
-              Quitar fondos
-            </button>
-          )}
           <button
             onClick={openNewPlayerCard}
             className={`inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] ${

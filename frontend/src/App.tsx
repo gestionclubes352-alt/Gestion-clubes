@@ -13,6 +13,7 @@ import { LoginPage } from '@modules/auth';
 
 // Public Share Views
 import PublicShareView from '@modules/videoteca/components/PublicShareView';
+import PublicChannelView from '@modules/videoteca/components/PublicChannelView';
 
 // Shared
 import Sidebar from '@shared/components/Sidebar';
@@ -24,7 +25,7 @@ import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
 import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES, HUESCA_JUVENIL_2627_COMPETITION_TEAMS } from '@shared/constants';
 
 // Modules - Plantilla
-import { PlayerTable, EditPlayerModal, BulkPhotoUpload, BulkBackgroundRemoval } from '@modules/plantilla';
+import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
 import type { Player } from '@modules/plantilla';
 
 // Modules - Staff
@@ -440,6 +441,7 @@ const App: React.FC = () => {
     return (
       <Routes>
         <Route path="/share/:token" element={<PublicShareView />} />
+        <Route path="/public-channel/:token" element={<PublicChannelView />} />
       </Routes>
     );
   }
@@ -652,7 +654,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
-  const [showBulkBackgroundRemoval, setShowBulkBackgroundRemoval] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Personal | null>(null);
@@ -1426,7 +1427,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     console.error('✗ Error guardando jugador:', msg);
                     alert(`Error al guardar: ${msg}`);
                   }
-                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} onRemoveBackgrounds={() => setShowBulkBackgroundRemoval(true)} />
+                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
               } />
               <Route path="/staff" element={
                 <StaffTable
@@ -1763,15 +1764,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         clubId={currentTeam?.id || ''}
         onClose={() => setShowBulkPhotoUpload(false)}
         onUploaded={async (playerId, fotoUrl) => {
-          await plantillasService.update(String(playerId), { foto_url: fotoUrl });
-          setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
-        }}
-      />}
-      {showBulkBackgroundRemoval && <BulkBackgroundRemoval
-        squad={filteredSquadList}
-        clubId={currentTeam?.id || ''}
-        onClose={() => setShowBulkBackgroundRemoval(false)}
-        onUpdated={async (playerId, fotoUrl) => {
           await plantillasService.update(String(playerId), { foto_url: fotoUrl });
           setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
         }}
