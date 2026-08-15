@@ -11,6 +11,9 @@ import { useUndoRedo } from '@context/UndoRedoContext';
 import useAppStateHistory from '@hooks/useAppStateHistory';
 import { LoginPage } from '@modules/auth';
 
+// Public Share Views
+import PublicShareView from '@modules/videoteca/components/PublicShareView';
+
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
@@ -427,6 +430,19 @@ const sideMatchesTeam = (sideName: string | undefined, team: CompetitionTeam) =>
 const App: React.FC = () => {
   const { t } = useTranslation();
   const { user, perfil, loading: authLoading, perfilLoading, signOut, refreshPerfil } = useAuth();
+  const location = useLocation();
+
+  // Rutas públicas que no requieren autenticación
+  const isPublicRoute = location.pathname.startsWith('/share/');
+
+  // If on a public route, skip auth gate
+  if (isPublicRoute && !authLoading) {
+    return (
+      <Routes>
+        <Route path="/share/:token" element={<PublicShareView />} />
+      </Routes>
+    );
+  }
 
   // Gate de autenticación: sin sesión → LoginPage; sesión sin perfil activo → pantalla de espera.
   if (authLoading || (user && perfilLoading)) {
@@ -1603,7 +1619,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   onTeamCreated={fetchData}
                 />
               } />
-              <Route path="/videoteca" element={<Videoteca />} />
+              <Route path="/videoteca" element={<Videoteca matches={filteredMatchesList} />} />
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />

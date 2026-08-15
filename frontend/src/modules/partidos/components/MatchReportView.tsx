@@ -15,8 +15,10 @@ import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemMinutesCharts from './SystemMinutesCharts';
-import { uploadVideoToYouTube, validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
+import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
+import { useYouTubeUpload } from '@context/YouTubeUploadContext';
 import { uploadMatchReportFile, uploadClubLogo } from '@shared/services/photoService';
+import ShareButton from './ShareButton';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
@@ -441,7 +443,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [currentNote, setCurrentNote] = useState('');
   const [eventFilter, setEventFilter] = useState('ALL');
   const [playerFilter, setPlayerFilter] = useState<string | number | 'ALL'>('ALL');
-  const [showMatchTimes, setShowMatchTimes] = useState(true);
   const [sharedStartSec, setSharedStartSec] = useState<number | null>(null);
   const sharedStartRef = useRef<number | null>(null);
   
@@ -453,6 +454,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [goalPlayerSelection, setGoalPlayerSelection] = useState<string | number | ''>('');
   const [isDuelDialogOpen, setIsDuelDialogOpen] = useState(false);
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
   const [pitchDiagramPreview, setPitchDiagramPreview] = useState<{ label: string; positions: TacticalPosition[]; highlightIds?: Array<string | number> } | null>(null);
   const resumenExportRef = useRef<HTMLDivElement>(null);
@@ -492,10 +495,13 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const samePlayerId = (a?: string | number, b?: string | number) => String(a) === String(b);
 
   // YouTube upload state
+  // La subida en sí corre en YouTubeUploadContext (segundo plano, sobrevive a la
+  // navegación); aquí solo se refleja su progreso para no tocar toda la UI existente.
+  const { startUpload: startYtUpload, cancelUpload: cancelYtUpload, dismissTask: dismissYtTask, tasks: ytTasks } = useYouTubeUpload();
   const [ytUploadProgress, setYtUploadProgress] = useState<YouTubeUploadProgress | null>(null);
   const [ytSelectedFile, setYtSelectedFile] = useState<File | null>(null);
   const [ytTargetField, setYtTargetField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl' | 'planConBalonVideo' | 'planSinBalonVideo' | 'planAbpVideo' | 'rivalConBalonVideo' | 'rivalSinBalonVideo' | 'rivalAbpVideo'>('videoUrl');
-  const ytAbortRef = useRef<AbortController | null>(null);
+  const ytActiveTaskIdRef = useRef<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
   const ytRivalFileInputRef = useRef<HTMLInputElement>(null);
@@ -1356,14 +1362,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
   };
 
-  const handleAddEvent = (type: VideoEvent['type'], options?: { goalSide?: 'FAVOR' | 'CONTRA'; playerId?: string | number; duelOutcome?: 'GANADO' | 'PERDIDO' }) => {
+  const handleAddEvent = (type: VideoEvent['type'], options?: { goalSide?: 'FAVOR' | 'CONTRA'; playerId?: string | number; duelOutcome?: 'GANADO' | 'PERDIDO'; note?: string }) => {
     const eventTime = Math.max(0, currentTimeSec - 5);
     const resolvedPlayerId = options?.playerId ?? (selectedPlayerId === '' ? undefined : selectedPlayerId);
     const newEvent: VideoEvent = {
       id: Math.random().toString(36).substr(2, 9),
       minute: formatSeconds(eventTime),
       type: type,
-      note: currentNote,
+      note: options?.note ?? currentNote,
       playerId: resolvedPlayerId,
       goalSide: options?.goalSide,
       duelOutcome: options?.duelOutcome,
@@ -2594,42 +2600,64 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     setYtUploadProgress(null);
   };
 
-  const handleYtUpload = async () => {
-    if (!ytSelectedFile) return;
+  // Si ya hay una subida en curso para este partido (iniciada antes de navegar
+  // a otra página), la recupera al volver a montar el componente.
+  useEffect(() => {
+    const activeTask = ytTasks.find(t => String(t.matchId) === String(match.id));
+    if (activeTask) {
+      ytActiveTaskIdRef.current = activeTask.id;
+      setYtTargetField(activeTask.targetField as any);
+      setYtUploadProgress(activeTask.progress);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id]);
 
-    const abort = new AbortController();
-    ytAbortRef.current = abort;
+  // Mantiene el progreso local sincronizado con la subida que corre en segundo plano.
+  useEffect(() => {
+    const taskId = ytActiveTaskIdRef.current;
+    if (!taskId) return;
+    const task = ytTasks.find(t => t.id === taskId);
+    if (!task) return;
+    setYtUploadProgress(task.progress);
+    if (task.progress.stage === 'done' && task.progress.videoUrl) {
+      setReport(prev => (prev[task.targetField] === task.progress.videoUrl ? prev : { ...prev, [task.targetField]: task.progress.videoUrl }));
+    }
+  }, [ytTasks]);
+
+  const handleYtUpload = () => {
+    if (!ytSelectedFile) return;
 
     const titlePrefix = ytTargetField === 'planVideoUrl' || ytTargetField === 'rivalVideoUrl' ? `${t('matchReport.playerUrl')} – ` : '';
     const title = match.localTeam && match.visitorTeam
       ? `${titlePrefix}${match.localTeam} vs ${match.visitorTeam} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`
       : `${titlePrefix}${t('matchReport.match')} ${match.id} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`;
+    const matchLabel = match.localTeam && match.visitorTeam
+      ? `${match.localTeam} vs ${match.visitorTeam}`
+      : `${t('matchReport.match')} ${match.id}`;
 
-    try {
-      const uploadedUrl = await uploadVideoToYouTube({
-        file: ytSelectedFile,
-        title,
-        description: `Subido desde IBL – ${match.competition || ''} ${match.jornada ? 'J' + match.jornada : ''}`.trim(),
-        onProgress: setYtUploadProgress,
-        signal: abort.signal,
-      });
-
-      // Guardar la URL en el report
-      setReport(prev => ({ ...prev, [ytTargetField]: uploadedUrl }));
-      persistReport({ ...report, [ytTargetField]: uploadedUrl });
-      setYtSelectedFile(null);
-      if (ytFileInputRef.current) ytFileInputRef.current.value = '';
-      if (ytPlanFileInputRef.current) ytPlanFileInputRef.current.value = '';
-      if (ytRivalFileInputRef.current) ytRivalFileInputRef.current.value = '';
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('[youtube-upload]', err);
-      }
-    }
+    // La subida corre en segundo plano (YouTubeUploadContext): sigue activa
+    // aunque el usuario navegue a otra página de la app.
+    const taskId = startYtUpload({
+      file: ytSelectedFile,
+      title,
+      description: `Subido desde IBL – ${match.competition || ''} ${match.jornada ? 'J' + match.jornada : ''}`.trim(),
+      matchId: match.id,
+      matchLabel,
+      targetField: ytTargetField,
+    });
+    ytActiveTaskIdRef.current = taskId;
+    setYtSelectedFile(null);
+    if (ytFileInputRef.current) ytFileInputRef.current.value = '';
+    if (ytPlanFileInputRef.current) ytPlanFileInputRef.current.value = '';
+    if (ytRivalFileInputRef.current) ytRivalFileInputRef.current.value = '';
   };
 
   const handleYtCancel = () => {
-    ytAbortRef.current?.abort();
+    if (ytActiveTaskIdRef.current) {
+      cancelYtUpload(ytActiveTaskIdRef.current);
+      dismissYtTask(ytActiveTaskIdRef.current);
+      ytActiveTaskIdRef.current = null;
+    }
     setYtUploadProgress(null);
     setYtSelectedFile(null);
     if (ytFileInputRef.current) ytFileInputRef.current.value = '';
@@ -2760,14 +2788,23 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
          <div className="p-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0b0b0b]">
             <label className="block text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest mb-2"><i className="fa-brands fa-youtube mr-2"></i>{t('matchReport.video.matchUrl')}</label>
             <div className="flex gap-2">
-                <input 
-                    type="text" 
-                    value={report.videoUrl} 
-                    onChange={(e) => { const val = e.target.value; setReport({...report, videoUrl: val}); }} 
+                <input
+                    type="text"
+                    value={report.videoUrl}
+                    onChange={(e) => { const val = e.target.value; setReport({...report, videoUrl: val}); }}
                     onBlur={() => persistReport(report)}
                     placeholder={t('matchReport.video.pasteLink')}
                     className="flex-1 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-red-400 focus:border-red-500 outline-none font-bold placeholder:text-slate-300 dark:placeholder:text-white/10 font-mono"
                 />
+                {report.videoUrl && (
+                  <button
+                    onClick={() => { setReport({...report, videoUrl: ''}); persistReport({...report, videoUrl: ''}); }}
+                    title={t('common.delete') || 'Delete'}
+                    className="px-3 py-2 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 rounded-xl text-slate-600 dark:text-white/60 transition-colors shrink-0"
+                  >
+                    <i className="fa-solid fa-xmark text-xs"></i>
+                  </button>
+                )}
                 <button
                   onClick={() => ytFileInputRef.current?.click()}
                   title={t('matchReport.video.uploadToYoutubeTitle')}
@@ -2787,81 +2824,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             )}
          </div>
          <div className="p-5 border-b border-slate-200 dark:border-white/10 space-y-6">
-            <div className="bg-slate-100 dark:bg-[#1a1a1a] border border-slate-200 dark:border-white/5 rounded-3xl p-5 space-y-4">
-                <button onClick={() => setShowMatchTimes(!showMatchTimes)} className="w-full flex items-center justify-between">
-                    <span className="text-[9px] font-black text-slate-300 dark:text-white/20 uppercase tracking-[0.3em]">{t('matchReport.matchTimes.title')}</span>
-                    <span className="text-[9px] font-black text-slate-400 dark:text-white/30 flex items-center gap-2 uppercase">
-                        {showMatchTimes ? t('matchReport.matchTimes.hide') : t('matchReport.matchTimes.show')}
-                        <i className={`fa-solid fa-chevron-down text-[10px] transition-transform ${showMatchTimes ? '' : '-rotate-90'}`}></i>
-                    </span>
-                </button>
-                {showMatchTimes && (
-                <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                        <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">{t('matchReport.matchTimes.firstHalfStart')}</span>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text"
-                                value={report.firstHalfStart || ''}
-                                onChange={(e) => setReport(prev => ({ ...prev, firstHalfStart: e.target.value }))}
-                                onBlur={() => persistReport(report)}
-                                placeholder="00:00"
-                                className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-[var(--text-strong)] font-mono focus:border-red-500 outline-none"
-                            />
-                            <button onClick={() => setHalfTime('firstHalfStart', currentTimeSec)} className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 text-[9px] font-black">SET</button>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">{t('matchReport.matchTimes.firstHalfEnd')}</span>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text"
-                                value={report.firstHalfEnd || ''}
-                                onChange={(e) => setReport(prev => ({ ...prev, firstHalfEnd: e.target.value }))}
-                                onBlur={() => persistReport(report)}
-                                placeholder="45:00"
-                                className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-[var(--text-strong)] font-mono focus:border-red-500 outline-none"
-                            />
-                            <button onClick={() => setHalfTime('firstHalfEnd', currentTimeSec)} className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 text-[9px] font-black">SET</button>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">{t('matchReport.matchTimes.secondHalfStart')}</span>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text"
-                                value={report.secondHalfStart || ''}
-                                onChange={(e) => setReport(prev => ({ ...prev, secondHalfStart: e.target.value }))}
-                                onBlur={() => persistReport(report)}
-                                placeholder="45:00"
-                                className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-[var(--text-strong)] font-mono focus:border-red-500 outline-none"
-                            />
-                            <button onClick={() => setHalfTime('secondHalfStart', currentTimeSec)} className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 text-[9px] font-black">SET</button>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">{t('matchReport.matchTimes.secondHalfEnd')}</span>
-                        <div className="flex gap-2">
-                            <input 
-                                type="text"
-                                value={report.secondHalfEnd || ''}
-                                onChange={(e) => setReport(prev => ({ ...prev, secondHalfEnd: e.target.value }))}
-                                onBlur={() => persistReport(report)}
-                                placeholder="90:00"
-                                className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-[var(--text-strong)] font-mono focus:border-red-500 outline-none"
-                            />
-                            <button onClick={() => setHalfTime('secondHalfEnd', currentTimeSec)} className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 text-[9px] font-black">SET</button>
-                        </div>
-                    </div>
-                </div>
-                <p className="text-[9px] text-slate-400 dark:text-white/30 font-bold leading-relaxed">
-                    {t('matchReport.matchTimes.timesHelp')}
-                </p>
-                </div>
-                )}
-            </div>
-
             <div className="space-y-4">
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -2870,9 +2832,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                           key={btn.id}
                           onClick={() => {
                             if (btn.id === 'GOL') { setIsGoalDialogOpen(true); return; }
-                            if (btn.id === 'DUELO') { 
+                            if (btn.id === 'DUELO') {
                               setDuelPlayerSelection(selectedPlayerId);
                               setIsDuelDialogOpen(true);
+                              return;
+                            }
+                            if (btn.id === 'NOTA') {
+                              setNoteDraft('');
+                              setIsNoteDialogOpen(true);
                               return;
                             }
                             handleAddEvent(btn.id as any);
@@ -2910,11 +2877,56 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             {t('matchReport.goalDialog.inFavor')}
                           </button>
                           <button
-                            onClick={() => { setIsGoalDialogOpen(false); setGoalSideSelection(''); setGoalPlayerSelection(''); handleAddEvent('GOL', { goalSide: 'CONTRA' }); }}
+                            onClick={() => setGoalSideSelection('CONTRA')}
                             className="py-4 rounded-2xl bg-red-600/90 hover:bg-red-600 text-white font-black text-[10px] uppercase tracking-widest"
                           >
                             {t('matchReport.goalDialog.against')}
                           </button>
+                      </div>
+                    ) : goalSideSelection === 'CONTRA' ? (
+                      <div className="mt-6 space-y-3">
+                        {(() => {
+                          const porteros = squad.filter(p => p.posicion === 'Portero');
+                          return porteros.length === 0 ? (
+                            <div className="text-center text-[10px] text-slate-400 dark:text-white/40">
+                              No hay porteros en la plantilla.
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-2">
+                              {porteros.map((player) => {
+                                const isSelected = samePlayerId(goalPlayerSelection, player.id);
+                                return (
+                                  <button
+                                    key={player.id}
+                                    onClick={() => setGoalPlayerSelection(player.id)}
+                                    className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                      isSelected
+                                        ? 'bg-red-600 text-white'
+                                        : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                    }`}
+                                  >
+                                    <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                      {player.dorsal}
+                                    </span>
+                                    <span className="truncate">{player.apodo || player.nombre}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                        <button
+                          onClick={() => {
+                            if (goalPlayerSelection === '') return;
+                            setIsGoalDialogOpen(false);
+                            handleAddEvent('GOL', { goalSide: 'CONTRA', playerId: goalPlayerSelection });
+                            setGoalSideSelection('');
+                            setGoalPlayerSelection('');
+                          }}
+                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${goalPlayerSelection === '' ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30' : 'bg-red-600/90 hover:bg-red-600 text-white'}`}
+                        >
+                          {t('common.confirm')}
+                        </button>
                       </div>
                     ) : (
                       <div className="mt-6 space-y-3">
@@ -2923,40 +2935,71 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             No hay 11 asignado en la alineación.
                           </div>
                         ) : (
-                          <div className="relative w-full h-[320px] rounded-2xl bg-[#2d5a3f] border border-white/10 overflow-hidden">
-                            <div className="absolute inset-3 border border-white/30 rounded-lg pointer-events-none">
-                              <div className="absolute top-1/2 left-0 right-0 border-t border-white/30"></div>
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border border-white/30 rounded-full"></div>
-                              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-10 border-b border-x border-white/30"></div>
-                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-10 border-t border-x border-white/30"></div>
+                          <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2">
+                            {/* Titulares */}
+                            <div>
+                              <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Titulares</div>
+                              <div className="space-y-1.5">
+                                {(report.lineupPositions || []).map((pos) => {
+                                  const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
+                                  const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
+                                  if (!player) return null;
+                                  const isSelected = samePlayerId(goalPlayerSelection, player.id);
+                                  return (
+                                    <button
+                                      key={pos.id}
+                                      onClick={() => setGoalPlayerSelection(player.id)}
+                                      className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                        isSelected
+                                          ? 'bg-red-600 text-white'
+                                          : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                      }`}
+                                    >
+                                      <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                        {player.dorsal}
+                                      </span>
+                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            <div className="absolute inset-0">
-                              {(report.lineupPositions || []).map((pos) => {
-                                const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
-                                const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
-                                if (!player) return null;
-                                const isSelected = samePlayerId(goalPlayerSelection, player.id);
-                                return (
-                                  <button
-                                    key={pos.id}
-                                    onClick={() => setGoalPlayerSelection(player.id)}
-                                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-all ${
-                                      isSelected ? 'scale-105' : ''
-                                    }`}
-                                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                                  >
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-[10px] border-[3px] ${
-                                      isSelected ? 'bg-[var(--accent)] border-yellow-300 text-white ring-4 ring-yellow-300/40' : 'bg-[var(--accent)] border-white text-white'
-                                    }`}>
-                                      {player.dorsal}
-                                    </div>
-                                    <span className="mt-1 text-[7px] font-black uppercase text-white/90 bg-black/80 px-2 py-0.5 rounded">
-                                      {player.apodo || player.nombre}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+
+                            {/* Suplentes */}
+                            {(() => {
+                              const starterIds = new Set((report.lineupPositions || []).flatMap(pos => pos.playerIds || []));
+                              const suplentes = squad.filter(p =>
+                                !starterIds.has(String(p.id)) &&
+                                !starterIds.has(p.id as any) &&
+                                !(report.notConvocadoIds || []).some(id => samePlayerId(id, p.id))
+                              );
+                              return suplentes.length > 0 && (
+                                <div>
+                                  <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Suplentes</div>
+                                  <div className="space-y-1.5">
+                                    {suplentes.map((player) => {
+                                      const isSelected = samePlayerId(goalPlayerSelection, player.id);
+                                      return (
+                                        <button
+                                          key={player.id}
+                                          onClick={() => setGoalPlayerSelection(player.id)}
+                                          className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                            isSelected
+                                              ? 'bg-red-600 text-white'
+                                              : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                          }`}
+                                        >
+                                          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                            {player.dorsal}
+                                          </span>
+                                          <span className="truncate">{player.apodo || player.nombre}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                         <button
@@ -3060,6 +3103,44 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     </div>
                     <button
                       onClick={() => { setIsDuelDialogOpen(false); setDuelPlayerSelection(''); }}
+                      className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                </div>
+            </div>
+         )}
+
+         {isNoteDialogOpen && (
+            <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-sm mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl">
+                    <div className="text-center space-y-2">
+                        <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">NOTA</div>
+                        <h3 className="text-lg font-black text-[var(--text-strong)]">{t('matchReport.noteDialog.title')}</h3>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                        <textarea
+                          autoFocus
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          placeholder={t('matchReport.noteDialog.placeholder')}
+                          rows={4}
+                          className="w-full rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 text-sm text-[var(--text-strong)] placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                        />
+                        <button
+                          onClick={() => {
+                            if (!noteDraft.trim()) return;
+                            setIsNoteDialogOpen(false);
+                            handleAddEvent('NOTA', { note: noteDraft.trim() });
+                            setNoteDraft('');
+                          }}
+                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${!noteDraft.trim() ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30' : 'bg-slate-600/90 hover:bg-slate-600 text-white'}`}
+                        >
+                          {t('matchReport.noteDialog.save')}
+                        </button>
+                    </div>
+                    <button
+                      onClick={() => { setIsNoteDialogOpen(false); setNoteDraft(''); }}
                       className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
                     >
                       {t('common.cancel')}
@@ -5058,6 +5139,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <p className="text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{match.jornada || t('matchReport.tacticalAnalysis')}</p>
           </div>
         </div>
+        <ShareButton
+          matchReportId={match.id}
+          size="sm"
+        />
       </div>
       <div className="flex overflow-x-auto px-4 gap-2 scrollbar-hide border-b border-[var(--border-soft)] bg-[var(--surface-0)] sticky top-[72px] z-50">
         {tabs.map(tab => (

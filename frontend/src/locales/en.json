@@ -1069,6 +1069,11 @@
       "won": "Won",
       "lost": "Lost"
     },
+    "noteDialog": {
+      "title": "Write the note",
+      "placeholder": "Describe what happened...",
+      "save": "Save Note"
+    },
     "editForm": {
       "time": "Time",
       "description": "Description",
@@ -1153,16 +1158,29 @@
       "descriptionPlaceholder": "Notes about the referee, style, criteria..."
     }
   },
-  "pwa": {
-    "offline": "Offline — showing already loaded data",
-    "updateTitle": "Update available",
-    "updateBody": "A new version of the app is ready.",
-    "later": "Later",
-    "reload": "Update",
-    "installTitle": "Install Sport Management",
-    "installBody": "Add it to your home screen to open it like an app.",
-    "installIos": "Tap Share and then “Add to Home Screen”.",
-    "install": "Install",
-    "dismiss": "Close"
+  “pwa”: {
+    “offline”: “Offline — showing already loaded data”,
+    “updateTitle”: “Update available”,
+    “updateBody”: “A new version of the app is ready.”,
+    “later”: “Later”,
+    “reload”: “Update”,
+    “installTitle”: “Install Sport Management”,
+    “installBody”: “Add it to your home screen to open it like an app.”,
+    “installIos”: “Tap Share and then \”Add to Home Screen\”.”,
+    “install”: “Install”,
+    “dismiss”: “Close”
+  },
+  “share”: {
+    “button”: “Share”,
+    “copied”: “Link copied to clipboard”,
+    “invalid”: “The shared link is invalid or has expired”,
+    “expiration”: “This link expires on”,
+    “videoShared”: “Shared video”,
+    “matchInfo”: “Match information”,
+    “rival”: “Opponent”,
+    “date”: “Date”,
+    “competition”: “Competition”,
+    “jornada”: “Matchday”,
+    “privateShare”: “This video has been shared privately”
   }
 }

@@ -1057,6 +1057,11 @@
       "won": "Irabazita",
       "lost": "Galduta"
     },
+    "noteDialog": {
+      "title": "Idatzi oharra",
+      "placeholder": "Deskribatu gertatutakoa...",
+      "save": "Oharra Gorde"
+    },
     "editForm": {
       "time": "Denbora",
       "description": "Deskribapena",
@@ -1141,16 +1146,29 @@
       "descriptionPlaceholder": "Oharrak arbitroari buruz, estiloa, irizpidea..."
     }
   },
-  "pwa": {
-    "offline": "Konexiorik gabe — kargatutako datuak erakusten",
-    "updateTitle": "Eguneraketa eskuragarri",
-    "updateBody": "Aplikazioaren bertsio berri bat dago.",
-    "later": "Geroago",
-    "reload": "Eguneratu",
-    "installTitle": "Instalatu Sport Management",
-    "installBody": "Gehitu hasierako pantailan aplikazio gisa irekitzeko.",
-    "installIos": "Sakatu Partekatu eta gero “Gehitu hasierako pantailan”.",
-    "install": "Instalatu",
-    "dismiss": "Itxi"
+  “pwa”: {
+    “offline”: “Konexiorik gabe — kargatutako datuak erakusten”,
+    “updateTitle”: “Eguneraketa eskuragarri”,
+    “updateBody”: “Aplikazioaren bertsio berri bat dago.”,
+    “later”: “Geroago”,
+    “reload”: “Eguneratu”,
+    “installTitle”: “Instalatu Sport Management”,
+    “installBody”: “Gehitu hasierako pantailan aplikazio gisa irekitzeko.”,
+    “installIos”: “Sakatu Partekatu eta gero “Gehitu hasierako pantailan”.”,
+    “install”: “Instalatu”,
+    “dismiss”: “Itxi”
+  },
+  “share”: {
+    “button”: “Partekatu”,
+    “copied”: “Esteka arbelean kopiatuta”,
+    “invalid”: “Partekatutako esteka baliogabea da edo iraungi da”,
+    “expiration”: “Esteka hau iraungi egingo da”,
+    “videoShared”: “Partekatutako bideoa”,
+    “matchInfo”: “Partiduaren informazioa”,
+    “rival”: “Aurkaria”,
+    “date”: “Data”,
+    “competition”: “Lehiaketa”,
+    “jornada”: “Jornada”,
+    “privateShare”: “Bideo hau pribatuki partekatu da”
   }
 }

@@ -1079,6 +1079,11 @@
       "won": "Ganado",
       "lost": "Perdido"
     },
+    "noteDialog": {
+      "title": "Escribe la nota",
+      "placeholder": "Describe lo que ha ocurrido...",
+      "save": "Guardar Nota"
+    },
     "editForm": {
       "time": "Tiempo",
       "description": "Descripción",
@@ -1163,16 +1168,29 @@
       "descriptionPlaceholder": "Notas sobre el árbitro, estilo, criterio..."
     }
   },
-  "pwa": {
-    "offline": "Sin conexión — mostrando datos ya cargados",
-    "updateTitle": "Actualización disponible",
-    "updateBody": "Hay una versión nueva de la aplicación.",
-    "later": "Más tarde",
-    "reload": "Actualizar",
-    "installTitle": "Instalar Sport Management",
-    "installBody": "Añádela a tu pantalla de inicio para abrirla como una app.",
-    "installIos": "Pulsa Compartir y luego “Añadir a pantalla de inicio”.",
-    "install": "Instalar",
-    "dismiss": "Cerrar"
+  “pwa”: {
+    “offline”: “Sin conexión — mostrando datos ya cargados”,
+    “updateTitle”: “Actualización disponible”,
+    “updateBody”: “Hay una versión nueva de la aplicación.”,
+    “later”: “Más tarde”,
+    “reload”: “Actualizar”,
+    “installTitle”: “Instalar Sport Management”,
+    “installBody”: “Añádela a tu pantalla de inicio para abrirla como una app.”,
+    “installIos”: “Pulsa Compartir y luego “Añadir a pantalla de inicio”.”,
+    “install”: “Instalar”,
+    “dismiss”: “Cerrar”
+  },
+  “share”: {
+    “button”: “Compartir”,
+    “copied”: “Enlace copiado al portapapeles”,
+    “invalid”: “El enlace compartido no es válido o ha expirado”,
+    “expiration”: “Este enlace expira el”,
+    “videoShared”: “Vídeo compartido”,
+    “matchInfo”: “Información del partido”,
+    “rival”: “Rival”,
+    “date”: “Fecha”,
+    “competition”: “Competición”,
+    “jornada”: “Jornada”,
+    “privateShare”: “Este vídeo ha sido compartido de forma privada”
   }
 }

@@ -288,6 +288,21 @@ export interface InstalacionCampo {
   updated_at?: string;
 }
 
+export interface ShareToken {
+  id: string;
+  match_report_id: string;
+  token: string;
+  event_id?: string | null;
+  start_timestamp?: number | null;
+  end_timestamp?: number | null;
+  created_by: string;
+  club_id?: string | null;
+  expires_at?: string | null;
+  access_level: 'view' | 'edit';
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ── Servicios por tabla ────────────────────────────────────────────────────
 export const clubesService = createTableService<Club>('clubes');
 export const equiposService = createTableService<Equipo>('equipos');
@@ -304,6 +319,7 @@ export const tareasService = createTableService<Tarea>('tareas');
 export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
 export const localidadesService = createTableService<Localidad>('localidades');
 export const instalacionesCamposService = createTableService<InstalacionCampo>('instalaciones_campos');
+export const shareTokensService = createTableService<ShareToken>('share_tokens');
 
 // Ejemplo de uso en un componente:
 //
