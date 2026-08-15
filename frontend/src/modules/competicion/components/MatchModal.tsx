@@ -13,6 +13,7 @@ export interface MatchFormData {
   id?: string;
   date: string;
   time: string;
+  matchType?: 'Liga' | 'Copa' | 'Amistoso' | 'Torneo';
   competition: string;
   location: string;
   localidad_id?: string;
@@ -29,7 +30,7 @@ interface MatchModalProps {
   competitionId?: string;
   competitionName?: string;
   competitionTeams?: CompetitionTeam[];
-  competitions?: Array<{ id: string; nombre: string }>;
+  competitions?: Array<{ id: string; nombre: string; tipo?: 'Liga' | 'Copa' | 'Amistoso' | 'Torneo' }>;
   onSave: (match: MatchFormData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onClose: () => void;
@@ -52,6 +53,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
   const [formData, setFormData] = useState<MatchFormData>({
     date: match?.date || '',
     time: match?.time || '18:00',
+    matchType: match?.matchType || '',
     competition: match?.competition || competitionName || '',
     location: match?.location || '',
     jornada: match?.jornada || '-',
@@ -79,6 +81,12 @@ const MatchModal: React.FC<MatchModalProps> = ({
     const found = competitions.find(c => c.nombre === formData.competition);
     return found?.id;
   }, [competitionId, competitions, formData.competition]);
+
+  // Filtrar competiciones por tipo seleccionado
+  const filteredCompetitions = useMemo(() => {
+    if (!formData.matchType) return competitions;
+    return competitions.filter(c => c.tipo === formData.matchType);
+  }, [competitions, formData.matchType]);
 
   useEffect(() => {
     const loadClubs = async () => {
@@ -279,7 +287,20 @@ const MatchModal: React.FC<MatchModalProps> = ({
   ].filter(option => option.value.trim().length > 0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // Si cambia el tipo, limpiar la competición si no coincide
+    if (name === 'matchType') {
+      const selectedType = value as 'Liga' | 'Copa' | 'Amistoso' | 'Torneo' | '';
+      const currentCompetition = competitions.find(c => c.nombre === formData.competition);
+      if (currentCompetition && selectedType && currentCompetition.tipo !== selectedType) {
+        setFormData({ ...formData, [name]: value, competition: '' });
+      } else {
+        setFormData({ ...formData, [name]: value });
+      }
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSubmit = async () => {
@@ -291,6 +312,10 @@ const MatchModal: React.FC<MatchModalProps> = ({
     }
     if (!formData.time) {
       setError('La hora es obligatoria');
+      return;
+    }
+    if (!formData.matchType) {
+      setError('El tipo de partido es obligatorio');
       return;
     }
     if (!formData.competition) {
@@ -477,6 +502,25 @@ const MatchModal: React.FC<MatchModalProps> = ({
                 </div>
               </div>
 
+              {/* Tipo */}
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  <i className="fa-solid fa-layer-group mr-1"></i>Tipo
+                </label>
+                <select
+                  name="matchType"
+                  value={formData.matchType || ''}
+                  onChange={handleChange}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
+                >
+                  <option value="">Selecciona tipo</option>
+                  <option value="Liga">Liga</option>
+                  <option value="Copa">Copa</option>
+                  <option value="Amistoso">Amistoso</option>
+                  <option value="Torneo">Torneo</option>
+                </select>
+              </div>
+
               {/* Competición */}
               <div>
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -489,7 +533,7 @@ const MatchModal: React.FC<MatchModalProps> = ({
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-[var(--accent)] appearance-none bg-white"
                 >
                   <option value="">Selecciona una competición</option>
-                  {competitions.map(comp => (
+                  {filteredCompetitions.map(comp => (
                     <option key={comp.id} value={comp.nombre}>
                       {comp.nombre}
                     </option>
