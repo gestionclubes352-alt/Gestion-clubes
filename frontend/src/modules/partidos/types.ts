@@ -34,6 +34,7 @@ export interface VideoEvent {
   goalSide?: 'FAVOR' | 'CONTRA';
   duelOutcome?: 'GANADO' | 'PERDIDO';
   timestamp: number;
+  videoTimestamp?: number;
 }
 
 export interface AbpItem {
@@ -62,6 +63,7 @@ export interface MatchGoal {
   minute: number;
   side: 'FAVOR' | 'CONTRA';
   playerId?: string | number;
+  videoTimestamp?: number;
 }
 
 export interface MatchCard {
@@ -79,6 +81,9 @@ export interface MatchReport {
   // goles/ocasiones/duelos con marca de tiempo (no se comparte con
   // el vídeo de Informe Rival ni el de Plan de Partido).
   videoUrl: string;
+  // Copia del archivo original por campo de vídeo (targetField -> URL en Storage),
+  // guardada para poder recortar clips en el navegador sin depender de YouTube.
+  videoOriginals?: Record<string, string>;
 
   // Informe Rival (scouting del equipo contrario) — independiente del Plan de Partido
   rivalVideoUrl: string;

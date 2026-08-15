@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Match, MatchReport } from '@modules/partidos';
-import { db } from '@shared/services/dataService';
+import { db, plantillasService } from '@shared/services/dataService';
+import type { Jugador } from '@shared/services/dataService';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import ShareButton from '@modules/partidos/components/ShareButton';
 import { DataTable } from '@shared/components/DataTable';
@@ -24,14 +25,18 @@ interface MatchVideoItem {
 }
 
 /** Convierte una URL de YouTube/Vimeo en su URL de embebido para reproducir en el modal. */
-const getEmbedUrl = (url: string): string => {
+const getEmbedUrl = (url: string, startSeconds?: number): string => {
   if (!url) return '';
   const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  if (ytMatch) {
+    const embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`;
+    return startSeconds ? `${embedUrl}?start=${Math.floor(startSeconds)}` : embedUrl;
+  }
   const vimeoMatch = url.match(/(?:vimeo\.com\/)(\d+)(?:\/([a-zA-Z0-9]+))?/);
   if (vimeoMatch) {
     const hash = vimeoMatch[2];
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash ? `?h=${hash}` : ''}`;
+    const baseUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}${hash ? `?h=${hash}` : ''}`;
+    return startSeconds ? `${baseUrl}${hash ? '&' : '?'}t=${Math.floor(startSeconds)}` : baseUrl;
   }
   return url;
 };
@@ -52,7 +57,9 @@ interface VideoRow {
 const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
   const navigate = useNavigate();
   const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
+  const [playersById, setPlayersById] = useState<Map<string | number, Jugador>>(new Map());
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
+  const [videoModalTimestamp, setVideoModalTimestamp] = useState<number | undefined>(undefined);
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -61,12 +68,20 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await db.match_reports.get();
-        const map = new Map<string, MatchReport>();
-        (data || []).forEach((report: MatchReport) => map.set(String(report.id), report));
-        setMatchReportsById(map);
+        const [reportsRes, playersRes] = await Promise.all([
+          db.match_reports.get(),
+          plantillasService.list()
+        ]);
+
+        const reportMap = new Map<string, MatchReport>();
+        (reportsRes.data || []).forEach((report: MatchReport) => reportMap.set(String(report.id), report));
+        setMatchReportsById(reportMap);
+
+        const playerMap = new Map<string | number, Jugador>();
+        (playersRes || []).forEach((player: Jugador) => playerMap.set(player.id, player));
+        setPlayersById(playerMap);
       } catch (err) {
-        console.error('Error al cargar los informes de partido:', err);
+        console.error('Error al cargar datos:', err);
       }
     })();
   }, []);
@@ -117,6 +132,12 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
     });
   };
 
+  const getPlayerName = (playerId?: string | number): string => {
+    if (!playerId) return 'Gol';
+    const player = playersById.get(playerId);
+    return player ? player.nombre : `Jugador #${playerId}`;
+  };
+
   const columnHelper = createColumnHelper<VideoRow>();
   const tableColumns = useMemo(() => [
     columnHelper.display({
@@ -156,7 +177,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
         info.getValue() ? (
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVideoModalUrl(info.getValue()); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVideoModalUrl(info.getValue()); setVideoModalTimestamp(undefined); }}
             className="w-7 h-7 rounded-full bg-sport-primary/10 text-sport-primary hover:bg-sport-primary hover:text-white transition-all flex items-center justify-center"
             title="Ver vídeo completo del partido"
           >
@@ -252,8 +273,19 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
                         <p className="text-[10px] text-slate-400">Sin goles</p>
                       ) : (
                         goalsFavor.map((goal) => (
-                          <div key={goal.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-emerald-100">
-                            <span className="text-emerald-600 font-black text-xs">{goal.minute}'</span> {goal.playerId ? `Jugador #${goal.playerId}` : 'Gol'}
+                          <div key={goal.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-emerald-100 flex items-center justify-between gap-2">
+                            <span><span className="text-emerald-600 font-black text-xs">{goal.minute}'</span> {getPlayerName(goal.playerId)}</span>
+                            {video.vimeoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(goal.videoTimestamp); }}
+                                className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600/20 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center"
+                                title={goal.videoTimestamp ? 'Ver gol' : 'Sin timestamp'}
+                                disabled={!goal.videoTimestamp}
+                              >
+                                <i className="fa-solid fa-play text-[7px]"></i>
+                              </button>
+                            )}
                           </div>
                         ))
                       )}
@@ -271,8 +303,19 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
                         <p className="text-[10px] text-slate-400">Sin goles</p>
                       ) : (
                         goalsContra.map((goal) => (
-                          <div key={goal.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-red-100">
-                            <span className="text-red-600 font-black text-xs">{goal.minute}'</span> {goal.playerId ? `Rival #${goal.playerId}` : 'Gol'}
+                          <div key={goal.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-red-100 flex items-center justify-between gap-2">
+                            <span><span className="text-red-600 font-black text-xs">{goal.minute}'</span> {getPlayerName(goal.playerId)}</span>
+                            {video.vimeoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(goal.videoTimestamp); }}
+                                className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-red-600/20 text-red-600 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"
+                                title={goal.videoTimestamp ? 'Ver gol' : 'Sin timestamp'}
+                                disabled={!goal.videoTimestamp}
+                              >
+                                <i className="fa-solid fa-play text-[7px]"></i>
+                              </button>
+                            )}
                           </div>
                         ))
                       )}
@@ -290,8 +333,19 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
                         <p className="text-[10px] text-slate-400">Sin ocasiones</p>
                       ) : (
                         ocasiones.map((ocasion) => (
-                          <div key={ocasion.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-slate-200">
-                            <span className="text-slate-600 font-black text-xs">{ocasion.minute}'</span> {ocasion.note || 'Ocasión'}
+                          <div key={ocasion.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-slate-200 flex items-center justify-between gap-2">
+                            <span><span className="text-slate-600 font-black text-xs">{ocasion.minute}'</span> {ocasion.note || 'Ocasión'}</span>
+                            {video.vimeoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(ocasion.videoTimestamp); }}
+                                className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-slate-400/20 text-slate-600 hover:bg-slate-600 hover:text-white transition-all flex items-center justify-center"
+                                title={ocasion.videoTimestamp ? 'Ver ocasión' : 'Sin timestamp'}
+                                disabled={!ocasion.videoTimestamp}
+                              >
+                                <i className="fa-solid fa-play text-[7px]"></i>
+                              </button>
+                            )}
                           </div>
                         ))
                       )}
@@ -318,7 +372,8 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
               <i className="fa-solid fa-xmark"></i> Cerrar
             </button>
             <iframe
-              src={getEmbedUrl(videoModalUrl)}
+              key={videoModalTimestamp}
+              src={getEmbedUrl(videoModalUrl, videoModalTimestamp)}
               className="w-full h-full rounded-2xl border-0"
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
