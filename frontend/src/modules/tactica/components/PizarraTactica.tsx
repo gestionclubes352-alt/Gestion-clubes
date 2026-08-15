@@ -2,6 +2,7 @@
 import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
 import type { Club, Equipo } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
+import { useUndoRedo } from '@context/UndoRedoContext';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
@@ -126,6 +127,7 @@ interface PizarraTacticaProps {
 }
 
 const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
+  const { pushState, setOnStateRestore } = useUndoRedo();
   const pitchStageRef = useRef<HTMLElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
   const [pitchStageSize, setPitchStageSize] = useState({ width: 0, height: 0 });
@@ -175,13 +177,64 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [showPlayerPhotos, setShowPlayerPhotos] = useState(false);
   const DROP_OUTSIDE_MARGIN_PX = 30;
 
+  // Configurar callback para restaurar estado de pizarra táctica
+  useEffect(() => {
+    setOnStateRestore((state: any) => {
+      if (state.frames) setFrames(state.frames);
+      if (state.arrows) setArrows(state.arrows);
+      if (state.ball) setBall(state.ball);
+    });
+  }, [setOnStateRestore]);
+
+  // Wrapper para registrar cambios en arrows
+  const updateArrows = (updater: TacticalArrow[] | ((prev: TacticalArrow[]) => TacticalArrow[])) => {
+    setArrows(prev => {
+      const next = typeof updater === 'function' ? (updater as (prev: TacticalArrow[]) => TacticalArrow[])(prev) : updater;
+
+      // Registrar cambio en el historial
+      pushState({
+        squadList: squad,
+        usersList: [],
+        personalList: [],
+        competitionTeams: [],
+        clubesList: [],
+        campogramasList: [],
+        eventsList: [],
+        frames,
+        arrows: next,
+        ball,
+      });
+
+      return next;
+    });
+  };
+
+  // Wrapper para registrar cambios en ball
+  const updateBall = (newBall: Ball) => {
+    setBall(newBall);
+
+    // Registrar cambio en el historial
+    pushState({
+      squadList: squad,
+      usersList: [],
+      personalList: [],
+      competitionTeams: [],
+      clubesList: [],
+      campogramasList: [],
+      eventsList: [],
+      frames,
+      arrows,
+      ball: newBall,
+    });
+  };
+
   useEffect(() => {
     if (!selectedArrowId) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      setArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
+      updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
       setSelectedArrowId(null);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -194,6 +247,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       const next = [...prev];
       const current = next[currentFrameIndex] ?? [];
       next[currentFrameIndex] = typeof updater === 'function' ? (updater as (prev: PitchPlayer[]) => PitchPlayer[])(current) : updater;
+
+      // Registrar cambio en el historial
+      pushState({
+        squadList: squad,
+        usersList: [],
+        personalList: [],
+        competitionTeams: [],
+        clubesList: [],
+        campogramasList: [],
+        eventsList: [],
+        frames: next,
+        arrows,
+        ball,
+      });
+
       return next;
     });
   };
@@ -585,7 +653,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
         const newX = Math.min(97, Math.max(3, ballStartPosition.current.x + dx));
         const newY = Math.min(97, Math.max(3, ballStartPosition.current.y + dy));
-        setBall({ x: newX, y: newY });
+        updateBall({ x: newX, y: newY });
         return;
       }
 
@@ -606,7 +674,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         dx = Math.max(3 - minX, Math.min(dx, 97 - maxX));
         dy = Math.max(3 - minY, Math.min(dy, 97 - maxY));
 
-        setArrows(prev => prev.map(arrow => {
+        updateArrows(prev => prev.map(arrow => {
           if (arrow.id !== draggingArrowId) return arrow;
           return {
             ...arrow,
@@ -716,7 +784,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             color: arrowColor,
             strokeWidth: 2,
           };
-          setArrows(prev => [...prev, newArrow]);
+          updateArrows(prev => [...prev, newArrow]);
         }
         setIsDrawingArrow(false);
         setDrawStart(null);
@@ -1090,7 +1158,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     const nextColor = e.target.value;
                     setArrowColor(nextColor);
                     if (selectedArrowId) {
-                      setArrows(prev => prev.map(arrow => (
+                      updateArrows(prev => prev.map(arrow => (
                         arrow.id === selectedArrowId ? { ...arrow, color: nextColor } : arrow
                       )));
                     }
@@ -1100,7 +1168,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </div>
               <button
                 onClick={() => {
-                  setArrows([]);
+                  updateArrows([]);
                   setSelectedArrowId(null);
                 }}
                 disabled={arrows.length === 0}
