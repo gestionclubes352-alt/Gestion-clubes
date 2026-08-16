@@ -28,7 +28,13 @@ export async function getFFmpeg(): Promise<FFmpeg> {
         const timeout = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('FFmpeg tardó demasiado en cargar (>30s)')), 30000)
         );
-        await Promise.race([ffmpeg!.load(), timeout]);
+        await Promise.race([
+          ffmpeg!.load({
+            coreURL: '/ffmpeg/ffmpeg-core.js',
+            wasmURL: '/ffmpeg/ffmpeg-core.wasm',
+          }),
+          timeout,
+        ]);
         return ffmpeg!;
       } catch (err) {
         loadError = err instanceof Error ? err : new Error(String(err));

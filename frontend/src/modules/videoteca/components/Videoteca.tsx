@@ -242,15 +242,29 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [] }) => {
           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Vídeos completos de los partidos</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-          <a
-            href="https://www.youtube.com/@athletic-club"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
-          >
-            <i className="fa-brands fa-youtube text-lg"></i>
-            Mi Canal
-          </a>
+          {channelShareUrl ? (
+            <button
+              onClick={() => {
+                const url = new URL(channelShareUrl, window.location.origin);
+                window.open(url.toString(), '_blank');
+              }}
+              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
+              title="Abrir tu canal público (sin login requerido)"
+            >
+              <i className="fa-solid fa-link text-lg"></i>
+              Mi Canal
+            </button>
+          ) : (
+            <a
+              href="https://www.youtube.com/@athletic-club"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
+            >
+              <i className="fa-brands fa-youtube text-lg"></i>
+              Mi Canal
+            </a>
+          )}
           {channelShareUrl && (
             <button
               onClick={handleCopyChannelShareUrl}

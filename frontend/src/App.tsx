@@ -434,7 +434,7 @@ const App: React.FC = () => {
   const location = useLocation();
 
   // Rutas públicas que no requieren autenticación
-  const isPublicRoute = location.pathname.startsWith('/share/');
+  const isPublicRoute = location.pathname.startsWith('/share/') || location.pathname.startsWith('/public-channel/');
 
   // If on a public route, skip auth gate
   if (isPublicRoute && !authLoading) {
