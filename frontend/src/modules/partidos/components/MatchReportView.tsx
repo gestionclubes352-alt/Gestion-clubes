@@ -98,9 +98,10 @@ const isBlockedEmbed = (url: string) => {
   if (!url) return false;
   try {
     const host = new URL(url).hostname.toLowerCase();
-    return host.includes('veo.co');
+    // YouTube y Vimeo bloqueados por COEP; mostrar botón para abrir en pestaña nueva
+    return host.includes('youtube.com') || host.includes('youtu.be') || host.includes('veo.co');
   } catch {
-    return url.includes('veo.co');
+    return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('veo.co');
   }
 };
 
@@ -2731,10 +2732,25 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const handleYtUpload = () => {
     if (!ytSelectedFile) return;
 
-    const titlePrefix = ytTargetField === 'planVideoUrl' || ytTargetField === 'rivalVideoUrl' ? `${t('matchReport.playerUrl')} – ` : '';
+    const getTitlePrefix = (field: string): string => {
+      const prefixes: Record<string, string> = {
+        videoUrl: '📹 Vídeo General',
+        planVideoUrl: '📋 Plan Táctico',
+        rivalVideoUrl: '⚽ Análisis Rival',
+        planConBalonVideo: '📋 Plan Con Balón',
+        planSinBalonVideo: '📋 Plan Sin Balón',
+        planAbpVideo: '📋 Plan ABP',
+        rivalConBalonVideo: '⚽ Rival Con Balón',
+        rivalSinBalonVideo: '⚽ Rival Sin Balón',
+        rivalAbpVideo: '⚽ Rival ABP',
+      };
+      return prefixes[field] || 'Vídeo';
+    };
+
+    const titlePrefix = getTitlePrefix(ytTargetField);
     const title = match.localTeam && match.visitorTeam
-      ? `${titlePrefix}${match.localTeam} vs ${match.visitorTeam} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`
-      : `${titlePrefix}${t('matchReport.match')} ${match.id} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`;
+      ? `${titlePrefix} – ${match.localTeam} vs ${match.visitorTeam} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`
+      : `${titlePrefix} – ${t('matchReport.match')} ${match.id} – ${match.date ? new Date(match.date).toLocaleDateString(i18n.language) : ''}`;
     const matchLabel = match.localTeam && match.visitorTeam
       ? `${match.localTeam} vs ${match.visitorTeam}`
       : `${t('matchReport.match')} ${match.id}`;
@@ -4871,16 +4887,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
     const renderTable = (rows: typeof allRows, title: string, className: string) => (
       <div className="space-y-3">
-        <h3 className={`text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
+        <h3 className={`text-xs font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
           {title} ({rows.length})
         </h3>
         {rows.length === 0 ? (
           <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
-            <table className="w-full text-[10px]">
+            <table className="w-full text-[9px]">
               <thead>
-                <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
+                <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
                   <th className="px-3 py-3 text-left">#</th>
                   <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
                   <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
@@ -4941,9 +4957,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     {formation} — {minutes}' {t('matchReport.playerStats.totalMinutes')}
                   </h3>
                   <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
-                    <table className="w-full text-[10px]">
+                    <table className="w-full text-[9px]">
                       <thead>
-                        <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
+                        <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
                           <th className="px-3 py-3 text-left">#</th>
                           <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
                           <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
@@ -4979,9 +4995,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </h3>
               {systemRows.length > 0 ? (
                 <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[9px]">
                     <thead>
-                      <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[9px] font-black tracking-widest">
+                      <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
                         <th className="px-3 py-3 text-left">#</th>
                         <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
                         {systemRows.map(({ formation }) => (
