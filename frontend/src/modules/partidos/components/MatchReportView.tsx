@@ -2796,13 +2796,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         <a href={report.videoUrl} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-[var(--text-strong)] text-[10px] font-black uppercase tracking-widest">{t('matchReport.video.openNewTab')}</a>
                     </div>
                 ) : (
-                    <iframe 
+                    <iframe
                         ref={iframeRef}
-                        key={report.videoUrl} 
-                        src={getEmbedUrl(report.videoUrl, sharedStartSec ?? undefined)} 
-                        className="w-full h-full" 
-                        frameBorder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        key={report.videoUrl}
+                        src={getEmbedUrl(report.videoUrl, sharedStartSec ?? undefined)}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen; cross-origin-isolated"
+                        crossOrigin="anonymous"
+                        sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-popups-to-escape-sandbox"
                     ></iframe>
                 )}
                 {calculateMatchTime && (
