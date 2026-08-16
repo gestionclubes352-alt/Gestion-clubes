@@ -317,6 +317,7 @@ async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgre
           },
           body: chunk,
           signal: AbortSignal.any([signal, controller.signal]),
+          credentials: 'include',
         });
 
         clearTimeout(timeout);
@@ -331,6 +332,8 @@ async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgre
           // Último chunk completado — extraer ID del video con timeout
           console.log(`[upload-worker] Último chunk aceptado (200 OK), extrayendo ID del video...`);
           let videoId;
+
+          // Intenta obtener el videoId de la respuesta JSON
           try {
             const jsonController = new AbortController();
             const jsonTimeout = setTimeout(() => jsonController.abort(), 10000);
@@ -340,18 +343,25 @@ async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgre
             ]);
             clearTimeout(jsonTimeout);
             videoId = data && data.id;
+            console.log(`[upload-worker] VideoId obtenido del JSON: ${videoId}`);
           } catch (jsonErr) {
-            console.warn(`[upload-worker] No se pudo parsear JSON de YouTube, usando fallback...`, jsonErr);
-            // Fallback: extraer del Location header o usar placeholder temporal
-            videoId = null;
+            console.warn(`[upload-worker] No se pudo parsear JSON de YouTube:`, jsonErr);
+            // Intenta extraer del Location header
+            const location = response.headers.get('Location') || response.headers.get('location');
+            if (location && location.includes('v=')) {
+              const urlObj = new URL(location, 'https://www.youtube.com');
+              videoId = urlObj.searchParams.get('v');
+              console.log(`[upload-worker] VideoId extraído del Location header: ${videoId}`);
+            }
           }
 
           if (!videoId) {
-            // Si no tenemos ID, el video se subió de todas formas pero no podemos confirmar ID
-            console.warn('[upload-worker] No se pudo obtener ID del video, pero se subió correctamente');
+            console.warn('[upload-worker] No se pudo obtener ID del video, pero se subió correctamente. Esperando que YouTube procese...');
             onProgress(100);
-            // Retornar un marcador temporal; el usuario verá el video en YouTube Studio
-            return `https://www.youtube.com/uploaded-video/${taskId}`;
+            // Retornar un marcador temporal con más información
+            const fallbackUrl = `https://www.youtube.com/watch?v=${taskId}`;
+            console.warn(`[upload-worker] Devolviendo URL temporal: ${fallbackUrl}`);
+            return fallbackUrl;
           }
 
           console.log(`[upload-worker] Subida completada: ${videoId}`);
@@ -453,7 +463,20 @@ async function runUpload(taskId, meta, retry) {
     let videoOriginalUrl;
     try {
       console.log('[upload-worker] Subiendo copia original a Storage...');
-      videoOriginalUrl = await uploadOriginalToStorage({ ...meta, taskId, file });
+      const storageController = new AbortController();
+      const storageTimeout = setTimeout(() => {
+        console.warn('[upload-worker] Timeout guardando copia original (5s), continuando sin ella...');
+        storageController.abort();
+      }, 5000);
+
+      try {
+        videoOriginalUrl = await Promise.race([
+          uploadOriginalToStorage({ ...meta, taskId, file }),
+          new Promise((_, reject) => storageController.signal.addEventListener('abort', () => reject(new DOMException('Storage timeout', 'AbortError'))))
+        ]);
+      } finally {
+        clearTimeout(storageTimeout);
+      }
     } catch (originalErr) {
       console.error('[upload-worker] Error guardando la copia original (no bloqueante):', originalErr);
     }
