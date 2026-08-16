@@ -566,7 +566,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     const allowExternalPlayers = attendanceScope === 'team' || attendanceScope === 'group';
     return (
       <div className="animate-fade-in space-y-6 h-full flex flex-col relative pb-10">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <button onClick={handleSaveSession} className="bg-[#1a4f9c] hover:bg-[#143e7b] text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg">
+              <i className="fa-solid fa-floppy-disk"></i> {t('common.save')}
+            </button>
+          </div>
           <div className="flex items-center gap-4 flex-wrap">
             <button onClick={() => setActiveTraining(null)} className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2">
               <i className="fa-solid fa-arrow-left"></i> {t('calendarView.back')}
@@ -603,11 +608,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               </div>
               <p className="text-slate-400 text-sm font-bold">{formatLongDate(sessionDate)} • {activeTraining.time}</p>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={handleSaveSession} className="bg-[#1a4f9c] hover:bg-[#143e7b] text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg">
-              <i className="fa-solid fa-floppy-disk"></i> {t('common.save')}
-            </button>
           </div>
         </div>
 

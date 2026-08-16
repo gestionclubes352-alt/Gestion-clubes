@@ -362,6 +362,24 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       {/* FORM - ADD/EDIT */}
       {(isAdding || editingId) && (
         <div ref={formRef} className="mb-8 scroll-mt-24 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+          <div className="flex justify-center mb-6">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-4 py-2 rounded-xl bg-[var(--accent)] text-white font-bold text-xs uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg"
+              >
+                {t('common.save')}
+              </button>
+            </div>
+          </div>
           <h3 className="text-lg font-black text-slate-800 mb-4 uppercase tracking-tight">
             {editingId ? 'Editar Competición' : 'Nueva Competición'}
           </h3>
@@ -458,24 +476,6 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 {calculateTotalMinutes(formData.partes, formData.minutosPorParte)} min
               </div>
             </div>
-          </div>
-
-          {/* Botones */}
-          <div className="flex gap-3 mt-6 justify-end">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="px-4 py-2 rounded-xl bg-[var(--accent)] text-white font-bold text-xs uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all shadow-lg"
-            >
-              {t('common.save')}
-            </button>
           </div>
         </div>
       )}

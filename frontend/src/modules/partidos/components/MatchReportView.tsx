@@ -3509,11 +3509,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 })
             )}
          </div>
-         <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f0f0f]">
-            <button onClick={handleSave} className="w-full py-4 bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-2">
-                {isSaving ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-check-double"></i>} {t('matchReport.finishAndSave')}
-            </button>
-         </div>
       </div>
     </div>
   );
@@ -3528,6 +3523,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     return (
       <div className="animate-fade-in flex flex-col h-[calc(100vh-130px)]">
         <div className="px-6 py-4 space-y-3 border-b border-[var(--border-soft)]">
+          {canEdit && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleSave}
+                className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg whitespace-nowrap"
+              >
+                <i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveLineup')}
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
               <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
@@ -3560,14 +3565,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 )}
               </div>
             </div>
-            {canEdit && (
-              <button
-                onClick={handleSave}
-                className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg whitespace-nowrap"
-              >
-                <i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveLineup')}
-              </button>
-            )}
           </div>
           {canEdit && (
             <div className="flex items-end gap-3">
@@ -3636,6 +3633,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const renderEventosPartido = () => {
     return (
       <div className="animate-fade-in max-w-7xl mx-auto space-y-10">
+        <div className="flex justify-center">
+          <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"><i className="fa-solid fa-floppy-disk"></i> {t('common.save')}</button>
+        </div>
+
         {/* Nueva sección: Campo interactivo para registrar eventos */}
         <div>
           <h3 className="text-base font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
@@ -3801,12 +3802,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const renderPlanPartido = () => (
     <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
-          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+          <div className="grid grid-cols-3 items-center border-b border-[var(--border-soft)] pb-6">
               <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2"><i className="fa-solid fa-sliders text-red-500"></i> {t('matchReport.finalReports')}</div>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest">PRO ENGINE v3.0</span>
+              <div className="flex justify-center">
                 <button onClick={handleSave} disabled={isSaving} className="bg-sport-primary hover:bg-sport-primary-dark disabled:opacity-60 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 transition-all"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.savePlan')}</button>
               </div>
+              <span className="justify-self-end px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest">PRO ENGINE v3.0</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div>
@@ -4133,8 +4134,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const renderArbitro = () => (
     <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
-        <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+        <div className="grid grid-cols-3 items-center border-b border-[var(--border-soft)] pb-6">
           <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2"><i className="fa-solid fa-gavel text-red-500"></i> {t('matchReport.refereeSection.title')}</div>
+          <div className="flex justify-center">
+            <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"><i className="fa-solid fa-floppy-disk"></i> {t('common.save')}</button>
+          </div>
+          <div />
         </div>
         <div className="space-y-6">
           <div>
@@ -4157,9 +4162,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             />
           </div>
         </div>
-        <div className="flex justify-end pt-4">
-          <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg"><i className="fa-solid fa-floppy-disk"></i> {t('common.save')}</button>
-        </div>
       </div>
     </div>
   );
@@ -4167,9 +4169,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const renderInforme = () => (
     <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
-          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+          <div className="grid grid-cols-3 items-center border-b border-[var(--border-soft)] pb-6">
               <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2"><i className="fa-solid fa-sliders text-red-500"></i> {t('matchReport.finalReports')}</div>
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest">PRO ENGINE v3.0</span>
+              <div className="flex justify-center">
+                <button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center gap-2 transition-all"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveReport')}</button>
+              </div>
+              <span className="justify-self-end px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest">PRO ENGINE v3.0</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div>
@@ -4453,8 +4458,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </div>
         </div>
       )}
-
-      <div className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50"><button onClick={handleSave} className="bg-sport-primary hover:bg-sport-primary-dark text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl flex items-center gap-3 transition-all"><i className="fa-solid fa-floppy-disk"></i> {t('matchReport.saveReport')}</button></div>
     </div>
   );
 
