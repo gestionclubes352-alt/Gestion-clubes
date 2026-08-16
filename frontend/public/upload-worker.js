@@ -317,7 +317,6 @@ async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgre
           },
           body: chunk,
           signal: AbortSignal.any([signal, controller.signal]),
-          credentials: 'include',
         });
 
         clearTimeout(timeout);
@@ -343,25 +342,19 @@ async function uploadFileInChunks(uploadUrl, file, signal, startOffset, onProgre
             ]);
             clearTimeout(jsonTimeout);
             videoId = data && data.id;
-            console.log(`[upload-worker] VideoId obtenido del JSON: ${videoId}`);
+            if (videoId) {
+              console.log(`[upload-worker] VideoId obtenido del JSON: ${videoId}`);
+            }
           } catch (jsonErr) {
             console.warn(`[upload-worker] No se pudo parsear JSON de YouTube:`, jsonErr);
-            // Intenta extraer del Location header
-            const location = response.headers.get('Location') || response.headers.get('location');
-            if (location && location.includes('v=')) {
-              const urlObj = new URL(location, 'https://www.youtube.com');
-              videoId = urlObj.searchParams.get('v');
-              console.log(`[upload-worker] VideoId extraído del Location header: ${videoId}`);
-            }
           }
 
           if (!videoId) {
             console.warn('[upload-worker] No se pudo obtener ID del video, pero se subió correctamente. Esperando que YouTube procese...');
             onProgress(100);
-            // Retornar un marcador temporal con más información
-            const fallbackUrl = `https://www.youtube.com/watch?v=${taskId}`;
-            console.warn(`[upload-worker] Devolviendo URL temporal: ${fallbackUrl}`);
-            return fallbackUrl;
+            // Sin videoId, no podemos retornar una URL válida
+            // El usuario necesitará completar manualmente o reintentar
+            throw new Error('No se pudo extraer el ID del video de la respuesta de YouTube');
           }
 
           console.log(`[upload-worker] Subida completada: ${videoId}`);
