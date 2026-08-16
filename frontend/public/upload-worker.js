@@ -26,50 +26,106 @@ const CHUNK_SIZE = 5 * 1024 * 1024;
 const abortControllers = new Map();
 const channel = new BroadcastChannel('yt-upload-channel');
 
+// Fallback en memoria si IndexedDB está bloqueado
+const memoryStore = {
+  files: new Map(),
+  tasks: new Map(),
+};
+
+let dbAvailable = true;
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
 function openDb() {
   return new Promise((resolve, reject) => {
+    // Verificar si IndexedDB está disponible
+    if (!self.indexedDB) {
+      console.error('[upload-worker] IndexedDB no disponible (bloqueado por Tracking Prevention)');
+      reject(new Error('IndexedDB no disponible'));
+      return;
+    }
+
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(FILES_STORE)) db.createObjectStore(FILES_STORE, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(TASKS_STORE)) db.createObjectStore(TASKS_STORE, { keyPath: 'id' });
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      console.log('[upload-worker] IndexedDB abierto correctamente');
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      console.error('[upload-worker] Error abriendo IndexedDB:', req.error);
+      reject(req.error);
+    };
   });
 }
 
 async function idbGet(storeName, id) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const req = tx.objectStore(storeName).get(id);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  // Fallback a memoria si IndexedDB no está disponible
+  if (!dbAvailable) {
+    return memoryStore[storeName].get(id);
+  }
+
+  try {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const req = tx.objectStore(storeName).get(id);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('[upload-worker] IndexedDB fallo, usando memoria como fallback:', err);
+    dbAvailable = false;
+    return memoryStore[storeName].get(id);
+  }
 }
 
 async function idbPut(storeName, value) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.objectStore(storeName).put(value);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  // Fallback a memoria si IndexedDB no está disponible
+  if (!dbAvailable) {
+    memoryStore[storeName].set(value.id, value);
+    return;
+  }
+
+  try {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).put(value);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('[upload-worker] IndexedDB fallo, usando memoria como fallback:', err);
+    dbAvailable = false;
+    memoryStore[storeName].set(value.id, value);
+  }
 }
 
 async function idbDelete(storeName, id) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.objectStore(storeName).delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  // Fallback a memoria si IndexedDB no está disponible
+  if (!dbAvailable) {
+    memoryStore[storeName].delete(id);
+    return;
+  }
+
+  try {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('[upload-worker] IndexedDB fallo, usando memoria como fallback:', err);
+    dbAvailable = false;
+    memoryStore[storeName].delete(id);
+  }
 }
 
 function broadcastProgress(task) {
