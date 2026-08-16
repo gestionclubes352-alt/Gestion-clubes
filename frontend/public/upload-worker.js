@@ -514,9 +514,9 @@ async function runUpload(taskId, meta, retry) {
       console.log('[upload-worker] Subiendo copia original a Storage...');
       const storageController = new AbortController();
       const storageTimeout = setTimeout(() => {
-        console.warn('[upload-worker] Timeout guardando copia original (5s), continuando sin ella...');
+        console.warn('[upload-worker] Timeout guardando copia original (10min), continuando sin ella...');
         storageController.abort();
-      }, 5000);
+      }, 10 * 60 * 1000);
 
       try {
         videoOriginalUrl = await Promise.race([

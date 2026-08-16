@@ -26,7 +26,7 @@ export async function getFFmpeg(): Promise<FFmpeg> {
     loadPromise = (async () => {
       try {
         const timeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('FFmpeg tardó demasiado en cargar (>30s)')), 30000)
+          setTimeout(() => reject(new Error('FFmpeg tardó demasiado en cargar (>120s)')), 120000)
         );
         await Promise.race([
           ffmpeg!.load({
