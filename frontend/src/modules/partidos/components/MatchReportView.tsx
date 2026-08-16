@@ -98,10 +98,9 @@ const isBlockedEmbed = (url: string) => {
   if (!url) return false;
   try {
     const host = new URL(url).hostname.toLowerCase();
-    // YouTube y Vimeo bloqueados por COEP; mostrar botón para abrir en pestaña nueva
-    return host.includes('youtube.com') || host.includes('youtu.be') || host.includes('veo.co');
+    return host.includes('veo.co');
   } catch {
-    return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('veo.co');
+    return url.includes('veo.co');
   }
 };
 
