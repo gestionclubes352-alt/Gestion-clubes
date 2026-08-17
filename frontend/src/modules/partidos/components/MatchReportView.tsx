@@ -213,6 +213,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
   const [squad, setSquad] = useState<Player[]>([]);
+  const [showChartsInDatosPartido, setShowChartsInDatosPartido] = useState(false);
 
   // Formulario "Añadir cambio" en la pestaña Eventos
   const [subForm, setSubForm] = useState({ minute: '', playerOutId: '', playerInId: '' });
@@ -5199,6 +5200,66 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
           </div>
         </div>
+
+        {/* Gráficas Section */}
+        <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
+            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+              <i className="fa-solid fa-chart-line text-red-500"></i> Gráficas
+            </div>
+            <button
+              onClick={() => setShowChartsInDatosPartido(!showChartsInDatosPartido)}
+              className="px-4 py-2 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+            >
+              <i className={`fa-solid fa-${showChartsInDatosPartido ? 'chevron-up' : 'chevron-down'}`}></i>
+              {showChartsInDatosPartido ? 'Ocultar' : 'Mostrar'}
+            </button>
+          </div>
+
+          {showChartsInDatosPartido && (
+            <div className="space-y-6">
+              {convocadoPlayers.length === 0 ? (
+                <p className="text-xs font-bold text-[var(--text-muted)]">{t('matchReport.playerStats.noPlayers')}</p>
+              ) : (
+                <>
+                  <PlayerStatsCharts
+                    rows={convocadoPlayers.map(player => {
+                      const key = String(player.id);
+                      return {
+                        playerId: key,
+                        matchesPlayed: (playerMinutesMap.get(key) ?? 0) > 0 ? 1 : 0,
+                        starterCount: startingIds.has(key) ? 1 : 0,
+                        minutes: playerMinutesMap.get(key) ?? 0,
+                        goals: goalsByPlayer.get(key) ?? 0,
+                        yellowCards: cardsByPlayer.get(key)?.amarillas ?? 0,
+                        redCards: cardsByPlayer.get(key)?.rojas ?? 0
+                      };
+                    })}
+                    squadById={new Map(squad.map(p => [String(p.id), {
+                      id: p.id,
+                      nombre: p.nombre,
+                      apodo: p.apodo,
+                      dorsal: p.dorsal,
+                      posicion: p.posicion
+                    } as Jugador]))}
+                  />
+                  <div className="pt-6 border-t border-[var(--border-soft)]">
+                    <SystemMinutesCharts
+                      stats={systemMinutesStats}
+                      squadById={new Map(squad.map(p => [String(p.id), {
+                        id: p.id,
+                        nombre: p.nombre,
+                        apodo: p.apodo,
+                        dorsal: p.dorsal,
+                        posicion: p.posicion
+                      } as Jugador]))}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -5502,7 +5563,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
     { id: 'EVENTOS PARTIDO', label: t('matchReport.tabs.matchEvents'), icon: 'fa-list-check' },
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
-    { id: 'GRÁFICAS', label: t('matchReport.tabs.charts'), icon: 'fa-chart-line' },
     { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
     { id: 'TABLA EVENTOS', label: 'Tabla Eventos', icon: 'fa-th' },
     { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' }
@@ -5538,7 +5598,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'GRÁFICAS' ? renderGraficas() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
 
       {selectedPlayerForModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>
