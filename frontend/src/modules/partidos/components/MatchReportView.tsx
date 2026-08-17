@@ -4038,7 +4038,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             </>
                           )}
                         </div>
-                        {planVideoUploadError && (planVideoUploading || planVideoUploadError) && (
+                        {planVideoUploadError && (planVideoUploading || planVideoUploadError) && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
                           <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
                             <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{planVideoUploadError}</p>
                           </div>
