@@ -4078,7 +4078,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                           <>
                             {(report as any)[`${block.id}Video`] && isSupabaseUrl((report as any)[`${block.id}Video`]) && (
                               <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
-                                <video controls className="w-full h-full" title={`${block.id}-video-plan`}>
+                                <video key={(report as any)[`${block.id}Video`]} controls preload="metadata" className="w-full h-full" title={`${block.id}-video-plan`}>
                                   <source src={(report as any)[`${block.id}Video`]} type="video/mp4" />
                                   Tu navegador no soporta video HTML5
                                 </video>
