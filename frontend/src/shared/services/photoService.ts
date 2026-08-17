@@ -8,11 +8,14 @@ import { supabase } from './supabaseClient';
 import { optimizeImageFile, type ImagePreset } from './imageOptimizer';
 
 const BUCKET = 'club-media';
+// Bucket dedicado a vídeos de partido (creado en 062_match_video_originals.sql):
+// público, sin restricción de mime type de imagen como `club-media`.
+const VIDEO_BUCKET = 'match-video-originals';
 
-async function uploadToStorage(path: string, file: File): Promise<string> {
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
+async function uploadToStorage(path: string, file: File, bucket: string = BUCKET): Promise<string> {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
   if (error) throw error;
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -49,5 +52,5 @@ export async function uploadMatchReportFile(file: File, matchId: string | number
 
 export async function uploadMatchPlanVideo(file: File, matchId: string | number, section: 'ataque' | 'defensa' | 'transiciones'): Promise<string> {
   const ext = file.name.split('.').pop() || 'mp4';
-  return uploadToStorage(`matches/${matchId}/plans/${section}/${crypto.randomUUID()}.${ext}`, file);
+  return uploadToStorage(`matches/${matchId}/plans/${section}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
 }

@@ -533,11 +533,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [planVideoUploading, setPlanVideoUploading] = useState<'planConBalon' | 'planSinBalon' | null>(null);
   const [planVideoUploadError, setPlanVideoUploadError] = useState<string | null>(null);
 
-  // Limpiar errores al montar el componente
-  useEffect(() => {
-    setPlanVideoUploadError(null);
-  }, []);
-
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
     generalNotes: '',
@@ -2829,8 +2824,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       const message = err instanceof Error ? err.message : 'Error uploading video';
       setPlanVideoUploadError(message);
       setPlanVideoUploading(null);
-      // Clear error after 5 seconds
-      setTimeout(() => setPlanVideoUploadError(null), 5000);
       console.error('Plan video upload error:', err);
     }
   };
@@ -4038,7 +4031,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             </>
                           )}
                         </div>
-                        {planVideoUploadError && (planVideoUploading || planVideoUploadError) && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
+                        {planVideoUploadError && (block.id === 'planConBalon' || block.id === 'planSinBalon') && (
                           <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
                             <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{planVideoUploadError}</p>
                           </div>
