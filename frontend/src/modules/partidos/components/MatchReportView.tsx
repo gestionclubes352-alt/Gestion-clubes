@@ -19,14 +19,16 @@ import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@
 import { useYouTubeUpload } from '@context/YouTubeUploadContext';
 import { uploadMatchReportFile, uploadMatchVideo, uploadClubLogo, uploadMatchPlanVideo } from '@shared/services/photoService';
 import ShareButton from './ShareButton';
-import { createShareLink, copyShareUrlToClipboard, getShareUrl, getOrCreateChannelShareLink, getChannelShareUrl } from '@shared/services/shareService';
+import { createShareLink, copyShareUrlToClipboard, getShareUrl } from '@shared/services/shareService';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { fetchFile } from '@ffmpeg/util';
 import { getFFmpeg } from '@shared/utils/ffmpegClient';
 import EventsTableView from './EventsTableView';
+import MatchEventsRegistry from './MatchEventsRegistry';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -458,7 +460,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const [currentNote, setCurrentNote] = useState('');
   const [eventFilter, setEventFilter] = useState('ALL');
-  const [playerFilter, setPlayerFilter] = useState<string | number | 'ALL'>('ALL');
+  const [playerFilter, setPlayerFilter] = useState<string[]>([]);
   const [sharedStartSec, setSharedStartSec] = useState<number | null>(null);
   const sharedStartRef = useRef<number | null>(null);
   
@@ -468,6 +470,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [goalSideSelection, setGoalSideSelection] = useState<'FAVOR' | 'CONTRA' | ''>('');
   const [goalPlayerSelection, setGoalPlayerSelection] = useState<string | number | ''>('');
+  const [isOcasionDialogOpen, setIsOcasionDialogOpen] = useState(false);
+  const [ocasionSideSelection, setOcasionSideSelection] = useState<'FAVOR' | 'CONTRA' | ''>('');
+  const [ocasionPlayerSelection, setOcasionPlayerSelection] = useState<string | number | ''>('');
   const [isDuelDialogOpen, setIsDuelDialogOpen] = useState(false);
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
@@ -523,7 +528,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [urlModalField, setUrlModalField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl'>('videoUrl');
   const [urlModalValue, setUrlModalValue] = useState('');
   const ytActiveTaskIdRef = useRef<string | null>(null);
-  const [channelShareUrl, setChannelShareUrl] = useState<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
   const ytRivalFileInputRef = useRef<HTMLInputElement>(null);
@@ -537,19 +541,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // Supabase Storage upload state para videos del plan
   const [planVideoUploading, setPlanVideoUploading] = useState<'planConBalon' | 'planSinBalon' | null>(null);
   const [planVideoUploadError, setPlanVideoUploadError] = useState<string | null>(null);
-
-  // Enlace privado del canal (sin login) para el botón "Mi Canal"
-  useEffect(() => {
-    if (!ownClubId) return;
-    (async () => {
-      try {
-        const shareData = await getOrCreateChannelShareLink(String(ownClubId));
-        setChannelShareUrl(getChannelShareUrl(shareData.token));
-      } catch (err) {
-        console.error('Error al generar enlace de canal:', err);
-      }
-    })();
-  }, [ownClubId]);
 
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
@@ -613,8 +604,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const filteredEvents = useMemo(() => {
     const events = report.videoEvents || [];
     const byType = eventFilter === 'ALL' ? events : events.filter(e => e.type === eventFilter);
-    if (playerFilter === 'ALL') return byType;
-    return byType.filter(e => samePlayerId(e.playerId, playerFilter));
+    if (playerFilter.length === 0) return byType;
+    return byType.filter(e => playerFilter.some(id => samePlayerId(e.playerId, id)));
   }, [report.videoEvents, eventFilter, playerFilter]);
 
   const activeLineupPlayers = useMemo(() => {
@@ -3025,10 +3016,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </div>
             )}
             <button
-              onClick={() => { if (channelShareUrl) window.open(channelShareUrl, '_blank'); }}
-              disabled={!channelShareUrl}
-              className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
-              title="Abrir tu canal (enlace privado, sin login)"
+              onClick={() => window.open('https://www.youtube.com/@GestionClubes', '_blank', 'noopener,noreferrer')}
+              className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
+              title="Abrir el canal de YouTube (sin login)"
             >
               <i className="fa-solid fa-link text-base"></i>
               {t('matchReport.video.myChannel') || 'Mi Canal'}
@@ -3043,6 +3033,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                           key={btn.id}
                           onClick={() => {
                             if (btn.id === 'GOL') { setIsGoalDialogOpen(true); return; }
+                            if (btn.id === 'OCASION') { setIsOcasionDialogOpen(true); return; }
                             if (btn.id === 'DUELO') {
                               setDuelPlayerSelection(selectedPlayerId);
                               setIsDuelDialogOpen(true);
@@ -3236,6 +3227,131 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     )}
                     <button
                       onClick={() => { setIsGoalDialogOpen(false); setGoalSideSelection(''); setGoalPlayerSelection(''); }}
+                      className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                </div>
+            </div>
+         )}
+
+         {isOcasionDialogOpen && (
+            <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-sm mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl">
+                    <div className="text-center space-y-2">
+                        <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">OCASIÓN</div>
+                        <h3 className="text-lg font-black text-[var(--text-strong)]">
+                          {ocasionSideSelection === '' ? t('matchReport.goalDialog.favorOrAgainst') : t('matchReport.goalDialog.selectPlayer')}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 dark:text-white/40">
+                          {ocasionSideSelection === '' ? t('matchReport.goalDialog.selectGoalType') : t('matchReport.goalDialog.selectWhoScored')}
+                        </p>
+                    </div>
+                    {ocasionSideSelection === '' ? (
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setOcasionSideSelection('FAVOR')}
+                            className="py-4 rounded-2xl bg-red-600/90 hover:bg-red-600 text-white font-black text-[10px] uppercase tracking-widest"
+                          >
+                            {t('matchReport.goalDialog.inFavor')}
+                          </button>
+                          <button
+                            onClick={() => setOcasionSideSelection('CONTRA')}
+                            className="py-4 rounded-2xl bg-red-600/90 hover:bg-red-600 text-white font-black text-[10px] uppercase tracking-widest"
+                          >
+                            {t('matchReport.goalDialog.against')}
+                          </button>
+                      </div>
+                    ) : (
+                      <div className="mt-6 space-y-3">
+                        {(report.lineupPositions || []).length === 0 ? (
+                          <div className="text-center text-[10px] text-slate-400 dark:text-white/40">
+                            No hay 11 asignado en la alineación.
+                          </div>
+                        ) : (
+                          <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2">
+                            {/* Titulares */}
+                            <div>
+                              <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Titulares</div>
+                              <div className="space-y-1.5">
+                                {(report.lineupPositions || []).map((pos) => {
+                                  const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
+                                  const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
+                                  if (!player) return null;
+                                  const isSelected = samePlayerId(ocasionPlayerSelection, player.id);
+                                  return (
+                                    <button
+                                      key={pos.id}
+                                      onClick={() => setOcasionPlayerSelection(player.id)}
+                                      className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                        isSelected
+                                          ? 'bg-red-600 text-white'
+                                          : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                      }`}
+                                    >
+                                      <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                        {player.dorsal}
+                                      </span>
+                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Suplentes */}
+                            {(() => {
+                              const starterIds = new Set((report.lineupPositions || []).flatMap(pos => pos.playerIds || []));
+                              const suplentes = squad.filter(p =>
+                                !starterIds.has(String(p.id)) &&
+                                !starterIds.has(p.id as any) &&
+                                !(report.notConvocadoIds || []).some(id => samePlayerId(id, p.id))
+                              );
+                              return suplentes.length > 0 && (
+                                <div>
+                                  <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Suplentes</div>
+                                  <div className="space-y-1.5">
+                                    {suplentes.map((player) => {
+                                      const isSelected = samePlayerId(ocasionPlayerSelection, player.id);
+                                      return (
+                                        <button
+                                          key={player.id}
+                                          onClick={() => setOcasionPlayerSelection(player.id)}
+                                          className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                            isSelected
+                                              ? 'bg-red-600 text-white'
+                                              : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                          }`}
+                                        >
+                                          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                            {player.dorsal}
+                                          </span>
+                                          <span className="truncate">{player.apodo || player.nombre}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (ocasionPlayerSelection === '') return;
+                            setIsOcasionDialogOpen(false);
+                            handleAddEvent('OCASION', { goalSide: ocasionSideSelection, playerId: ocasionPlayerSelection });
+                            setOcasionSideSelection('');
+                            setOcasionPlayerSelection('');
+                          }}
+                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${ocasionPlayerSelection === '' ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30' : 'bg-red-600/90 hover:bg-red-600 text-white'}`}
+                        >
+                          {t('common.confirm')}
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setIsOcasionDialogOpen(false); setOcasionSideSelection(''); setOcasionPlayerSelection(''); }}
                       className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
                     >
                       {t('common.cancel')}
@@ -3458,18 +3574,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
             <div className="flex items-center gap-2">
                 <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest">{t('matchReport.events.player')}</span>
-                <SearchableSelect
+                <MultiSelectFilter
                   value={playerFilter}
-                  onChange={(e) => setPlayerFilter(e.target.value === 'ALL' ? 'ALL' : e.target.value)}
+                  onChange={setPlayerFilter}
+                  allLabel={t('matchReport.events.all')}
+                  options={squad.map((player) => ({
+                    value: String(player.id),
+                    label: `${player.dorsal ? `${player.dorsal} - ` : ''}${player.apodo || player.nombre}`,
+                  }))}
                   className="flex-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-[10px] text-slate-700 dark:text-white/80 outline-none"
-                >
-                  <option value="ALL" className="text-black">{t('matchReport.events.all')}</option>
-                  {squad.map(player => (
-                    <option key={player.id} value={player.id} className="text-black">
-                      {player.dorsal ? `${player.dorsal} - ` : ''}{player.apodo || player.nombre}
-                    </option>
-                  ))}
-                </SearchableSelect>
+                />
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
                 {['ALL', ...eventButtons.map(btn => btn.id)].map(f => (
@@ -5246,6 +5360,20 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   <div className="pt-6 border-t border-[var(--border-soft)]">
                     <SystemMinutesCharts
                       stats={systemMinutesStats}
+                      squadById={new Map(squad.map(p => [String(p.id), {
+                        id: p.id,
+                        nombre: p.nombre,
+                        apodo: p.apodo,
+                        dorsal: p.dorsal,
+                        posicion: p.posicion
+                      } as Jugador]))}
+                    />
+                  </div>
+                  <div className="pt-6 border-t border-[var(--border-soft)]">
+                    <MatchEventsRegistry
+                      matchGoals={report.matchGoals}
+                      matchCards={report.matchCards}
+                      videoEvents={report.videoEvents}
                       squadById={new Map(squad.map(p => [String(p.id), {
                         id: p.id,
                         nombre: p.nombre,
