@@ -172,6 +172,16 @@ const getDocEmbedUrl = (url: string) => {
   }
 };
 
+const isSupabaseUrl = (url: string): boolean => {
+  if (!url) return false;
+  try {
+    const lower = url.toLowerCase();
+    return lower.includes('supabase.co') || lower.includes('supabaseusercontent.com');
+  } catch {
+    return false;
+  }
+};
+
 const autoResizeTextarea = (element: HTMLTextAreaElement) => {
   element.style.height = 'auto';
   element.style.height = element.scrollHeight + 'px';
@@ -4072,10 +4082,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                           <>
                             {(report as any)[`${block.id}Video`] && (
                               <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
-                                <video controls className="w-full h-full" title={`${block.id}-video-plan`}>
-                                  <source src={(report as any)[`${block.id}Video`]} type="video/mp4" />
-                                  Tu navegador no soporta video HTML5
-                                </video>
+                                {isSupabaseUrl((report as any)[`${block.id}Video`]) ? (
+                                  <video controls className="w-full h-full" title={`${block.id}-video-plan`}>
+                                    <source src={(report as any)[`${block.id}Video`]} type="video/mp4" />
+                                    Tu navegador no soporta video HTML5
+                                  </video>
+                                ) : (
+                                  <iframe title={`${block.id}-video-plan`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
+                                )}
                               </div>
                             )}
                             {(report as any)[`${block.id}Video`] && (
