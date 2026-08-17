@@ -43,6 +43,12 @@ const LADO_OPTIONS: { value: string; label: string }[] = [
   { value: 'CONTRA', label: 'En contra' },
 ];
 
+const RESULTADO_OPTIONS: { value: string; label: string }[] = [
+  { value: 'FAVOR', label: 'A favor' },
+  { value: 'CONTRA', label: 'En contra' },
+  { value: 'EMPATE', label: 'Empate' },
+];
+
 interface MatchVideoItem {
   matchId: string;
   title: string;
@@ -87,6 +93,7 @@ interface VideoRow {
   goalsFavor: number;
   goalsContra: number;
   ocasionesCount: number;
+  resultado: 'FAVOR' | 'CONTRA' | 'EMPATE';
 }
 
 const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = [], ownClubId }) => {
@@ -102,13 +109,14 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
   const [eventoTipoFilter, setEventoTipoFilter] = useState<string>(ALL_FILTER);
   const [ladoFilter, setLadoFilter] = useState<string>(ALL_FILTER);
+  const [resultadoFilter, setResultadoFilter] = useState<string>(ALL_FILTER);
   const [playerFilter, setPlayerFilter] = useState<string>(ALL_FILTER);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [channelShareUrl, setChannelShareUrl] = useState<string | null>(null);
   const [sharingLoading, setSharingLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'videos' | 'events'>('videos');
+  const [viewMode, setViewMode] = useState<'videos' | 'events'>('events');
 
   // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
   const ownCompetitionTeams = useMemo(
@@ -243,6 +251,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         const report = matchReportsById.get(String(match.id));
         const goals = report?.matchGoals || [];
         const events = report?.videoEvents || [];
+        const goalsFavor = goals.filter((g) => g.side === 'FAVOR').length;
+        const goalsContra = goals.filter((g) => g.side === 'CONTRA').length;
+        const resultado = goalsFavor > goalsContra ? 'FAVOR' : goalsContra > goalsFavor ? 'CONTRA' : 'EMPATE';
 
         if (eventoTipoFilter === 'GOL' && goals.length === 0) return false;
         if (eventoTipoFilter === 'OCASION' && !events.some((e) => e.type === 'OCASION')) return false;
@@ -250,6 +261,8 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         if (eventoTipoFilter === 'NOTA' && !events.some((e) => e.type === 'NOTA')) return false;
 
         if (ladoFilter !== ALL_FILTER && !goals.some((g) => g.side === ladoFilter)) return false;
+
+        if (resultadoFilter !== ALL_FILTER && resultado !== resultadoFilter) return false;
 
         if (playerFilter !== ALL_FILTER) {
           const hasPlayer =
@@ -265,6 +278,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         const goalsFavor = (report.matchGoals || []).filter((g) => g.side === 'FAVOR').length;
         const goalsContra = (report.matchGoals || []).filter((g) => g.side === 'CONTRA').length;
         const ocasionesCount = (report.videoEvents || []).filter((e) => e.type === 'OCASION').length;
+        const resultado = goalsFavor > goalsContra ? 'FAVOR' : goalsContra > goalsFavor ? 'CONTRA' : 'EMPATE';
 
         // Obtener nombre interno del equipo local
         const equipoInterno = resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName);
@@ -288,10 +302,11 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
           goalsFavor,
           goalsContra,
           ocasionesCount,
+          resultado,
         };
       })
       .sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime());
-  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, playerFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
+  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, resultadoFilter, playerFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
 
   const toggleRowExpanded = (matchId: string) => {
     setExpandedRows(prev => {
@@ -361,6 +376,19 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
       header: 'GOLES C',
       cell: (info) => <span className="font-black text-red-500">{info.getValue()}</span>,
     }),
+    columnHelper.accessor('resultado', {
+      header: 'A FAVOR / EN CONTRA',
+      cell: (info) => {
+        const resultado = info.getValue();
+        if (resultado === 'FAVOR') {
+          return <span className="font-black text-emerald-600 text-xs">A FAVOR</span>;
+        } else if (resultado === 'CONTRA') {
+          return <span className="font-black text-red-500 text-xs">EN CONTRA</span>;
+        } else {
+          return <span className="font-black text-amber-600 text-xs">EMPATE</span>;
+        }
+      }
+    }),
     columnHelper.accessor('ocasionesCount', { header: 'OCASIONES' }),
     columnHelper.accessor('vimeoUrl', {
       header: 'VÍDEO',
@@ -392,20 +420,20 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h3 className="text-sport-primary font-black text-2xl uppercase tracking-tighter">Videoteca Oficial</h3>
-          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Vídeos completos de los partidos</p>
+          <h3 className="text-sport-primary font-black text-lg uppercase tracking-tighter">Videoteca Oficial</h3>
+          <p className="text-slate-500 text-[8px] font-bold uppercase tracking-widest mt-1">Vídeos completos de los partidos</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           {channelShareUrl ? (
             <button
               onClick={() => {
                 const url = new URL(channelShareUrl, window.location.origin);
                 window.open(url.toString(), '_blank');
               }}
-              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
+              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
               title="Abrir tu canal público (sin login requerido)"
             >
-              <i className="fa-solid fa-link text-lg"></i>
+              <i className="fa-solid fa-link text-xs"></i>
               Mi Canal
             </button>
           ) : (
@@ -413,9 +441,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
               href="https://www.youtube.com/@athletic-club"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
+              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
             >
-              <i className="fa-brands fa-youtube text-lg"></i>
+              <i className="fa-brands fa-youtube text-xs"></i>
               Mi Canal
             </a>
           )}
@@ -423,82 +451,93 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             <button
               onClick={handleCopyChannelShareUrl}
               disabled={sharingLoading}
-              className={`flex-1 sm:flex-none px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
                 shareCopied
                   ? 'bg-green-50 border border-green-200 text-green-600'
                   : 'bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 hover:border-blue-300'
               }`}
               title="Copiar enlace privado para compartir el canal"
             >
-              <i className={`fa-solid ${shareCopied ? 'fa-check' : 'fa-link'} text-lg`}></i>
+              <i className={`fa-solid ${shareCopied ? 'fa-check' : 'fa-link'} text-xs`}></i>
               {shareCopied ? 'Copiado' : 'Compartir Canal'}
             </button>
           )}
         </div>
       </div>
 
-      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
         <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Equipo</label>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Equipo</label>
           <SearchableSelect
             value={equipoInternoFilter}
             onChange={(e) => setEquipoInternoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos los equipos</option>
             {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Tipo</label>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Tipo</label>
           <SearchableSelect
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos los tipos</option>
             {tipoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Competición</label>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Competición</label>
           <SearchableSelect
             value={competitionFilter}
             onChange={(e) => setCompetitionFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todas las competiciones</option>
             {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos</label>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos</label>
           <SearchableSelect
             value={eventoTipoFilter}
             onChange={(e) => setEventoTipoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos</option>
             {EVENTO_TIPO_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">A favor / En contra</label>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Resultado</label>
+          <SearchableSelect
+            value={resultadoFilter}
+            onChange={(e) => setResultadoFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          >
+            <option value={ALL_FILTER}>Todos</option>
+            {RESULTADO_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </SearchableSelect>
+        </div>
+        <div>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos (lado)</label>
           <SearchableSelect
             value={ladoFilter}
             onChange={(e) => setLadoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos</option>
             {LADO_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </SearchableSelect>
         </div>
         <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Jugador</label>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Jugador</label>
           <SearchableSelect
             value={playerFilter}
             onChange={(e) => setPlayerFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           >
             <option value={ALL_FILTER}>Todos</option>
             {playerOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -509,24 +548,24 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
       {/* View Mode Toggle */}
       <div className="flex gap-2 justify-end">
         <button
-          onClick={() => setViewMode('videos')}
-          className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
-            viewMode === 'videos'
-              ? 'bg-sport-primary text-white shadow-lg'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          <i className="fa-solid fa-video"></i> Videos
-        </button>
-        <button
           onClick={() => setViewMode('events')}
-          className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+          className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
             viewMode === 'events'
               ? 'bg-sport-primary text-white shadow-lg'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
-          <i className="fa-solid fa-th"></i> Tabla Eventos
+          <i className="fa-solid fa-th text-xs"></i> Tabla Eventos
+        </button>
+        <button
+          onClick={() => setViewMode('videos')}
+          className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+            viewMode === 'videos'
+              ? 'bg-sport-primary text-white shadow-lg'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-video text-xs"></i> Videos
         </button>
       </div>
 
@@ -630,10 +669,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                             {video.vimeoUrl && (
                               <button
                                 type="button"
-                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(goal.videoTimestamp); }}
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(goal.videoTimestamp ?? 0); }}
                                 className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600/20 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center"
-                                title={goal.videoTimestamp != null ? 'Ver gol' : 'Sin timestamp'}
-                                disabled={goal.videoTimestamp == null}
+                                title="Ver gol"
                               >
                                 <i className="fa-solid fa-play text-[7px]"></i>
                               </button>
@@ -660,10 +698,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                             {video.vimeoUrl && (
                               <button
                                 type="button"
-                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(goal.videoTimestamp); }}
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(goal.videoTimestamp ?? 0); }}
                                 className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-red-600/20 text-red-600 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"
-                                title={goal.videoTimestamp != null ? 'Ver gol' : 'Sin timestamp'}
-                                disabled={goal.videoTimestamp == null}
+                                title="Ver gol"
                               >
                                 <i className="fa-solid fa-play text-[7px]"></i>
                               </button>
@@ -690,10 +727,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                             {video.vimeoUrl && (
                               <button
                                 type="button"
-                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(ocasion.videoTimestamp); }}
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(ocasion.videoTimestamp ?? 0); }}
                                 className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-slate-400/20 text-slate-600 hover:bg-slate-600 hover:text-white transition-all flex items-center justify-center"
-                                title={ocasion.videoTimestamp != null ? 'Ver ocasión' : 'Sin timestamp'}
-                                disabled={ocasion.videoTimestamp == null}
+                                title="Ver ocasión"
                               >
                                 <i className="fa-solid fa-play text-[7px]"></i>
                               </button>
@@ -728,10 +764,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                             {video.vimeoUrl && (
                               <button
                                 type="button"
-                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(duelo.videoTimestamp); }}
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(duelo.videoTimestamp ?? 0); }}
                                 className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-amber-600/20 text-amber-600 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center"
-                                title={duelo.videoTimestamp != null ? 'Ver duelo' : 'Sin timestamp'}
-                                disabled={duelo.videoTimestamp == null}
+                                title="Ver duelo"
                               >
                                 <i className="fa-solid fa-play text-[7px]"></i>
                               </button>
@@ -758,10 +793,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                             {video.vimeoUrl && (
                               <button
                                 type="button"
-                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(nota.videoTimestamp); }}
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(nota.videoTimestamp ?? 0); }}
                                 className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center"
-                                title={nota.videoTimestamp != null ? 'Ver nota' : 'Sin timestamp'}
-                                disabled={nota.videoTimestamp == null}
+                                title="Ver nota"
                               >
                                 <i className="fa-solid fa-play text-[7px]"></i>
                               </button>

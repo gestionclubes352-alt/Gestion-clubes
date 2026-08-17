@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 interface EventsTableViewProps {
   events: VideoEvent[];
   squad: Player[];
+  teamName?: string;
   onEdit?: (event: VideoEvent) => void;
   onDelete?: (eventId: string) => void;
 }
@@ -56,7 +57,7 @@ const getEventTypeInfo = (type: VideoEvent['type']): { label: string; icon: stri
   }
 };
 
-const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, onEdit, onDelete }) => {
+const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamName, onEdit, onDelete }) => {
   const { t } = useTranslation();
 
   const sortedEvents = useMemo(() => {
@@ -78,37 +79,48 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, onEdit
 
   return (
     <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
-      <table className="w-full text-sm">
+      <table className="w-full text-xs">
         <thead className="bg-slate-100 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
           <tr>
-            <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
               Min'
             </th>
-            <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">
-              Tipo
+            {teamName && (
+              <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+                Equipo interno
+              </th>
+            )}
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              Goles A Favor
             </th>
-            <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">
-              Detalles
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              Goles En Contra
             </th>
-            <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              Ocasiones
+            </th>
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              Duelos Ganados
+            </th>
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              Duelos Perdidos
+            </th>
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              Notas
+            </th>
+            <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">
               Acciones
             </th>
           </tr>
         </thead>
         <tbody>
           {sortedEvents.map((event, idx) => {
-            const typeInfo = getEventTypeInfo(event.type);
-            let details = '-';
-
-            if (event.type === 'GOL') {
-              details = `${event.goalSide === 'FAVOR' ? '✓ A favor' : '✗ En contra'} - ${getPlayerName(event.playerId, squad)}`;
-            } else if (event.type === 'OCASION') {
-              details = getPlayerName(event.playerId, squad);
-            } else if (event.type === 'DUELO') {
-              details = `${getPlayerName(event.playerId, squad)} - ${event.duelOutcome || '-'}`;
-            } else if (event.type === 'NOTA') {
-              details = event.note || '-';
-            }
+            const isGoalFavor = event.type === 'GOL' && event.goalSide === 'FAVOR';
+            const isGoalAgainst = event.type === 'GOL' && event.goalSide === 'CONTRA';
+            const isOccasion = event.type === 'OCASION';
+            const isDuelWon = event.type === 'DUELO' && event.duelOutcome === 'GANADO';
+            const isDuelLost = event.type === 'DUELO' && event.duelOutcome === 'PERDIDO';
+            const isNote = event.type === 'NOTA';
 
             return (
               <tr
@@ -117,21 +129,75 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, onEdit
                   idx % 2 === 0 ? 'bg-white dark:bg-slate-950' : 'bg-slate-50 dark:bg-slate-900/50'
                 } hover:bg-slate-100 dark:hover:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 transition-colors`}
               >
-                <td className="px-4 py-3 text-slate-800 dark:text-slate-200">
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
                   <span className="font-semibold">{event.minute}'</span>
                 </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${typeInfo.color} ${typeInfo.bgColor}`}
-                  >
-                    <i className={`${typeInfo.icon} mr-2`}></i>
-                    {typeInfo.label}
-                  </span>
+                {teamName && (
+                  <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                    <span className="text-xs text-slate-600 dark:text-slate-400">{teamName}</span>
+                  </td>
+                )}
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isGoalFavor ? (
+                    <span className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded text-xs font-semibold">
+                      <i className="fa-solid fa-futbol"></i>
+                      {getPlayerName(event.playerId, squad)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
                 </td>
-                <td className="px-4 py-3 text-slate-800 dark:text-slate-200">
-                  <p className="text-sm max-w-md line-clamp-2">{details}</p>
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isGoalAgainst ? (
+                    <span className="inline-flex items-center gap-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-1.5 py-0.5 rounded text-xs font-semibold">
+                      <i className="fa-solid fa-futbol"></i>
+                      {getPlayerName(event.playerId, squad)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isOccasion ? (
+                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded text-xs font-semibold">
+                      <i className="fa-solid fa-bullseye"></i>
+                      {getPlayerName(event.playerId, squad)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isDuelWon ? (
+                    <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-xs font-semibold">
+                      <i className="fa-solid fa-check-circle"></i>
+                      {getPlayerName(event.playerId, squad)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isDuelLost ? (
+                    <span className="inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-1.5 py-0.5 rounded text-xs font-semibold">
+                      <i className="fa-solid fa-times-circle"></i>
+                      {getPlayerName(event.playerId, squad)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isNote ? (
+                    <span className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 rounded text-xs font-semibold max-w-xs">
+                      <i className="fa-solid fa-note-sticky flex-shrink-0"></i>
+                      <span className="truncate">{event.note || '-'}</span>
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
+                <td className="px-2 py-2 text-right">
                   <div className="flex gap-2 justify-end">
                     {onEdit && (
                       <button

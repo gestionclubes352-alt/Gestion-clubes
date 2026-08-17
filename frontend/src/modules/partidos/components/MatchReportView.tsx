@@ -5322,6 +5322,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         <EventsTableView
           events={report.videoEvents || []}
           squad={squad}
+          teamName={dgForm.nombreInterno}
           onEdit={(event) => {
             startEditing(event);
             setActiveTab('EVENTOS');

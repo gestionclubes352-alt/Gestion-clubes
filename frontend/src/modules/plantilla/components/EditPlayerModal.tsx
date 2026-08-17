@@ -16,6 +16,7 @@ import SearchableSelect from '@shared/components/SearchableSelect';
 
 const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
 const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
+const PlayerVideosSection = lazy(() => import('./PlayerVideosSection'));
 
 interface EditPlayerModalProps {
   player: Player;
@@ -1102,6 +1103,17 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 photoUrl={preview || undefined}
                 matches={matches}
                 matchReports={matchReports}
+              />
+            </Suspense>
+          )}
+
+          {/* === VIDEOS DEL JUGADOR === */}
+          {showDetailedStats && (
+            <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
+              <PlayerVideosSection
+                playerId={String(player.id)}
+                playerName={formData.apodo || formData.nombre}
+                matches={matches}
               />
             </Suspense>
           )}
