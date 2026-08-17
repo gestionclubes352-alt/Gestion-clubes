@@ -5,7 +5,7 @@ import type { Match, MatchReport } from '@modules/partidos';
 import { db, clubesService } from '@shared/services/dataService';
 import type { Jugador, Club } from '@shared/services/dataService';
 import { supabase } from '@shared/services/supabaseClient';
-import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import ShareButton from '@modules/partidos/components/ShareButton';
 import { DataTable } from '@shared/components/DataTable';
 import VideotecaEventsTable from './VideotecaEventsTable';
@@ -15,7 +15,6 @@ import { useAuth } from '@context/AuthContext';
 import type { CompetitionTeam } from '@modules/competicion';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import {
-  ALL_FILTER,
   normalizeTeamKey,
   isSameCompetition,
   internalNameOfTeam,
@@ -43,11 +42,6 @@ const LADO_OPTIONS: { value: string; label: string }[] = [
   { value: 'CONTRA', label: 'En contra' },
 ];
 
-const RESULTADO_OPTIONS: { value: string; label: string }[] = [
-  { value: 'FAVOR', label: 'A favor' },
-  { value: 'CONTRA', label: 'En contra' },
-  { value: 'EMPATE', label: 'Empate' },
-];
 
 interface MatchVideoItem {
   matchId: string;
@@ -58,6 +52,8 @@ interface MatchVideoItem {
   goalsFavor: number;
   goalsContra: number;
   ocasionesCount: number;
+  resultado: 'FAVOR' | 'CONTRA' | 'EMPATE';
+  equipoInterno: string;
 }
 
 /** Convierte una URL de YouTube/Vimeo en su URL de embebido para reproducir en el modal. */
@@ -104,13 +100,15 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   const [clubsById, setClubsById] = useState<Map<string | number, Club>>(new Map());
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalTimestamp, setVideoModalTimestamp] = useState<number | undefined>(undefined);
-  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
-  const [tipoFilter, setTipoFilter] = useState<string>(ALL_FILTER);
-  const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
-  const [eventoTipoFilter, setEventoTipoFilter] = useState<string>(ALL_FILTER);
-  const [ladoFilter, setLadoFilter] = useState<string>(ALL_FILTER);
-  const [resultadoFilter, setResultadoFilter] = useState<string>(ALL_FILTER);
-  const [playerFilter, setPlayerFilter] = useState<string>(ALL_FILTER);
+  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string[]>([]);
+  const [tipoFilter, setTipoFilter] = useState<string[]>([]);
+  const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
+  const [eventoTipoFilter, setEventoTipoFilter] = useState<string[]>([]);
+  const [ladoFilter, setLadoFilter] = useState<string[]>([]);
+  const [playerFilter, setPlayerFilter] = useState<string[]>([]);
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
+  const [monthFilter, setMonthFilter] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [channelShareUrl, setChannelShareUrl] = useState<string | null>(null);
   const [sharingLoading, setSharingLoading] = useState(false);
@@ -131,19 +129,20 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
 
   // El vídeo completo, los goles a favor/contra y las ocasiones de cada partido vienen
   // del informe de partido (match_reports), no del propio Match.
+  // Optimización: cargar solo reports con videoUrl para evitar procesar miles de filas innecesarias.
   useEffect(() => {
     (async () => {
       try {
         const reportsRes = await db.match_reports.get();
+        const allReports = (reportsRes.data || []) as MatchReport[];
 
+        // Filtrar solo los que tienen videoUrl
+        const reportsWithVideo = allReports.filter(r => !!r.videoUrl || !!r.videoOriginals?.videoUrl);
         const reportMap = new Map<string, MatchReport>();
-        (reportsRes.data || []).forEach((report: MatchReport) => reportMap.set(String(report.id), report));
+        reportsWithVideo.forEach((report) => reportMap.set(String(report.id), report));
         setMatchReportsById(reportMap);
 
-        // Solo se cargan los jugadores realmente referenciados en goles/ocasiones: la tabla
-        // `plantillas` tiene miles de filas (todos los clubes) y una consulta sin filtro se
-        // corta en el límite de 1000 filas de Supabase, dejando huérfanos a los jugadores
-        // de clubes que no caen en esa página (se veían como "Jugador #<uuid>").
+        // Solo se cargan los jugadores realmente referenciados en goles/ocasiones
         const playerIds = new Set<string>();
         reportMap.forEach((report) => {
           (report.matchGoals || []).forEach((g) => { if (g.playerId != null) playerIds.add(String(g.playerId)); });
@@ -230,23 +229,62 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
       (report.matchGoals || []).forEach((g) => {
         if (g.playerId == null) return;
         const key = String(g.playerId);
-        if (!names.has(key)) names.set(key, playersById.get(g.playerId)?.nombre || `Jugador #${g.playerId}`);
+        if (!names.has(key)) names.set(key, playersById.get(g.playerId)?.nombre || 'Jugador eliminado');
       });
       (report.videoEvents || []).forEach((e) => {
         if (e.playerId == null) return;
         const key = String(e.playerId);
-        if (!names.has(key)) names.set(key, playersById.get(e.playerId)?.nombre || `Jugador #${e.playerId}`);
+        if (!names.has(key)) names.set(key, playersById.get(e.playerId)?.nombre || 'Jugador eliminado');
       });
     });
     return Array.from(names.entries()).sort((a, b) => a[1].localeCompare(b[1], 'es'));
   }, [matchesWithVideo, matchReportsById, playersById]);
 
+  const monthOptions = useMemo(() => {
+    const months = new Map<string, string>();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    matchesWithVideo.forEach((m) => {
+      if (m.date) {
+        const date = new Date(m.date);
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const label = `${monthNames[month]} ${year}`;
+        if (!months.has(key)) months.set(key, label);
+      }
+    });
+
+    return Array.from(months.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [matchesWithVideo]);
+
   const filteredVideos = useMemo<MatchVideoItem[]>(() => {
     return matchesWithVideo
       .filter((match) => {
-        if (equipoInternoFilter !== ALL_FILTER && resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName) !== equipoInternoFilter) return false;
-        if (tipoFilter !== ALL_FILTER && getCompetitionType(match.competition) !== tipoFilter) return false;
-        if (competitionFilter !== ALL_FILTER && match.competition !== competitionFilter) return false;
+        if (equipoInternoFilter.length > 0 && !equipoInternoFilter.includes(resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName))) return false;
+        if (tipoFilter.length > 0 && !tipoFilter.includes(getCompetitionType(match.competition))) return false;
+        if (competitionFilter.length > 0 && !competitionFilter.includes(match.competition)) return false;
+
+        // Filtro de fechas
+        if (match.date) {
+          const matchDate = new Date(match.date);
+          if (dateFromFilter || dateToFilter) {
+            if (dateFromFilter) {
+              const fromDate = new Date(dateFromFilter);
+              if (matchDate < fromDate) return false;
+            }
+            if (dateToFilter) {
+              const toDate = new Date(dateToFilter);
+              toDate.setHours(23, 59, 59, 999);
+              if (matchDate > toDate) return false;
+            }
+          } else if (monthFilter.length > 0) {
+            const matchMonth = `${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthFilter.includes(matchMonth)) return false;
+          }
+        }
 
         const report = matchReportsById.get(String(match.id));
         const goals = report?.matchGoals || [];
@@ -255,19 +293,23 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         const goalsContra = goals.filter((g) => g.side === 'CONTRA').length;
         const resultado = goalsFavor > goalsContra ? 'FAVOR' : goalsContra > goalsFavor ? 'CONTRA' : 'EMPATE';
 
-        if (eventoTipoFilter === 'GOL' && goals.length === 0) return false;
-        if (eventoTipoFilter === 'OCASION' && !events.some((e) => e.type === 'OCASION')) return false;
-        if (eventoTipoFilter === 'DUELO' && !events.some((e) => e.type === 'DUELO')) return false;
-        if (eventoTipoFilter === 'NOTA' && !events.some((e) => e.type === 'NOTA')) return false;
+        if (eventoTipoFilter.length > 0) {
+          const matchesEventoTipo = eventoTipoFilter.some((tipo) => {
+            if (tipo === 'GOL') return goals.length > 0;
+            if (tipo === 'OCASION') return events.some((e) => e.type === 'OCASION');
+            if (tipo === 'DUELO') return events.some((e) => e.type === 'DUELO');
+            if (tipo === 'NOTA') return events.some((e) => e.type === 'NOTA');
+            return false;
+          });
+          if (!matchesEventoTipo) return false;
+        }
 
-        if (ladoFilter !== ALL_FILTER && !goals.some((g) => g.side === ladoFilter)) return false;
+        if (ladoFilter.length > 0 && !goals.some((g) => ladoFilter.includes(g.side))) return false;
 
-        if (resultadoFilter !== ALL_FILTER && resultado !== resultadoFilter) return false;
-
-        if (playerFilter !== ALL_FILTER) {
+        if (playerFilter.length > 0) {
           const hasPlayer =
-            goals.some((g) => String(g.playerId) === playerFilter) ||
-            events.some((e) => String(e.playerId) === playerFilter);
+            goals.some((g) => playerFilter.includes(String(g.playerId))) ||
+            events.some((e) => playerFilter.includes(String(e.playerId)));
           if (!hasPlayer) return false;
         }
 
@@ -303,10 +345,11 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
           goalsContra,
           ocasionesCount,
           resultado,
+          equipoInterno,
         };
       })
       .sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime());
-  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, resultadoFilter, playerFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
+  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, playerFilter, dateFromFilter, dateToFilter, monthFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
 
   const toggleRowExpanded = (matchId: string) => {
     setExpandedRows(prev => {
@@ -323,7 +366,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   const getPlayerName = (playerId?: string | number): string => {
     if (!playerId) return 'Gol';
     const player = playersById.get(playerId);
-    return player ? player.nombre : `Jugador #${playerId}`;
+    return player ? player.nombre : 'Jugador eliminado';
   };
 
   const handleCopyChannelShareUrl = async () => {
@@ -424,29 +467,16 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
           <p className="text-slate-500 text-[8px] font-bold uppercase tracking-widest mt-1">Vídeos completos de los partidos</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-          {channelShareUrl ? (
-            <button
-              onClick={() => {
-                const url = new URL(channelShareUrl, window.location.origin);
-                window.open(url.toString(), '_blank');
-              }}
-              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
-              title="Abrir tu canal público (sin login requerido)"
-            >
-              <i className="fa-solid fa-link text-xs"></i>
-              Mi Canal
-            </button>
-          ) : (
-            <a
-              href="https://www.youtube.com/@athletic-club"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
-            >
-              <i className="fa-brands fa-youtube text-xs"></i>
-              Mi Canal
-            </a>
-          )}
+          <a
+            href="https://www.youtube.com/@GestionClubes"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 sm:flex-none bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-red-300"
+            title="Abrir el canal de YouTube (sin login)"
+          >
+            <i className="fa-brands fa-youtube text-xs"></i>
+            Mi Canal
+          </a>
           {channelShareUrl && (
             <button
               onClick={handleCopyChannelShareUrl}
@@ -465,84 +495,148 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         </div>
       </div>
 
-      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-2">
         <div>
           <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Equipo</label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={equipoInternoFilter}
-            onChange={(e) => setEquipoInternoFilter(e.target.value)}
+            onChange={setEquipoInternoFilter}
+            allLabel="Todos los equipos"
+            options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos los equipos</option>
-            {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Tipo</label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={tipoFilter}
-            onChange={(e) => setTipoFilter(e.target.value)}
+            onChange={setTipoFilter}
+            allLabel="Todos los tipos"
+            options={tipoOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos los tipos</option>
-            {tipoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Competición</label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={competitionFilter}
-            onChange={(e) => setCompetitionFilter(e.target.value)}
+            onChange={setCompetitionFilter}
+            allLabel="Todas las competiciones"
+            options={competitionOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todas las competiciones</option>
-            {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
+        </div>
+        <div>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Mes</label>
+          <MultiSelectFilter
+            value={monthFilter}
+            onChange={(next) => {
+              setMonthFilter(next);
+              setDateFromFilter('');
+              setDateToFilter('');
+            }}
+            allLabel="Todos los meses"
+            options={monthOptions}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Desde</label>
+          <input
+            type="date"
+            value={dateFromFilter}
+            onChange={(e) => {
+              setDateFromFilter(e.target.value);
+              setMonthFilter([]);
+            }}
+            disabled={monthFilter.length > 0}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
+        <div>
+          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Hasta</label>
+          <input
+            type="date"
+            value={dateToFilter}
+            onChange={(e) => {
+              setDateToFilter(e.target.value);
+              setMonthFilter([]);
+            }}
+            disabled={monthFilter.length > 0}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          />
         </div>
         <div>
           <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos</label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={eventoTipoFilter}
-            onChange={(e) => setEventoTipoFilter(e.target.value)}
+            onChange={setEventoTipoFilter}
+            options={EVENTO_TIPO_OPTIONS}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos</option>
-            {EVENTO_TIPO_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </SearchableSelect>
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Resultado</label>
-          <SearchableSelect
-            value={resultadoFilter}
-            onChange={(e) => setResultadoFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos</option>
-            {RESULTADO_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos (lado)</label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={ladoFilter}
-            onChange={(e) => setLadoFilter(e.target.value)}
+            onChange={setLadoFilter}
+            options={LADO_OPTIONS}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos</option>
-            {LADO_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Jugador</label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={playerFilter}
-            onChange={(e) => setPlayerFilter(e.target.value)}
+            onChange={setPlayerFilter}
+            options={playerOptions.map(([id, name]) => ({ value: id, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos</option>
-            {playerOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
+      </div>
+
+      {/* Clear Filters Button */}
+      <div className="flex gap-2 justify-start">
+        <button
+          onClick={() => {
+            setEquipoInternoFilter([]);
+            setTipoFilter([]);
+            setCompetitionFilter([]);
+            setMonthFilter([]);
+            setDateFromFilter('');
+            setDateToFilter('');
+            setEventoTipoFilter([]);
+            setLadoFilter([]);
+            setPlayerFilter([]);
+          }}
+          className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+            equipoInternoFilter.length === 0 &&
+            tipoFilter.length === 0 &&
+            competitionFilter.length === 0 &&
+            monthFilter.length === 0 &&
+            dateFromFilter === '' &&
+            dateToFilter === '' &&
+            eventoTipoFilter.length === 0 &&
+            ladoFilter.length === 0 &&
+            playerFilter.length === 0
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 hover:border-red-300'
+          }`}
+          disabled={
+            equipoInternoFilter.length === 0 &&
+            tipoFilter.length === 0 &&
+            competitionFilter.length === 0 &&
+            monthFilter.length === 0 &&
+            dateFromFilter === '' &&
+            dateToFilter === '' &&
+            eventoTipoFilter.length === 0 &&
+            ladoFilter.length === 0 &&
+            playerFilter.length === 0
+          }
+        >
+          <i className="fa-solid fa-xmark text-xs"></i>
+          Limpiar Filtros
+        </button>
       </div>
 
       {/* View Mode Toggle */}
@@ -583,7 +677,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             <VideotecaEventsTable
               matches={filteredVideos.map(v => {
                 const match = matches.find(m => String(m.id) === v.matchId);
-                if (match) return match;
+                if (match) return { ...match, nombreInterno: v.equipoInterno };
                 // Si no encuentra el match, crea uno parcial con los campos necesarios
                 const [local, visitor] = v.title.split(' vs ');
                 return {
@@ -593,6 +687,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                   competition: v.competition,
                   localTeam: local?.trim() || 'Local',
                   visitorTeam: visitor?.split('(')[0].trim() || 'Visitante',
+                  nombreInterno: v.equipoInterno,
                 };
               })}
               matchReportsById={matchReportsById}
@@ -604,6 +699,9 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
               eventoTipoFilter={eventoTipoFilter}
               ladoFilter={ladoFilter}
               playerFilter={playerFilter}
+              dateFromFilter={dateFromFilter}
+              dateToFilter={dateToFilter}
+              monthFilter={monthFilter}
             />
           </div>
         )
