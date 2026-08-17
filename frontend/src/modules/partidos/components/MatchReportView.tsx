@@ -4078,19 +4078,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         )}
                         {(block.id === 'planConBalon' || block.id === 'planSinBalon') ? (
                           <>
-                            {(report as any)[`${block.id}Video`] && (
+                            {(report as any)[`${block.id}Video`] && isSupabaseUrl((report as any)[`${block.id}Video`]) && (
                               <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
-                                {isSupabaseUrl((report as any)[`${block.id}Video`]) ? (
-                                  <video controls className="w-full h-full" title={`${block.id}-video-plan`}>
-                                    <source src={(report as any)[`${block.id}Video`]} type="video/mp4" />
-                                    Tu navegador no soporta video HTML5
-                                  </video>
-                                ) : (
-                                  <iframe title={`${block.id}-video-plan`} src={getEmbedUrl((report as any)[`${block.id}Video`])} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
-                                )}
+                                <video controls className="w-full h-full" title={`${block.id}-video-plan`}>
+                                  <source src={(report as any)[`${block.id}Video`]} type="video/mp4" />
+                                  Tu navegador no soporta video HTML5
+                                </video>
                               </div>
                             )}
-                            {(report as any)[`${block.id}Video`] && (
+                            {(report as any)[`${block.id}Video`] && isSupabaseUrl((report as any)[`${block.id}Video`]) && (
                               <a className="text-[10px] font-black text-[var(--accent)] underline inline-block mt-2" href={(report as any)[`${block.id}Video`]} target="_blank" rel="noreferrer">
                                 {t('matchReport.video.openVideoNewTab')}
                               </a>
