@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Player } from '@modules/plantilla';
 import type { AttendanceStatus } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 
 interface SessionAttendancePanelProps {
@@ -16,9 +17,9 @@ interface SessionAttendancePanelProps {
 
 const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players, additionalPlayers = [], attendance, onChange, selectiveAttendance = false, hideExternalPlayers = false }) => {
   const { t } = useTranslation();
-  const [externalTeamFilter, setExternalTeamFilter] = useState<string>('all');
+  const [externalTeamFilter, setExternalTeamFilter] = useState<string[]>([]);
   const [externalSearch, setExternalSearch] = useState('');
-  const [absentTeamFilter, setAbsentTeamFilter] = useState<string>('all');
+  const [absentTeamFilter, setAbsentTeamFilter] = useState<string[]>([]);
   const [absentSearch, setAbsentSearch] = useState('');
 
   const getStatus = (playerId: string | number): AttendanceStatus => attendance[String(playerId)] || 'Si';
@@ -158,7 +159,7 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
   const filteredExternalPlayers = useMemo(() => {
     const query = externalSearch.trim().toLowerCase();
     return availablePlayers.filter(p => {
-      if (externalTeamFilter !== 'all' && p.equipo !== externalTeamFilter) return false;
+      if (externalTeamFilter.length > 0 && !externalTeamFilter.includes(p.equipo || '')) return false;
       if (query && !p.nombre.toLowerCase().includes(query)) return false;
       return true;
     });
@@ -320,7 +321,7 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
 
                   const query = absentSearch.trim().toLowerCase();
                   const filteredAbsent = absentPlayers.filter(p => {
-                    if (absentTeamFilter !== 'all' && p.equipo !== absentTeamFilter) return false;
+                    if (absentTeamFilter.length > 0 && !absentTeamFilter.includes(p.equipo || '')) return false;
                     if (query && !p.nombre.toLowerCase().includes(query)) return false;
                     return true;
                   });
@@ -334,16 +335,13 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                         <span className="ml-auto text-[10px] font-black text-red-400">{filteredAbsent.length}</span>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                        <SearchableSelect
+                        <MultiSelectFilter
                           value={absentTeamFilter}
-                          onChange={(e) => setAbsentTeamFilter(e.target.value)}
+                          onChange={setAbsentTeamFilter}
+                          allLabel={t('calendarView.filterAllTeams')}
+                          options={absentTeams.map((team) => ({ value: team, label: team }))}
                           className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
-                        >
-                          <option value="all">{t('calendarView.filterAllTeams')}</option>
-                          {absentTeams.map(team => (
-                            <option key={team} value={team}>{team}</option>
-                          ))}
-                        </SearchableSelect>
+                        />
                         <div className="relative flex-1">
                           <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
                           <input
@@ -422,16 +420,13 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                       <span className="ml-auto text-[10px] font-black text-slate-400">{filteredExternalPlayers.length}</span>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                      <SearchableSelect
+                      <MultiSelectFilter
                         value={externalTeamFilter}
-                        onChange={(e) => setExternalTeamFilter(e.target.value)}
+                        onChange={setExternalTeamFilter}
+                        allLabel={t('calendarView.filterAllTeams')}
+                        options={externalTeams.map((team) => ({ value: team, label: team }))}
                         className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
-                      >
-                        <option value="all">{t('calendarView.filterAllTeams')}</option>
-                        {externalTeams.map(team => (
-                          <option key={team} value={team}>{team}</option>
-                        ))}
-                      </SearchableSelect>
+                      />
                       <div className="relative flex-1">
                         <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
                         <input

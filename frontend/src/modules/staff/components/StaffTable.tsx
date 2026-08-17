@@ -7,7 +7,7 @@ import type { Club } from '@modules/clubes';
 import type { StaffMember } from '../types';
 import type { Personal } from '@shared/services/dataService';
 import StaffDetailModal from './StaffDetailModal';
-import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 
 interface StaffTableProps {
   staff: Personal[];
@@ -36,7 +36,7 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
   const isAdmin = userRole === 'Administrador' || userRole === 'Responsable';
 
   // Filtro de equipo: muestra solo EF HUESCA
-  const [clubFilter, setClubFilter] = useState<string>(userClubId || '');
+  const [clubFilter, setClubFilter] = useState<string[]>(userClubId ? [userClubId] : []);
 
   // Detectar el ID de EF HUESCA
   const efHuescaId = useMemo(() => {
@@ -50,8 +50,8 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
   const teamsById = useMemo(() => new Map(clubes.map(c => [String(c.id), c])), [clubes]);
 
   const filteredStaff = useMemo(() => {
-    if (clubFilter === 'all') return staff;
-    return staff.filter(s => s.club_id === clubFilter);
+    if (clubFilter.length === 0) return staff;
+    return staff.filter(s => !!s.club_id && clubFilter.includes(s.club_id));
   }, [staff, clubFilter]);
 
   const columns = useMemo(() => [
@@ -144,21 +144,19 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Equipo:</span>
           <div className="relative">
-            <SearchableSelect
+            <MultiSelectFilter
               value={clubFilter}
-              onChange={e => setClubFilter(e.target.value)}
+              onChange={setClubFilter}
               disabled={!isAdmin}
+              allLabel="Todos los equipos"
+              options={clubes.map((club) => ({ value: String(club.id), label: club.nombre }))}
               className="bg-white border border-slate-200 rounded-xl px-3 py-2 pr-8 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 appearance-none cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {clubes.map(club => (
-                <option key={club.id} value={String(club.id)}>{club.nombre}</option>
-              ))}
-            </SearchableSelect>
+            />
             <i className="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
           </div>
-          {/* Badge con logo del club seleccionado */}
-          {clubFilter !== 'all' && (() => {
-            const selTeam = teamsById.get(clubFilter);
+          {/* Badge con logo del club seleccionado (solo si hay uno único seleccionado) */}
+          {clubFilter.length === 1 && (() => {
+            const selTeam = teamsById.get(clubFilter[0]);
             return selTeam?.logoUrl ? (
               <img loading="lazy" decoding="async" src={selTeam.logoUrl} alt={selTeam.nombre} className="w-6 h-6 rounded object-contain" />
             ) : null;

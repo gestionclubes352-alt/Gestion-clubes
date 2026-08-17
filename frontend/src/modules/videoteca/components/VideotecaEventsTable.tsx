@@ -158,8 +158,11 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
       return true;
     });
 
-    // Ordenar por minuto
+    // Ordenar por fecha (más reciente primero) y luego por minuto
     return filtered.sort((a, b) => {
+      const dateA = a.matchDate ? new Date(a.matchDate).getTime() : 0;
+      const dateB = b.matchDate ? new Date(b.matchDate).getTime() : 0;
+      if (dateA !== dateB) return dateB - dateA;
       const minA = parseInt(a.minute) || 0;
       const minB = parseInt(b.minute) || 0;
       return minA - minB;
@@ -189,59 +192,61 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
-        <table className="w-full text-[10px]">
+        <table className="w-full text-xs">
           <thead className="bg-slate-100 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
             <tr>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Fecha
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Equipo interno
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Competición
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Jornada
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Partido
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Resultado
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Min'
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Tipo
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Equipo
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Balance
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
-                Detalles
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Jugadores
               </th>
-              <th className="px-3 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Notas
+              </th>
+              <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Ver
               </th>
             </tr>
           </thead>
-          <tbody>
-            {paginatedEvents.map((event, idx) => {
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {paginatedEvents.map((event) => {
               const typeInfo = getEventTypeLabel(event.type);
               const report = getMatchReport(event.matchId);
 
-              // Renderizar detalles según el tipo
-              let details = '-';
-              if (event.type === 'GOL' || event.type === 'OCASION' || event.type === 'DUELO') {
-                details = getPlayerName(event.playerId, playersById);
-              } else if (event.type === 'NOTA') {
-                details = event.note || '-';
-              }
+              // Renderizar jugador y nota por separado según el tipo
+              const jugadorDetalle =
+                event.type === 'GOL' || event.type === 'OCASION' || event.type === 'DUELO'
+                  ? getPlayerName(event.playerId, playersById)
+                  : '-';
+              const notaDetalle = event.type === 'NOTA' ? (event.note || '-') : '-';
 
               const showLado = event.type === 'GOL' || event.type === 'OCASION';
               const ladoFavor = event.goalSide === 'FAVOR';
@@ -249,36 +254,34 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
               return (
                 <tr
                   key={event.id}
-                  className={`${
-                    idx % 2 === 0 ? 'bg-white dark:bg-slate-950' : 'bg-slate-50 dark:bg-slate-900/50'
-                  } hover:bg-slate-100 dark:hover:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 transition-colors`}
+                  className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 >
-                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {event.matchDate ? new Date(event.matchDate).toLocaleDateString('es-ES') : '-'}
                   </td>
-                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-400">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400">
                     {event.nombreInterno || '-'}
                   </td>
-                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-400">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400">
                     {event.competition || '-'}
                   </td>
-                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-400">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400">
                     {event.jornada || '-'}
                   </td>
-                  <td className="px-3 py-1.5 text-slate-800 dark:text-slate-200">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
                     <span className="font-semibold">
                       {event.localTeam || 'Local'} vs {event.visitorTeam || 'Visitante'}
                     </span>
                   </td>
-                  <td className="px-3 py-1.5 text-slate-800 dark:text-slate-200">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
                     <span className="font-semibold tabular-nums">{getMatchScoreLabel(event, report)}</span>
                   </td>
-                  <td className="px-3 py-1.5 text-slate-800 dark:text-slate-200">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
                     <span className="font-semibold">{event.minute}'</span>
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${typeInfo.color} ${typeInfo.bgColor}`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${typeInfo.color} ${typeInfo.bgColor}`}
                     >
                       {event.type === 'GOL' && <i className="fa-solid fa-futbol mr-1"></i>}
                       {event.type === 'OCASION' && <i className="fa-solid fa-bullseye mr-1"></i>}
@@ -287,10 +290,10 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                       {typeInfo.label}
                     </span>
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {showLado ? (
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                           ladoFavor
                             ? 'text-green-700 bg-green-100 dark:bg-green-900/30'
                             : 'text-red-700 bg-red-100 dark:bg-red-900/30'
@@ -302,10 +305,10 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                       <span className="text-slate-300">-</span>
                     )}
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {event.type === 'DUELO' ? (
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                           event.duelOutcome === 'GANADO'
                             ? 'text-green-700 bg-green-100 dark:bg-green-900/30'
                             : 'text-red-700 bg-red-100 dark:bg-red-900/30'
@@ -317,10 +320,13 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                       <span className="text-slate-300">-</span>
                     )}
                   </td>
-                  <td className="px-3 py-1.5 text-slate-800 dark:text-slate-200">
-                    <p className="text-[11px] max-w-md line-clamp-2">{details}</p>
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
+                    <p className="text-xs max-w-md line-clamp-2">{jugadorDetalle}</p>
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
+                    <p className="text-xs max-w-md line-clamp-2">{notaDetalle}</p>
+                  </td>
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {report?.videoUrl ? (
                       <button
                         onClick={() => onVideoClick?.(report.videoUrl, event.videoTimestamp)}

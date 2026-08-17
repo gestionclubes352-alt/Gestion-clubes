@@ -6,6 +6,7 @@ import type { Club } from '@modules/clubes/types';
 import type { Player } from '@modules/plantilla';
 import type { MatchReport } from '@modules/partidos/types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { db, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
 import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
@@ -378,37 +379,53 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
-  const [teamFilter, setTeamFilter] = useState<string>('all');
-  const [playerFilter, setPlayerFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [activityFilter, setActivityFilter] = useState<string>('all');
-  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [teamFilter, setTeamFilter] = useState<string[]>([]);
+  const [playerFilter, setPlayerFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [activityFilter, setActivityFilter] = useState<string[]>([]);
+  const [monthFilter, setMonthFilter] = useState<string[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [localidadId, setLocalidadId] = useState<string>('all');
-  const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string>('all');
-  const [instalacionId, setInstalacionId] = useState<string>('all');
+  const [localidadId, setLocalidadId] = useState<string[]>([]);
+  const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string[]>([]);
+  const [instalacionId, setInstalacionId] = useState<string[]>([]);
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalaciones, setInstalaciones] = useState<InstalacionCampo[]>([]);
 
   const instalacionesPrincipales = useMemo(
-    () => instalaciones.filter(i => !i.parent_instalacion_id && (localidadId === 'all' || i.localidad_id === localidadId)),
+    () => instalaciones.filter(i => !i.parent_instalacion_id && (localidadId.length === 0 || (!!i.localidad_id && localidadId.includes(i.localidad_id)))),
     [instalaciones, localidadId]
   );
   const camposDisponibles = useMemo(
-    () => instalaciones.filter(i => !!i.parent_instalacion_id && (instalacionPrincipalId === 'all' || i.parent_instalacion_id === instalacionPrincipalId)),
+    () => instalaciones.filter(i => !!i.parent_instalacion_id && (instalacionPrincipalId.length === 0 || instalacionPrincipalId.includes(i.parent_instalacion_id as string))),
     [instalaciones, instalacionPrincipalId]
   );
   const campoParentMap = useMemo(
     () => new Map(instalaciones.filter(i => i.parent_instalacion_id).map(i => [i.id, i.parent_instalacion_id as string])),
     [instalaciones]
   );
+  const instalacionesById = useMemo(
+    () => new Map(instalaciones.map(i => [i.id, i])),
+    [instalaciones]
+  );
+  const getInstalacionYCampo = (ev: { instalacion_campo_id?: string }) => {
+    if (!ev.instalacion_campo_id) return { instalacionNombre: '', campoNombre: '' };
+    const seleccionado = instalacionesById.get(ev.instalacion_campo_id);
+    if (!seleccionado) return { instalacionNombre: '', campoNombre: '' };
+    if (seleccionado.parent_instalacion_id) {
+      const principal = instalacionesById.get(seleccionado.parent_instalacion_id);
+      return { instalacionNombre: principal?.nombre || '', campoNombre: seleccionado.nombre || '' };
+    }
+    return { instalacionNombre: seleccionado.nombre || '', campoNombre: '' };
+  };
 
   useEffect(() => {
-    if (instalacionPrincipalId !== 'all' && instalacionId !== 'all' && campoParentMap.get(instalacionId) !== instalacionPrincipalId) {
-      setInstalacionId('all');
-    }
-  }, [instalacionPrincipalId, instalacionId, campoParentMap]);
+    if (instalacionPrincipalId.length === 0) return;
+    setInstalacionId((prev) => {
+      const next = prev.filter((id) => instalacionPrincipalId.includes(campoParentMap.get(id) || ''));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [instalacionPrincipalId, campoParentMap]);
 
   useEffect(() => {
     (async () => {
@@ -433,18 +450,18 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [internalCompetitionTeams]);
 
   const availablePlayers = useMemo(() => {
-    const selectedTeamKey = normalizeTeamKey(teamFilter);
+    const selectedTeamKeys = new Set(teamFilter.map(normalizeTeamKey));
     const selectedTeamIds = new Set<string>();
     const selectedTeamNames = new Set<string>();
 
-    if (teamFilter !== 'all') {
-      selectedTeamNames.add(selectedTeamKey);
+    if (teamFilter.length > 0) {
+      selectedTeamKeys.forEach(key => selectedTeamNames.add(key));
       internalCompetitionTeams.forEach(team => {
         const teamNames = [team.equipo, team.nombre, team.nombreEnFed]
           .map(normalizeTeamKey)
           .filter(Boolean);
 
-        if (teamNames.includes(selectedTeamKey)) {
+        if (teamNames.some(name => selectedTeamKeys.has(name))) {
           selectedTeamIds.add(String(team.id));
           teamNames.forEach(name => selectedTeamNames.add(name));
         }
@@ -454,7 +471,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return [...players]
       .filter(player => player.nombre || player.apodo)
       .filter(player => {
-        if (teamFilter === 'all') return true;
+        if (teamFilter.length === 0) return true;
 
         const playerTeamId = player.equipoId ? String(player.equipoId) : '';
         if (playerTeamId && selectedTeamIds.has(playerTeamId)) return true;
@@ -466,20 +483,21 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [players, teamFilter, internalCompetitionTeams]);
 
   useEffect(() => {
-    if (playerFilter === 'all') return;
-    if (!availablePlayers.some(player => String(player.id) === playerFilter)) {
-      setPlayerFilter('all');
-    }
-  }, [availablePlayers, playerFilter]);
+    setPlayerFilter((prev) => {
+      const next = prev.filter((id) => availablePlayers.some(player => String(player.id) === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availablePlayers]);
 
   useEffect(() => {
-    if (teamFilter !== 'all' && !availableTeams.includes(teamFilter)) {
-      setTeamFilter('all');
-    }
-  }, [availableTeams, teamFilter]);
+    setTeamFilter((prev) => {
+      const next = prev.filter((v) => availableTeams.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availableTeams]);
 
   useEffect(() => {
-    if (playerFilter === 'all' || matchReportsLoaded) return;
+    if (playerFilter.length === 0 || matchReportsLoaded) return;
 
     let cancelled = false;
     (async () => {
@@ -504,13 +522,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [events]);
 
   const availableActivities = useMemo(() => {
-    if (typeFilter !== 'Partido' && typeFilter !== 'Sesión' && typeFilter !== 'Entrenamiento') {
+    const relevantTypes: string[] = typeFilter.filter((t) => t === 'Partido' || t === 'Sesión' || t === 'Entrenamiento');
+    if (relevantTypes.length === 0) {
       return [];
     }
 
     const activities = new Set<string>();
     events.forEach(ev => {
-      if (ev.type !== typeFilter) return;
+      if (!ev.type || !relevantTypes.includes(ev.type)) return;
       const activity = getEventActivity(ev);
       if (activity) activities.add(activity);
     });
@@ -519,35 +538,35 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [events, typeFilter]);
 
   useEffect(() => {
-    if (activityFilter === 'all') return;
-    if (!availableActivities.includes(activityFilter)) {
-      setActivityFilter('all');
-    }
-  }, [activityFilter, availableActivities]);
+    setActivityFilter((prev) => {
+      const next = prev.filter((v) => availableActivities.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availableActivities]);
 
   const filteredEvents = useMemo(() => {
     const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
     const dateTo = filterDateTo ? new Date(filterDateTo) : null;
 
     return events.filter(ev => {
-      if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
-      if (activityFilter !== 'all' && getEventActivity(ev) !== activityFilter) return false;
-      if (localidadId !== 'all' && ev.localidad_id !== localidadId) return false;
-      if (instalacionPrincipalId !== 'all') {
-        const matchesPrincipal = ev.instalacion_campo_id === instalacionPrincipalId
-          || (ev.instalacion_campo_id ? campoParentMap.get(ev.instalacion_campo_id) === instalacionPrincipalId : false);
+      if (typeFilter.length > 0 && (!ev.type || !typeFilter.includes(ev.type))) return false;
+      if (activityFilter.length > 0 && !activityFilter.includes(getEventActivity(ev))) return false;
+      if (localidadId.length > 0 && (!ev.localidad_id || !localidadId.includes(ev.localidad_id))) return false;
+      if (instalacionPrincipalId.length > 0) {
+        const matchesPrincipal = (!!ev.instalacion_campo_id && instalacionPrincipalId.includes(ev.instalacion_campo_id))
+          || (ev.instalacion_campo_id ? instalacionPrincipalId.includes(campoParentMap.get(ev.instalacion_campo_id) || '') : false);
         if (!matchesPrincipal) return false;
       }
-      if (instalacionId !== 'all' && ev.instalacion_campo_id !== instalacionId) return false;
-      if (teamFilter !== 'all') {
-        if (getEventTeamKey(ev) !== teamFilter) return false;
+      if (instalacionId.length > 0 && (!ev.instalacion_campo_id || !instalacionId.includes(ev.instalacion_campo_id))) return false;
+      if (teamFilter.length > 0) {
+        if (!teamFilter.includes(getEventTeamKey(ev))) return false;
       }
-      if (playerFilter !== 'all') {
-        const selectedPlayer = players.find(player => String(player.id) === playerFilter);
-        if (!selectedPlayer || !playerParticipatesInEvent(ev, selectedPlayer)) return false;
+      if (playerFilter.length > 0) {
+        const selectedPlayers = players.filter(player => playerFilter.includes(String(player.id)));
+        if (selectedPlayers.length === 0 || !selectedPlayers.some(player => playerParticipatesInEvent(ev, player))) return false;
       }
       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
-      if (monthFilter !== 'all' && d.getMonth() !== Number(monthFilter)) return false;
+      if (monthFilter.length > 0 && !monthFilter.includes(String(d.getMonth()))) return false;
       if (dateFrom && d < dateFrom) return false;
       if (dateTo) {
         const dateToEnd = new Date(dateTo);
@@ -1151,22 +1170,28 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50/60 border-b border-slate-100">
-              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
                 {t('common.date', 'Día')}
               </th>
-              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
                 {t('common.time', 'Hora')}
               </th>
-              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
                 {t('calendarView.team', 'Equipo')}
               </th>
-              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
                 {t('calendarView.type', 'Tipo')}
               </th>
-              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
                 {t('calendarView.activity', 'Actividad')}
               </th>
-              <th className="px-4 md:px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+                {t('calendarView.installation', 'Instalación')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+                {t('calendarView.field', 'Campo')}
+              </th>
+              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
                 {t('common.location', 'Lugar')}
               </th>
               <th className="px-4 md:px-6 py-3 w-10"></th>
@@ -1175,7 +1200,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           <tbody>
             {annualEvents.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 md:px-6 py-8 text-center text-sm font-medium text-slate-400">
+                <td colSpan={9} className="px-4 md:px-6 py-8 text-center text-xs font-medium text-slate-400">
                   {t('calendarView.noEvents', 'Sin eventos')}
                 </td>
               </tr>
@@ -1192,6 +1217,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     : (ev.title || ev.opponent || 'Partido'))
                 : ev.title;
               const isCurrentMonth = d.getMonth() === currentMonth.getMonth();
+              const { instalacionNombre, campoNombre } = getInstalacionYCampo(ev);
               return (
                 <tr
                   key={ev.id}
@@ -1204,12 +1230,12 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   }`}
                 >
                   <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    <span className={`text-sm font-black ${isToday(d) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                      {d.toLocaleDateString(i18n.language, { day: '2-digit', month: 'short' })}
+                    <span className={`text-xs font-black ${isToday(d) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                      {d.toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </span>
                   </td>
                   <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    <span className="text-sm font-bold text-slate-500">{ev.time || '--:--'}</span>
+                    <span className="text-xs font-bold text-slate-500">{ev.time || '--:--'}</span>
                   </td>
                   <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
                     {teamKey && (
@@ -1220,15 +1246,21 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     )}
                   </td>
                   <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider border ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}>
+                    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}>
                       {ev.type}
                     </span>
                   </td>
                   <td className="px-4 md:px-6 py-3.5">
-                    <span className="text-sm font-bold text-slate-700">{activityLabel}</span>
+                    <span className="text-xs font-bold text-slate-700">{activityLabel}</span>
                   </td>
                   <td className="px-4 md:px-6 py-3.5">
-                    <span className="text-sm text-slate-500">{ev.location || '-'}</span>
+                    <span className="text-xs text-slate-500">{instalacionNombre || '-'}</span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5">
+                    <span className="text-xs text-slate-500">{campoNombre || '-'}</span>
+                  </td>
+                  <td className="px-4 md:px-6 py-3.5">
+                    <span className="text-xs text-slate-500">{ev.location || '-'}</span>
                   </td>
                   <td className="px-4 md:px-6 py-3.5 text-right">
                     {onDeleteEvent && (
@@ -1258,96 +1290,71 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
       <div className="sticky top-0 z-30 flex items-center gap-3 -mx-2 px-3 py-1 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
         <div className="flex items-center gap-2 flex-wrap flex-1">
-          <SearchableSelect
+          <MultiSelectFilter
             value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
+            onChange={setTeamFilter}
+            allLabel={t('calendarView.filterAllTeams', 'Todos los equipos')}
+            options={availableTeams.map((team) => ({ value: team, label: team }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllTeams', 'Todos los equipos')}</option>
-            {availableTeams.map(team => (
-              <option key={team} value={team}>{team}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={playerFilter}
-            onChange={(e) => setPlayerFilter(e.target.value)}
+            onChange={setPlayerFilter}
+            allLabel={t('calendarView.filterAllPlayers', 'Jugadores')}
+            options={availablePlayers.map((player) => ({
+              value: String(player.id),
+              label: `${player.dorsal ? `${player.dorsal} - ` : ''}${player.apodo || player.nombre}`,
+            }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllPlayers', 'Jugadores')}</option>
-            {availablePlayers.map(player => (
-              <option key={player.id} value={String(player.id)}>
-                {player.dorsal ? `${player.dorsal} - ` : ''}{player.apodo || player.nombre}
-              </option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-              setActivityFilter('all');
+            onChange={(next) => {
+              setTypeFilter(next);
+              setActivityFilter([]);
             }}
+            allLabel={t('calendarView.filterAllEvents', 'Todos los eventos')}
+            options={availableTypes.map((type) => ({ value: type, label: type }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllEvents', 'Todos los eventos')}</option>
-            {availableTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={activityFilter}
-            onChange={(e) => setActivityFilter(e.target.value)}
+            onChange={setActivityFilter}
             disabled={availableActivities.length === 0}
+            allLabel={availableActivities.length === 0
+              ? t('calendarView.filterSelectEventType', 'Actividad')
+              : t('calendarView.filterAllActivities', 'Todas las actividades')}
+            options={availableActivities.map((activity) => ({ value: activity, label: activity }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 disabled:bg-slate-50 disabled:text-slate-400"
-          >
-            <option value="all">
-              {availableActivities.length === 0
-                ? t('calendarView.filterSelectEventType', 'Actividad')
-                : t('calendarView.filterAllActivities', 'Todas las actividades')}
-            </option>
-            {availableActivities.map(activity => (
-              <option key={activity} value={activity}>{activity}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
+            onChange={setMonthFilter}
+            allLabel={t('calendarView.filterAllMonths', 'Todos los meses')}
+            options={monthNames.map((name, index) => ({ value: String(index), label: name }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllMonths', 'Todos los meses')}</option>
-            {monthNames.map((name, index) => (
-              <option key={name} value={String(index)}>{name}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={localidadId}
-            onChange={(e) => setLocalidadId(e.target.value)}
+            onChange={setLocalidadId}
+            allLabel="Todas las localidades"
+            options={localidades.map((loc) => ({ value: loc.id, label: loc.nombre }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">Todas las localidades</option>
-            {localidades.map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.nombre}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={instalacionPrincipalId}
-            onChange={(e) => setInstalacionPrincipalId(e.target.value)}
+            onChange={setInstalacionPrincipalId}
+            allLabel="Todas las instalaciones"
+            options={instalacionesPrincipales.map((inst) => ({ value: inst.id, label: inst.nombre }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">Todas las instalaciones</option>
-            {instalacionesPrincipales.map(inst => (
-              <option key={inst.id} value={inst.id}>{inst.nombre}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={instalacionId}
-            onChange={(e) => setInstalacionId(e.target.value)}
+            onChange={setInstalacionId}
+            allLabel="Todos los campos"
+            options={camposDisponibles.map((campo) => ({ value: campo.id, label: campo.nombre }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">Todos los campos</option>
-            {camposDisponibles.map(campo => (
-              <option key={campo.id} value={campo.id}>{campo.nombre}</option>
-            ))}
-          </SearchableSelect>
+          />
           <div className="flex items-center gap-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
             <input
@@ -1363,10 +1370,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               onChange={(e) => setFilterDateTo(e.target.value)}
               className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
-            {(filterDateFrom || filterDateTo || localidadId !== 'all' || instalacionPrincipalId !== 'all' || instalacionId !== 'all') && (
+            {(filterDateFrom || filterDateTo || localidadId.length > 0 || instalacionPrincipalId.length > 0 || instalacionId.length > 0) && (
               <button
                 type="button"
-                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setLocalidadId('all'); setInstalacionPrincipalId('all'); setInstalacionId('all'); }}
+                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setLocalidadId([]); setInstalacionPrincipalId([]); setInstalacionId([]); }}
                 className="px-2 py-1 text-[9px] font-black text-red-600 hover:text-red-700 uppercase"
               >
                 ✕ {t('calendarView.clearFilter', 'Limpiar')}

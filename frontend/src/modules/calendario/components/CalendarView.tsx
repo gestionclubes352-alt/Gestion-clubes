@@ -14,6 +14,7 @@ import SessionAttendancePanel from './SessionAttendancePanel';
 import SessionAttendanceSummary from './SessionAttendanceSummary';
 import { getAttendanceSessionScope, isSelectiveAttendanceSession, normalizeAttendanceForEvent } from '../utils/attendance';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
 // Carga diferida: el informe de partido es la vista más pesada de la app y solo
 // se abre al pinchar un partido, así que no debe viajar en el bundle inicial.
@@ -51,9 +52,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   const [mainTab, setMainTab] = useState<'sesiones' | 'datosSesiones'>('sesiones');
-  const [teamFilter, setTeamFilter] = useState<string>('all');
-  const [sessionTypeFilter, setSessionTypeFilter] = useState<string>('all');
-  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [teamFilter, setTeamFilter] = useState<string[]>([]);
+  const [sessionTypeFilter, setSessionTypeFilter] = useState<string[]>([]);
+  const [monthFilter, setMonthFilter] = useState<string[]>([]);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -73,8 +74,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [localidadId, setLocalidadId] = useState<string>('all');
-  const [instalacionId, setInstalacionId] = useState<string>('all');
+  const [localidadId, setLocalidadId] = useState<string[]>([]);
+  const [instalacionId, setInstalacionId] = useState<string[]>([]);
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [editingSessionEvent, setEditingSessionEvent] = useState<CalendarEvent | null>(null);
@@ -103,6 +104,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       localidad?.nombre,
     ].filter(Boolean);
     return parts.length > 0 ? parts.join(' · ') : null;
+  };
+
+  const resolveEventInstalacionCampo = (ev: CalendarEvent): { instalacion: string | null; campo: string | null } => {
+    const instalacion = instalacionesCampos.find(i => i.id === ev.instalacion_campo_id);
+    const instalacionPrincipal = instalacion?.parent_instalacion_id
+      ? instalacionesCampos.find(i => i.id === instalacion.parent_instalacion_id)
+      : instalacion;
+    return {
+      instalacion: instalacionPrincipal?.nombre || null,
+      campo: instalacion?.parent_instalacion_id ? instalacion.nombre : null,
+    };
   };
 
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
@@ -271,16 +283,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     return events
       .filter(e => e.type === 'Entrenamiento' || e.type === 'Sesión')
       .filter(e => {
-        if (teamFilter !== 'all') return e.team === teamFilter;
+        if (teamFilter.length > 0) return !!e.team && teamFilter.includes(e.team);
         if (availableTeams.length === 0) return true;
         return !!e.team && internalTeamNames.has(e.team.trim().toLowerCase());
       })
-      .filter(e => sessionTypeFilter === 'all' || getSessionTypeLabel(e) === sessionTypeFilter)
-      .filter(e => localidadId === 'all' || e.localidad_id === localidadId)
-      .filter(e => instalacionId === 'all' || e.instalacion_campo_id === instalacionId)
+      .filter(e => sessionTypeFilter.length === 0 || sessionTypeFilter.includes(getSessionTypeLabel(e)))
+      .filter(e => localidadId.length === 0 || (!!e.localidad_id && localidadId.includes(e.localidad_id)))
+      .filter(e => instalacionId.length === 0 || (!!e.instalacion_campo_id && instalacionId.includes(e.instalacion_campo_id)))
       .filter(e => {
         const eventDate = e.date instanceof Date ? e.date : new Date(e.date);
-        if (monthFilter !== 'all' && eventDate.getMonth() !== Number(monthFilter)) return false;
+        if (monthFilter.length > 0 && !monthFilter.includes(String(eventDate.getMonth()))) return false;
         if (!dateFrom && !dateTo) return true;
         if (dateFrom && eventDate < dateFrom) return false;
         if (dateTo) {
@@ -954,62 +966,46 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     <div className={`animate-fade-in space-y-8 flex flex-col relative pb-10 ${fullscreen ? 'fixed inset-0 z-50 bg-white h-screen w-screen p-6 overflow-auto' : 'h-full'}` }>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <SearchableSelect
+          <MultiSelectFilter
             value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
+            onChange={setTeamFilter}
+            allLabel={t('calendarView.filterAllTeams')}
+            options={availableTeams.map((team) => ({ value: team, label: team }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllTeams')}</option>
-            {availableTeams.map(team => (
-              <option key={team} value={team}>{team}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={sessionTypeFilter}
-            onChange={(e) => setSessionTypeFilter(e.target.value)}
+            onChange={setSessionTypeFilter}
+            allLabel={t('calendarView.filterAllSessionTypes', 'Todos los tipos')}
+            options={availableSessionTypes.map((type) => ({ value: type, label: type }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllSessionTypes', 'Todos los tipos')}</option>
-            {availableSessionTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </SearchableSelect>
-          <SearchableSelect
+          />
+          <MultiSelectFilter
             value={monthFilter}
-            onChange={(e) => {
-              const nextMonth = e.target.value;
-              setMonthFilter(nextMonth);
-              if (nextMonth !== 'all') {
-                setCurrentMonth(prev => new Date(prev.getFullYear(), Number(nextMonth), 1));
+            onChange={(next) => {
+              setMonthFilter(next);
+              if (next.length === 1) {
+                setCurrentMonth(prev => new Date(prev.getFullYear(), Number(next[0]), 1));
               }
             }}
+            allLabel={t('calendarView.filterAllMonths', 'Todos los meses')}
+            options={monthNames.map((name, index) => ({ value: String(index), label: name }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">{t('calendarView.filterAllMonths', 'Todos los meses')}</option>
-            {monthNames.map((name, index) => (
-              <option key={name} value={String(index)}>{name}</option>
-            ))}
-          </SearchableSelect>
-          <select
+          />
+          <MultiSelectFilter
             value={localidadId}
-            onChange={(e) => setLocalidadId(e.target.value)}
+            onChange={setLocalidadId}
+            allLabel="Todas las localidades"
+            options={localidades.map((loc) => ({ value: loc.id, label: loc.nombre }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">Todas las localidades</option>
-            {localidades.map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.nombre}</option>
-            ))}
-          </select>
-          <select
+          />
+          <MultiSelectFilter
             value={instalacionId}
-            onChange={(e) => setInstalacionId(e.target.value)}
+            onChange={setInstalacionId}
+            allLabel="Todos los campos"
+            options={instalacionesCampos.map((ic) => ({ value: ic.id, label: ic.nombre }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-          >
-            <option value="all">Todos los campos</option>
-            {instalacionesCampos.map(ic => (
-              <option key={ic.id} value={ic.id}>{ic.nombre}</option>
-            ))}
-          </select>
+          />
           <div className="flex items-center gap-2 flex-wrap">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
             <input
@@ -1025,12 +1021,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               onChange={(e) => setFilterDateTo(e.target.value)}
               className="px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
-            {(sessionTypeFilter !== 'all' || monthFilter !== 'all' || filterDateFrom || filterDateTo) && (
+            {(sessionTypeFilter.length > 0 || monthFilter.length > 0 || filterDateFrom || filterDateTo) && (
               <button
                 type="button"
                 onClick={() => {
-                  setSessionTypeFilter('all');
-                  setMonthFilter('all');
+                  setSessionTypeFilter([]);
+                  setMonthFilter([]);
                   setFilterDateFrom('');
                   setFilterDateTo('');
                 }}
@@ -1130,6 +1126,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colTeam')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSessionType')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colSession')}</th>
+                      <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colInstalacion', 'Instalación')}</th>
+                      <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colCampo', 'Campo')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.colPlayers', 'Jugadores')}</th>
                       <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">{t('calendarView.colActions')}</th>
                     </tr>
@@ -1138,39 +1136,46 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     {filteredEvents.map((ev) => {
                       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
                       const selectivePlayerNames = getSelectiveSessionPlayerNames(ev);
+                      const { instalacion, campo } = resolveEventInstalacionCampo(ev);
                       return (
                         <tr key={ev.id} className="hover:bg-slate-50 transition group">
                           <td className="px-6 py-4 cursor-pointer" onClick={() => handleEventClick(ev)}>
-                            <p className="font-black text-slate-700 text-sm capitalize">
-                              {d.toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                            <p className="font-black text-slate-700 text-xs">
+                              {d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </p>
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
                             {ev.time || t('calendarView.noTime')}
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
                             {ev.team || '—'}
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
                             {ev.type || '—'}
                           </td>
                           <td className="px-6 py-4 cursor-pointer" onClick={() => handleEventClick(ev)}>
-                            <p className="font-black text-[var(--accent)] text-sm group-hover:underline">
+                            <p className="font-black text-[var(--accent)] text-xs group-hover:underline">
                               {ev.title || t('calendarView.sessionDefault')}
                               {ev.sessionNumber ? ` — ${t('calendarView.sessionNumber')} ${ev.sessionNumber}` : ''}
                             </p>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
+                            {instalacion || '—'}
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap" onClick={() => handleEventClick(ev)}>
+                            {campo || '—'}
                           </td>
                           <td className="px-6 py-4 cursor-pointer max-w-xs" onClick={() => handleEventClick(ev)}>
                             {selectivePlayerNames.length > 0 ? (
                               <div className="flex flex-wrap gap-1.5">
                                 {selectivePlayerNames.map((name, index) => (
-                                  <span key={`${name}-${index}`} className="px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-black text-slate-600">
+                                  <span key={`${name}-${index}`} className="px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-black text-slate-600">
                                     {name}
                                   </span>
                                 ))}
                               </div>
                             ) : (
-                              <span className="text-sm font-bold text-slate-400">-</span>
+                              <span className="text-xs font-bold text-slate-400">-</span>
                             )}
                           </td>
                           <td className="px-6 py-4">

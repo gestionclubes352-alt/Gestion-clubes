@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Match, MatchReport } from '@modules/partidos';
-import { db, clubesService } from '@shared/services/dataService';
+import { clubesService } from '@shared/services/dataService';
 import type { Jugador, Club } from '@shared/services/dataService';
 import { supabase } from '@shared/services/supabaseClient';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
@@ -133,13 +133,25 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   useEffect(() => {
     (async () => {
       try {
-        const reportsRes = await db.match_reports.get();
-        const allReports = (reportsRes.data || []) as MatchReport[];
+        // Consulta ligera directa a Supabase: solo las columnas que usa Videoteca,
+        // en vez de db.match_reports.get() que trae ~50 columnas JSONB/texto por fila
+        // (informes rivales, planes de partido, ABP...) que aquí no se usan.
+        const { data: reportsData, error: reportsError } = await supabase
+          .from('match_reports')
+          .select('id, video_url, video_originals, match_goals, video_events')
+          .or('video_url.not.is.null,video_originals->>videoUrl.not.is.null');
+        if (reportsError) throw reportsError;
 
-        // Filtrar solo los que tienen videoUrl
-        const reportsWithVideo = allReports.filter(r => !!r.videoUrl || !!r.videoOriginals?.videoUrl);
         const reportMap = new Map<string, MatchReport>();
-        reportsWithVideo.forEach((report) => reportMap.set(String(report.id), report));
+        (reportsData || []).forEach((row: any) => {
+          reportMap.set(String(row.id), {
+            id: row.id,
+            videoUrl: row.video_url,
+            videoOriginals: row.video_originals || {},
+            matchGoals: row.match_goals || [],
+            videoEvents: row.video_events || [],
+          } as MatchReport);
+        });
         setMatchReportsById(reportMap);
 
         // Solo se cargan los jugadores realmente referenciados en goles/ocasiones

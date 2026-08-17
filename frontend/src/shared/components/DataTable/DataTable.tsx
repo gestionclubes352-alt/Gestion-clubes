@@ -606,7 +606,7 @@ function DataTable<T extends Record<string, any>>({
                   return (
                     <th
                       key={header.id}
-                      className={`${px} ${py} text-[10.5px] font-semibold text-slate-400 uppercase tracking-widest text-left group/th select-none ${
+                      className={`${px} ${py} text-[9px] font-semibold text-slate-400 uppercase tracking-widest text-left group/th select-none ${
                         canSort ? 'cursor-pointer hover:text-slate-600 transition-colors' : ''
                       } ${sorted ? 'text-slate-600' : ''}`}
                       style={header.getSize() !== 150 ? { width: header.getSize() } : undefined}
@@ -649,7 +649,7 @@ function DataTable<T extends Record<string, any>>({
                     {row.getVisibleCells().map(cell => (
                       <td
                         key={cell.id}
-                        className={`${px} ${py} text-sm text-slate-700`}
+                        className={`${px} ${py} text-xs text-slate-700`}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>

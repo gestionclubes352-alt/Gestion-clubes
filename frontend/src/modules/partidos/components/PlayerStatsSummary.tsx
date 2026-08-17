@@ -5,7 +5,7 @@ import { db, plantillasService, getTeamConfig } from '@shared/services/dataServi
 import type { Jugador } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemsDataSummary from './SystemsDataSummary';
-import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 
 const getMyTeamName = (): string => {
   try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -142,17 +142,15 @@ interface PlayerStatsSummaryProps {
   onSelectPlayer?: (playerId: string) => void;
 }
 
-const ALL = 'ALL';
-
 const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSelectPlayer }) => {
   const { t } = useTranslation();
   const [reports, setReports] = useState<MatchReport[]>([]);
   const [squad, setSquad] = useState<Jugador[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [teamFilter, setTeamFilter] = useState<string>(ALL);
-  const [competitionFilter, setCompetitionFilter] = useState<string>(ALL);
-  const [matchFilter, setMatchFilter] = useState<string>(ALL);
+  const [teamFilter, setTeamFilter] = useState<string[]>([]);
+  const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
+  const [matchFilter, setMatchFilter] = useState<string[]>([]);
   const [view, setView] = useState<'TABLE' | 'CHARTS' | 'SYSTEMS'>('TABLE');
 
   useEffect(() => {
@@ -186,7 +184,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
   }, [matches]);
 
   const matchesByTeam = useMemo(
-    () => (teamFilter === ALL ? matches : matches.filter(m => ownTeamNameOf(m) === teamFilter)),
+    () => (teamFilter.length === 0 ? matches : matches.filter(m => teamFilter.includes(ownTeamNameOf(m)))),
     [matches, teamFilter]
   );
 
@@ -197,7 +195,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
   }, [matchesByTeam]);
 
   const matchesByTeamAndCompetition = useMemo(
-    () => (competitionFilter === ALL ? matchesByTeam : matchesByTeam.filter(m => m.competition === competitionFilter)),
+    () => (competitionFilter.length === 0 ? matchesByTeam : matchesByTeam.filter(m => competitionFilter.includes(m.competition))),
     [matchesByTeam, competitionFilter]
   );
 
@@ -207,16 +205,16 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
   );
 
   const filteredMatches = useMemo(
-    () => (matchFilter === ALL ? matchesByTeamAndCompetition : matchesByTeamAndCompetition.filter(m => String(m.id) === matchFilter)),
+    () => (matchFilter.length === 0 ? matchesByTeamAndCompetition : matchesByTeamAndCompetition.filter(m => matchFilter.includes(String(m.id)))),
     [matchesByTeamAndCompetition, matchFilter]
   );
 
   // Si cambia el equipo/competición seleccionados, el partido elegido puede dejar de ser válido.
   useEffect(() => {
-    if (matchFilter !== ALL && !matchesByTeamAndCompetition.some(m => String(m.id) === matchFilter)) {
-      setMatchFilter(ALL);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setMatchFilter((prev) => {
+      const next = prev.filter((id) => matchesByTeamAndCompetition.some(m => String(m.id) === id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [matchesByTeamAndCompetition]);
 
   const rows = useMemo(() => {
@@ -254,44 +252,40 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterTeam')}
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
+            onChange={setTeamFilter}
+            allLabel={t('playerStatsSummary.allTeams')}
+            options={teamOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL}>{t('playerStatsSummary.allTeams')}</option>
-            {teamOptions.map(name => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterCompetition')}
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={competitionFilter}
-            onChange={(e) => setCompetitionFilter(e.target.value)}
+            onChange={setCompetitionFilter}
+            allLabel={t('playerStatsSummary.allCompetitions')}
+            options={competitionOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL}>{t('playerStatsSummary.allCompetitions')}</option>
-            {competitionOptions.map(name => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterMatch')}
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={matchFilter}
-            onChange={(e) => setMatchFilter(e.target.value)}
+            onChange={setMatchFilter}
+            allLabel={t('playerStatsSummary.allMatches')}
+            options={matchOptions.map((m) => ({
+              value: String(m.id),
+              label: `${new Date(m.date).toLocaleDateString()} · ${m.localTeam || '—'} vs ${m.visitorTeam || '—'}`,
+            }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL}>{t('playerStatsSummary.allMatches')}</option>
-            {matchOptions.map(m => (
-              <option key={m.id} value={String(m.id)}>
-                {new Date(m.date).toLocaleDateString()} · {m.localTeam || '—'} vs {m.visitorTeam || '—'}
-              </option>
-            ))}
-          </SearchableSelect>
+          />
         </div>
       </div>
 

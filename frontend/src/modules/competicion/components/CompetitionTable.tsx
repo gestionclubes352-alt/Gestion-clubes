@@ -4,6 +4,7 @@ import { CompetitionTeam } from '../types';
 import { Club } from '../../clubes/types';
 import EditTeamModal from './EditTeamModal';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { getTeamConfig } from '@shared/services/dataService';
 import { getFederationTeamLogo } from '../data/teamLogos';
 
@@ -47,8 +48,8 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
   const [isCreating, setIsCreating] = useState(false);
   const [expandedClubs, setExpandedClubs] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState('');
-  const [clubFilter, setClubFilter] = useState('Todos');
-  const [equipoInternoFilter, setEquipoInternoFilter] = useState('Todos');
+  const [clubFilter, setClubFilter] = useState<string[]>([]);
+  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'todos' | 'equipos' | 'rivales'>('todos');
   const [editingEquipoId, setEditingEquipoId] = useState<string | null>(null);
   const [editingEquipoValue, setEditingEquipoValue] = useState<string>('');
@@ -118,11 +119,11 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
           }))
           .filter(g => g.equipos.length > 0 || g.nombre.toLowerCase().includes(q));
 
-    const byClub = clubFilter === 'Todos' ? bySearch : bySearch.filter(g => g.nombre === clubFilter);
+    const byClub = clubFilter.length === 0 ? bySearch : bySearch.filter(g => clubFilter.includes(g.nombre));
 
-    if (equipoInternoFilter === 'Todos') return byClub;
+    if (equipoInternoFilter.length === 0) return byClub;
     return byClub
-      .map(g => ({ ...g, equipos: g.equipos.filter(e => (e.equipo || '—') === equipoInternoFilter) }))
+      .map(g => ({ ...g, equipos: g.equipos.filter(e => equipoInternoFilter.includes(e.equipo || '—')) }))
       .filter(g => g.equipos.length > 0);
   }, [tabGroups, search, clubFilter, equipoInternoFilter]);
 
@@ -193,7 +194,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
       {/* PESTAÑAS MIS EQUIPOS / RIVALES */}
       <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide">
         <button
-          onClick={() => { setActiveTab('todos'); setClubFilter('Todos'); }}
+          onClick={() => { setActiveTab('todos'); setClubFilter([]); }}
           className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
             activeTab === 'todos'
               ? 'bg-slate-800 text-white shadow'
@@ -203,7 +204,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
           Todos
         </button>
         <button
-          onClick={() => { setActiveTab('equipos'); setClubFilter('Todos'); }}
+          onClick={() => { setActiveTab('equipos'); setClubFilter([]); }}
           className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
             activeTab === 'equipos'
               ? 'bg-[var(--accent)] text-white shadow'
@@ -214,7 +215,7 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
           Mis Equipos
         </button>
         <button
-          onClick={() => { setActiveTab('rivales'); setClubFilter('Todos'); }}
+          onClick={() => { setActiveTab('rivales'); setClubFilter([]); }}
           className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
             activeTab === 'rivales'
               ? 'bg-[#1976d2] text-white shadow'
@@ -232,18 +233,13 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
           <label className="text-[11px] font-black uppercase tracking-widest text-slate-600 flex-shrink-0">
             {activeTab === 'rivales' ? 'Equipo Rival:' : 'Club:'}
           </label>
-          <select
+          <MultiSelectFilter
             value={clubFilter}
-            onChange={(e) => setClubFilter(e.target.value)}
+            onChange={setClubFilter}
+            allLabel={`Todos los ${activeTab === 'rivales' ? 'equipos rivales' : 'clubes'}`}
+            options={availableClubs.map((nombre) => ({ value: nombre, label: nombre }))}
             className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-all hover:border-slate-300"
-          >
-            <option value="Todos">Todos los {activeTab === 'rivales' ? 'equipos rivales' : 'clubes'}</option>
-            {availableClubs.map(nombre => (
-              <option key={nombre} value={nombre}>
-                {nombre}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       )}
 
@@ -256,9 +252,9 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
               Equipo Interno:
             </span>
             <button
-              onClick={() => setEquipoInternoFilter('Todos')}
+              onClick={() => setEquipoInternoFilter([])}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                equipoInternoFilter === 'Todos'
+                equipoInternoFilter.length === 0
                   ? 'bg-[var(--accent)] text-white shadow-md'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
@@ -268,9 +264,11 @@ const CompetitionTable: React.FC<CompetitionTableProps> = ({ teams, clubes, club
             {availableEquiposInternos.map(equipo => (
               <button
                 key={equipo}
-                onClick={() => setEquipoInternoFilter(equipo === equipoInternoFilter ? 'Todos' : equipo)}
+                onClick={() => setEquipoInternoFilter(prev =>
+                  prev.includes(equipo) ? prev.filter(e => e !== equipo) : [...prev, equipo]
+                )}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                  equipoInternoFilter === equipo
+                  equipoInternoFilter.includes(equipo)
                     ? 'bg-[var(--accent)] text-white shadow-md'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
