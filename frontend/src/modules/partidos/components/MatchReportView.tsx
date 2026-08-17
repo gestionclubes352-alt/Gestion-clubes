@@ -17,7 +17,7 @@ import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemMinutesCharts from './SystemMinutesCharts';
 import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { useYouTubeUpload } from '@context/YouTubeUploadContext';
-import { uploadMatchReportFile, uploadClubLogo } from '@shared/services/photoService';
+import { uploadMatchReportFile, uploadClubLogo, uploadMatchPlanVideo } from '@shared/services/photoService';
 import ShareButton from './ShareButton';
 import { createShareLink, copyShareUrlToClipboard, getShareUrl } from '@shared/services/shareService';
 import { useTranslation } from 'react-i18next';
@@ -518,6 +518,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const ytRivalConBalonFileInputRef = useRef<HTMLInputElement>(null);
   const ytRivalSinBalonFileInputRef = useRef<HTMLInputElement>(null);
   const ytRivalAbpFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Supabase Storage upload state para videos del plan
+  const [planVideoUploading, setPlanVideoUploading] = useState<'planConBalon' | 'planSinBalon' | null>(null);
+  const [planVideoUploadError, setPlanVideoUploadError] = useState<string | null>(null);
 
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
@@ -2784,6 +2788,36 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     if (ytRivalFileInputRef.current) ytRivalFileInputRef.current.value = '';
   };
 
+  const handlePlanVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>, section: 'planConBalon' | 'planSinBalon') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = validateVideoFile(file);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+    handlePlanVideoUploadToStorage(file, section);
+    e.target.value = '';
+  };
+
+  const handlePlanVideoUploadToStorage = async (file: File, section: 'planConBalon' | 'planSinBalon') => {
+    setPlanVideoUploading(section);
+    setPlanVideoUploadError(null);
+    try {
+      const sectionKey = section === 'planConBalon' ? 'ataque' : 'defensa';
+      const url = await uploadMatchPlanVideo(file, match.id, sectionKey);
+      const updatedReport = { ...report, [`${section}Video`]: url } as any;
+      setReport(updatedReport);
+      persistReport(updatedReport);
+      setPlanVideoUploading(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error uploading video';
+      setPlanVideoUploadError(message);
+      setPlanVideoUploading(null);
+      console.error('Plan video upload error:', err);
+    }
+  };
+
   const renderEventos = () => (
     <div className="flex flex-col lg:flex-row lg:h-[calc(100vh-180px)] bg-slate-100 dark:bg-[#121212] overflow-hidden">
       <div className="flex-1 bg-black relative order-1 lg:order-2 flex items-center justify-center border-b lg:border-b-0 lg:border-l border-slate-200 dark:border-white/5">
@@ -3933,26 +3967,70 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     <div>
                         <label className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest block mb-1">{t('matchReport.specificVideo')}</label>
                         <div className="flex gap-2">
-                          <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="flex-1 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
-                          <input
-                            ref={block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : block.id === 'planSinBalon' ? ytPlanSinBalonFileInputRef : block.id === 'planAbp' ? ytPlanAbpFileInputRef : block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef}
-                            type="file"
-                            accept="video/*"
-                            onChange={(e) => handleYtFileSelect(e, `${block.id}Video` as any)}
-                            className="hidden"
-                          />
-                          <button
-                            onClick={() => {
-                              const inputRef = block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : block.id === 'planSinBalon' ? ytPlanSinBalonFileInputRef : block.id === 'planAbp' ? ytPlanAbpFileInputRef : block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef;
-                              inputRef.current?.click();
-                            }}
-                            title={t('matchReport.video.uploadToYoutubeTitle')}
-                            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-lg text-red-400 transition-colors shrink-0"
-                          >
-                            <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
-                          </button>
+                          {(block.id === 'planConBalon' || block.id === 'planSinBalon') ? (
+                            <>
+                              <div className="flex-1 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 flex items-center text-xs text-[var(--text-muted)]">
+                                {(report as any)[`${block.id}Video`] ? (
+                                  <span className="truncate flex items-center gap-2 text-[var(--text)]">
+                                    <i className="fa-solid fa-check text-emerald-500"></i>
+                                    {(report as any)[`${block.id}Video`].split('/').pop()}
+                                  </span>
+                                ) : (
+                                  <span>No video subido</span>
+                                )}
+                              </div>
+                              <input
+                                ref={block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : ytPlanSinBalonFileInputRef}
+                                type="file"
+                                accept="video/*"
+                                onChange={(e) => handlePlanVideoFileSelect(e, block.id as 'planConBalon' | 'planSinBalon')}
+                                className="hidden"
+                              />
+                              <button
+                                onClick={() => {
+                                  const inputRef = block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : ytPlanSinBalonFileInputRef;
+                                  inputRef.current?.click();
+                                }}
+                                disabled={planVideoUploading === block.id}
+                                title="Subir video a Supabase Storage"
+                                className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {planVideoUploading === block.id ? (
+                                  <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                                ) : (
+                                  <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                                )}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <input type="text" value={(report as any)[`${block.id}Video`]} onChange={(e) => handleChange(`${block.id}Video` as any, e.target.value)} className="flex-1 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs font-bold text-[var(--text)] focus:outline-none" placeholder={t('matchReport.videoLinkPlaceholder')} />
+                              <input
+                                ref={block.id === 'planAbp' ? ytPlanAbpFileInputRef : block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef}
+                                type="file"
+                                accept="video/*"
+                                onChange={(e) => handleYtFileSelect(e, `${block.id}Video` as any)}
+                                className="hidden"
+                              />
+                              <button
+                                onClick={() => {
+                                  const inputRef = block.id === 'planAbp' ? ytPlanAbpFileInputRef : block.id === 'rivalConBalon' ? ytRivalConBalonFileInputRef : block.id === 'rivalSinBalon' ? ytRivalSinBalonFileInputRef : ytRivalAbpFileInputRef;
+                                  inputRef.current?.click();
+                                }}
+                                title={t('matchReport.video.uploadToYoutubeTitle')}
+                                className="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-lg text-red-400 transition-colors shrink-0"
+                              >
+                                <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                              </button>
+                            </>
+                          )}
                         </div>
-                        {ytTargetField === `${block.id}Video` && ytSelectedFile && !ytUploadProgress && (
+                        {planVideoUploadError && (planVideoUploading || planVideoUploadError) && (
+                          <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
+                            <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{planVideoUploadError}</p>
+                          </div>
+                        )}
+                        {ytTargetField === `${block.id}Video` && ytSelectedFile && !ytUploadProgress && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
                           <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2 animate-fade-in">
                             <div className="flex items-center gap-2">
                               <i className="fa-solid fa-film text-slate-400 dark:text-white/30 text-xs"></i>
@@ -3972,7 +4050,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             </button>
                           </div>
                         )}
-                        {ytTargetField === `${block.id}Video` && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
                           <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-[9px] font-black text-slate-500 dark:text-white/50 uppercase tracking-widest">{ytUploadProgress.message}</span>
@@ -3984,7 +4062,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             <p className="text-slate-400 dark:text-white/30 text-[8px] text-center">{ytUploadProgress.percent}%</p>
                           </div>
                         )}
-                        {ytTargetField === `${block.id}Video` && ytUploadProgress?.stage === 'error' && (
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress?.stage === 'error' && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
                           <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
                             <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{ytUploadProgress.error}</p>
                             <button onClick={handleYtCancel} className="text-slate-400 dark:text-white/40 hover:text-slate-500 dark:hover:text-white/60 text-[9px] font-bold uppercase">{t('matchReport.video.retry')}</button>
@@ -4338,7 +4416,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             </button>
                           </div>
                         )}
-                        {ytTargetField === `${block.id}Video` && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
                           <div className="mt-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-[9px] font-black text-slate-500 dark:text-white/50 uppercase tracking-widest">{ytUploadProgress.message}</span>
@@ -4350,7 +4428,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             <p className="text-slate-400 dark:text-white/30 text-[8px] text-center">{ytUploadProgress.percent}%</p>
                           </div>
                         )}
-                        {ytTargetField === `${block.id}Video` && ytUploadProgress?.stage === 'error' && (
+                        {ytTargetField === `${block.id}Video` && ytUploadProgress?.stage === 'error' && block.id !== 'planConBalon' && block.id !== 'planSinBalon' && (
                           <div className="mt-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center space-y-2">
                             <p className="text-red-400 text-[9px] font-bold"><i className="fa-solid fa-circle-exclamation mr-1"></i>{ytUploadProgress.error}</p>
                             <button onClick={handleYtCancel} className="text-slate-400 dark:text-white/40 hover:text-slate-500 dark:hover:text-white/60 text-[9px] font-bold uppercase">{t('matchReport.video.retry')}</button>
