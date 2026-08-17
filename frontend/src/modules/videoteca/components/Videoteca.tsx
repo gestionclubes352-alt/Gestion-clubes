@@ -8,6 +8,7 @@ import { supabase } from '@shared/services/supabaseClient';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import ShareButton from '@modules/partidos/components/ShareButton';
 import { DataTable } from '@shared/components/DataTable';
+import VideotecaEventsTable from './VideotecaEventsTable';
 import type { DataTableAction } from '@shared/components/DataTable';
 import { getOrCreateChannelShareLink, getChannelShareUrl, copyChannelShareUrlToClipboard } from '@shared/services/shareService';
 import { useAuth } from '@context/AuthContext';
@@ -107,6 +108,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   const [sharingLoading, setSharingLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'videos' | 'events'>('videos');
 
   // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
   const ownCompetitionTeams = useMemo(
@@ -504,14 +506,78 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center">
-          <div className="animate-spin mb-4">
-            <i className="fa-solid fa-spinner text-4xl text-sport-primary"></i>
+      {/* View Mode Toggle */}
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={() => setViewMode('videos')}
+          className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+            viewMode === 'videos'
+              ? 'bg-sport-primary text-white shadow-lg'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-video"></i> Videos
+        </button>
+        <button
+          onClick={() => setViewMode('events')}
+          className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+            viewMode === 'events'
+              ? 'bg-sport-primary text-white shadow-lg'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <i className="fa-solid fa-th"></i> Tabla Eventos
+        </button>
+      </div>
+
+      {viewMode === 'events' ? (
+        // VISTA DE TABLA DE EVENTOS
+        isLoading ? (
+          <div className="py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center">
+            <div className="animate-spin mb-4">
+              <i className="fa-solid fa-spinner text-4xl text-sport-primary"></i>
+            </div>
+            <p className="font-black text-sm uppercase tracking-widest text-slate-600">Cargando...</p>
           </div>
-          <p className="font-black text-sm uppercase tracking-widest text-slate-600">Cargando...</p>
-        </div>
-      ) : filteredVideos.length === 0 ? (
+        ) : (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <VideotecaEventsTable
+              matches={filteredVideos.map(v => {
+                const match = matches.find(m => String(m.id) === v.matchId);
+                if (match) return match;
+                // Si no encuentra el match, crea uno parcial con los campos necesarios
+                const [local, visitor] = v.title.split(' vs ');
+                return {
+                  id: v.matchId,
+                  opponent: v.title,
+                  date: v.date,
+                  competition: v.competition,
+                  localTeam: local?.trim() || 'Local',
+                  visitorTeam: visitor?.split('(')[0].trim() || 'Visitante',
+                };
+              })}
+              matchReportsById={matchReportsById}
+              playersById={playersById}
+              onVideoClick={(url, timestamp) => {
+                setVideoModalUrl(url);
+                setVideoModalTimestamp(timestamp);
+              }}
+              eventoTipoFilter={eventoTipoFilter}
+              ladoFilter={ladoFilter}
+              playerFilter={playerFilter}
+            />
+          </div>
+        )
+      ) : (
+        // VISTA DE TABLA DE VIDEOS
+        isLoading ? (
+          <div className="py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center">
+            <div className="animate-spin mb-4">
+              <i className="fa-solid fa-spinner text-4xl text-sport-primary"></i>
+            </div>
+            <p className="font-black text-sm uppercase tracking-widest text-slate-600">Cargando...</p>
+          </div>
+        ) : filteredVideos.length === 0 ? (
         <div className="py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center opacity-60">
           <i className="fa-solid fa-video-slash text-4xl mb-4 text-slate-300"></i>
           <p className="font-black text-sm uppercase tracking-widest text-slate-400">No hay vídeos de partidos disponibles</p>
@@ -710,6 +776,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             );
           })}
         </div>
+      )
       )}
 
       {videoModalUrl && (
