@@ -19,7 +19,7 @@ import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@
 import { useYouTubeUpload } from '@context/YouTubeUploadContext';
 import { uploadMatchReportFile, uploadClubLogo, uploadMatchPlanVideo } from '@shared/services/photoService';
 import ShareButton from './ShareButton';
-import { createShareLink, copyShareUrlToClipboard, getShareUrl } from '@shared/services/shareService';
+import { createShareLink, copyShareUrlToClipboard, getShareUrl, getOrCreateChannelShareLink, getChannelShareUrl } from '@shared/services/shareService';
 import { useTranslation } from 'react-i18next';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
@@ -519,6 +519,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [urlModalField, setUrlModalField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl'>('videoUrl');
   const [urlModalValue, setUrlModalValue] = useState('');
   const ytActiveTaskIdRef = useRef<string | null>(null);
+  const [channelShareUrl, setChannelShareUrl] = useState<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
   const ytRivalFileInputRef = useRef<HTMLInputElement>(null);
@@ -532,6 +533,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   // Supabase Storage upload state para videos del plan
   const [planVideoUploading, setPlanVideoUploading] = useState<'planConBalon' | 'planSinBalon' | null>(null);
   const [planVideoUploadError, setPlanVideoUploadError] = useState<string | null>(null);
+
+  // Enlace privado del canal (sin login) para el botón "Mi Canal"
+  useEffect(() => {
+    if (!ownClubId) return;
+    (async () => {
+      try {
+        const shareData = await getOrCreateChannelShareLink(String(ownClubId));
+        setChannelShareUrl(getChannelShareUrl(shareData.token));
+      } catch (err) {
+        console.error('Error al generar enlace de canal:', err);
+      }
+    })();
+  }, [ownClubId]);
 
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
@@ -2999,11 +3013,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </div>
             )}
             <button
-              onClick={() => window.open('https://studio.youtube.com/channel/UCFZFzmx3KNm9ZkCRrFZDC_Q/videos/upload?filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D', '_blank')}
-              className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
-              title="Abrir Mi Canal"
+              onClick={() => { if (channelShareUrl) window.open(channelShareUrl, '_blank'); }}
+              disabled={!channelShareUrl}
+              className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
+              title="Abrir tu canal (enlace privado, sin login)"
             >
-              <i className="fa-brands fa-youtube text-base"></i>
+              <i className="fa-solid fa-link text-base"></i>
               {t('matchReport.video.myChannel') || 'Mi Canal'}
             </button>
          </div>
