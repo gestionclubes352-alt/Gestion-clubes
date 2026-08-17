@@ -533,6 +533,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [planVideoUploading, setPlanVideoUploading] = useState<'planConBalon' | 'planSinBalon' | null>(null);
   const [planVideoUploadError, setPlanVideoUploadError] = useState<string | null>(null);
 
+  // Limpiar errores al montar el componente
+  useEffect(() => {
+    setPlanVideoUploadError(null);
+  }, []);
+
   const [report, setReport] = useState<MatchReport>({
     id: match.id,
     generalNotes: '',
