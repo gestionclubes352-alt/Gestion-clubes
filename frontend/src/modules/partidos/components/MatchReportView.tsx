@@ -3992,7 +3992,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                   inputRef.current?.click();
                                 }}
                                 disabled={planVideoUploading === block.id}
-                                title="Subir video a Supabase Storage"
+                                title="Subir video"
                                 className="flex-1 px-4 py-3 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2"
                               >
                                 {planVideoUploading === block.id ? (
@@ -4003,7 +4003,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                 ) : (
                                   <>
                                     <i className="fa-solid fa-cloud-arrow-up text-sm"></i>
-                                    Subir MP4 a Supabase
+                                    Subir vídeo MP4
                                   </>
                                 )}
                               </button>
