@@ -50,12 +50,18 @@ export async function uploadMatchReportFile(file: File, matchId: string | number
   return uploadToStorage(`matches/${matchId}/reports/${crypto.randomUUID()}.${ext}`, file);
 }
 
-export async function uploadMatchVideo(file: File, matchId: string | number): Promise<string> {
+export async function uploadMatchVideo(file: File, matchId: string | number, targetField: string = 'videoUrl'): Promise<string> {
   const ext = file.name.split('.').pop() || 'mp4';
-  return uploadToStorage(`matches/${matchId}/videos/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
+  return uploadToStorage(`${matchId}/${targetField}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
 }
 
 export async function uploadMatchPlanVideo(file: File, matchId: string | number, section: 'ataque' | 'defensa' | 'transiciones'): Promise<string> {
   const ext = file.name.split('.').pop() || 'mp4';
-  return uploadToStorage(`matches/${matchId}/plans/${section}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
+  const fieldMap: { [key: string]: string } = {
+    'ataque': 'planVideoUrl',
+    'defensa': 'planVideoUrl',
+    'transiciones': 'planVideoUrl'
+  };
+  const field = fieldMap[section] || 'planVideoUrl';
+  return uploadToStorage(`${matchId}/${field}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
 }

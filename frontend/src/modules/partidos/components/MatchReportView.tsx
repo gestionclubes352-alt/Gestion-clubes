@@ -26,6 +26,7 @@ import jsPDF from 'jspdf';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { fetchFile } from '@ffmpeg/util';
 import { getFFmpeg } from '@shared/utils/ffmpegClient';
+import EventsTableView from './EventsTableView';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -2453,7 +2454,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const handleAbpVideoUpload = async (section: AbpSection, id: string, file?: File) => {
     if (!file) return;
     try {
-      const url = await uploadMatchVideo(file, match.id);
+      const url = await uploadMatchVideo(file, match.id, section);
       setAbpList(section, getAbpList(section).map(it => (it.id === id ? { ...it, video: url } : it)), true);
     } catch (err) {
       console.error('[match-report-upload]', err);
@@ -5249,6 +5250,31 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     );
   };
 
+  const renderTablaEventos = () => (
+    <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32 p-4 lg:p-12">
+      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6 mb-8">
+          <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+            <i className="fa-solid fa-th text-red-500"></i> Tabla de Eventos
+          </div>
+        </div>
+        <EventsTableView
+          events={report.videoEvents || []}
+          squad={squad}
+          onEdit={(event) => {
+            startEditing(event);
+            setActiveTab('EVENTOS');
+          }}
+          onDelete={(eventId) => {
+            const nextEvents = (report.videoEvents || []).filter(x => x.id !== eventId);
+            const next = { ...report, videoEvents: nextEvents };
+            setReport(next);
+          }}
+        />
+      </div>
+    </div>
+  );
+
   const renderDatosGenerales = () => (
     <div className="animate-fade-in space-y-8 max-w-3xl mx-auto pb-32">
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
@@ -5478,6 +5504,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
     { id: 'GRÁFICAS', label: t('matchReport.tabs.charts'), icon: 'fa-chart-line' },
     { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
+    { id: 'TABLA EVENTOS', label: 'Tabla Eventos', icon: 'fa-th' },
     { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' }
   ];
 
@@ -5511,7 +5538,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'GRÁFICAS' ? renderGraficas() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'GRÁFICAS' ? renderGraficas() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
 
       {selectedPlayerForModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>
