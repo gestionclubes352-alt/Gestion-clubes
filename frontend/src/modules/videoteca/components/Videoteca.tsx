@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Match, MatchReport } from '@modules/partidos';
 import { db, clubesService } from '@shared/services/dataService';
-import type { Jugador } from '@shared/services/dataService';
+import type { Jugador, Club } from '@shared/services/dataService';
 import { supabase } from '@shared/services/supabaseClient';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import ShareButton from '@modules/partidos/components/ShareButton';
@@ -93,6 +93,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   const { profile } = useAuth();
   const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
   const [playersById, setPlayersById] = useState<Map<string | number, Jugador>>(new Map());
+  const [clubsById, setClubsById] = useState<Map<string | number, Club>>(new Map());
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalTimestamp, setVideoModalTimestamp] = useState<number | undefined>(undefined);
   const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
@@ -149,6 +150,12 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
           (playersRes || []).forEach((player: Jugador) => playerMap.set(player.id, player));
         }
         setPlayersById(playerMap);
+
+        // Cargar clubes para poder mostrar nombres en los partidos
+        const clubsRes = await clubesService.list();
+        const clubMap = new Map<string | number, Club>();
+        clubsRes.forEach((club: Club) => clubMap.set(String(club.id), club));
+        setClubsById(clubMap);
       } catch (err) {
         console.error('Error al cargar datos:', err);
       } finally {
@@ -256,20 +263,33 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         const goalsFavor = (report.matchGoals || []).filter((g) => g.side === 'FAVOR').length;
         const goalsContra = (report.matchGoals || []).filter((g) => g.side === 'CONTRA').length;
         const ocasionesCount = (report.videoEvents || []).filter((e) => e.type === 'OCASION').length;
-        const rival = match.opponent || match.visitorTeam || match.localTeam || 'Rival';
+
+        // Obtener nombre interno del equipo local
+        const equipoInterno = resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName);
+
+        // Obtener nombre del club visitante
+        let clubVisitante = match.visitorTeam || 'Visitante';
+        if (match.visitorTeamClubId) {
+          const clubData = clubsById.get(String(match.visitorTeamClubId));
+          if (clubData) {
+            clubVisitante = clubData.nombre || clubVisitante;
+          }
+        }
+
+        const videoUrl = report.videoUrl || (report.videoOriginals?.videoUrl);
         return {
           matchId: String(match.id),
-          title: `vs ${rival}${match.jornada ? ` (Jornada ${match.jornada})` : ''}`,
+          title: `${equipoInterno} vs ${clubVisitante}${match.jornada ? ` (Jornada ${match.jornada})` : ''}`,
           competition: match.competition || '-',
           date: match.date ? new Date(match.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-',
-          vimeoUrl: report.videoUrl,
+          vimeoUrl: videoUrl,
           goalsFavor,
           goalsContra,
           ocasionesCount,
         };
       })
       .sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime());
-  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, playerFilter, ownCompetitionTeams, internalNameByFedName]);
+  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, playerFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
 
   const toggleRowExpanded = (matchId: string) => {
     setExpandedRows(prev => {
@@ -326,7 +346,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
     columnHelper.accessor('competition', { header: 'COMPETICIÓN' }),
     columnHelper.accessor('date', { header: 'FECHA' }),
     columnHelper.accessor('title', {
-      header: 'RIVAL',
+      header: 'PARTIDO',
       cell: (info) => (
         <span className="font-black uppercase text-slate-800">{info.getValue()}</span>
       ),
