@@ -7,12 +7,11 @@ import type { Club } from '@modules/clubes/types';
 import { db, getTeamConfig, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
 import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
 import PlayerStatsSummary from './PlayerStatsSummary';
-import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { DataTable } from '@shared/components/DataTable';
 import type { DataTableAction } from '@shared/components/DataTable';
 import {
-  ALL_FILTER,
   normalizeTeamKey,
   isSameCompetition,
   internalNameOfTeam,
@@ -59,17 +58,19 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
-  const [tipoFilter, setTipoFilter] = useState<string>(ALL_FILTER);
-  const [competitionFilter, setCompetitionFilter] = useState<string>(ALL_FILTER);
-  const [jornadaFilter, setJornadaFilter] = useState<string>(ALL_FILTER);
-  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string>(ALL_FILTER);
-  const [localidadFilter, setLocalidadFilter] = useState<string>(ALL_FILTER);
-  const [instalacionPrincipalFilter, setInstalacionPrincipalFilter] = useState<string>(ALL_FILTER);
-  const [campoFilter, setCampoFilter] = useState<string>(ALL_FILTER);
+  const [tipoFilter, setTipoFilter] = useState<string[]>([]);
+  const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
+  const [jornadaFilter, setJornadaFilter] = useState<string[]>([]);
+  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string[]>([]);
+  const [localidadFilter, setLocalidadFilter] = useState<string[]>([]);
+  const [instalacionPrincipalFilter, setInstalacionPrincipalFilter] = useState<string[]>([]);
+  const [campoFilter, setCampoFilter] = useState<string[]>([]);
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
 
   useEffect(() => {
     (async () => {
@@ -105,10 +106,13 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   );
 
   useEffect(() => {
-    if (instalacionPrincipalFilter !== ALL_FILTER && campoFilter !== ALL_FILTER && campoParentMap.get(campoFilter) !== instalacionPrincipalFilter) {
-      setCampoFilter(ALL_FILTER);
-    }
-  }, [instalacionPrincipalFilter, campoFilter, campoParentMap]);
+    if (instalacionPrincipalFilter.length === 0) return;
+    setCampoFilter((prev) => {
+      const next = prev.filter((c) => instalacionPrincipalFilter.includes(campoParentMap.get(c) || ''));
+      return next.length === prev.length ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instalacionPrincipalFilter, campoParentMap]);
 
   // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
   const ownCompetitionTeams = useMemo(
@@ -130,9 +134,9 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   // Tipos de Competición: filtrados por Equipo Interno si está seleccionado
   const tipoOptions = useMemo(() => {
     const types = new Set<string>();
-    const sourceMatches = equipoInternoFilter === ALL_FILTER
+    const sourceMatches = equipoInternoFilter.length === 0
       ? matches
-      : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+      : matches.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)));
     sourceMatches.forEach((m) => {
       if (m.competition) {
         const type = getCompetitionType(m.competition);
@@ -152,14 +156,14 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     };
 
     // Filtrar equipos propios según competición si está seleccionada
-    const filteredOwnTeams = competitionFilter === ALL_FILTER
+    const filteredOwnTeams = competitionFilter.length === 0
       ? ownCompetitionTeams
-      : ownCompetitionTeams.filter((team) => isSameCompetition(team.competicion, competitionFilter));
+      : ownCompetitionTeams.filter((team) => competitionFilter.some((c) => isSameCompetition(team.competicion, c)));
 
     filteredOwnTeams.forEach((team) => addName(internalNameOfTeam(team)));
 
     // Si hay competición seleccionada, solo mostrar equipos de esa competición
-    const sourceMatches = competitionFilter === ALL_FILTER ? matches : matches.filter((m) => m.competition === competitionFilter);
+    const sourceMatches = competitionFilter.length === 0 ? matches : matches.filter((m) => competitionFilter.includes(m.competition));
 
     sourceMatches.forEach((m) => {
       addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
@@ -173,13 +177,13 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     const names = new Set<string>();
 
     // Si hay equipo seleccionado, solo mostrar competiciones de ese equipo
-    let sourceMatches = equipoInternoFilter === ALL_FILTER
+    let sourceMatches = equipoInternoFilter.length === 0
       ? matches
-      : matches.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+      : matches.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)));
 
     // Si hay tipo seleccionado, filtrar por tipo
-    if (tipoFilter !== ALL_FILTER) {
-      sourceMatches = sourceMatches.filter((m) => getCompetitionType(m.competition) === tipoFilter);
+    if (tipoFilter.length > 0) {
+      sourceMatches = sourceMatches.filter((m) => tipoFilter.includes(getCompetitionType(m.competition)));
     }
 
     sourceMatches.forEach((m) => { if (m.competition) names.add(m.competition); });
@@ -190,31 +194,31 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const filteredByEquipoAndCompetition = useMemo(() => {
     let result = matches;
 
-    if (equipoInternoFilter !== ALL_FILTER) {
-      result = result.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+    if (equipoInternoFilter.length > 0) {
+      result = result.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)));
     }
 
-    if (tipoFilter !== ALL_FILTER) {
-      result = result.filter((m) => getCompetitionType(m.competition) === tipoFilter);
+    if (tipoFilter.length > 0) {
+      result = result.filter((m) => tipoFilter.includes(getCompetitionType(m.competition)));
     }
 
-    if (competitionFilter !== ALL_FILTER) {
-      result = result.filter((m) => m.competition === competitionFilter);
+    if (competitionFilter.length > 0) {
+      result = result.filter((m) => competitionFilter.includes(m.competition));
     }
 
-    if (localidadFilter !== ALL_FILTER) {
-      result = result.filter((m) => m.localidad_id === localidadFilter);
+    if (localidadFilter.length > 0) {
+      result = result.filter((m) => !!m.localidad_id && localidadFilter.includes(m.localidad_id));
     }
 
-    if (instalacionPrincipalFilter !== ALL_FILTER) {
+    if (instalacionPrincipalFilter.length > 0) {
       result = result.filter((m) =>
-        m.instalacion_campo_id === instalacionPrincipalFilter
-        || (m.instalacion_campo_id ? campoParentMap.get(m.instalacion_campo_id) === instalacionPrincipalFilter : false)
+        (!!m.instalacion_campo_id && instalacionPrincipalFilter.includes(m.instalacion_campo_id))
+        || (m.instalacion_campo_id ? instalacionPrincipalFilter.includes(campoParentMap.get(m.instalacion_campo_id) || '') : false)
       );
     }
 
-    if (campoFilter !== ALL_FILTER) {
-      result = result.filter((m) => m.instalacion_campo_id === campoFilter);
+    if (campoFilter.length > 0) {
+      result = result.filter((m) => !!m.instalacion_campo_id && campoFilter.includes(m.instalacion_campo_id));
     }
 
     return result;
@@ -231,17 +235,17 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   // para que Localidad/Instalación/Campo solo muestren opciones con partidos reales (no todo el catálogo).
   const matchesForLocationFilters = useMemo(() => {
     let result = matches;
-    if (equipoInternoFilter !== ALL_FILTER) {
-      result = result.filter((m) => resolveEquipoInterno(m) === equipoInternoFilter);
+    if (equipoInternoFilter.length > 0) {
+      result = result.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)));
     }
-    if (tipoFilter !== ALL_FILTER) {
-      result = result.filter((m) => getCompetitionType(m.competition) === tipoFilter);
+    if (tipoFilter.length > 0) {
+      result = result.filter((m) => tipoFilter.includes(getCompetitionType(m.competition)));
     }
-    if (competitionFilter !== ALL_FILTER) {
-      result = result.filter((m) => m.competition === competitionFilter);
+    if (competitionFilter.length > 0) {
+      result = result.filter((m) => competitionFilter.includes(m.competition));
     }
-    if (jornadaFilter !== ALL_FILTER) {
-      result = result.filter((m) => m.jornada === jornadaFilter);
+    if (jornadaFilter.length > 0) {
+      result = result.filter((m) => !!m.jornada && jornadaFilter.includes(m.jornada));
     }
     return result;
   }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, jornadaFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
@@ -259,7 +263,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const instalacionesPrincipalesOptions = useMemo(() => {
     const ids = new Set<string>();
     matchesForLocationFilters
-      .filter((m) => localidadFilter === ALL_FILTER || m.localidad_id === localidadFilter)
+      .filter((m) => localidadFilter.length === 0 || (!!m.localidad_id && localidadFilter.includes(m.localidad_id)))
       .forEach((m) => {
         if (!m.instalacion_campo_id) return;
         ids.add(campoParentMap.get(m.instalacion_campo_id) || m.instalacion_campo_id);
@@ -273,11 +277,11 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const camposOptions = useMemo(() => {
     const ids = new Set<string>();
     matchesForLocationFilters
-      .filter((m) => localidadFilter === ALL_FILTER || m.localidad_id === localidadFilter)
+      .filter((m) => localidadFilter.length === 0 || (!!m.localidad_id && localidadFilter.includes(m.localidad_id)))
       .filter((m) =>
-        instalacionPrincipalFilter === ALL_FILTER
-        || m.instalacion_campo_id === instalacionPrincipalFilter
-        || (m.instalacion_campo_id ? campoParentMap.get(m.instalacion_campo_id) === instalacionPrincipalFilter : false)
+        instalacionPrincipalFilter.length === 0
+        || (!!m.instalacion_campo_id && instalacionPrincipalFilter.includes(m.instalacion_campo_id))
+        || (m.instalacion_campo_id ? instalacionPrincipalFilter.includes(campoParentMap.get(m.instalacion_campo_id) || '') : false)
       )
       .forEach((m) => {
         if (m.instalacion_campo_id && campoParentMap.has(m.instalacion_campo_id)) ids.add(m.instalacion_campo_id);
@@ -287,11 +291,26 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [matchesForLocationFilters, localidadFilter, instalacionPrincipalFilter, campoParentMap, instalacionesCampos]);
 
-  // Filtro final: aplicar filtro de Jornada y excluir partidos de hoy
+  // Filtro final: aplicar filtro de Jornada, rango de fechas y excluir partidos de hoy
   const today = new Date('2026-08-14').toISOString().split('T')[0];
   const filteredMatches = useMemo(
     () => {
-      let result = jornadaFilter === ALL_FILTER ? filteredByEquipoAndCompetition : filteredByEquipoAndCompetition.filter((m) => m.jornada === jornadaFilter);
+      let result = jornadaFilter.length === 0 ? filteredByEquipoAndCompetition : filteredByEquipoAndCompetition.filter((m) => !!m.jornada && jornadaFilter.includes(m.jornada));
+
+      // Aplicar filtro de rango de fechas
+      if (dateFromFilter) {
+        result = result.filter((m) => {
+          const matchDate = m.date ? new Date(m.date).toISOString().split('T')[0] : null;
+          return matchDate && matchDate >= dateFromFilter;
+        });
+      }
+      if (dateToFilter) {
+        result = result.filter((m) => {
+          const matchDate = m.date ? new Date(m.date).toISOString().split('T')[0] : null;
+          return matchDate && matchDate <= dateToFilter;
+        });
+      }
+
       // Excluir partidos de hoy
       result = result.filter((m) => {
         const matchDate = m.date ? new Date(m.date).toISOString().split('T')[0] : null;
@@ -299,71 +318,63 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       });
       return result;
     },
-    [filteredByEquipoAndCompetition, jornadaFilter]
+    [filteredByEquipoAndCompetition, jornadaFilter, dateFromFilter, dateToFilter]
   );
 
   // Si cambia Competición, el equipo interno elegido puede dejar de ser válido
   useEffect(() => {
-    if (equipoInternoFilter !== ALL_FILTER && !equipoInternoOptions.includes(equipoInternoFilter)) {
-      setEquipoInternoFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setEquipoInternoFilter((prev) => {
+      const next = prev.filter((v) => equipoInternoOptions.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [equipoInternoOptions]);
 
-  // Si cambia Tipo, la competición elegida puede dejar de ser válida
+  // Si cambia Tipo o Equipo Interno, la competición elegida puede dejar de ser válida
   useEffect(() => {
-    if (competitionFilter !== ALL_FILTER && !competitionOptions.includes(competitionFilter)) {
-      setCompetitionFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCompetitionFilter((prev) => {
+      const next = prev.filter((v) => competitionOptions.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [competitionOptions]);
-
-  // Si cambia Equipo Interno o Tipo, la competición elegida puede dejar de ser válida
-  useEffect(() => {
-    if (competitionFilter !== ALL_FILTER && !competitionOptions.includes(competitionFilter)) {
-      setCompetitionFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoFilter, competitionOptions]);
 
   // Si cambian Equipo Interno o Competición, la jornada elegida puede dejar de ser válida
   useEffect(() => {
-    if (jornadaFilter !== ALL_FILTER && !jornadaOptions.includes(jornadaFilter)) {
-      setJornadaFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setJornadaFilter((prev) => {
+      const next = prev.filter((v) => jornadaOptions.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [jornadaOptions]);
 
   // Si cambia Equipo Interno, el tipo elegido puede dejar de ser válido
   useEffect(() => {
-    if (tipoFilter !== ALL_FILTER && !tipoOptions.includes(tipoFilter)) {
-      setTipoFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setTipoFilter((prev) => {
+      const next = prev.filter((v) => tipoOptions.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [tipoOptions]);
 
   // Si cambian los filtros anteriores, la localidad elegida puede dejar de ser válida
   useEffect(() => {
-    if (localidadFilter !== ALL_FILTER && !localidadOptions.some((loc) => loc.id === localidadFilter)) {
-      setLocalidadFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLocalidadFilter((prev) => {
+      const next = prev.filter((v) => localidadOptions.some((loc) => loc.id === v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [localidadOptions]);
 
   // Si cambian Localidad u otros filtros anteriores, la instalación elegida puede dejar de ser válida
   useEffect(() => {
-    if (instalacionPrincipalFilter !== ALL_FILTER && !instalacionesPrincipalesOptions.some((i) => i.id === instalacionPrincipalFilter)) {
-      setInstalacionPrincipalFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setInstalacionPrincipalFilter((prev) => {
+      const next = prev.filter((v) => instalacionesPrincipalesOptions.some((i) => i.id === v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [instalacionesPrincipalesOptions]);
 
   // Si cambian Instalación u otros filtros anteriores, el campo elegido puede dejar de ser válido
   useEffect(() => {
-    if (campoFilter !== ALL_FILTER && !camposOptions.some((c) => c.id === campoFilter)) {
-      setCampoFilter(ALL_FILTER);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCampoFilter((prev) => {
+      const next = prev.filter((v) => camposOptions.some((c) => c.id === v));
+      return next.length === prev.length ? prev : next;
+    });
   }, [camposOptions]);
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
@@ -546,42 +557,54 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         ocasionesCount,
       };
     });
-    // Ordenar por fecha ascendente (más cercano primero)
+    // Ordenar por fecha ascendente (pasado hacia adelante)
     return rows.sort((a, b) => new Date(a.match.date).getTime() - new Date(b.match.date).getTime());
   }, [filteredMatches, ownCompetitionTeams, competitionTeams, clubes, matchReportsById]);
 
   const matchColumnHelper = createColumnHelper<MatchRow>();
   const tableColumns = useMemo(() => [
-    matchColumnHelper.accessor('tipo', { header: 'TIPO' }),
-    matchColumnHelper.accessor('competition', { header: t('matchesList.colCompetition') }),
-    matchColumnHelper.accessor('jornada', { header: t('matchesList.colJornada') }),
-    matchColumnHelper.accessor('dateLabel', { header: t('matchesList.colDate') }),
-    matchColumnHelper.accessor('time', { header: t('matchesList.colTime') }),
+    matchColumnHelper.accessor('competition', {
+      header: t('matchesList.colCompetition'),
+      cell: (info) => <span className="text-xs">{info.getValue()}</span>
+    }),
+    matchColumnHelper.accessor('dateLabel', {
+      header: t('matchesList.colDate'),
+      cell: (info) => <span className="text-xs">{info.getValue()}</span>
+    }),
     matchColumnHelper.accessor('localLabel', {
-      header: t('matchesList.colLocal'),
+      header: 'LOCAL',
       cell: (info) => (
         <div className="flex items-center gap-2">
           {info.row.original.localLogo && (
-            <img loading="lazy" decoding="async" src={info.row.original.localLogo} alt="" className="h-5 w-5 object-contain shrink-0" />
+            <img loading="lazy" decoding="async" src={info.row.original.localLogo} alt="" className="h-4 w-4 object-contain shrink-0" />
           )}
-          <span className={`truncate ${info.row.original.localIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
+          <span className={`truncate text-xs ${info.row.original.localIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
         </div>
       ),
     }),
+    matchColumnHelper.accessor('goalsFavor', {
+      header: 'GOLES LOC',
+      cell: (info) => <span className="font-black text-emerald-600 text-xs">{info.getValue() || '-'}</span>,
+    }),
     matchColumnHelper.accessor('visitorLabel', {
-      header: t('matchesList.colVisitor'),
+      header: 'VISITANTE',
       cell: (info) => (
         <div className="flex items-center gap-2">
           {info.row.original.visitorLogo && (
-            <img loading="lazy" decoding="async" src={info.row.original.visitorLogo} alt="" className="h-5 w-5 object-contain shrink-0" />
+            <img loading="lazy" decoding="async" src={info.row.original.visitorLogo} alt="" className="h-4 w-4 object-contain shrink-0" />
           )}
-          <span className={`truncate ${info.row.original.visitorIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
+          <span className={`truncate text-xs ${info.row.original.visitorIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
         </div>
       ),
     }),
-    matchColumnHelper.accessor('resultLabel', { header: t('matchesList.colResult') }),
-    matchColumnHelper.accessor('statusLabel', { header: t('matchesList.colStatus') }),
-    matchColumnHelper.accessor('location', { header: t('matchesList.colLocation') }),
+    matchColumnHelper.accessor('goalsContra', {
+      header: 'GOLES VIS',
+      cell: (info) => <span className="font-black text-red-500 text-xs">{info.getValue() || '-'}</span>,
+    }),
+    matchColumnHelper.accessor('ocasionesCount', {
+      header: 'OCASIONES',
+      cell: (info) => <span className="text-xs">{info.getValue() || '-'}</span>
+    }),
     matchColumnHelper.accessor('videoUrl', {
       header: 'VÍDEO',
       cell: (info) =>
@@ -589,24 +612,15 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVideoModalUrl(info.getValue()); }}
-            className="w-7 h-7 rounded-full bg-sport-primary/10 text-sport-primary hover:bg-sport-primary hover:text-white transition-all flex items-center justify-center"
+            className="w-6 h-6 rounded-full bg-sport-primary/10 text-sport-primary hover:bg-sport-primary hover:text-white transition-all flex items-center justify-center"
             title="Ver vídeo completo del partido"
           >
-            <i className="fa-solid fa-play text-[10px]"></i>
+            <i className="fa-solid fa-play text-[8px]"></i>
           </button>
         ) : (
           <span className="text-slate-300">-</span>
         ),
     }),
-    matchColumnHelper.accessor('goalsFavor', {
-      header: 'GOLES F',
-      cell: (info) => <span className="font-black text-emerald-600">{info.getValue()}</span>,
-    }),
-    matchColumnHelper.accessor('goalsContra', {
-      header: 'GOLES C',
-      cell: (info) => <span className="font-black text-red-500">{info.getValue()}</span>,
-    }),
-    matchColumnHelper.accessor('ocasionesCount', { header: 'OCASIONES' }),
   ], [t]);
 
   const tableActions: DataTableAction<MatchRow>[] = useMemo(() => {
@@ -666,7 +680,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
       ) : (
       <>
-      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-2">
         <div className="flex items-end">
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-full lg:w-auto lg:justify-start">
             <button
@@ -702,92 +716,107 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Equipo
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={equipoInternoFilter}
-            onChange={(e) => setEquipoInternoFilter(e.target.value)}
+            onChange={setEquipoInternoFilter}
+            allLabel="Todos los equipos"
+            options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos los equipos</option>
-            {equipoInternoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             TIPO
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={tipoFilter}
-            onChange={(e) => setTipoFilter(e.target.value)}
+            onChange={setTipoFilter}
+            allLabel="Todos los tipos"
+            options={tipoOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos los tipos</option>
-            {tipoOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Competición
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={competitionFilter}
-            onChange={(e) => setCompetitionFilter(e.target.value)}
+            onChange={setCompetitionFilter}
+            allLabel={t('playerStatsSummary.allCompetitions')}
+            options={competitionOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>{t('playerStatsSummary.allCompetitions')}</option>
-            {competitionOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Jornada
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={jornadaFilter}
-            onChange={(e) => setJornadaFilter(e.target.value)}
+            onChange={setJornadaFilter}
+            allLabel={t('matchesList.allJornadas')}
+            options={jornadaOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>{t('matchesList.allJornadas')}</option>
-            {jornadaOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </SearchableSelect>
+          />
+        </div>
+        <div>
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Desde
+          </label>
+          <input
+            type="date"
+            value={dateFromFilter}
+            onChange={(e) => setDateFromFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Hasta
+          </label>
+          <input
+            type="date"
+            value={dateToFilter}
+            onChange={(e) => setDateToFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          />
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Localidad
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={localidadFilter}
-            onChange={(e) => setLocalidadFilter(e.target.value)}
+            onChange={setLocalidadFilter}
+            allLabel="Todas"
+            options={localidadOptions.map((loc) => ({ value: loc.id, label: loc.nombre }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todas</option>
-            {localidadOptions.map((loc) => <option key={loc.id} value={loc.id}>{loc.nombre}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Instalación
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={instalacionPrincipalFilter}
-            onChange={(e) => setInstalacionPrincipalFilter(e.target.value)}
+            onChange={setInstalacionPrincipalFilter}
+            allLabel="Todas"
+            options={instalacionesPrincipalesOptions.map((inst) => ({ value: inst.id, label: inst.nombre }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todas</option>
-            {instalacionesPrincipalesOptions.map((inst) => <option key={inst.id} value={inst.id}>{inst.nombre}</option>)}
-          </SearchableSelect>
+          />
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Campo
           </label>
-          <SearchableSelect
+          <MultiSelectFilter
             value={campoFilter}
-            onChange={(e) => setCampoFilter(e.target.value)}
+            onChange={setCampoFilter}
+            allLabel="Todos"
+            options={camposOptions.map((campo) => ({ value: campo.id, label: campo.nombre }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          >
-            <option value={ALL_FILTER}>Todos</option>
-            {camposOptions.map((campo) => <option key={campo.id} value={campo.id}>{campo.nombre}</option>)}
-          </SearchableSelect>
+          />
         </div>
       </div>
 
