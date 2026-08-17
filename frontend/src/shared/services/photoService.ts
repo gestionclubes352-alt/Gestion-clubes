@@ -50,6 +50,11 @@ export async function uploadMatchReportFile(file: File, matchId: string | number
   return uploadToStorage(`matches/${matchId}/reports/${crypto.randomUUID()}.${ext}`, file);
 }
 
+export async function uploadMatchVideo(file: File, matchId: string | number): Promise<string> {
+  const ext = file.name.split('.').pop() || 'mp4';
+  return uploadToStorage(`matches/${matchId}/videos/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
+}
+
 export async function uploadMatchPlanVideo(file: File, matchId: string | number, section: 'ataque' | 'defensa' | 'transiciones'): Promise<string> {
   const ext = file.name.split('.').pop() || 'mp4';
   return uploadToStorage(`matches/${matchId}/plans/${section}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);

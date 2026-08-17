@@ -1620,7 +1620,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   onTeamCreated={fetchData}
                 />
               } />
-              <Route path="/videoteca" element={<Videoteca matches={filteredMatchesList} />} />
+              <Route path="/videoteca" element={<Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />

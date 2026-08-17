@@ -17,7 +17,7 @@ import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemMinutesCharts from './SystemMinutesCharts';
 import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { useYouTubeUpload } from '@context/YouTubeUploadContext';
-import { uploadMatchReportFile, uploadClubLogo, uploadMatchPlanVideo } from '@shared/services/photoService';
+import { uploadMatchReportFile, uploadMatchVideo, uploadClubLogo, uploadMatchPlanVideo } from '@shared/services/photoService';
 import ShareButton from './ShareButton';
 import { createShareLink, copyShareUrlToClipboard, getShareUrl, getOrCreateChannelShareLink, getChannelShareUrl } from '@shared/services/shareService';
 import { useTranslation } from 'react-i18next';
@@ -470,6 +470,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
+  const [eventToast, setEventToast] = useState<string | null>(null);
+  const eventToastTimeoutRef = useRef<any>(null);
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
   const [pitchDiagramPreview, setPitchDiagramPreview] = useState<{ label: string; positions: TacticalPosition[]; highlightIds?: Array<string | number> } | null>(null);
   const resumenExportRef = useRef<HTMLDivElement>(null);
@@ -1408,7 +1410,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       playerId: resolvedPlayerId,
       goalSide: options?.goalSide,
       duelOutcome: options?.duelOutcome,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      videoTimestamp: eventTime
     };
     
     const nextEvents = [...(report.videoEvents || []), newEvent].sort((a, b) => timeToSeconds(a.minute) - timeToSeconds(b.minute));
@@ -1421,6 +1424,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     stopTimeoutRef.current = setTimeout(() => {
       pauseVideo();
     }, 5000);
+  };
+
+  const flashEventToast = (label: string) => {
+    setEventToast(label);
+    if (eventToastTimeoutRef.current) clearTimeout(eventToastTimeoutRef.current);
+    eventToastTimeoutRef.current = setTimeout(() => setEventToast(null), 1600);
   };
 
   const persistReport = async (updatedReport: MatchReport) => {
@@ -2060,6 +2069,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     />
                     <button
                       type="button"
+                      onClick={() => setEventActionMenu({ ...eventActionMenu, videoTimestamp: Math.max(0, currentTimeSec - 5) })}
                       title="Capturar tiempo actual del video (si está disponible)"
                       className="px-4 py-2 rounded-xl bg-blue-600/20 text-blue-600 hover:bg-blue-600/40 font-black text-xs uppercase tracking-widest transition-all border border-blue-600/30"
                     >
@@ -2443,7 +2453,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const handleAbpVideoUpload = async (section: AbpSection, id: string, file?: File) => {
     if (!file) return;
     try {
-      const url = await uploadMatchReportFile(file, match.id);
+      const url = await uploadMatchVideo(file, match.id);
       setAbpList(section, getAbpList(section).map(it => (it.id === id ? { ...it, video: url } : it)), true);
     } catch (err) {
       console.error('[match-report-upload]', err);
@@ -3042,6 +3052,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                               return;
                             }
                             handleAddEvent(btn.id as any);
+                            flashEventToast(btn.label);
                           }}
                           className="flex items-center gap-3 group cursor-pointer bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 transition-all active:scale-[0.98]"
                         >
@@ -3052,9 +3063,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         </button>
                     ))}
                 </div>
+                {eventToast && (
+                  <div className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                    <i className="fa-solid fa-check"></i>
+                    {eventToast} {t('matchReport.events.registered') || 'registrado'}
+                  </div>
+                )}
             </div>
          </div>
-         
+
          {isGoalDialogOpen && (
             <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="w-full max-w-sm mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl">
@@ -3284,40 +3301,71 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             {t('matchReport.duelDialog.noLineup')}
                           </div>
                         ) : (
-                          <div className="relative w-full h-[320px] rounded-2xl bg-[#2d5a3f] border border-white/10 overflow-hidden">
-                            <div className="absolute inset-3 border border-white/30 rounded-lg pointer-events-none">
-                              <div className="absolute top-1/2 left-0 right-0 border-t border-white/30"></div>
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border border-white/30 rounded-full"></div>
-                              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-10 border-b border-x border-white/30"></div>
-                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-10 border-t border-x border-white/30"></div>
+                          <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2">
+                            {/* Titulares */}
+                            <div>
+                              <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Titulares</div>
+                              <div className="space-y-1.5">
+                                {(report.lineupPositions || []).map((pos) => {
+                                  const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
+                                  const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
+                                  if (!player) return null;
+                                  const isSelected = samePlayerId(duelPlayerSelection, player.id);
+                                  return (
+                                    <button
+                                      key={pos.id}
+                                      onClick={() => setDuelPlayerSelection(player.id)}
+                                      className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                        isSelected
+                                          ? 'bg-red-600 text-white'
+                                          : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                      }`}
+                                    >
+                                      <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                        {player.dorsal}
+                                      </span>
+                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            <div className="absolute inset-0">
-                              {(report.lineupPositions || []).map((pos) => {
-                                const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
-                                const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
-                                if (!player) return null;
-                                const isSelected = samePlayerId(duelPlayerSelection, player.id);
-                                return (
-                                  <button
-                                    key={pos.id}
-                                    onClick={() => setDuelPlayerSelection(player.id)}
-                                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-all ${
-                                      isSelected ? 'scale-105' : ''
-                                    }`}
-                                    style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                                  >
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-[10px] border-[3px] ${
-                                      isSelected ? 'bg-[var(--accent)] border-yellow-300 text-white ring-4 ring-yellow-300/40' : 'bg-[var(--accent)] border-white text-white'
-                                    }`}>
-                                      {player.dorsal}
-                                    </div>
-                                    <span className="mt-1 text-[7px] font-black uppercase text-white/90 bg-black/80 px-2 py-0.5 rounded">
-                                      {player.apodo || player.nombre}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+
+                            {/* Suplentes */}
+                            {(() => {
+                              const starterIds = new Set((report.lineupPositions || []).flatMap(pos => pos.playerIds || []));
+                              const suplentes = squad.filter(p =>
+                                !starterIds.has(String(p.id)) &&
+                                !starterIds.has(p.id as any) &&
+                                !(report.notConvocadoIds || []).some(id => samePlayerId(id, p.id))
+                              );
+                              return suplentes.length > 0 && (
+                                <div>
+                                  <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Suplentes</div>
+                                  <div className="space-y-1.5">
+                                    {suplentes.map((player) => {
+                                      const isSelected = samePlayerId(duelPlayerSelection, player.id);
+                                      return (
+                                        <button
+                                          key={player.id}
+                                          onClick={() => setDuelPlayerSelection(player.id)}
+                                          className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                            isSelected
+                                              ? 'bg-red-600 text-white'
+                                              : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                          }`}
+                                        >
+                                          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                            {player.dorsal}
+                                          </span>
+                                          <span className="truncate">{player.apodo || player.nombre}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-3">
@@ -3502,12 +3550,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                               type="button"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                if(confirm(t('matchReport.alerts.deleteEventConfirm'))) {
-                                                  const nextEvents = report.videoEvents?.filter(x=>x.id!==ev.id);
-                                                  const next = {...report, videoEvents: nextEvents};
-                                                  setReport(next);
-                                                  persistReport(next);
-                                                }
+                                                const nextEvents = report.videoEvents?.filter(x=>x.id!==ev.id);
+                                                const next = {...report, videoEvents: nextEvents};
+                                                setReport(next);
+                                                persistReport(next);
                                               }}
                                               className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-500 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.deleteRecord')}

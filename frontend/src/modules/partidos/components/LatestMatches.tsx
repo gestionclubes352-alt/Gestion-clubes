@@ -11,88 +11,19 @@ import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { DataTable } from '@shared/components/DataTable';
 import type { DataTableAction } from '@shared/components/DataTable';
-
-const getMyClubIdsForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
-  const ids = new Set<string>();
-  competitionTeams
-    .filter(team => isSameCompetition(team.competicion, competition) && team.clubId)
-    .forEach(team => {
-      if (team.clubId) ids.add(String(team.clubId));
-    });
-  return ids;
-};
-
-const getMyTeamNamesForCompetition = (competition: string, competitionTeams: CompetitionTeam[]): Set<string> => {
-  const names = new Set<string>();
-  // Agregar nombres conocidos del equipo (hardcoded como fallback)
-  names.add('ipc la escuela');
-  names.add('juvenil a');
-
-  competitionTeams
-    .filter(team => isSameCompetition(team.competicion, competition))
-    .forEach(team => {
-      if (team.nombreEnFed) names.add(normalizeTeamKey(team.nombreEnFed));
-      if (team.nombre) names.add(normalizeTeamKey(team.nombre));
-      if (team.equipo) names.add(normalizeTeamKey(team.equipo));
-    });
-  return names;
-};
-
-const isMyTeam = (name: string, myTeamNames: Set<string> | undefined): boolean => {
-  if (!myTeamNames || myTeamNames.size === 0) return false;
-  return myTeamNames.has(normalizeTeamKey(name));
-};
-
-const normalizeTeamKey = (value: string | undefined) =>
-  (value || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ');
-
-const containsTeamWords = (value: string | undefined, teamValue: string | undefined) => {
-  const source = normalizeTeamKey(value);
-  const target = normalizeTeamKey(teamValue);
-  if (!source || !target) return false;
-  return target.split(' ').every(word => source.includes(word));
-};
-
-const isSameCompetition = (teamCompetition: string | undefined, matchCompetition: string | undefined) => {
-  if (!teamCompetition || !matchCompetition) return false;
-  return normalizeTeamKey(teamCompetition) === normalizeTeamKey(matchCompetition);
-};
-
-const internalNameOfTeam = (team: CompetitionTeam) => (team.equipo || team.nombre || '').trim();
-
-const isLikelyInternalTeamName = (value: string | undefined) => {
-  const normalized = normalizeTeamKey(value);
-  return /^(primer equipo|filial|senior|juvenil|cadete|infantil|alevin|benjamin|prebenjamin)(\s+[a-z0-9]+)?$/.test(normalized);
-};
+import {
+  ALL_FILTER,
+  normalizeTeamKey,
+  isSameCompetition,
+  internalNameOfTeam,
+  isLikelyInternalTeamName,
+  getCompetitionType,
+  ownTeamNameOf,
+  buildInternalNameByFedName,
+  resolveEquipoInterno as resolveEquipoInternoUtil,
+} from '../utils/teamResolution';
 
 const dateKeyOf = (date: string | undefined) => String(date || '').slice(0, 10);
-
-// El equipo "propio" de un partido es el que coincide con nuestros equipos en esa competición.
-const ownTeamNameOf = (match: Match, competitionTeams: CompetitionTeam[]): string => {
-  const local = match.localTeam || '';
-  const visitor = match.visitorTeam || '';
-
-  // Primero, intentar identificar por clubId (más confiable)
-  const myClubIds = getMyClubIdsForCompetition(match.competition, competitionTeams);
-  if (myClubIds.size > 0) {
-    if (match.localTeamClubId && myClubIds.has(String(match.localTeamClubId))) return local;
-    if (match.visitorTeamClubId && myClubIds.has(String(match.visitorTeamClubId))) return visitor;
-  }
-
-  // Fallback: identificar por nombre
-  const myTeams = getMyTeamNamesForCompetition(match.competition, competitionTeams);
-  if (isMyTeam(local, myTeams)) return local;
-  if (isMyTeam(visitor, myTeams)) return visitor;
-  return local || visitor;
-};
-
-const ALL_FILTER = 'ALL';
-
 /** Convierte una URL de YouTube/Vimeo en su URL de embebido para reproducir en un modal. */
 const getMatchVideoEmbedUrl = (url: string): string => {
   if (!url) return '';
@@ -104,18 +35,6 @@ const getMatchVideoEmbedUrl = (url: string): string => {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash ? `?h=${hash}` : ''}`;
   }
   return url;
-};
-
-const getCompetitionType = (competition: string | undefined): string => {
-  if (!competition) return '-';
-  const normalized = competition.trim().toUpperCase();
-  if (normalized.includes('LIGA')) return 'LIGA';
-  if (normalized.includes('COPA')) return 'COPA';
-  if (normalized.includes('AMISTOSO')) return 'AMISTOSO';
-  if (normalized.includes('TORNEO')) return 'TORNEO';
-  if (normalized.includes('CAMPEONATO')) return 'CAMPEONATO';
-  const firstWord = normalized.split(/[\s,]+/)[0];
-  return firstWord || '-';
 };
 
 interface LatestMatchesProps {
@@ -200,86 +119,13 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   // Mapa nombreEnFed -> nombre interno canónico (p.ej. "juvenil a" de la federación -> "Juvenil A"),
   // para poder resolver el equipo interno de partidos de liga que no tienen nombreInterno rellenado a mano.
   // Se calcula primero porque lo usa resolveEquipoInterno.
-  const internalNameByFedName = useMemo(() => {
-    const map = new Map<string, string>();
-    ownCompetitionTeams.forEach((team) => {
-      const canonical = (team.equipo || team.nombre || '').trim();
-      if (!canonical) return;
-      map.set(normalizeTeamKey(canonical), canonical);
-      const fedName = normalizeTeamKey(team.nombreEnFed);
-      if (fedName) map.set(fedName, canonical);
-    });
-    return map;
-  }, [ownCompetitionTeams]);
+  const internalNameByFedName = useMemo(
+    () => buildInternalNameByFedName(ownCompetitionTeams),
+    [ownCompetitionTeams]
+  );
 
-  const normalizeInternalCandidate = (candidate?: string): string | undefined => {
-    const key = normalizeTeamKey(candidate);
-    if (!key) return undefined;
-    return internalNameByFedName.get(key) || (isLikelyInternalTeamName(candidate) ? candidate?.trim() : undefined);
-  };
 
-  const findInternalNameForCandidate = (match: Match, candidate?: string): string | undefined => {
-    const normalizedInternal = normalizeInternalCandidate(candidate);
-    if (normalizedInternal) return normalizedInternal;
-
-    const key = normalizeTeamKey(candidate);
-    if (!key) return undefined;
-
-    const competitionTeams = ownCompetitionTeams.filter((team) => isSameCompetition(team.competicion, match.competition));
-    const pools = competitionTeams.length > 0 ? [competitionTeams, ownCompetitionTeams] : [ownCompetitionTeams];
-
-    for (const pool of pools) {
-      const byInternalOrFed = pool.find((team) =>
-        [team.equipo, team.nombreEnFed].map(normalizeTeamKey).includes(key)
-      );
-      if (byInternalOrFed) return internalNameOfTeam(byInternalOrFed);
-
-      const byClubName = pool.filter((team) => normalizeTeamKey(team.nombre) === key);
-      if (byClubName.length === 1) return internalNameOfTeam(byClubName[0]);
-    }
-
-    return internalNameByFedName.get(key);
-  };
-
-  const findInternalNameByCompetitionContext = (match: Match): string | undefined => {
-    const candidates = [match.nombreInterno, match.team, match.localTeam, match.visitorTeam];
-    const clubIds = [match.localTeamClubId, match.visitorTeamClubId].filter(Boolean).map(String);
-
-    const matchesSide = (team: CompetitionTeam) => {
-      const aliases = [team.equipo, team.nombreEnFed, team.nombre].map(normalizeTeamKey).filter(Boolean);
-      const candidateMatch = candidates.some(candidate => aliases.includes(normalizeTeamKey(candidate)));
-      const clubIdMatch = team.clubId != null && clubIds.includes(String(team.clubId));
-      return candidateMatch || clubIdMatch;
-    };
-
-    const contextualMatches = ownCompetitionTeams.filter((team) => {
-      if (!matchesSide(team)) return false;
-
-      const internal = internalNameOfTeam(team);
-      const etapa = team.etapa || internal.split(' ')[0];
-      const competitionMatches =
-        isSameCompetition(team.competicion, match.competition) ||
-        containsTeamWords(match.competition, internal) ||
-        containsTeamWords(match.competition, etapa);
-
-      return competitionMatches;
-    });
-
-    const uniqueInternalNames = Array.from(new Set(contextualMatches.map(internalNameOfTeam).filter(Boolean)));
-    return uniqueInternalNames.length === 1 ? uniqueInternalNames[0] : undefined;
-  };
-
-  const resolveEquipoInterno = (match: Match): string => {
-    const own = ownCompetitionTeams.length > 0 ? ownTeamNameOf(match, ownCompetitionTeams) : '';
-    const candidates = [match.nombreInterno, match.team, match.localTeam, match.visitorTeam, own];
-    for (const candidate of candidates) {
-      const mapped = findInternalNameForCandidate(match, candidate);
-      if (mapped) return mapped;
-    }
-    const byCompetitionContext = findInternalNameByCompetitionContext(match);
-    if (byCompetitionContext) return byCompetitionContext;
-    return normalizeInternalCandidate(match.nombreInterno) || normalizeInternalCandidate(match.team) || own || match.nombreInterno || match.team || '';
-  };
+  const resolveEquipoInterno = (match: Match): string => resolveEquipoInternoUtil(match, ownCompetitionTeams, internalNameByFedName);
 
   // Tipos de Competición: filtrados por Equipo Interno si está seleccionado
   const tipoOptions = useMemo(() => {
