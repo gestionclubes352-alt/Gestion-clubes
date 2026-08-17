@@ -3979,16 +3979,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         <div className="flex gap-2">
                           {(block.id === 'planConBalon' || block.id === 'planSinBalon') ? (
                             <>
-                              <div className="flex-1 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-3 py-2 flex items-center text-xs text-[var(--text-muted)]">
-                                {(report as any)[`${block.id}Video`] ? (
-                                  <span className="truncate flex items-center gap-2 text-[var(--text)]">
-                                    <i className="fa-solid fa-check text-emerald-500"></i>
-                                    {(report as any)[`${block.id}Video`].split('/').pop()}
-                                  </span>
-                                ) : (
-                                  <span>No video subido</span>
-                                )}
-                              </div>
                               <input
                                 ref={block.id === 'planConBalon' ? ytPlanConBalonFileInputRef : ytPlanSinBalonFileInputRef}
                                 type="file"
@@ -4003,12 +3993,18 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                 }}
                                 disabled={planVideoUploading === block.id}
                                 title="Subir video a Supabase Storage"
-                                className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 px-4 py-3 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2"
                               >
                                 {planVideoUploading === block.id ? (
-                                  <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                                  <>
+                                    <i className="fa-solid fa-spinner fa-spin text-sm"></i>
+                                    Subiendo...
+                                  </>
                                 ) : (
-                                  <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                                  <>
+                                    <i className="fa-solid fa-cloud-arrow-up text-sm"></i>
+                                    Subir MP4 a Supabase
+                                  </>
                                 )}
                               </button>
                             </>
