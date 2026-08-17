@@ -2824,6 +2824,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       const message = err instanceof Error ? err.message : 'Error uploading video';
       setPlanVideoUploadError(message);
       setPlanVideoUploading(null);
+      // Clear error after 5 seconds
+      setTimeout(() => setPlanVideoUploadError(null), 5000);
       console.error('Plan video upload error:', err);
     }
   };
