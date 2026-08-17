@@ -738,6 +738,10 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                     e.currentTarget.currentTime = videoModalTimestamp;
                   }
                 }}
+                onError={() => {
+                  console.warn('[videoteca] Error cargando video:', videoModalUrl);
+                  alert('No se pudo cargar el vídeo. Verifica la URL o intenta más tarde.');
+                }}
               >
                 Tu navegador no soporta vídeo HTML5
               </video>
@@ -749,6 +753,10 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
                 title="Vídeo del partido"
+                onError={() => {
+                  console.warn('[videoteca] Error cargando iframe:', videoModalUrl);
+                  alert('No se pudo cargar el vídeo. Verifica la URL o intenta más tarde.');
+                }}
               />
             )}
           </div>
