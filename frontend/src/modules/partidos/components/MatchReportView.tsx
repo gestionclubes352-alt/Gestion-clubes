@@ -1627,7 +1627,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               <div>
                 <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-3 tracking-widest">{t('tactics.formation')}</label>
                 <div className="flex gap-2 flex-wrap">
-                  {['1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'].map(f => (
+                  {['1-3-4-3', '1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'].map(f => (
                     <button
                       key={f}
                       onClick={() => handleChangeFormation(f)}
@@ -3813,6 +3813,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   onChange={(e) => handleChangeFormation(e.target.value)}
                   className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
                 >
+                  <option value="1-3-4-3">1-3-4-3</option>
                   <option value="1-4-4-2">1-4-4-2</option>
                   <option value="1-4-3-3">1-4-3-3</option>
                   <option value="1-4-2-3-1">1-4-2-3-1</option>
