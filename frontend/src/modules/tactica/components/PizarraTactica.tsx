@@ -11,6 +11,12 @@ import { fetchFile } from '@ffmpeg/util';
 import { getFFmpeg } from '@shared/utils/ffmpegClient';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
+  '1-3-4-3': [
+    { x: 50, y: 92 },
+    { x: 75, y: 80 }, { x: 50, y: 80 }, { x: 25, y: 80 },
+    { x: 82, y: 68 }, { x: 62, y: 66 }, { x: 38, y: 66 }, { x: 18, y: 68 },
+    { x: 78, y: 48 }, { x: 50, y: 45 }, { x: 22, y: 48 },
+  ],
   '1-4-4-2': [
     { x: 50, y: 92 },
     { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
