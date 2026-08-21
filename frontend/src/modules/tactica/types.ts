@@ -13,9 +13,22 @@ export interface Formation {
   positions: TacticalPosition[];
 }
 
-export type FormationName = '1-4-3-3' | '1-4-4-2' | '1-4-2-3-1' | '1-5-3-2';
+export type FormationName = '1-3-4-3' | '1-4-3-3' | '1-4-4-2' | '1-4-2-3-1' | '1-5-3-2';
 
 export const FORMATIONS: Record<FormationName, TacticalPosition[]> = {
+  '1-3-4-3': [
+    { id: 'GK', x: 50, y: 92, label: 'POR' },
+    { id: 'CD1', x: 75, y: 76, label: 'DFC' },
+    { id: 'CD2', x: 50, y: 76, label: 'DFC' },
+    { id: 'CD3', x: 25, y: 76, label: 'DFC' },
+    { id: 'MD', x: 82, y: 48, label: 'MD' },
+    { id: 'MC1', x: 62, y: 52, label: 'MC' },
+    { id: 'MC2', x: 38, y: 52, label: 'MC' },
+    { id: 'MI', x: 18, y: 48, label: 'MI' },
+    { id: 'ED', x: 78, y: 20, label: 'ED' },
+    { id: 'DC', x: 50, y: 15, label: 'DC' },
+    { id: 'EI', x: 22, y: 20, label: 'EI' },
+  ],
   '1-4-3-3': [
     { id: 'GK', x: 50, y: 92, label: 'POR' },
     { id: 'LD', x: 85, y: 68, label: 'LD' },
