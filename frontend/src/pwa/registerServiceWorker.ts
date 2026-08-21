@@ -7,6 +7,7 @@
 type UpdateListener = (activate: () => void) => void;
 
 let onUpdateReady: UpdateListener | null = null;
+const SW_VERSION = '2026-08-19-v2';
 
 /** Permite a la UI enterarse de que hay una versión nueva esperando */
 export function setUpdateListener(listener: UpdateListener | null) {
@@ -29,7 +30,9 @@ export function registerServiceWorker() {
   if (!isSecure) return;
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    // Añadimos un cache-buster al script del SW para romper shells antiguos
+    // que pudieran seguir sirviendo bundles viejos con rutas obsoletas.
+    navigator.serviceWorker.register(`/sw.js?v=${SW_VERSION}`, { scope: '/' })
       .then((registration) => {
         // Ya hay una versión nueva esperando (pestaña abierta de una sesión previa)
         if (registration.waiting && navigator.serviceWorker.controller) {

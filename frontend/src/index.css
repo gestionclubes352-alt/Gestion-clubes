@@ -259,7 +259,7 @@ body {
 
 /* Desplazamiento del contenido para compensar la cabecera fija + notch */
 .app-header-offset {
-  padding-top: calc(72px + env(safe-area-inset-top, 0px));
+  padding-top: calc(90px + env(safe-area-inset-top, 0px));
 }
 
 @media (min-width: 768px) {
@@ -268,7 +268,7 @@ body {
   }
 
   .app-header-offset {
-    padding-top: calc(80px + env(safe-area-inset-top, 0px));
+    padding-top: calc(100px + env(safe-area-inset-top, 0px));
   }
 }
 

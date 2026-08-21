@@ -195,8 +195,16 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         </div>
 
         <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-          <p className="font-black text-slate-800 text-[20px] break-words mb-1 flex-shrink-0 line-clamp-1">{task.title}</p>
-          <p className="text-[16px] font-bold text-slate-500 mb-2 break-words flex-shrink-0">{task.category || t('calendarView.notDefined')}</p>
+          <div className="grid grid-cols-2 gap-3 mb-2 flex-shrink-0">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Nombre</p>
+              <p className="font-black text-slate-800 text-[16px] break-words line-clamp-1">{task.title}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Tipo</p>
+              <p className="text-[16px] font-bold text-slate-500 break-words line-clamp-1">{task.category || t('calendarView.notDefined')}</p>
+            </div>
+          </div>
 
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
@@ -449,12 +457,24 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {tasks.map((task, index) => (
               <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                {/* Header con número de ejercicio y duración */}
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                    {t('calendarView.exerciseLabel')} {index + 1}
-                  </span>
-                  <div className="flex items-center gap-2">
+                {/* Header con número de ejercicio, nombre, tipo y duración */}
+                <div className="flex items-start justify-between gap-6 mb-4">
+                  <div className="flex items-start gap-8 min-w-0 flex-1">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0 pt-1">
+                      {t('calendarView.exerciseLabel')} {index + 1}
+                    </span>
+                    <div className="grid grid-cols-2 gap-8 min-w-0 flex-1">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Nombre</p>
+                        <p className="font-black text-slate-700 text-[14px] truncate">{task.title}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Tipo</p>
+                        <p className="font-black text-slate-600 text-[14px] truncate">{task.category || t('calendarView.notDefined')}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
                       <i className="fa-solid fa-clock text-slate-400 text-[14px]"></i>
                       {(task.numberOfSeries ?? 0) > 0 ? (
@@ -499,17 +519,6 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   </div>
                 </div>
 
-                {/* Cuerpo: info arriba, vista previa y descripción abajo */}
-                <div className="space-y-3 mb-4">
-                  <div>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldName')}</p>
-                    <p className="font-black text-slate-700 text-[18px]">{task.title}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldTaskType')}</p>
-                    <p className="font-black text-slate-600 text-[18px]">{task.category || t('calendarView.notDefined')}</p>
-                  </div>
-                </div>
 
                 {/* Vista previa y Descripción lado a lado */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -548,7 +557,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       value={task.description || ''}
                       onChange={e => updateTask(task.id, { description: e.target.value })}
                       placeholder={t('calendarView.describeTaskPlaceholder')}
-                      rows={4}
+                      rows={16}
                       className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
                     />
                   </div>
@@ -592,13 +601,13 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 </div>
 
                 {/* ROLES Técnicos */}
-                <div className="mt-4">
+                <div className="mt-3">
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">ROLES Técnicos</p>
                   <textarea
                     value={task.technicalRoles || ''}
                     onChange={e => updateTask(task.id, { technicalRoles: e.target.value })}
                     placeholder="Especifica los roles técnicos..."
-                    rows={2}
+                    rows={6}
                     className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                   />
                 </div>

@@ -270,6 +270,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   
   const [showStructure, setShowStructure] = useState(false);
   const [showPlayers, setShowPlayers] = useState(true);
+  const [showCoach, setShowCoach] = useState(true);
   const [showCones, setShowCones] = useState(true);
   const [showText, setShowText] = useState(false);
   const [showArrows, setShowArrows] = useState(false);
@@ -390,6 +391,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
         color: PLAYER_TOOL_COLORS[index],
       };
     }),
+    entrenador: [
+      { id: 'coach', color: '#9ca3af', label: 'ENTRENADOR' },
+    ],
     conos: [
       { id: 'cone-red', color: '#ef4444', label: 'ROJO' },
       { id: 'cone-blue', color: '#3b82f6', label: 'AZUL' },
@@ -620,19 +624,22 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     
     const isCone = selectedTool.startsWith('cone-');
     const isPlayer = selectedTool.startsWith('player-');
+    const isCoach = selectedTool === 'coach';
     const isMaterial = tools.material.some(material => material.id === selectedTool);
-    
+
     let baseZ = 0;
     if (isPlayer) baseZ = 1000;
+    else if (isCoach) baseZ = 900;
     else if (isCone) baseZ = 500;
     else if (selectedTool === 'zone') baseZ = 1;
     else baseZ = 100;
 
     const categoryItems = items.filter(i => {
         if (isPlayer) return i.type.startsWith('player-');
+        if (isCoach) return i.type === 'coach';
         if (isCone) return i.type === 'cone';
         if (selectedTool === 'zone') return i.type === 'zone';
-        return !i.type.startsWith('player-') && i.type !== 'cone' && i.type !== 'zone';
+        return !i.type.startsWith('player-') && i.type !== 'coach' && i.type !== 'cone' && i.type !== 'zone';
     });
 
     const nextZ = categoryItems.length > 0 ? Math.max(...categoryItems.map(i => i.zIndex)) + 1 : baseZ;
@@ -1202,7 +1209,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     };
   };
   const canResizeItem = (item: DesignerItem) => item.type === 'zone' || item.type === 'goal';
-  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'goal' || item.type === 'fence';
+  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'coach' || item.type === 'goal' || item.type === 'fence';
   const getPitchMeters = () =>
     (activeStructure === 'ataque' || activeStructure === 'defensa')
       ? { width: 68, height: 52.5 }
@@ -1224,6 +1231,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   }, [canvasSize.height, canvasSize.width, is3DView, pitchAspectValue]);
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const isPlayerItem = (item?: DesignerItem | null) => !!item?.type?.startsWith('player-');
+  const isCoachItem = (item?: DesignerItem | null) => item?.type === 'coach';
   const isConeItem = (item?: DesignerItem | null) => item?.type === 'cone' || item?.type === 'slalom';
   const isMaterialItem = (item?: DesignerItem | null) =>
     !!item && tools.material.some(material => material.id === item.type);
@@ -1521,6 +1529,45 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
               })}
             </div>
           )}
+        </div>
+
+        <div className="flex flex-col gap-2 px-2">
+          <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+            {tools.jugadores.map(p => (
+              <div key={p.id} className={`relative transition-all ${selectedTool === p.id ? 'scale-125' : ''}`}>
+                <button
+                  onClick={() => setSelectedTool(selectedTool === p.id ? null : p.id)}
+                  style={{ backgroundColor: p.color }}
+                  className={`w-9 h-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white transition-all shadow-xl font-black text-xs sm:text-sm ${selectedTool === p.id ? 'ring-4 ring-offset-3 ring-slate-800 scale-100 shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-105 opacity-90'}`}
+                  aria-label={`Jugador ${p.number}`}
+                  title={`Jugador ${p.number} (clic para deseleccionar)`}
+                >
+                  <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">{p.number}</span>
+                </button>
+                {selectedTool === p.id && (
+                  <div className="absolute -top-2 -right-2 w-5 h-5 bg-[var(--accent)] rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                    <i className="fa-solid fa-check text-white text-[10px] font-black"></i>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div className={`relative transition-all ${selectedTool === 'coach' ? 'scale-125' : ''}`}>
+              <button
+                onClick={() => setSelectedTool(selectedTool === 'coach' ? null : 'coach')}
+                style={{ backgroundColor: '#9ca3af' }}
+                className={`w-9 h-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white transition-all shadow-xl font-black text-xs sm:text-sm ${selectedTool === 'coach' ? 'ring-4 ring-offset-3 ring-slate-800 scale-100 shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-105 opacity-90'}`}
+                aria-label="Entrenador"
+                title="Entrenador (clic para deseleccionar)"
+              >
+                <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">E</span>
+              </button>
+              {selectedTool === 'coach' && (
+                <div className="absolute -top-2 -right-2 w-5 h-5 bg-[var(--accent)] rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                  <i className="fa-solid fa-check text-white text-[10px] font-black"></i>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 pb-8">
@@ -2412,6 +2459,17 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                           )
                         )}
                       </div>
+                    ) : item.type === 'coach' ? (
+                      <div
+                        style={{
+                          backgroundColor: item.color || '#9ca3af',
+                          transform: is3DView ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
+                          transformStyle: 'preserve-3d',
+                        }}
+                        className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center font-black text-white text-[13px] leading-none ${animationClass}`}
+                      >
+                        E
+                      </div>
                     ) : (
                       <i className={`fa-solid ${item.icon} text-3xl text-white drop-shadow-lg ${animationClass}`}></i>
                     )}
@@ -2470,6 +2528,24 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         style={{ transform: 'translate(60%, 60%)' }}
                         title="Arrastra para girar el jugador"
                         aria-label="Girar jugador manualmente"
+                      >
+                        <i className="fa-solid fa-rotate-right text-sm"></i>
+                      </button>
+                    )}
+                    {!is3DView && item.type === 'coach' && orientationModeEnabled && isItemSelected && !item.locked && (
+                      <button
+                        type="button"
+                        data-orientation-handle="true"
+                        onPointerDown={(e) => {
+                          handleRotateStart(e, item);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
+                        style={{ transform: 'translate(60%, 60%)' }}
+                        title="Arrastra para girar el entrenador"
+                        aria-label="Girar entrenador manualmente"
                       >
                         <i className="fa-solid fa-rotate-right text-sm"></i>
                       </button>

@@ -13,7 +13,7 @@
  * informes médicos, etc. no deben quedar persistidos en el dispositivo por el SW.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `sm-shell-${VERSION}`;
 const ASSET_CACHE = `sm-assets-${VERSION}`;
 const CDN_CACHE = `sm-cdn-${VERSION}`;

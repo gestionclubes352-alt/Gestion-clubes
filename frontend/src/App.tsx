@@ -38,7 +38,7 @@ import type { User } from '@modules/usuarios';
 import { authService } from '@shared/services/authService';
 
 // Modules - Competicion
-import { CompetitionTable, LeagueTable, CompetitionsConfigView } from '@modules/competicion';
+import { CompetitionTable, LeagueTable, LeagueTableFullPage, CompetitionsConfigView } from '@modules/competicion';
 import type { CompetitionTeam } from '@modules/competicion';
 import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
 import { EquiposInternosView } from '@modules/equiposInternos';
@@ -1623,6 +1623,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/videoteca" element={<Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
               <Route path="/competicion" element={
                 <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+              } />
+              <Route path="/tabla-clasificacion" element={
+                <LeagueTableFullPage teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
               <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
               <Route path="/instalaciones" element={<InstalacionesView />} />
