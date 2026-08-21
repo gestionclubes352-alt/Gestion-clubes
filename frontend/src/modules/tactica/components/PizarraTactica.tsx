@@ -1239,6 +1239,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               title="Sistema de mi equipo"
               className="h-8 rounded-md border border-red-200 bg-red-50 px-2 text-[12px] font-black uppercase tracking-[0.06em] text-red-700 outline-none dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200"
             >
+              <option value="1-3-4-3">MI: 1-3-4-3</option>
               <option value="1-4-4-2">MI: 1-4-4-2</option>
               <option value="1-4-3-3">MI: 1-4-3-3</option>
               <option value="1-4-2-3-1">MI: 1-4-2-3-1</option>
@@ -1251,6 +1252,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               title="Sistema del equipo rival"
               className="h-8 rounded-md border border-blue-200 bg-blue-50 px-2 text-[12px] font-black uppercase tracking-[0.06em] text-blue-700 outline-none dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200"
             >
+              <option value="1-3-4-3">RIVAL: 1-3-4-3</option>
               <option value="1-4-4-2">RIVAL: 1-4-4-2</option>
               <option value="1-4-3-3">RIVAL: 1-4-3-3</option>
               <option value="1-4-2-3-1">RIVAL: 1-4-2-3-1</option>
@@ -1740,6 +1742,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           onChange={e => setRivalFormation(e.target.value)}
                           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
                         >
+                          <option value="1-3-4-3">1-3-4-3</option>
                           <option value="1-4-4-2">1-4-4-2</option>
                           <option value="1-4-3-3">1-4-3-3</option>
                           <option value="1-4-2-3-1">1-4-2-3-1</option>
@@ -1834,6 +1837,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           onChange={e => setMyFormation(e.target.value)}
                           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
                         >
+                          <option value="1-3-4-3">1-3-4-3</option>
                           <option value="1-4-4-2">1-4-4-2</option>
                           <option value="1-4-3-3">1-4-3-3</option>
                           <option value="1-4-2-3-1">1-4-2-3-1</option>
