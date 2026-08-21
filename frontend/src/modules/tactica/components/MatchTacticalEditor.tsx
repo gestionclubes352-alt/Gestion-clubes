@@ -27,7 +27,7 @@ interface MatchTacticalEditorProps {
   onCancel: () => void;
 }
 
-const formationNames: FormationName[] = ['1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'];
+const formationNames: FormationName[] = ['1-3-4-3', '1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'];
 
 const MatchTacticalEditor: React.FC<MatchTacticalEditorProps> = ({
   change,
