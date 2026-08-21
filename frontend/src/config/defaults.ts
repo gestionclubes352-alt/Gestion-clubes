@@ -164,6 +164,24 @@ export const DEFAULT_EVENT_TYPES: EventTypeConfig[] = [
 
 export const FOOTBALL_FORMATIONS: FormationConfig[] = [
   {
+    id: '1-3-4-3',
+    name: '1-3-4-3',
+    sportType: 'football',
+    positions: [
+      { id: 'GK', x: 50, y: 92, label: 'POR', fullName: 'Portero' },
+      { id: 'CD1', x: 75, y: 82, label: 'DFC', fullName: 'Defensa Central' },
+      { id: 'CD2', x: 50, y: 82, label: 'DFC', fullName: 'Defensa Central' },
+      { id: 'CD3', x: 25, y: 82, label: 'DFC', fullName: 'Defensa Central' },
+      { id: 'MD', x: 92, y: 45, label: 'MD', fullName: 'Mediocampista Derecho' },
+      { id: 'MC1', x: 60, y: 47, label: 'MC', fullName: 'Mediocentro' },
+      { id: 'MC2', x: 40, y: 47, label: 'MC', fullName: 'Mediocentro' },
+      { id: 'MI', x: 8, y: 45, label: 'MI', fullName: 'Mediocampista Izquierdo' },
+      { id: 'ED', x: 92, y: 25, label: 'ED', fullName: 'Extremo Derecho' },
+      { id: 'DC', x: 50, y: 20, label: 'DC', fullName: 'Delantero Centro' },
+      { id: 'EI', x: 8, y: 25, label: 'EI', fullName: 'Extremo Izquierdo' },
+    ],
+  },
+  {
     id: '1-4-3-3',
     name: '1-4-3-3',
     sportType: 'football',

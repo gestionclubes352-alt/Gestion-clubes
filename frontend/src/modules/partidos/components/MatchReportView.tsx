@@ -187,7 +187,7 @@ const isSupabaseUrl = (url: string): boolean => {
 
 const autoResizeTextarea = (element: HTMLTextAreaElement) => {
   element.style.height = 'auto';
-  element.style.height = element.scrollHeight + 'px';
+  element.style.height = Math.min(element.scrollHeight, 500) + 'px';
 };
 
 // Normaliza nombres de equipo para compararlos de forma tolerante (espacios, mayúsculas, tildes)
@@ -4307,7 +4307,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 autoResizeTextarea(e.currentTarget);
               }}
               onInput={(e) => autoResizeTextarea(e.currentTarget)}
-              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-y leading-relaxed min-h-[200px]"
+              ref={(el) => {
+                if (el && (report as any)[`${block.id}Text`]) {
+                  autoResizeTextarea(el);
+                }
+              }}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-none overflow-hidden leading-relaxed min-h-[200px]"
               placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
             ></textarea>
             </>
@@ -4672,7 +4677,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 autoResizeTextarea(e.currentTarget);
               }}
               onInput={(e) => autoResizeTextarea(e.currentTarget)}
-              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-y leading-relaxed min-h-[200px]"
+              ref={(el) => {
+                if (el && (report as any)[`${block.id}Text`]) {
+                  autoResizeTextarea(el);
+                }
+              }}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-3xl px-5 py-5 text-xs text-[var(--text)] focus:outline-none resize-none overflow-hidden leading-relaxed min-h-[200px]"
               placeholder={t('matchReport.analysisPlaceholder', { section: block.label.toLowerCase() })}
             ></textarea>
             </>
