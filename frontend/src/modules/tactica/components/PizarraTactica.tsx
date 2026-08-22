@@ -1,6 +1,6 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { plantillasService, equiposService, clubesService } from '@shared/services/dataService';
-import type { Club, Equipo } from '@shared/services/dataService';
+import { plantillasService, equiposService, clubesService, pizarrasService } from '@shared/services/dataService';
+import type { Club, Equipo, PizarraTactica as PizarraTacticaRow } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
 import { useUndoRedo } from '@context/UndoRedoContext';
 import SearchableSelect from '@shared/components/SearchableSelect';
@@ -182,6 +182,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [dragOutsideField, setDragOutsideField] = useState(false);
   const [showPlayerPhotos, setShowPlayerPhotos] = useState(false);
   const DROP_OUTSIDE_MARGIN_PX = 30;
+
+  const [savedBoards, setSavedBoards] = useState<PizarraTacticaRow[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState('');
+  const [isSavingBoard, setIsSavingBoard] = useState(false);
+  const [isLoadingBoards, setIsLoadingBoards] = useState(false);
 
   // Configurar callback para restaurar estado de pizarra táctica
   useEffect(() => {
@@ -937,6 +942,145 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const selectedSquadPlayer = selectedSquadPlayerId ? squad.find(p => p.id === selectedSquadPlayerId) : null;
   const selectedMyTeam = selectedMyTeamId ? myTeams.find(team => String(team.id) === selectedMyTeamId) : null;
 
+  useEffect(() => {
+    if (!selectedMyTeamId) {
+      setSavedBoards([]);
+      return;
+    }
+    setIsLoadingBoards(true);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const rows = await pizarrasService.list({ equipo_id: selectedMyTeamId });
+        if (!cancelled) {
+          setSavedBoards([...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('No se pudieron cargar las pizarras guardadas', err);
+          setSavedBoards([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingBoards(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedMyTeamId]);
+
+  const refreshSavedBoards = useCallback(async () => {
+    if (!selectedMyTeamId) {
+      setSavedBoards([]);
+      return;
+    }
+    setIsLoadingBoards(true);
+    try {
+      const rows = await pizarrasService.list({ equipo_id: selectedMyTeamId });
+      setSavedBoards([...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+    } catch (err) {
+      console.error('No se pudieron cargar las pizarras guardadas', err);
+      setSavedBoards([]);
+    } finally {
+      setIsLoadingBoards(false);
+    }
+  }, [selectedMyTeamId]);
+
+  const handleNewBoard = () => {
+    setSelectedBoardId('');
+    setArrows([]);
+    setBall({ x: 50, y: 75 });
+    setSelectedArrowId(null);
+    clearPitchSelection();
+    setCurrentFrameIndex(0);
+    setFrames([[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]]);
+  };
+
+  const handleSaveBoard = async () => {
+    if (!selectedMyTeamId) {
+      alert('Selecciona primero "Mi equipo" para poder guardar la pizarra.');
+      return;
+    }
+    const currentBoard = selectedBoardId ? savedBoards.find(b => b.id === selectedBoardId) : null;
+    const nombre = window.prompt('Nombre de la pizarra:', currentBoard?.nombre ?? '')?.trim();
+    if (!nombre) return;
+
+    const datos = {
+      frames,
+      arrows,
+      ball,
+      myFormation,
+      rivalFormation,
+      myTeamColor,
+      rivalTeamColor,
+      showPlayerNumbers,
+      playerScale,
+      showFieldLines,
+      showMyTeam,
+      showRivalTeam,
+      selectedRivalClubId,
+      selectedRivalTeamId,
+      rivalPlayers,
+    };
+
+    setIsSavingBoard(true);
+    try {
+      if (currentBoard && currentBoard.nombre === nombre) {
+        const updated = await pizarrasService.update(currentBoard.id, { nombre, formacion: myFormation, datos });
+        setSelectedBoardId(updated.id);
+      } else {
+        const created = await pizarrasService.create({ equipo_id: selectedMyTeamId, nombre, formacion: myFormation, posiciones: [], datos });
+        setSelectedBoardId(created.id);
+      }
+      await refreshSavedBoards();
+    } catch (err) {
+      console.error('No se pudo guardar la pizarra', err);
+      alert('No se pudo guardar la pizarra. Inténtalo de nuevo.');
+    } finally {
+      setIsSavingBoard(false);
+    }
+  };
+
+  const handleLoadBoard = (boardId: string) => {
+    setSelectedBoardId(boardId);
+    if (!boardId) return;
+    const board = savedBoards.find(b => b.id === boardId);
+    if (!board) return;
+    const datos = (board.datos ?? {}) as Record<string, any>;
+
+    if (Array.isArray(datos.frames) && datos.frames.length) setFrames(datos.frames);
+    setCurrentFrameIndex(0);
+    setArrows(Array.isArray(datos.arrows) ? datos.arrows : []);
+    setBall(datos.ball ?? { x: 50, y: 75 });
+    if (datos.myFormation) setMyFormation(datos.myFormation);
+    if (datos.rivalFormation) setRivalFormation(datos.rivalFormation);
+    if (datos.myTeamColor) setMyTeamColor(datos.myTeamColor);
+    if (datos.rivalTeamColor) setRivalTeamColor(datos.rivalTeamColor);
+    if (typeof datos.showPlayerNumbers === 'boolean') setShowPlayerNumbers(datos.showPlayerNumbers);
+    if (typeof datos.playerScale === 'number') setPlayerScale(datos.playerScale);
+    if (typeof datos.showFieldLines === 'boolean') setShowFieldLines(datos.showFieldLines);
+    if (typeof datos.showMyTeam === 'boolean') setShowMyTeam(datos.showMyTeam);
+    if (typeof datos.showRivalTeam === 'boolean') setShowRivalTeam(datos.showRivalTeam);
+    if (datos.selectedRivalClubId) setSelectedRivalClubId(datos.selectedRivalClubId);
+    if (datos.selectedRivalTeamId) setSelectedRivalTeamId(datos.selectedRivalTeamId);
+    if (Array.isArray(datos.rivalPlayers)) setRivalPlayers(datos.rivalPlayers);
+  };
+
+  const handleDeleteBoard = async () => {
+    if (!selectedBoardId) return;
+    const board = savedBoards.find(b => b.id === selectedBoardId);
+    if (!board) return;
+    if (!window.confirm(`¿Eliminar la pizarra "${board.nombre}"?`)) return;
+    try {
+      await pizarrasService.remove(board.id);
+      setSelectedBoardId('');
+      await refreshSavedBoards();
+    } catch (err) {
+      console.error('No se pudo eliminar la pizarra', err);
+      alert('No se pudo eliminar la pizarra. Inténtalo de nuevo.');
+    }
+  };
+
   const [isRecording, setIsRecording] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
@@ -1309,6 +1453,56 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           >
             <i className="fa-solid fa-trash-can text-[12px]" />
           </button>
+
+          <div className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-3 dark:border-white/10">
+            <button
+              type="button"
+              onClick={handleNewBoard}
+              className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-black uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              title="Crear una pizarra nueva en blanco"
+            >
+              <i className="fa-solid fa-file-circle-plus text-[12px]" />
+              NUEVA PIZARRA
+            </button>
+
+            <select
+              value={selectedBoardId}
+              onChange={e => handleLoadBoard(e.target.value)}
+              disabled={isLoadingBoards || savedBoards.length === 0}
+              title="Cargar una pizarra guardada"
+              className="h-8 max-w-[180px] rounded-md border border-slate-200 bg-white px-2 text-[12px] font-semibold text-slate-600 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300"
+            >
+              <option value="">
+                {isLoadingBoards ? 'Cargando...' : savedBoards.length ? 'Pizarras guardadas' : 'Sin pizarras guardadas'}
+              </option>
+              {savedBoards.map(board => (
+                <option key={board.id} value={board.id}>{board.nombre}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={handleSaveBoard}
+              disabled={isSavingBoard}
+              className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-[var(--accent)]/20 bg-[var(--accent)]/10 px-3 text-[12px] font-black uppercase tracking-[0.12em] text-[var(--accent)] disabled:opacity-50"
+              title="Guardar la pizarra actual"
+            >
+              <i className={`fa-solid ${isSavingBoard ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} text-[12px]`} />
+              GUARDAR
+            </button>
+
+            {selectedBoardId && (
+              <button
+                type="button"
+                onClick={handleDeleteBoard}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                title="Eliminar esta pizarra guardada"
+                aria-label="Eliminar pizarra guardada"
+              >
+                <i className="fa-solid fa-trash-can text-[12px]" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 px-4 py-3 md:px-5">
@@ -1614,7 +1808,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           style={{ left: `calc(50% + ${displaySize / 2 - 6}px)`, pointerEvents: 'none' }}
                         >
                           <span className="whitespace-nowrap text-[10px] font-black leading-none text-white">
-                            #{player.playerDorsal}
+                            {player.playerDorsal}
                           </span>
                         </div>
                       )}
