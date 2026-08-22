@@ -240,6 +240,34 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             <p className="text-[10px] font-bold text-slate-600 line-clamp-2">{task.technicalRoles}</p>
           </div>
         )}
+
+        {/* Petos de Entrenamiento */}
+        {(() => {
+          const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
+          if (!filteredPlayers || filteredPlayers.length === 0) return null;
+          const vestColorStyles: Record<string, { bg: string; color: string }> = {
+            '': { bg: '#f5f5f5', color: '#94a3b8' },
+            rojo: { bg: '#ef4444', color: '#ffffff' },
+            azul: { bg: '#3b82f6', color: '#ffffff' },
+            verde: { bg: '#22c55e', color: '#ffffff' },
+          };
+          return (
+            <div className="flex-shrink-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Petos</p>
+              <div className="grid grid-cols-2 gap-0.5">
+                {filteredPlayers.map(player => {
+                  const current = task.playerVestColors?.[String(player.id)] || '';
+                  const style = vestColorStyles[current] || vestColorStyles[''];
+                  return (
+                    <div key={player.id} className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: style.bg, color: style.color }}>
+                      <span className="truncate">{player.apodo || player.nombre}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   };
