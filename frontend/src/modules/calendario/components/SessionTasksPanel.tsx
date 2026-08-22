@@ -169,7 +169,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="h-full min-h-0 overflow-hidden rounded-lg border border-slate-200 p-2.5 flex flex-col gap-2">
+      <div key={task.id} className="overflow-hidden rounded-lg border border-slate-200 p-2.5 flex flex-col gap-2" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
         {/* Header con número y duración */}
         <div className="flex items-center justify-between flex-shrink-0">
           <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">
@@ -389,7 +389,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             </div>
 
-            <div className="grid grid-cols-2 [grid-auto-rows:1fr] gap-3 flex-1 min-h-0 overflow-hidden">
+            <div className="grid gap-3 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
               {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
             </div>
           </div>
