@@ -7,6 +7,7 @@ import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal, DesignerPreview } from '@modules/repositorio-tareas';
 import type { SessionTask } from '../types';
+import type { Player } from '@modules/plantilla';
 
 interface SessionTasksPanelProps {
   tasks: SessionTask[];
@@ -16,9 +17,11 @@ interface SessionTasksPanelProps {
   date?: Date;
   team?: string;
   sessionNumber?: number;
+  squad?: Player[];
+  attendance?: Record<string, string>;
 }
 
-const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber }) => {
+const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber, squad = [], attendance = {} }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -166,73 +169,77 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         : task.durationMinutes ?? 0;
 
     return (
-      <div key={task.id} className="h-full min-h-0 overflow-hidden rounded-xl border-2 border-slate-100 p-3 flex gap-4">
-        <div className="w-[42%] flex-shrink-0 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
-            <span className="text-[15px] font-black text-slate-400 uppercase tracking-widest">
-              {t('calendarView.exerciseLabel')} {globalIndex + 1}
-            </span>
-            <div className="flex items-center gap-1.5 border border-slate-200 rounded-md px-2 py-1">
-              <i className="fa-solid fa-clock text-slate-400 text-[12px]"></i>
-              <span className="text-[15px] font-black text-slate-600">{seriesTotal} min</span>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
-            {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="w-full max-h-full rounded-md overflow-hidden">
-                <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
-              </div>
-            ) : task.thumbnail ? (
-              <div className="w-full max-h-full aspect-[105/68] rounded-md bg-[#2f5a30] overflow-hidden flex items-center justify-center">
-                <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
-              </div>
-            ) : (
-              <div className={`w-full max-h-full aspect-[105/68] rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[18px]`}></i>
-              </div>
-            )}
+      <div key={task.id} className="h-full min-h-0 overflow-hidden rounded-lg border border-slate-200 p-2.5 flex flex-col gap-2">
+        {/* Header con número y duración */}
+        <div className="flex items-center justify-between flex-shrink-0">
+          <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">
+            {t('calendarView.exerciseLabel')} {globalIndex + 1}
+          </span>
+          <div className="flex items-center gap-1 border border-slate-200 rounded px-1.5 py-0.5">
+            <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
+            <span className="text-[12px] font-black text-slate-600">{seriesTotal} min</span>
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-          <div className="grid grid-cols-2 gap-3 mb-2 flex-shrink-0">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Nombre</p>
-              <p className="font-black text-slate-800 text-[16px] break-words line-clamp-1">{task.title}</p>
+        {/* Pizarra táctica */}
+        <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
+          {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+            <div className="w-full max-h-full rounded-md overflow-hidden">
+              <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Tipo</p>
-              <p className="text-[16px] font-bold text-slate-500 break-words line-clamp-1">{task.category || t('calendarView.notDefined')}</p>
+          ) : task.thumbnail ? (
+            <div className="w-full max-h-full aspect-[105/68] rounded-md bg-[#2f5a30] overflow-hidden flex items-center justify-center">
+              <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
             </div>
-          </div>
-
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-1 flex-shrink-0">{t('calendarView.fieldDescription')}</p>
-            <p className="text-[15px] font-bold text-slate-600 leading-snug whitespace-pre-wrap break-words overflow-hidden">
-              {task.description || '—'}
-            </p>
-          </div>
-
-          <div className="mt-1.5 flex-shrink-0 space-y-1.5">
-            <div className="grid grid-cols-3 gap-1.5 max-w-md">
-              <div className="rounded-md border border-slate-200 px-1.5 py-1 text-center">
-                <p className="text-[11px] font-bold text-slate-400 uppercase">Series</p>
-                <p className="text-[16px] font-black text-slate-700">{task.numberOfSeries ?? 0}</p>
-              </div>
-              <div className="rounded-md border border-slate-200 px-1.5 py-1 text-center">
-                <p className="text-[11px] font-bold text-slate-400 uppercase">T/Serie</p>
-                <p className="text-[16px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
-              </div>
-              <div className="rounded-md border border-slate-200 px-1.5 py-1 text-center">
-                <p className="text-[11px] font-bold text-slate-400 uppercase">Descanso</p>
-                <p className="text-[16px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
-              </div>
+          ) : (
+            <div className={`w-full max-h-full aspect-[105/68] rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+              <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[14px]`}></i>
             </div>
-            <p className="text-[15px] font-bold text-slate-500 break-words line-clamp-1">
-              <span className="text-slate-400 uppercase">Roles:</span> {task.technicalRoles || '—'}
-            </p>
-          </div>
+          )}
         </div>
+
+        {/* Nombre y tipo */}
+        <div className="flex-shrink-0">
+          <div className="text-[11px] font-bold text-slate-700 truncate mb-0.5">{task.title}</div>
+          <div className="text-[10px] text-slate-500">{task.category || t('calendarView.notDefined')}</div>
+        </div>
+
+        {/* Series y tiempos */}
+        {(task.numberOfSeries ?? 0) > 0 && (
+          <div className="flex-shrink-0 space-y-0.5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
+            <div className="grid grid-cols-3 gap-0.5">
+              <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
+                <p className="text-[8px] font-bold text-slate-400 uppercase">Series</p>
+                <p className="text-[11px] font-black text-slate-700">{task.numberOfSeries ?? 0}</p>
+              </div>
+              <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
+                <p className="text-[8px] font-bold text-slate-400 uppercase">T/Serie</p>
+                <p className="text-[11px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+              </div>
+              <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
+                <p className="text-[8px] font-bold text-slate-400 uppercase">Descanso</p>
+                <p className="text-[11px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Descripción */}
+        {task.description && (
+          <div className="flex-shrink-0">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Descripción</p>
+            <p className="text-[10px] font-bold text-slate-600 line-clamp-2">{task.description}</p>
+          </div>
+        )}
+
+        {/* Roles */}
+        {task.technicalRoles && (
+          <div className="flex-shrink-0">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Roles</p>
+            <p className="text-[10px] font-bold text-slate-600 line-clamp-2">{task.technicalRoles}</p>
+          </div>
+        )}
       </div>
     );
   };
@@ -382,15 +389,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 [grid-auto-rows:1fr] gap-3 flex-1 min-h-0 overflow-hidden">
+            <div className="grid grid-cols-2 [grid-auto-rows:1fr] gap-3 flex-1 min-h-0 overflow-hidden">
               {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
             </div>
           </div>
         ))}
       </div>
-      <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div className="flex flex-col items-center justify-center gap-4 mb-4">
+      <div className="space-y-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+        <div className="flex flex-col items-center justify-center gap-2 mb-2">
           <div className="flex items-center gap-3">
             <i className="fa-solid fa-list-check text-[var(--accent)]"></i>
             <h4 className="text-[var(--accent)] font-black text-[18px]">{t('calendarView.sessionTasksTitle')}</h4>
@@ -405,7 +412,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <button
                 type="button"
                 onClick={exportToPDF}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[13px] uppercase tracking-widest flex items-center gap-2 transition-all"
+                className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
               >
                 <i className="fa-solid fa-file-pdf"></i> SESION EN PDF
               </button>
@@ -413,40 +420,40 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             <button
               type="button"
               onClick={openExerciseDesigner}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[13px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
+              className="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
             >
               <i className="fa-solid fa-plus"></i> {t('calendarView.addCustomTask')}
             </button>
             <button
               type="button"
               onClick={openPicker}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[13px] uppercase tracking-widest flex items-center gap-2 transition-all"
+              className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
             >
               <i className="fa-solid fa-book"></i> {t('calendarView.addFromRepository')}
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-6 mb-6 pb-4 border-b border-slate-100">
+        <div className="flex flex-wrap items-center gap-3 mb-3 pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
             <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-              <p className="font-black text-slate-700 text-[18px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+              <p className="font-black text-slate-700 text-[14px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
             <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-              <p className="font-black text-slate-700 text-[18px]">{team || t('calendarView.notDefined')}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+              <p className="font-black text-slate-700 text-[14px]">{team || t('calendarView.notDefined')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
             <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-              <p className="font-black text-slate-700 text-[18px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+              <p className="font-black text-slate-700 text-[14px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
             </div>
           </div>
         </div>
@@ -454,31 +461,27 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         {tasks.length === 0 ? (
           <div className="py-12 text-center text-slate-400 font-bold text-[20px]">{t('calendarView.noSessionTasks')}</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {tasks.map((task, index) => (
-              <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow">
                 {/* Header con número de ejercicio, nombre, tipo y duración */}
-                <div className="flex items-start justify-between gap-6 mb-4">
-                  <div className="flex items-start gap-8 min-w-0 flex-1">
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0 pt-1">
-                      {t('calendarView.exerciseLabel')} {index + 1}
-                    </span>
-                    <div className="grid grid-cols-2 gap-8 min-w-0 flex-1">
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Nombre</p>
-                        <p className="font-black text-slate-700 text-[14px] truncate">{task.title}</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Tipo</p>
-                        <p className="font-black text-slate-600 text-[14px] truncate">{task.category || t('calendarView.notDefined')}</p>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0">
+                    {t('calendarView.exerciseLabel')} {index + 1}
+                  </span>
+                  <div className="min-w-0 flex items-baseline gap-1">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Nombre:</p>
+                    <p className="font-black text-slate-700 text-[12px] truncate">{task.title}</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                      <i className="fa-solid fa-clock text-slate-400 text-[14px]"></i>
+                  <div className="min-w-0 flex items-baseline gap-1">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</p>
+                    <p className="font-black text-slate-600 text-[12px] truncate">{task.category || t('calendarView.notDefined')}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5">
+                      <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
                       {(task.numberOfSeries ?? 0) > 0 ? (
-                        <span className="w-10 text-[14px] font-black text-slate-600 text-center">
+                        <span className="w-8 text-[12px] font-black text-slate-900 text-center">
                           {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
                         </span>
                       ) : (
@@ -487,7 +490,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                           min={0}
                           value={task.durationMinutes ?? 0}
                           onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
-                          className="w-10 text-[14px] font-black text-slate-600 text-center focus:outline-none bg-transparent"
+                          className="w-8 text-[12px] font-black text-slate-900 text-center focus:outline-none bg-transparent"
                         />
                       )}
                     </div>
@@ -495,121 +498,181 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       <button
                         type="button"
                         onClick={() => editTaskDrawing(task)}
-                        className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                        className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
                         title={t('calendarView.editDrawing') || 'Editar dibujo'}
                       >
-                        <i className="fa-solid fa-pen text-[14px]"></i>
+                        <i className="fa-solid fa-pen text-[11px]"></i>
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => setFullscreenTaskId(task.id)}
-                      className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                      className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
                       title={t('calendarView.viewFullscreen')}
                     >
-                      <i className="fa-solid fa-expand text-[14px]"></i>
+                      <i className="fa-solid fa-expand text-[11px]"></i>
                     </button>
                     <button
                       onClick={() => removeTask(task.id)}
-                      className="w-6 h-6 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
+                      className="w-5 h-5 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
                       title={t('common.delete')}
                     >
-                      <i className="fa-solid fa-trash-can text-[14px]"></i>
+                      <i className="fa-solid fa-trash-can text-[11px]"></i>
                     </button>
                   </div>
                 </div>
 
 
-                {/* Vista previa y Descripción lado a lado */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div
-                    className={`group/preview relative ${task.linkedTaskId ? 'cursor-pointer' : ''}`}
-                    onClick={() => task.linkedTaskId && editTaskDrawing(task)}
-                    title={task.linkedTaskId ? (t('calendarView.editDrawing') || 'Editar dibujo') : undefined}
-                  >
-                    {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-                      <div className="rounded-xl overflow-hidden">
-                        <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
+                {/* Vista previa + Series/Tiempos + Roles (izda, estrecho) | Descripción | Petos */}
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 mb-2">
+                  <div className="flex flex-col gap-2">
+                    <div
+                      className={`group/preview relative ${task.linkedTaskId ? 'cursor-pointer' : ''}`}
+                      onClick={() => task.linkedTaskId && editTaskDrawing(task)}
+                      title={task.linkedTaskId ? (t('calendarView.editDrawing') || 'Editar dibujo') : undefined}
+                    >
+                      {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+                        <div className="rounded-lg overflow-hidden">
+                          <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
+                        </div>
+                      ) : task.thumbnail ? (
+                        <div className="w-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center border border-slate-100">
+                          <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className={`w-full aspect-[105/68] rounded-lg flex items-center justify-center text-white border border-slate-100 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+                          <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[20px]`}></i>
+                        </div>
+                      )}
+                      {task.linkedTaskId && (
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 opacity-0 transition-all group-hover/preview:bg-black/40 group-hover/preview:opacity-100">
+                          <span className="flex items-center gap-2 rounded-lg bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
+                            <i className="fa-solid fa-pen"></i>
+                            {t('calendarView.editDrawing') || 'Editar dibujo'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Series y tiempos */}
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        <div className="flex flex-col">
+                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">Nº Series</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={task.numberOfSeries ?? 0}
+                            onChange={e => updateTask(task.id, { numberOfSeries: Number(e.target.value) })}
+                            className="px-1 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">T/Serie</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={task.timePerSeries ?? 0}
+                            onChange={e => updateTask(task.id, { timePerSeries: Number(e.target.value) })}
+                            className="px-1 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">Descanso</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={task.restBetweenSeries ?? 0}
+                            onChange={e => updateTask(task.id, { restBetweenSeries: Number(e.target.value) })}
+                            className="px-1 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 w-full"
+                          />
+                        </div>
                       </div>
-                    ) : task.thumbnail ? (
-                      <div className="w-full aspect-[105/68] rounded-xl bg-[#2f5a30] overflow-hidden flex items-center justify-center border border-slate-100">
-                        <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
-                      </div>
-                    ) : (
-                      <div className={`w-full aspect-[105/68] rounded-xl flex items-center justify-center text-white border border-slate-100 ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                        <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[28px]`}></i>
-                      </div>
-                    )}
-                    {task.linkedTaskId && (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 opacity-0 transition-all group-hover/preview:bg-black/40 group-hover/preview:opacity-100">
-                        <span className="flex items-center gap-2 rounded-lg bg-white/90 px-3 py-1.5 text-[12px] font-black uppercase tracking-widest text-slate-700">
-                          <i className="fa-solid fa-pen"></i>
-                          {t('calendarView.editDrawing') || 'Editar dibujo'}
-                        </span>
-                      </div>
-                    )}
+                    </div>
+
+                    {/* ROLES Técnicos */}
+                    <div className="flex flex-col flex-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ROLES Técnicos</p>
+                      <textarea
+                        value={task.technicalRoles || ''}
+                        onChange={e => updateTask(task.id, { technicalRoles: e.target.value })}
+                        placeholder="Roles técnicos..."
+                        className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1 min-h-[40px]"
+                      />
+                    </div>
                   </div>
 
                   {/* Descripción */}
                   <div className="flex flex-col">
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('calendarView.fieldDescription')}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldDescription')}</p>
                     <textarea
                       value={task.description || ''}
                       onChange={e => updateTask(task.id, { description: e.target.value })}
                       placeholder={t('calendarView.describeTaskPlaceholder')}
-                      rows={16}
-                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
+                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1 text-[12px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
                     />
                   </div>
-                </div>
 
-                {/* Series y tiempos */}
-                <div className="mt-4 space-y-3">
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nº Series</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={task.numberOfSeries ?? 0}
-                        onChange={e => updateTask(task.id, { numberOfSeries: Number(e.target.value) })}
-                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[14px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Tiempo/Serie (min)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={task.timePerSeries ?? 0}
-                        onChange={e => updateTask(task.id, { timePerSeries: Number(e.target.value) })}
-                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[14px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase mb-1.5">Descanso (min)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={task.restBetweenSeries ?? 0}
-                        onChange={e => updateTask(task.id, { restBetweenSeries: Number(e.target.value) })}
-                        className="px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[14px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                      />
+                  {/* Petos de Entrenamiento */}
+                  <div className="flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50">
+                    <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                      {(() => {
+                        const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
+                        if (!filteredPlayers || filteredPlayers.length === 0) {
+                          return <p className="text-[10px] text-slate-400 py-2">Sin plantilla</p>;
+                        }
+                        const vestColorStyles: Record<string, { bg: string; color: string }> = {
+                          '': { bg: '#ffffff', color: '#94a3b8' },
+                          rojo: { bg: '#ef4444', color: '#ffffff' },
+                          azul: { bg: '#3b82f6', color: '#ffffff' },
+                          verde: { bg: '#22c55e', color: '#ffffff' },
+                        };
+                        return (
+                          <div className="grid grid-cols-2 gap-1">
+                            {filteredPlayers.map(player => {
+                              const current = task.playerVestColors?.[String(player.id)] || '';
+                              const style = vestColorStyles[current] || vestColorStyles[''];
+                              return (
+                                <div key={player.id} className="flex items-center gap-0.5 p-1 rounded border border-slate-200 bg-white text-[10px]">
+                                  <span className="flex-1 min-w-0 truncate font-bold text-slate-700">{player.apodo || player.nombre}</span>
+                                  <select
+                                    value={current}
+                                    onChange={(e) => updateTask(task.id, {
+                                      playerVestColors: {
+                                        ...(task.playerVestColors || {}),
+                                        [String(player.id)]: e.target.value
+                                      }
+                                    })}
+                                    style={{
+                                      width: '24px',
+                                      height: '18px',
+                                      padding: 0,
+                                      textAlign: 'center',
+                                      backgroundColor: style.bg,
+                                      color: style.color,
+                                      fontSize: '9px',
+                                      fontWeight: 700,
+                                      border: '1px solid #cbd5e1',
+                                      borderRadius: '4px',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <option value="" style={{ backgroundColor: '#ffffff', color: '#334155' }}>-</option>
+                                    <option value="rojo" style={{ backgroundColor: '#ef4444', color: '#ffffff' }}>R</option>
+                                    <option value="azul" style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}>A</option>
+                                    <option value="verde" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>V</option>
+                                  </select>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
-                </div>
-
-                {/* ROLES Técnicos */}
-                <div className="mt-3">
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">ROLES Técnicos</p>
-                  <textarea
-                    value={task.technicalRoles || ''}
-                    onChange={e => updateTask(task.id, { technicalRoles: e.target.value })}
-                    placeholder="Especifica los roles técnicos..."
-                    rows={6}
-                    className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-                  />
                 </div>
               </div>
             ))}
