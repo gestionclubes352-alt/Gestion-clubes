@@ -986,14 +986,57 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     }
   }, [selectedMyTeamId]);
 
-  const handleNewBoard = () => {
-    setSelectedBoardId('');
-    setArrows([]);
-    setBall({ x: 50, y: 75 });
-    setSelectedArrowId(null);
-    clearPitchSelection();
-    setCurrentFrameIndex(0);
-    setFrames([[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]]);
+  const handleNewBoard = async () => {
+    const nombre = window.prompt('Nombre de la nueva pizarra:')?.trim();
+    if (!nombre) return;
+
+    if (!selectedMyTeamId) {
+      alert('Selecciona primero "Mi equipo" para poder crear una pizarra.');
+      return;
+    }
+
+    const newFrames = [[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]];
+    const datos = {
+      frames: newFrames,
+      arrows: [],
+      ball: { x: 50, y: 75 },
+      myFormation,
+      rivalFormation,
+      myTeamColor,
+      rivalTeamColor,
+      showPlayerNumbers,
+      playerScale,
+      showFieldLines,
+      showMyTeam,
+      showRivalTeam,
+      selectedRivalClubId,
+      selectedRivalTeamId,
+      rivalPlayers,
+    };
+
+    setIsSavingBoard(true);
+    try {
+      const created = await pizarrasService.create({
+        equipo_id: selectedMyTeamId,
+        nombre,
+        formacion: myFormation,
+        posiciones: [],
+        datos,
+      });
+      setSelectedBoardId(created.id);
+      setArrows([]);
+      setBall({ x: 50, y: 75 });
+      setSelectedArrowId(null);
+      clearPitchSelection();
+      setCurrentFrameIndex(0);
+      setFrames(newFrames);
+      await refreshSavedBoards();
+    } catch (err) {
+      console.error('No se pudo crear la pizarra', err);
+      alert('No se pudo crear la pizarra. Inténtalo de nuevo.');
+    } finally {
+      setIsSavingBoard(false);
+    }
   };
 
   const handleSaveBoard = async () => {
