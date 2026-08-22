@@ -182,7 +182,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         </div>
 
         {/* Pizarra táctica */}
-        <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden">
+        <div className="h-32 flex items-center justify-center overflow-hidden">
           {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
             <div className="w-full max-h-full rounded-md overflow-hidden">
               <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
@@ -466,8 +466,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow">
                 {/* Header con número de ejercicio, nombre, tipo y duración */}
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0">
-                    {t('calendarView.exerciseLabel')} {index + 1}
+                  <span className="w-5 h-5 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-[11px] font-black flex-shrink-0">
+                    {index + 1}
                   </span>
                   <div className="min-w-0 flex items-baseline gap-1">
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Nombre:</p>
@@ -476,49 +476,6 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   <div className="min-w-0 flex items-baseline gap-1">
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</p>
                     <p className="font-black text-slate-600 text-[12px] truncate">{task.category || t('calendarView.notDefined')}</p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5">
-                      <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
-                      {(task.numberOfSeries ?? 0) > 0 ? (
-                        <span className="w-8 text-[12px] font-black text-slate-900 text-center">
-                          {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
-                        </span>
-                      ) : (
-                        <input
-                          type="number"
-                          min={0}
-                          value={task.durationMinutes ?? 0}
-                          onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
-                          className="w-8 text-[12px] font-black text-slate-900 text-center focus:outline-none bg-transparent"
-                        />
-                      )}
-                    </div>
-                    {task.linkedTaskId && (
-                      <button
-                        type="button"
-                        onClick={() => editTaskDrawing(task)}
-                        className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
-                        title={t('calendarView.editDrawing') || 'Editar dibujo'}
-                      >
-                        <i className="fa-solid fa-pen text-[11px]"></i>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setFullscreenTaskId(task.id)}
-                      className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
-                      title={t('calendarView.viewFullscreen')}
-                    >
-                      <i className="fa-solid fa-expand text-[11px]"></i>
-                    </button>
-                    <button
-                      onClick={() => removeTask(task.id)}
-                      className="w-5 h-5 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
-                      title={t('common.delete')}
-                    >
-                      <i className="fa-solid fa-trash-can text-[11px]"></i>
-                    </button>
                   </div>
                 </div>
 
@@ -616,6 +573,49 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
                   {/* Petos de Entrenamiento */}
                   <div className="flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50">
+                    <div className="flex items-center justify-end gap-1 mb-1 flex-shrink-0">
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5">
+                        <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
+                        {(task.numberOfSeries ?? 0) > 0 ? (
+                          <span className="w-8 text-[12px] font-black text-slate-900 text-center">
+                            {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
+                          </span>
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            value={task.durationMinutes ?? 0}
+                            onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
+                            className="w-8 text-[12px] font-black text-slate-900 text-center focus:outline-none bg-transparent"
+                          />
+                        )}
+                      </div>
+                      {task.linkedTaskId && (
+                        <button
+                          type="button"
+                          onClick={() => editTaskDrawing(task)}
+                          className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                          title={t('calendarView.editDrawing') || 'Editar dibujo'}
+                        >
+                          <i className="fa-solid fa-pen text-[11px]"></i>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setFullscreenTaskId(task.id)}
+                        className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                        title={t('calendarView.viewFullscreen')}
+                      >
+                        <i className="fa-solid fa-expand text-[11px]"></i>
+                      </button>
+                      <button
+                        onClick={() => removeTask(task.id)}
+                        className="w-5 h-5 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
+                        title={t('common.delete')}
+                      >
+                        <i className="fa-solid fa-trash-can text-[11px]"></i>
+                      </button>
+                    </div>
                     <div className="flex-1 overflow-y-auto space-y-1 pr-1">
                       {(() => {
                         const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
@@ -636,35 +636,55 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                               return (
                                 <div key={player.id} className="flex items-center gap-0.5 p-1 rounded border border-slate-200 bg-white text-[10px]">
                                   <span className="flex-1 min-w-0 truncate font-bold text-slate-700">{player.apodo || player.nombre}</span>
-                                  <select
-                                    value={current}
-                                    onChange={(e) => updateTask(task.id, {
-                                      playerVestColors: {
-                                        ...(task.playerVestColors || {}),
-                                        [String(player.id)]: e.target.value
-                                      }
-                                    })}
+                                  <div
                                     style={{
+                                      position: 'relative',
                                       width: '24px',
                                       height: '18px',
-                                      padding: 0,
-                                      textAlign: 'center',
-                                      backgroundColor: style.bg,
-                                      color: style.color,
-                                      fontSize: '9px',
-                                      fontWeight: 700,
-                                      border: '1px solid #cbd5e1',
                                       borderRadius: '4px',
-                                      appearance: 'none',
-                                      WebkitAppearance: 'none',
+                                      border: '1px solid #cbd5e1',
+                                      backgroundColor: style.bg,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
                                       flexShrink: 0,
+                                      overflow: 'hidden',
                                     }}
                                   >
-                                    <option value="" style={{ backgroundColor: '#ffffff', color: '#334155' }}>-</option>
-                                    <option value="rojo" style={{ backgroundColor: '#ef4444', color: '#ffffff' }}>R</option>
-                                    <option value="azul" style={{ backgroundColor: '#3b82f6', color: '#ffffff' }}>A</option>
-                                    <option value="verde" style={{ backgroundColor: '#22c55e', color: '#ffffff' }}>V</option>
-                                  </select>
+                                    <span
+                                      style={{
+                                        fontSize: '9px',
+                                        fontWeight: 700,
+                                        color: style.color,
+                                        pointerEvents: 'none',
+                                      }}
+                                    >
+                                      {current ? current[0].toUpperCase() : '-'}
+                                    </span>
+                                    <select
+                                      value={current}
+                                      onChange={(e) => updateTask(task.id, {
+                                        playerVestColors: {
+                                          ...(task.playerVestColors || {}),
+                                          [String(player.id)]: e.target.value
+                                        }
+                                      })}
+                                      style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        opacity: 0,
+                                        cursor: 'pointer',
+                                        border: 'none',
+                                      }}
+                                    >
+                                      <option value="">-</option>
+                                      <option value="rojo">Rojo</option>
+                                      <option value="azul">Azul</option>
+                                      <option value="verde">Verde</option>
+                                    </select>
+                                  </div>
                                 </div>
                               );
                             })}

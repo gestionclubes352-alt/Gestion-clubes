@@ -238,6 +238,10 @@ export interface PizarraTactica {
   formacion: string;
   posiciones: unknown[];
   partido_id?: string | null;
+  /** Snapshot completo del estado de la pizarra (frames, flechas, balón, colores, etc). */
+  datos?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Tarea {

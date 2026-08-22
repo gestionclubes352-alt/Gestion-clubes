@@ -79,6 +79,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [editingSessionEvent, setEditingSessionEvent] = useState<CalendarEvent | null>(null);
+  const [playerVestColors, setPlayerVestColors] = useState<Record<string | number, { rojo: boolean; azul: boolean; verde: boolean }>>({});
 
   useEffect(() => {
     (async () => {
@@ -396,6 +397,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
 
   const handleSaveSession = () => {
     if (!activeTraining) return;
+    const playerVestColorsArray = Object.entries(playerVestColors).map(([playerId, colors]) => ({
+      playerId: isNaN(Number(playerId)) ? playerId : Number(playerId),
+      ...colors,
+    }));
     onSaveEvent({
       ...activeTraining,
       notes: notesText,
@@ -403,7 +408,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       docUrl,
       staffRoles: rolesText,
       tasks: sessionTasks,
-      attendance: normalizeAttendanceForEvent(activeTraining, attendance)
+      attendance: normalizeAttendanceForEvent(activeTraining, attendance),
+      playerVestColors: playerVestColorsArray.length > 0 ? playerVestColorsArray : undefined
     });
   };
 
@@ -416,6 +422,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       setActiveMatch(event);
     } else {
       setActiveTraining(event);
+      // Cargar colores de petos de la sesión
+      if (event.playerVestColors) {
+        const colorsMap: Record<string | number, { rojo: boolean; azul: boolean; verde: boolean }> = {};
+        event.playerVestColors.forEach((pvc) => {
+          colorsMap[pvc.playerId] = { rojo: pvc.rojo, azul: pvc.azul, verde: pvc.verde };
+        });
+        setPlayerVestColors(colorsMap);
+      } else {
+        setPlayerVestColors({});
+      }
     }
   };
 
@@ -576,6 +592,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       ? squad.filter(p => p.equipo && p.equipo !== activeTraining.team)
       : [];
     const allowExternalPlayers = attendanceScope === 'team' || attendanceScope === 'group';
+    // Jugadores propios de la sesión (asisten salvo que se marque lo contrario) + externos añadidos explícitamente a la convocatoria
+    const vestEligiblePlayers = [
+      ...sessionPlayers,
+      ...externalSessionPlayers.filter(p => attendance[String(p.id)] === 'Si'),
+    ];
     return (
       <div className="animate-fade-in space-y-6 h-full flex flex-col relative pb-10">
         <div className="space-y-4">
@@ -631,6 +652,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             date={sessionDate}
             team={activeTraining.team}
             sessionNumber={activeTraining.sessionNumber}
+            squad={vestEligiblePlayers}
+            attendance={attendance}
           />
         )}
 
@@ -762,6 +785,83 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             selectiveAttendance={selectiveAttendance}
             hideExternalPlayers={mainTab === 'datosSesiones'}
           />
+
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-vest text-[var(--accent)]"></i>
+                <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.vests', 'Petos de Entrenamiento')}</h4>
+              </div>
+              <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200">
+                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition" title="Rojo">
+                  <span className="w-3.5 h-3.5 rounded-full bg-red-500 shadow-sm"></span>
+                  <span className="text-[9px] font-black text-slate-500">R</span>
+                </label>
+                <div className="w-px h-4 bg-slate-200"></div>
+                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition" title="Azul">
+                  <span className="w-3.5 h-3.5 rounded-full bg-blue-500 shadow-sm"></span>
+                  <span className="text-[9px] font-black text-slate-500">A</span>
+                </label>
+                <div className="w-px h-4 bg-slate-200"></div>
+                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition" title="Verde">
+                  <span className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-sm"></span>
+                  <span className="text-[9px] font-black text-slate-500">V</span>
+                </label>
+              </div>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+              {squad.map(player => (
+                <div key={player.id} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 bg-slate-50">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white flex items-center justify-center flex-shrink-0">
+                    {player.fotoUrl && player.fotoUrl.length > 1 ? (
+                      <img src={player.fotoUrl} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] font-black text-slate-500">{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black uppercase text-slate-700 truncate">{player.apodo || player.nombre}</p>
+                    <p className="text-[9px] text-slate-500"># {player.dorsal}</p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={playerVestColors[player.id]?.rojo ?? false}
+                      onChange={(e) => setPlayerVestColors(prev => ({
+                        ...prev,
+                        [player.id]: { ...prev[player.id], rojo: e.target.checked, azul: prev[player.id]?.azul ?? false, verde: prev[player.id]?.verde ?? false }
+                      }))}
+                      className="w-4 h-4 rounded border-red-300 cursor-pointer accent-red-500"
+                      title="Rojo"
+                    />
+                    <input
+                      type="checkbox"
+                      checked={playerVestColors[player.id]?.azul ?? false}
+                      onChange={(e) => setPlayerVestColors(prev => ({
+                        ...prev,
+                        [player.id]: { ...prev[player.id], rojo: prev[player.id]?.rojo ?? false, azul: e.target.checked, verde: prev[player.id]?.verde ?? false }
+                      }))}
+                      className="w-4 h-4 rounded border-blue-300 cursor-pointer accent-blue-500"
+                      title="Azul"
+                    />
+                    <input
+                      type="checkbox"
+                      checked={playerVestColors[player.id]?.verde ?? false}
+                      onChange={(e) => setPlayerVestColors(prev => ({
+                        ...prev,
+                        [player.id]: { ...prev[player.id], rojo: prev[player.id]?.rojo ?? false, azul: prev[player.id]?.azul ?? false, verde: e.target.checked }
+                      }))}
+                      className="w-4 h-4 rounded border-green-300 cursor-pointer accent-green-500"
+                      title="Verde"
+                    />
+                  </div>
+                </div>
+              ))}
+              {squad.length === 0 && (
+                <p className="text-[12px] text-slate-400 text-center py-4">{t('calendarView.noPlayers', 'Sin jugadores')}</p>
+              )}
+            </div>
+          </div>
 
           {false && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">

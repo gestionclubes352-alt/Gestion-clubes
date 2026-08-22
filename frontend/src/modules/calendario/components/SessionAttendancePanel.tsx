@@ -220,16 +220,16 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                     </div>
                     {posPlayers.map((player) => {
                       const colors = getPositionColor(player);
+                      const meta = getPlayerMeta(player);
                       return (
                         <div key={player.id} className={`flex items-center justify-between ${colors.bg} rounded-xl p-3 border ${colors.border}`}>
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`${colors.badge} text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[11px]`}>
                               {player.dorsal || player.nombre.charAt(0)}
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-[12px] font-black text-black truncate">{player.nombre}</p>
-                              <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
-                            </div>
+                            <p className="text-[12px] font-black text-black truncate">
+                              {player.nombre}{meta && ` (${meta})`}
+                            </p>
                           </div>
                           {selectiveAttendance ? (
                             <button
@@ -294,10 +294,9 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                             <div className="w-9 h-9 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[11px]">
                               {player.dorsal || player.nombre.charAt(0)}
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-[12px] font-black text-slate-700 truncate">{player.nombre}</p>
-                              <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
-                            </div>
+                            <p className="text-[12px] font-black text-slate-700 truncate">
+                              {player.nombre}{getPlayerMeta(player) && ` (${getPlayerMeta(player)})`}
+                            </p>
                           </div>
                           <button
                             type="button"
@@ -371,10 +370,9 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                                       <div className="w-9 h-9 rounded-full bg-red-400 text-white flex items-center justify-center font-black text-[11px]">
                                         {player.dorsal || player.nombre.charAt(0)}
                                       </div>
-                                      <div className="min-w-0">
-                                        <p className="text-[12px] font-black text-red-700 truncate">{player.nombre}</p>
-                                        <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
-                                      </div>
+                                      <p className="text-[12px] font-black text-red-700 truncate">
+                                        {player.nombre}{getPlayerMeta(player) && ` (${getPlayerMeta(player)})`}
+                                      </p>
                                     </div>
                                     <>
                                     <SearchableSelect
@@ -448,10 +446,9 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                               <div className="w-9 h-9 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[11px]">
                                 {player.dorsal || player.nombre.charAt(0)}
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-[12px] font-black text-slate-700 truncate">{player.nombre}</p>
-                                <p className="text-[10px] text-slate-400 font-bold truncate">{getPlayerMeta(player)}</p>
-                              </div>
+                              <p className="text-[12px] font-black text-slate-700 truncate">
+                                {player.nombre}{getPlayerMeta(player) && ` (${getPlayerMeta(player)})`}
+                              </p>
                             </div>
                             <button
                               type="button"

@@ -22,6 +22,8 @@ export interface SessionTask {
   timePerSeries?: number;
   restBetweenSeries?: number;
   technicalRoles?: string;
+  /** Color de peto asignado a cada jugador en esta tarea, indexado por id de jugador */
+  playerVestColors?: Record<string, string>;
 }
 
 export type AttendanceStatus = 'Si' | 'Lesión' | 'Vacaciones' | 'Descanso' | 'No justificada' | 'Otro' | 'Otro Equipo';
@@ -57,6 +59,8 @@ export interface CalendarEvent {
   tasks?: SessionTask[];
   /** Asistencia de la plantilla a esta sesión, indexada por id de jugador */
   attendance?: Record<string, AttendanceStatus>;
+  /** Asignación de colores de petos para jugadores en la sesión */
+  playerVestColors?: Array<{ playerId: string | number; rojo: boolean; azul: boolean; verde: boolean }>;
 }
 
 export type EventType = CalendarEvent['type'];
