@@ -1195,7 +1195,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     setIsSavingBoard(true);
     try {
       if (currentBoard && currentBoard.nombre === nombre) {
-        const updated = await pizarrasService.update(currentBoard.id, { nombre, formacion: myFormation, datos });
+        const updated = await pizarrasService.update(currentBoard.id, {
+          nombre,
+          formacion: myFormation,
+          carpeta_id: selectedCarpetaId || null,
+          datos,
+        });
         setSelectedBoardId(updated.id);
       } else {
         const created = await pizarrasService.create({
@@ -1222,6 +1227,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     if (!boardId) return;
     const board = savedBoards.find(b => b.id === boardId);
     if (!board) return;
+    setSelectedCarpetaId(board.carpeta_id ?? '');
     const datos = (board.datos ?? {}) as Record<string, any>;
 
     if (Array.isArray(datos.frames) && datos.frames.length) setFrames(datos.frames);
@@ -1548,6 +1554,179 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
                 BORRAR FLECHAS
               </button>
+
+              {/* HERRAMIENTAS Section */}
+              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-2">Herramientas</p>
+
+                {/* FLECHAS */}
+                <div className="mb-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>FLECHAS
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'arrow' ? null : 'arrow')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'arrow'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Flecha con curva"
+                    >
+                      Curva
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'arrowStraight' ? null : 'arrowStraight')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'arrowStraight'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Flecha recta"
+                    >
+                      Recta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'pen' ? null : 'pen')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'pen'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Bolígrafo"
+                    >
+                      Bolígrafo
+                    </button>
+                  </div>
+                </div>
+
+                {/* TEXTOS */}
+                <div className="mb-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>TEXTOS
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'text' ? null : 'text')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'text'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Texto"
+                    >
+                      Texto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'callout' ? null : 'callout')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'callout'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Etiqueta"
+                    >
+                      Etiqueta
+                    </button>
+                  </div>
+                </div>
+
+                {/* ZONAS */}
+                <div className="mb-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>ZONAS
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'rectangle' ? null : 'rectangle')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'rectangle'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Rectángulo"
+                    >
+                      Rect.
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'ellipse' ? null : 'ellipse')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'ellipse'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Círculo"
+                    >
+                      Círculo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'zone' ? null : 'zone')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'zone'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Zona"
+                    >
+                      Zona
+                    </button>
+                  </div>
+                </div>
+
+                {/* VARIOS */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>VARIOS
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'connector' ? null : 'connector')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'connector'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Conector"
+                    >
+                      Conec.
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'focus' ? null : 'focus')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'focus'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Foco"
+                    >
+                      Foco
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'spotlight' ? null : 'spotlight')}
+                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
+                        drawingTools.state.tool === 'spotlight'
+                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                      title="Spotlight"
+                    >
+                      Light
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {/* CAMPOS Section */}
               <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
