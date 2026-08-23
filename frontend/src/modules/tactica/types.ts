@@ -117,7 +117,7 @@ export type DrawingToolType =
   | 'arrow' | 'arrowStraight' | 'pen'
   | 'text' | 'callout'
   | 'rectangle' | 'ellipse' | 'zone' | 'triangleZone'
-  | 'connector' | 'focus' | 'spotlight'
+  | 'connector' | 'focus' | 'spotlight' | 'line' | 'tshape'
   | 'move' | 'select';
 
 export type FocusStyle = 'abierto' | 'estrecho' | 'cilindrico';
@@ -135,6 +135,7 @@ export interface DrawingShape {
   fill?: string;
   lineWidth: number;
   opacity: number;
+  fontSize?: number;
   x?: number;
   y?: number;
   x1?: number;
@@ -145,6 +146,7 @@ export interface DrawingShape {
   text?: string;
   focusStyle?: FocusStyle;
   spotlightStyle?: SpotlightStyle;
+  rotation?: number;
 }
 
 export interface DrawingState {
@@ -158,4 +160,6 @@ export interface DrawingState {
   fill: string;
   lineWidth: number;
   opacity: number;
+  fontSize: number;
+  pendingConnectorPlayerId: string | null;
 }

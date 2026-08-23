@@ -1,7 +1,8 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { plantillasService, equiposService, clubesService, pizarrasService, pizarrasCarpetasService } from '@shared/services/dataService';
 import type { Club, Equipo, PizarraTactica as PizarraTacticaRow, PizarraCarpeta } from '@shared/services/dataService';
-import type { TacticalArrow } from '../types';
+import type { TacticalArrow, DrawingToolType } from '../types';
 import { useUndoRedo } from '@context/UndoRedoContext';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
@@ -48,6 +49,8 @@ const FORMATIONS: Record<string, { x: number; y: number }[]> = {
     { x: 38, y: 48 }, { x: 62, y: 48 },
   ],
 };
+
+const SIN_CARPETA_VALUE = '__sin_carpeta__';
 
 const MY_TEAM_COLOR = '#d32f2f';
 const RIVAL_TEAM_COLOR = '#1976d2';
@@ -182,7 +185,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
   const [arrowColor, setArrowColor] = useState('#ffffff');
   const [drawingMode, setDrawingMode] = useState(false);
+  const [showDrawingTools, setShowDrawingTools] = useState(false);
+  const [showDrawingOptions, setShowDrawingOptions] = useState(false);
   const [draggingArrowId, setDraggingArrowId] = useState<string | null>(null);
+  const [isShapeMoving, setIsShapeMoving] = useState(false);
   const draggingArrowStart = useRef<{ x: number; y: number } | null>(null);
   const arrowStartPosition = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [showFieldLines, setShowFieldLines] = useState(true);
@@ -197,6 +203,16 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [carpetas, setCarpetas] = useState<PizarraCarpeta[]>([]);
   const [selectedCarpetaId, setSelectedCarpetaId] = useState('');
   const [isLoadingCarpetas, setIsLoadingCarpetas] = useState(false);
+  const [showCarpetaMenu, setShowCarpetaMenu] = useState(false);
+  const boardsFilteredByCarpeta = useMemo(() => {
+    return selectedCarpetaId
+      ? savedBoards.filter(board => board.carpeta_id === selectedCarpetaId)
+      : savedBoards.filter(board => !board.carpeta_id);
+  }, [savedBoards, selectedCarpetaId]);
+  const [showBoardMenu, setShowBoardMenu] = useState(false);
+  const [carpetaMenuPos, setCarpetaMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [newBoardModal, setNewBoardModal] = useState<{ nombre: string; carpetaId: string } | null>(null);
+  const [boardMenuPos, setBoardMenuPos] = useState<{ top: number; right: number } | null>(null);
 
   // Configurar callback para restaurar estado de pizarra táctica
   useEffect(() => {
@@ -259,17 +275,22 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   };
 
   useEffect(() => {
-    if (!selectedArrowId) return;
+    if (!selectedArrowId && !drawingTools.state.selectedShapeId) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
-      setSelectedArrowId(null);
+
+      if (selectedArrowId) {
+        updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
+        setSelectedArrowId(null);
+      } else if (drawingTools.state.selectedShapeId) {
+        drawingTools.deleteShape(drawingTools.state.selectedShapeId);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedArrowId]);
+  }, [selectedArrowId, drawingTools.state.selectedShapeId, drawingTools]);
 
   const pitchPlayers = frames[currentFrameIndex] ?? [];
   const ball = ballFrames[currentFrameIndex] ?? { x: 50, y: 75 };
@@ -315,6 +336,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const rafId = useRef<number>(0);
   const ballDraggingStart = useRef<{ x: number; y: number } | null>(null);
   const ballStartPosition = useRef<{ x: number; y: number } | null>(null);
+  const shapeDraggingId = useRef<string | null>(null);
+  const shapeDraggingStart = useRef({ x: 0, y: 0 });
+  const shapeDragged = useRef(false);
+  const resizeHandleRef = useRef<string | null>(null);
+  const resizeStartRef = useRef({ x: 0, y: 0 });
   const [selectionBox, setSelectionBox] = useState<null | { left: number; top: number; right: number; bottom: number }>(null);
 
   useEffect(() => {
@@ -546,6 +572,27 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     };
   }, []);
 
+  const handleSelectTool = useCallback((tool: DrawingToolType | null) => {
+    // Si se selecciona una herramienta diferente a null y está activo el modo "Mover"
+    if (tool !== null && isShapeMoving) {
+      setIsShapeMoving(false);
+      drawingTools.selectShape(null);
+    }
+    drawingTools.setTool(tool);
+  }, [isShapeMoving, drawingTools]);
+
+  const handleShapePointerDown = useCallback((e: React.PointerEvent, shapeId: string) => {
+    if (!isShapeMoving || !pitchRef.current) return;
+    const rect = pitchRef.current.getBoundingClientRect();
+    shapeDraggingId.current = shapeId;
+    shapeDraggingStart.current = {
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    };
+    document.body.style.cursor = 'grab';
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [isShapeMoving]);
+
   const clampPitchPlayerPosition = useCallback((player: PitchPlayer, x: number, y: number) => {
     const rect = pitchRef.current?.getBoundingClientRect();
     const displaySize = (player.number === 1 ? 36 : 32) * playerScale;
@@ -586,6 +633,17 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const handlePointerDown = useCallback((event: React.PointerEvent, id: string) => {
     if (isPlaying) return;
 
+    // Manejar CONECTOR: permitir seleccionar jugadores para conectar
+    if (drawingTools.state.tool === 'connector' && !is3DView) {
+      const player = pitchPlayers.find(p => p.id === id);
+      if (player) {
+        event.stopPropagation();
+        drawingTools.addConnectorPlayer(player.id, player.x, player.y);
+        document.body.style.cursor = 'pointer';
+        return;
+      }
+    }
+
     if (drawingMode && !is3DView) {
       const start = getPitchPercentPoint(event.clientX, event.clientY);
       if (!start) return;
@@ -625,7 +683,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     setSelectedPitchIds(nextSelectedIds);
-  }, [clearPitchSelection, drawingMode, getPitchPercentPoint, isPlaying, is3DView, pitchPlayers, selectedPitchIds]);
+  }, [clearPitchSelection, drawingMode, drawingTools, getPitchPercentPoint, isPlaying, is3DView, pitchPlayers, selectedPitchIds]);
 
   const handlePitchPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (draggingId.current || isPlaying || is3DView) return;
@@ -683,6 +741,27 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
+      if (shapeDraggingId.current && pitchRef.current && isShapeMoving) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
+
+        const dx = currentX - shapeDraggingStart.current.x;
+        const dy = currentY - shapeDraggingStart.current.y;
+
+        // Detectar si hay movimiento significativo (más de 2 pixels)
+        if (!shapeDragged.current && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+          shapeDragged.current = true;
+        }
+
+        if (shapeDragged.current) {
+          drawingTools.moveShape(shapeDraggingId.current, dx, dy);
+          shapeDraggingStart.current = { x: currentX, y: currentY };
+          document.body.style.cursor = 'grabbing';
+        }
+        return;
+      }
+
       if (draggingBall && ballDraggingStart.current && ballStartPosition.current && pitchRef.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
@@ -813,6 +892,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const onPointerUp = (event: MouseEvent | PointerEvent) => {
       cancelAnimationFrame(rafId.current);
 
+      if (shapeDraggingId.current && isShapeMoving) {
+        const shapeId = shapeDraggingId.current;
+        if (!shapeDragged.current) {
+          // Si no hubo drag, solo seleccionar la forma
+          drawingTools.selectShape(shapeId);
+        }
+        shapeDraggingId.current = null;
+        shapeDragged.current = false;
+        document.body.style.cursor = '';
+        return;
+      }
+
       // Finalizar dibujo
       if (drawingTools.state.isDrawing) {
         drawingTools.finishDrawing();
@@ -916,7 +1007,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('mouseup', onPointerUp);
     };
-  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball, drawingTools]);
+  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball, drawingTools, isShapeMoving]);
 
   const groupedSquad = useMemo(() => {
     const buckets: Record<string, SquadPlayer[]> = {
@@ -1059,6 +1150,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     return () => { cancelled = true; };
   }, [selectedMyTeamId]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-menu="carpeta"]')) setShowCarpetaMenu(false);
+      if (!target.closest('[data-menu="board"]')) setShowBoardMenu(false);
+    };
+    if (showCarpetaMenu || showBoardMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showCarpetaMenu, showBoardMenu]);
+
   const refreshCarpetas = useCallback(async () => {
     if (!selectedMyTeamId) {
       setCarpetas([]);
@@ -1110,7 +1213,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     }
   };
 
-  const handleNewBoard = async () => {
+  const handleNewBoard = () => {
     const nombre = window.prompt('Nombre de la nueva pizarra:')?.trim();
     if (!nombre) return;
 
@@ -1118,6 +1221,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       alert('Selecciona primero "Mi equipo" para poder crear una pizarra.');
       return;
     }
+
+    setNewBoardModal({ nombre, carpetaId: selectedCarpetaId });
+  };
+
+  const handleConfirmNewBoard = async () => {
+    if (!newBoardModal || !selectedMyTeamId) return;
+    const { nombre, carpetaId } = newBoardModal;
 
     const newFrames = [[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]];
     const newBallFrames = [{ x: 50, y: 75 }];
@@ -1146,9 +1256,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         nombre,
         formacion: myFormation,
         posiciones: [],
-        carpeta_id: selectedCarpetaId || null,
+        carpeta_id: carpetaId || null,
         datos,
       });
+      setSelectedCarpetaId(carpetaId);
       setSelectedBoardId(created.id);
       setArrows([]);
       setBallFrames(newBallFrames);
@@ -1157,6 +1268,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       setCurrentFrameIndex(0);
       setFrames(newFrames);
       await refreshSavedBoards();
+      setNewBoardModal(null);
     } catch (err) {
       console.error('No se pudo crear la pizarra', err);
       alert('No se pudo crear la pizarra. Inténtalo de nuevo.');
@@ -1467,7 +1579,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 }`}
               >
                 <i className={`fa-solid ${showMyTeam && showRivalTeam ? 'fa-broom' : 'fa-eye'} mr-2 text-[11px]`} />
-                {showMyTeam && showRivalTeam ? 'QUITAR JUGADORES' : 'MOSTRAR JUGADORES'}
+                JUGADORES
               </button>
               <button
                 type="button"
@@ -1487,47 +1599,75 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className="fa-solid fa-magnifying-glass-plus mr-2 text-[11px]" />
                 Más
               </button>
-              <button
-                onClick={downloadImage}
-                disabled={isExportingImage}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  isExportingImage
-                    ? 'border-amber-500/30 bg-amber-500/15 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/15 dark:text-amber-400'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-                title={isExportingImage ? "Descargando PNG..." : "Descargar captura de la pizarra"}
-              >
-                <i className={`fa-solid ${isExportingImage ? 'fa-spinner' : 'fa-image'} mr-2 text-[11px] ${isExportingImage ? 'animate-spin' : ''}`} />
-                {isExportingImage ? 'DESCARGANDO...' : 'IMAGEN'}
-              </button>
-              <button
-                onClick={downloadVideoAsMP4}
-                disabled={isExportingVideo}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  isExportingVideo
-                    ? 'border-blue-500/30 bg-blue-500/15 text-blue-600 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-400'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-                title={isExportingVideo ? "Generando video MP4..." : "Descargar pizarra como video en MP4"}
-              >
-                <i className={`fa-solid ${isExportingVideo ? 'fa-spinner' : 'fa-video'} mr-2 text-[11px] ${isExportingVideo ? 'animate-spin' : ''}`} />
-                {isExportingVideo ? 'EXPORTANDO...' : 'VIDEO'}
-              </button>
-              <button
-                onClick={() => setDrawingMode(!drawingMode)}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  drawingMode
-                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-              >
-                <i className={`fa-solid ${drawingMode ? 'fa-pen' : 'fa-pen'} mr-2 text-[11px]`} />
-                {drawingMode ? 'MODO FLECHA ON' : 'MODO FLECHA'}
-              </button>
+
+              {/* CAMPOS Section */}
+              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-2">CAMPOS</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    id="loadAtaque"
+                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    type="button"
+                    title="Cargar posición de ataque"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
+                      <path d="M12 3v14"></path>
+                      <path d="M2 10h20"></path>
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                    Ataque
+                  </button>
+                  <button
+                    id="loadDefensa"
+                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    type="button"
+                    title="Cargar posición de defensa"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
+                      <path d="M12 3v14"></path>
+                      <path d="M2 10h20"></path>
+                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                    Defensa
+                  </button>
+                  <button
+                    id="loadCompleto"
+                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    type="button"
+                    title="Cargar campo entero"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
+                      <path d="M12 3v14"></path>
+                      <path d="M2 10h20"></path>
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
+                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="8" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                    Entero
+                  </button>
+                </div>
+              </div>
+
               {/* Opciones de dibujo */}
               {drawingTools.state.tool && (
                 <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-3">OPCIONES</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawingOptions(v => !v)}
+                    className="mb-2 flex w-full items-center justify-between text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                    aria-expanded={showDrawingOptions}
+                  >
+                    <span>Opciones</span>
+                    <i className={`fa-solid ${showDrawingOptions ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]`} />
+                  </button>
+                  {showDrawingOptions && (
+                  <div>
 
                   {/* Color */}
                   <div className="mb-3">
@@ -1575,6 +1715,37 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       className="w-full"
                     />
                   </div>
+
+                  {/* Tamaño de Fuente (solo para textos) */}
+                  {['text', 'callout'].includes(drawingTools.state.tool ?? '') && (
+                    <div className="mb-3">
+                      <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                        Fuente: <span className="font-normal">{drawingTools.state.fontSize}px</span>
+                      </label>
+                      <div className="flex gap-2 items-center">
+                        <button
+                          onClick={() => drawingTools.setFontSize(Math.max(8, drawingTools.state.fontSize - 2))}
+                          className="h-7 w-7 rounded-md border border-slate-200 bg-white text-[10px] font-black text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="range"
+                          min="8"
+                          max="48"
+                          value={drawingTools.state.fontSize}
+                          onChange={e => drawingTools.setFontSize(Number(e.target.value))}
+                          className="w-full"
+                        />
+                        <button
+                          onClick={() => drawingTools.setFontSize(Math.min(48, drawingTools.state.fontSize + 2))}
+                          className="h-7 w-7 rounded-md border border-slate-200 bg-white text-[10px] font-black text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Focus Style */}
                   {drawingTools.state.tool === 'focus' && (
@@ -1624,275 +1795,197 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     </div>
                   )}
 
-                  {/* Undo Button */}
-                  <button
-                    onClick={drawingTools.undo}
-                    disabled={drawingTools.state.tool === null}
-                    className="col-span-2 w-full mt-3 h-9 rounded-md border border-slate-200 bg-white text-[11px] font-black uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                  >
-                    <i className="fa-solid fa-undo mr-2 text-[10px]" />
-                    Deshacer
-                  </button>
+                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Color de Flechas */}
-              <div className="flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 dark:border-white/10 dark:bg-[#1a1a1a]">
-                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                  Color
-                </label>
-                <input
-                  type="color"
-                  value={arrowColor}
-                  onChange={e => {
-                    const nextColor = e.target.value;
-                    setArrowColor(nextColor);
-                    if (selectedArrowId) {
-                      updateArrows(prev => prev.map(arrow => (
-                        arrow.id === selectedArrowId ? { ...arrow, color: nextColor } : arrow
-                      )));
-                    }
-                  }}
-                  className="h-7 w-10 rounded-md border border-slate-200 cursor-pointer dark:border-white/10"
-                />
-              </div>
-              <button
-                onClick={() => {
-                  updateArrows([]);
-                  setSelectedArrowId(null);
-                }}
-                disabled={arrows.length === 0}
-                className="col-span-2 h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-              >
-                <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
-                BORRAR FLECHAS
-              </button>
-
               {/* HERRAMIENTAS Section */}
-              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-2">Herramientas</p>
+              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10 tool-panel">
+                <button
+                  type="button"
+                  onClick={() => setShowDrawingTools(v => !v)}
+                  className="mb-2 flex w-full items-center justify-between text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                  aria-expanded={showDrawingTools}
+                >
+                  <span>Herramientas</span>
+                  <i className={`fa-solid ${showDrawingTools ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]`} />
+                </button>
+                {showDrawingTools && (
+                <div className="tool-rail">
 
-                {/* FLECHAS */}
-                <div className="mb-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>FLECHAS
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* FLECHAS */}
+                  <div className="tool-divider"><span className="tool-divider-dot"></span>FLECHAS</div>
+                  <div className="tool-grid">
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'arrow' ? null : 'arrow')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'arrow'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="arrow"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'arrow' ? null : 'arrow')}
+                      className={`tool-button ${drawingTools.state.tool === 'arrow' ? 'is-active' : ''}`}
                       title="Flecha con curva"
                     >
-                      Curva
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 18 Q4 6 18 6"></path>
+                        <path d="M14.5 3.5 L18 6 L14.5 8.5"></path>
+                      </svg>
                     </button>
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'arrowStraight' ? null : 'arrowStraight')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'arrowStraight'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="arrowStraight"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'arrowStraight' ? null : 'arrowStraight')}
+                      className={`tool-button ${drawingTools.state.tool === 'arrowStraight' ? 'is-active' : ''}`}
                       title="Flecha recta"
                     >
-                      Recta
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4.5 16.5c4.5-3.8 8.9-6.3 14.2-6.3"></path>
+                        <path d="M15.6 7.4l3.2 2.8-2.2 3.6"></path>
+                      </svg>
                     </button>
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'pen' ? null : 'pen')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'pen'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
-                      title="Bolígrafo"
+                      data-tool="pen"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'pen' ? null : 'pen')}
+                      className={`tool-button ${drawingTools.state.tool === 'pen' ? 'is-active' : ''}`}
+                      title="Dibujo libre"
                     >
-                      Bolígrafo
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 15 C5 9, 8 9, 11 15 C14 21, 17 21, 21 15" strokeWidth="2" strokeLinecap="round"></path>
+                        <path d="M3 10 C5 4, 8 4, 11 10 C14 16, 17 16, 21 10" opacity="0.4" strokeWidth="1.2" strokeLinecap="round"></path>
+                      </svg>
                     </button>
                   </div>
-                </div>
 
-                {/* TEXTOS */}
-                <div className="mb-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>TEXTOS
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* TEXTOS */}
+                  <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
+                  <div className="tool-grid tool-grid-2col">
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'text' ? null : 'text')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'text'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="text"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'text' ? null : 'text')}
+                      className={`tool-button ${drawingTools.state.tool === 'text' ? 'is-active' : ''}`}
                       title="Texto"
                     >
-                      Texto
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 8h6"></path>
+                        <path d="M8 8v9"></path>
+                        <path d="M13.5 15.5c0-1.4 1-2.5 2.5-2.5s2.5 1.1 2.5 2.5v1.8"></path>
+                        <path d="M18.5 17.3c-.7.7-1.4 1-2.4 1-1.6 0-2.6-1-2.6-2.3 0-1.2.9-2.1 2.5-2.1h2.4"></path>
+                      </svg>
+                      <span className="tool-label">Texto</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'callout' ? null : 'callout')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'callout'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="callout"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'callout' ? null : 'callout')}
+                      className={`tool-button ${drawingTools.state.tool === 'callout' ? 'is-active' : ''}`}
                       title="Etiqueta"
                     >
-                      Etiqueta
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M7 7h8l2 2v7l-6 1.5-4-4V7z"></path>
+                        <circle className="solid" cx="14.5" cy="9.5" r="1"></circle>
+                      </svg>
+                      <span className="tool-label">Etiqueta</span>
                     </button>
                   </div>
-                </div>
 
-                {/* ZONAS */}
-                <div className="mb-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>ZONAS
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* ZONAS */}
+                  <div className="tool-divider"><span className="tool-divider-dot"></span>ZONAS</div>
+                  <div className="tool-grid">
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'rectangle' ? null : 'rectangle')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'rectangle'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="rectangle"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'rectangle' ? null : 'rectangle')}
+                      className={`tool-button ${drawingTools.state.tool === 'rectangle' ? 'is-active' : ''}`}
                       title="Rectángulo"
                     >
-                      Rect.
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="5.5" y="6" width="13" height="10.5" rx="1.5"></rect>
+                        <path d="M8 14l2.5-3 2.2 2.4 2.1-2.6 1.7 3.2"></path>
+                      </svg>
+                      <span className="tool-label">Recta.</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'ellipse' ? null : 'ellipse')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'ellipse'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="ellipse"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'ellipse' ? null : 'ellipse')}
+                      className={`tool-button ${drawingTools.state.tool === 'ellipse' ? 'is-active' : ''}`}
                       title="Círculo"
                     >
-                      Círculo
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="5"></circle>
+                        <path d="M14.7 14.7L18 18"></path>
+                      </svg>
+                      <span className="tool-label">Circulo</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'zone' ? null : 'zone')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'zone'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="zone"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'zone' ? null : 'zone')}
+                      className={`tool-button ${drawingTools.state.tool === 'zone' ? 'is-active' : ''}`}
                       title="Zona"
                     >
-                      Zona
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <ellipse cx="12" cy="12" rx="8" ry="4.8"></ellipse>
+                        <path d="M12 7.2v9.6"></path>
+                        <path d="M13 16.8c2.1-.2 3.9-.7 5.5-1.6"></path>
+                      </svg>
+                      <span className="tool-label">Zona</span>
                     </button>
                   </div>
-                </div>
 
-                {/* VARIOS */}
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-                    <span className="inline-block h-1 w-1 rounded-full bg-slate-400"></span>VARIOS
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* VARIOS */}
+                  <div className="tool-divider"><span className="tool-divider-dot"></span>VARIOS</div>
+                  <div className="tool-grid">
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'connector' ? null : 'connector')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'connector'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
+                      data-tool="move"
+                      onClick={() => {
+                        setIsShapeMoving(v => !v);
+                        if (!isShapeMoving) {
+                          drawingTools.setTool(null);
+                        }
+                      }}
+                      className={`tool-button ${isShapeMoving ? 'is-active' : ''}`}
+                      title="Mover elementos"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3v18M3 12h18M9 6l3-3 3 3M15 18l-3 3-3-3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                      </svg>
+                      <span className="tool-label">Mover</span>
+                    </button>
+                    <button
+                      type="button"
+                      data-tool="connector"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'connector' ? null : 'connector')}
+                      className={`tool-button ${drawingTools.state.tool === 'connector' ? 'is-active' : ''}`}
                       title="Conector"
                     >
-                      Conec.
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle className="solid" cx="4.5" cy="17" r="2"></circle>
+                        <circle className="solid" cx="12" cy="7" r="2"></circle>
+                        <circle className="solid" cx="19.5" cy="17" r="2"></circle>
+                        <line x1="4.5" y1="17" x2="12" y2="7"></line>
+                        <line x1="12" y1="7" x2="19.5" y2="17"></line>
+                      </svg>
+                      <span className="tool-label">Conector</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'focus' ? null : 'focus')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'focus'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
-                      title="Foco"
+                      data-tool="tshape"
+                      onClick={() => handleSelectTool(drawingTools.state.tool === 'tshape' ? null : 'tshape')}
+                      className={`tool-button ${drawingTools.state.tool === 'tshape' ? 'is-active' : ''}`}
+                      title="Línea en T"
                     >
-                      Foco
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => drawingTools.setTool(drawingTools.state.tool === 'spotlight' ? null : 'spotlight')}
-                      className={`h-9 rounded-md border text-[11px] font-black uppercase tracking-[0.12em] transition-all ${
-                        drawingTools.state.tool === 'spotlight'
-                          ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                      }`}
-                      title="Spotlight"
-                    >
-                      Light
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <line x1="12" y1="3" x2="12" y2="21" strokeWidth="2" strokeLinecap="round"></line>
+                        <line x1="6" y1="18" x2="18" y2="18" strokeWidth="2" strokeLinecap="round"></line>
+                      </svg>
+                      <span className="tool-label">Línea</span>
                     </button>
                   </div>
-                </div>
-              </div>
 
-              {/* CAMPOS Section */}
-              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-2">CAMPOS</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    id="loadAtaque"
-                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                    type="button"
-                    title="Cargar posición de ataque"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
-                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
-                      <path d="M12 3v14"></path>
-                      <path d="M2 10h20"></path>
-                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
-                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
-                    </svg>
-                    Ataque
-                  </button>
-                  <button
-                    id="loadDefensa"
-                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                    type="button"
-                    title="Cargar posición de defensa"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
-                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
-                      <path d="M12 3v14"></path>
-                      <path d="M2 10h20"></path>
-                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
-                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
-                    </svg>
-                    Defensa
-                  </button>
-                  <button
-                    id="loadCompleto"
-                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                    type="button"
-                    title="Cargar campo completo"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
-                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
-                      <path d="M12 3v14"></path>
-                      <path d="M2 10h20"></path>
-                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
-                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
-                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
-                      <circle cx="16" cy="8" r="1.5" fill="currentColor"></circle>
-                    </svg>
-                    Completo
-                  </button>
                 </div>
+                )}
               </div>
 
             </div>
@@ -2046,7 +2139,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
             <select
               value={selectedCarpetaId}
-              onChange={e => setSelectedCarpetaId(e.target.value)}
+              onChange={e => {
+                setSelectedCarpetaId(e.target.value);
+                setSelectedBoardId('');
+              }}
               disabled={isLoadingCarpetas || carpetas.length === 0}
               title="Carpeta donde guardar / desde la que filtrar pizarras"
               className="h-8 max-w-[160px] rounded-md border border-slate-200 bg-white px-2 text-[12px] font-semibold text-slate-600 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300"
@@ -2059,16 +2155,55 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               ))}
             </select>
 
-            {selectedCarpetaId && (
-              <button
-                type="button"
-                onClick={handleDeleteCarpeta}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Eliminar esta carpeta (las pizarras no se borran)"
-                aria-label="Eliminar carpeta"
-              >
-                <i className="fa-solid fa-folder-minus text-[12px]" />
-              </button>
+            {selectedCarpetaId && selectedCarpetaId !== SIN_CARPETA_VALUE && (
+              <div className="relative" data-menu="carpeta">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCarpetaMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                    setShowCarpetaMenu(!showCarpetaMenu);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                  title="Opciones de carpeta"
+                  aria-label="Opciones de carpeta"
+                >
+                  <i className="fa-solid fa-ellipsis-v text-[12px]" />
+                </button>
+                {showCarpetaMenu && carpetaMenuPos && createPortal(
+                  <div
+                    className="fixed w-48 rounded-md border border-slate-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#1a1a1a] z-50"
+                    style={{ top: carpetaMenuPos.top, right: carpetaMenuPos.right }}
+                    data-menu="carpeta"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDeleteCarpeta();
+                        setShowCarpetaMenu(false);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-[12px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+                    >
+                      <i className="fa-solid fa-trash-can mr-2 text-red-500" />
+                      Eliminar carpeta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCarpetaId('');
+                        setShowCarpetaMenu(false);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-[12px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10 border-t border-slate-200 dark:border-white/10"
+                    >
+                      <i className="fa-solid fa-times mr-2" />
+                      Deseleccionar
+                    </button>
+                  </div>,
+                  document.body
+                )}
+              </div>
             )}
 
             <button
@@ -2084,36 +2219,68 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <select
               value={selectedBoardId}
               onChange={e => handleLoadBoard(e.target.value)}
-              disabled={isLoadingBoards || savedBoards.length === 0}
+              disabled={isLoadingBoards || boardsFilteredByCarpeta.length === 0}
               title="Cargar una pizarra guardada"
               className="h-8 max-w-[180px] rounded-md border border-slate-200 bg-white px-2 text-[12px] font-semibold text-slate-600 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300"
             >
               <option value="">
-                {isLoadingBoards ? 'Cargando...' : savedBoards.length ? 'Pizarras guardadas' : 'Sin pizarras guardadas'}
+                {isLoadingBoards ? 'Cargando...' : boardsFilteredByCarpeta.length ? 'Pizarras guardadas' : 'Sin pizarras guardadas'}
               </option>
-              {carpetas.map(carpeta => {
-                const boardsInCarpeta = savedBoards.filter(board => board.carpeta_id === carpeta.id);
-                if (!boardsInCarpeta.length) return null;
-                return (
-                  <optgroup key={carpeta.id} label={carpeta.nombre}>
-                    {boardsInCarpeta.map(board => (
-                      <option key={board.id} value={board.id}>{board.nombre}</option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-              {(() => {
-                const boardsSinCarpeta = savedBoards.filter(board => !board.carpeta_id);
-                if (!boardsSinCarpeta.length) return null;
-                return (
-                  <optgroup label="Sin carpeta">
-                    {boardsSinCarpeta.map(board => (
-                      <option key={board.id} value={board.id}>{board.nombre}</option>
-                    ))}
-                  </optgroup>
-                );
-              })()}
+              {boardsFilteredByCarpeta.map(board => (
+                <option key={board.id} value={board.id}>{board.nombre}</option>
+              ))}
             </select>
+
+            {selectedBoardId && (
+              <div className="relative" data-menu="board">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setBoardMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                    setShowBoardMenu(!showBoardMenu);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                  title="Opciones de pizarra"
+                  aria-label="Opciones de pizarra"
+                >
+                  <i className="fa-solid fa-ellipsis-v text-[12px]" />
+                </button>
+                {showBoardMenu && boardMenuPos && createPortal(
+                  <div
+                    className="fixed w-48 rounded-md border border-slate-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#1a1a1a] z-50"
+                    style={{ top: boardMenuPos.top, right: boardMenuPos.right }}
+                    data-menu="board"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDeleteBoard();
+                        setShowBoardMenu(false);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-[12px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+                    >
+                      <i className="fa-solid fa-trash-can mr-2 text-red-500" />
+                      Eliminar pizarra
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBoardId('');
+                        setShowBoardMenu(false);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-[12px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10 border-t border-slate-200 dark:border-white/10"
+                    >
+                      <i className="fa-solid fa-times mr-2" />
+                      Deseleccionar
+                    </button>
+                  </div>,
+                  document.body
+                )}
+              </div>
+            )}
 
             <button
               type="button"
@@ -2125,22 +2292,58 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               <i className={`fa-solid ${isSavingBoard ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} text-[12px]`} />
               GUARDAR
             </button>
-
-            {selectedBoardId && (
-              <button
-                type="button"
-                onClick={handleDeleteBoard}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Eliminar esta pizarra guardada"
-                aria-label="Eliminar pizarra guardada"
-              >
-                <i className="fa-solid fa-trash-can text-[12px]" />
-              </button>
-            )}
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 px-4 py-3 md:px-5">
+        <div className="min-h-0 flex-1 px-4 py-3 md:px-5 flex flex-col">
+          <div className="flex gap-3 mb-3 justify-center items-center relative">
+            <div className="flex gap-3 absolute left-1/2 transform -translate-x-96">
+              <button
+                onClick={drawingTools.undo}
+                disabled={drawingTools.shapes.length === 0}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                <i className="fa-solid fa-undo mr-2 text-[11px]" />
+                Deshacer
+              </button>
+              <button
+                onClick={drawingTools.deleteAll}
+                disabled={drawingTools.shapes.length === 0}
+                className="h-11 rounded-md border border-red-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-[#1a1a1a] dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                <i className="fa-solid fa-eraser mr-2 text-[11px]" />
+                Limpiar
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={downloadImage}
+                disabled={isExportingImage}
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  isExportingImage
+                    ? 'border-amber-500/30 bg-amber-500/15 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/15 dark:text-amber-400'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+                title={isExportingImage ? "Descargando PNG..." : "Descargar captura de la pizarra"}
+              >
+                <i className={`fa-solid ${isExportingImage ? 'fa-spinner' : 'fa-image'} mr-2 text-[11px] ${isExportingImage ? 'animate-spin' : ''}`} />
+                {isExportingImage ? 'DESCARGANDO...' : 'IMAGEN'}
+              </button>
+              <button
+                onClick={downloadVideoAsMP4}
+                disabled={isExportingVideo}
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  isExportingVideo
+                    ? 'border-blue-500/30 bg-blue-500/15 text-blue-600 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-400'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+                title={isExportingVideo ? "Generando video MP4..." : "Descargar pizarra como video en MP4"}
+              >
+                <i className={`fa-solid ${isExportingVideo ? 'fa-spinner' : 'fa-video'} mr-2 text-[11px] ${isExportingVideo ? 'animate-spin' : ''}`} />
+                {isExportingVideo ? 'EXPORTANDO...' : 'VIDEO'}
+              </button>
+            </div>
+          </div>
           <div className="grid h-full min-h-0 grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section
               ref={pitchStageRef}
@@ -2306,6 +2509,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     selectedShapeId={drawingTools.state.selectedShapeId}
                     viewBox="0 0 100 100"
                     onShapeClick={drawingTools.selectShape}
+                    onShapePointerDown={handleShapePointerDown}
+                    onRotateShape={(id) => drawingTools.rotateShape(id)}
                   />
 
                   {isDrawingArrow && drawStart && (drawStart as any).x2 !== undefined && (
@@ -2378,9 +2583,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 {pitchPlayers.map(player => {
                   if ((player.team === 'my' && !showMyTeam) || (player.team === 'rival' && !showRivalTeam)) return null;
                   const isSelected = selectedPitchIds.includes(player.id);
+                  const isPendingConnector = drawingTools.state.tool === 'connector' && drawingTools.state.pendingConnectorPlayerId === player.id;
                   const isDragging = draggingIds.current.includes(player.id);
                   const isMarkedForDelete = isDragging && dragOutsideField;
-                  const displaySize = (player.number === 1 ? 44 : 40) * playerScale;
+                  const baseSize = (player.number === 1 ? 44 : 40) * playerScale;
+                  const perspectiveFactor = is3DView ? 0.42 + (player.y / 100) * 0.58 : 1;
+                  const displaySize = baseSize * perspectiveFactor;
 
                   return (
                     <div
@@ -2411,6 +2619,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         e.stopPropagation();
                         if (isPlaying) return;
                         if (is3DView) return;
+                        if (drawingTools.state.tool) return;
+                        if (drawingMode) return;
                         if (suppressNextPitchClickRef.current) {
                           suppressNextPitchClickRef.current = false;
                           return;
@@ -2447,7 +2657,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       )}
 
                       <div
-                        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] font-black shadow-lg ${player.number === 1 ? 'text-white' : 'text-white'} ${isSelected ? 'ring-2 ring-white/60' : ''}`}
+                        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] font-black shadow-lg ${player.number === 1 ? 'text-white' : 'text-white'} ${isSelected ? 'ring-2 ring-white/60' : ''} ${isPendingConnector ? 'ring-4 ring-yellow-400 animate-pulse' : ''}`}
                         style={{
                           width: displaySize,
                           height: displaySize,
@@ -2555,44 +2765,48 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                             : 'border-blue-200 bg-white text-blue-600 hover:bg-blue-50 dark:border-blue-500/20 dark:bg-[#1a1a1a] dark:text-blue-300 dark:hover:bg-blue-500/10'
                         }`}
                       >
-                        <i className={`fa-solid ${showRivalTeam ? 'fa-eye' : 'fa-eye-slash'} text-[11px]`} />
-                        {showRivalTeam ? 'MOSTRAR' : 'OCULTAR'}
+                        <i className={`fa-solid ${showRivalTeam ? 'fa-chevron-up' : 'fa-chevron-down'} text-[11px]`} />
+                        {showRivalTeam ? 'OCULTAR' : 'MOSTRAR'}
                       </button>
 
-                      <div>
-                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                          Club rival
-                        </label>
-                        <SearchableSelect
-                          value={selectedRivalClubId}
-                          onChange={e => handleSelectRivalClub(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                        >
-                          <option value="">Selecciona club rival</option>
-                          {rivalClubs.map(club => (
-                            <option key={club.id} value={club.id}>{club.nombre}</option>
-                          ))}
-                        </SearchableSelect>
-                      </div>
+                      {showRivalTeam && (
+                        <>
+                          <div>
+                            <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                              Club rival
+                            </label>
+                            <SearchableSelect
+                              value={selectedRivalClubId}
+                              onChange={e => handleSelectRivalClub(e.target.value)}
+                              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                            >
+                              <option value="">Selecciona club rival</option>
+                              {rivalClubs.map(club => (
+                                <option key={club.id} value={club.id}>{club.nombre}</option>
+                              ))}
+                            </SearchableSelect>
+                          </div>
 
-                      <div>
-                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                          Equipo rival
-                        </label>
-                        <SearchableSelect
-                          value={selectedRivalTeamId}
-                          onChange={e => handleSelectRivalTeam(e.target.value)}
-                          disabled={!selectedRivalClubId}
-                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                        >
-                          <option value="">
-                            {selectedRivalClubId ? 'Selecciona equipo' : 'Sin plantilla rival (añadir a mano)'}
-                          </option>
-                          {rivalTeamsForSelectedClub.map(team => (
-                            <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
-                          ))}
-                        </SearchableSelect>
-                      </div>
+                          <div>
+                            <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                              Equipo rival
+                            </label>
+                            <SearchableSelect
+                              value={selectedRivalTeamId}
+                              onChange={e => handleSelectRivalTeam(e.target.value)}
+                              disabled={!selectedRivalClubId}
+                              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                            >
+                              <option value="">
+                                {selectedRivalClubId ? 'Selecciona equipo' : 'Sin plantilla rival (añadir a mano)'}
+                              </option>
+                              {rivalTeamsForSelectedClub.map(team => (
+                                <option key={team.id} value={team.id}>{team.sub_equipo || team.nombre}</option>
+                              ))}
+                            </SearchableSelect>
+                          </div>
+                        </>
+                      )}
 
                       <div>
                         <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
@@ -2664,19 +2878,20 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       MI EQUIPO
                     </div>
 
-                    <div className="space-y-3 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowMyTeam(v => !v)}
-                        className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 ${
-                          showMyTeam
-                            ? 'border-red-300/50 bg-red-100 text-red-700 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-200'
-                            : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-300 dark:hover:bg-red-500/10'
-                        }`}
-                      >
-                        <i className={`fa-solid ${showMyTeam ? 'fa-eye' : 'fa-eye-slash'} text-[11px]`} />
-                        {showMyTeam ? 'MOSTRAR' : 'OCULTAR'}
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowMyTeam(v => !v)}
+                      className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 mb-3 ${
+                        showMyTeam
+                          ? 'border-red-300/50 bg-red-100 text-red-700 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-200'
+                          : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-300 dark:hover:bg-red-500/10'
+                      }`}
+                    >
+                      <i className={`fa-solid ${showMyTeam ? 'fa-chevron-up' : 'fa-chevron-down'} text-[11px]`} />
+                      {showMyTeam ? 'OCULTAR' : 'MOSTRAR'}
+                    </button>
+
+                    {showMyTeam && <div className="space-y-3 mb-3">
 
                       <SearchableSelect
                         value={selectedMyTeamId}
@@ -2773,7 +2988,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           {showPlayerPhotos ? 'OCULTAR FOTOS' : 'FOTOS JUGADORES'}
                         </button>
                       )}
-                    </div>
+                    </div>}
                   </div>
                 </div>
               </div>
@@ -2782,6 +2997,46 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           </div>
         </div>
       </main>
+
+      {newBoardModal && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-[#1a1a1a]">
+            <h3 className="mb-3 text-[13px] font-black uppercase tracking-[0.1em] text-slate-700 dark:text-slate-200">
+              ¿En qué carpeta quieres guardar "{newBoardModal.nombre}"?
+            </h3>
+            <select
+              value={newBoardModal.carpetaId}
+              onChange={e => setNewBoardModal(prev => (prev ? { ...prev, carpetaId: e.target.value } : prev))}
+              className="mb-4 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-[12px] font-semibold text-slate-600 outline-none dark:border-white/10 dark:bg-[#121212] dark:text-slate-300"
+              autoFocus
+            >
+              <option value="">Sin carpeta</option>
+              {carpetas.map(carpeta => (
+                <option key={carpeta.id} value={carpeta.id}>{carpeta.nombre}</option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setNewBoardModal(null)}
+                disabled={isSavingBoard}
+                className="h-8 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-black uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmNewBoard}
+                disabled={isSavingBoard}
+                className="h-8 rounded-md border border-blue-200 bg-blue-600 px-3 text-[12px] font-black uppercase tracking-[0.1em] text-white hover:bg-blue-700 disabled:opacity-50 dark:border-blue-500/20"
+              >
+                {isSavingBoard ? 'Creando...' : 'Crear pizarra'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
