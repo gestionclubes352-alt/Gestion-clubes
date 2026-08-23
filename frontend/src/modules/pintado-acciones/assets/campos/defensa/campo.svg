@@ -1,0 +1,59 @@
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Campo de fútbol - Vista de Defensa (media cancha) -->
+  <defs>
+    <linearGradient id="fieldGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d5a2d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a3a1a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo del campo -->
+  <rect width="1200" height="800" fill="url(#fieldGradient2)" />
+
+  <!-- Línea de banda superior -->
+  <line x1="0" y1="0" x2="1200" y2="0" stroke="white" stroke-width="4" />
+
+  <!-- Línea de banda inferior -->
+  <line x1="0" y1="800" x2="1200" y2="800" stroke="white" stroke-width="4" />
+
+  <!-- Línea de banda izquierda -->
+  <line x1="0" y1="0" x2="0" y2="800" stroke="white" stroke-width="4" />
+
+  <!-- Línea de banda derecha -->
+  <line x1="1200" y1="0" x2="1200" y2="800" stroke="white" stroke-width="4" />
+
+  <!-- Línea media (defensa) -->
+  <line x1="0" y1="400" x2="1200" y2="400" stroke="white" stroke-width="3" />
+
+  <!-- Semicírculo central (defensa) -->
+  <path d="M 0 400 Q 90 400 90 310 L 90 490 Q 90 400 0 400" fill="none" stroke="white" stroke-width="3" />
+
+  <!-- Punto central -->
+  <circle cx="0" cy="400" r="6" fill="white" />
+
+  <!-- Área de portería (defensa) -->
+  <rect x="0" y="200" width="200" height="400" fill="none" stroke="white" stroke-width="3" />
+
+  <!-- Área de penalti -->
+  <rect x="0" y="150" width="150" height="500" fill="none" stroke="white" stroke-width="2" />
+
+  <!-- Semicírculo de penalti -->
+  <path d="M 150 150 Q 150 50 0 50 L 0 750 Q 150 750 150 650" fill="none" stroke="white" stroke-width="2" stroke-dasharray="5,5" />
+
+  <!-- Portería -->
+  <rect x="-4" y="300" width="4" height="200" fill="white" />
+
+  <!-- Línea de gol -->
+  <line x1="200" y1="200" x2="200" y2="600" stroke="white" stroke-width="2" stroke-dasharray="3,3" opacity="0.5" />
+
+  <!-- Banderines de esquina -->
+  <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="2" />
+  <circle cx="10" cy="790" r="8" fill="none" stroke="white" stroke-width="2" />
+
+  <!-- Zonas de defensa (referencia visual) -->
+  <rect x="200" y="150" width="300" height="500" fill="none" stroke="white" stroke-width="1" stroke-dasharray="8,4" opacity="0.3" />
+  <text x="350" y="420" font-size="18" font-weight="bold" text-anchor="middle" fill="white" opacity="0.3">ZONA DE DEFENSA</text>
+
+  <!-- Etiqueta -->
+  <text x="600" y="750" font-size="28" font-weight="bold" text-anchor="middle" fill="white" opacity="0.6">CAMPO DE DEFENSA</text>
+</svg>
