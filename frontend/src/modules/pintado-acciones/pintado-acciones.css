@@ -8,7 +8,7 @@
   --bg: #ffffff;
   --panel: rgba(255, 255, 255, 0.95);
   --panel-soft: rgba(0, 0, 0, 0.02);
-  --panel-border: rgba(0, 0, 0, 0.1);
+  --panel-border: #000000;
   --stage: #f5f5f5;
   --text: #1a1a1a;
   --muted: #666666;
@@ -52,10 +52,10 @@
 .pintado-acciones-app .app-shell {
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 10px 12px 14px;
+  padding: 8px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 .pintado-acciones-app .topbar {
   display: grid;
@@ -148,8 +148,8 @@
 .pintado-acciones-app input[type="text"] {
   height: 44px;
   border-radius: 12px;
-  border: 1px solid rgba(154, 177, 217, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: #ffffff;
   color: var(--text);
   padding: 0 14px;
 }
@@ -157,8 +157,8 @@
   width: 100%;
   height: 44px;
   border-radius: 12px;
-  border: 1px solid rgba(154, 177, 217, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: #ffffff;
   color: var(--text);
   padding: 0 14px;
   font: inherit;
@@ -166,14 +166,14 @@
   transition: background 160ms ease, border-color 160ms ease;
 }
 .pintado-acciones-app select:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(154, 177, 217, 0.28);
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.55);
 }
 .pintado-acciones-app select:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(154, 177, 217, 0.42);
-  box-shadow: 0 0 0 3px rgba(154, 177, 217, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+  border-color: #000000;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
 }
 .pintado-acciones-app select option {
   background: var(--bg);
@@ -193,8 +193,8 @@
   min-height: 50px;
   padding: 6px;
   border-radius: 12px;
-  border: 1px solid rgba(154, 177, 217, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  background: #ffffff;
   color: var(--text);
   cursor: pointer;
   transition: all 160ms ease;
@@ -202,8 +202,8 @@
   font-weight: 600;
 }
 .pintado-acciones-app .abp-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(154, 177, 217, 0.32);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: #000000;
   transform: translateY(-1px);
 }
 .pintado-acciones-app .abp-button svg {
@@ -278,9 +278,9 @@
 }
 .pintado-acciones-app .workspace {
   display: grid;
-  grid-template-columns: 185px minmax(0, 1fr) 220px;
+  grid-template-columns: 310px minmax(0, 1fr) 220px;
   grid-template-areas: "left stage tools";
-  gap: 10px;
+  gap: 6px;
   align-items: stretch;
   min-height: 0;
 }
@@ -303,11 +303,11 @@
   overflow: auto;
 }
 .pintado-acciones-app .stage-panel {
-  padding: 8px 10px 10px;
+  padding: 6px;
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   position: relative;
 }
 .pintado-acciones-app .stage-toolbar {
@@ -325,7 +325,7 @@
   width: 100%;
   padding: 10px 14px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.04);
 }
 .pintado-acciones-app .mode-label {
   margin-right: auto;
@@ -434,7 +434,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -470,8 +470,8 @@
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 14px;
   width: 100%;
 }
@@ -515,7 +515,7 @@
   appearance: none;
   height: 4px;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.15);
   cursor: pointer;
   outline: none;
   min-width: 0;
@@ -550,7 +550,7 @@
 }
 .pintado-acciones-app .panel-block {
   background: var(--panel-soft);
-  border: 1px solid rgba(162, 182, 217, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 18px;
   padding: 10px;
 }
@@ -562,9 +562,9 @@
   width: 100%;
   padding: 10px 8px 12px;
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(49, 57, 75, 0.78), rgba(35, 42, 57, 0.92));
-  border: 1px solid rgba(183, 196, 226, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 .pintado-acciones-app .tool-grid {
   display: grid;
@@ -581,9 +581,9 @@
   justify-content: center;
   gap: 5px;
   padding: 7px 4px;
-  border-top: 1px solid rgba(188, 199, 226, 0.12);
-  border-bottom: 1px solid rgba(188, 199, 226, 0.12);
-  color: #c9d1e6;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  color: #333333;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   font-weight: 700;
@@ -592,8 +592,8 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #8deb6e;
-  box-shadow: 0 0 6px rgba(141, 235, 110, 0.75);
+  background: #000000;
+  box-shadow: none;
 }
 .pintado-acciones-app .tool-button {
   position: relative;
@@ -607,10 +607,10 @@
   gap: 6px;
 }
 .pintado-acciones-app .tool-button.is-active {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(141, 235, 110, 0.36);
-  color: #dff3d6;
-  box-shadow: inset 0 0 0 1px rgba(141, 235, 110, 0.1);
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+  box-shadow: none;
 }
 .pintado-acciones-app .tool-button.is-active::after {
   content: "";
@@ -620,8 +620,8 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #8deb6e;
-  box-shadow: 0 0 8px rgba(141, 235, 110, 0.65);
+  background: #ffffff;
+  box-shadow: none;
 }
 .pintado-acciones-app .tool-button svg {
   width: 28px;
@@ -631,11 +631,11 @@
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-  color: #d4dced;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.22));
+  color: #333333;
+  filter: none;
 }
 .pintado-acciones-app .tool-button.is-active svg {
-  color: #ecffd8;
+  color: #ffffff;
   filter: none;
 }
 .pintado-acciones-app .tool-button svg .solid {
@@ -646,23 +646,23 @@
   font-size: 0.62rem;
   line-height: 1.1;
   letter-spacing: 0.03em;
-  color: #bfc9dd;
+  color: #333333;
   text-align: center;
 }
 .pintado-acciones-app .tool-button.is-active .tool-label {
-  color: #ecffd8;
+  color: #ffffff;
 }
 .pintado-acciones-app .number-palette {
   min-height: 100%;
   padding: 10px 10px 12px;
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(20, 30, 46, 0.72), rgba(15, 24, 38, 0.92));
-  border: 1px solid rgba(183, 196, 226, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 .pintado-acciones-app .number-palette-header {
   margin-bottom: 10px;
-  color: #c9d1e6;
+  color: #333333;
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -677,19 +677,20 @@
   min-height: 44px;
   padding: 0;
   border-radius: 12px;
-  border: 1px solid rgba(169, 187, 219, 0.14);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  background: #ffffff;
   color: var(--text);
   font-weight: 700;
   font-size: 0.92rem;
 }
 .pintado-acciones-app .number-chip:hover {
-  border-color: rgba(255, 77, 106, 0.3);
+  border-color: #000000;
 }
 .pintado-acciones-app .number-chip.is-active {
-  border-color: rgba(137, 171, 255, 0.42);
-  background: linear-gradient(180deg, rgba(75, 104, 167, 0.42), rgba(49, 69, 116, 0.58));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 24px rgba(25, 38, 67, 0.22);
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
 }
 .pintado-acciones-app .variant-picker {
   display: grid;
@@ -701,8 +702,8 @@
   min-height: 62px;
   padding: 8px 6px 7px;
   border-radius: 10px;
-  border: 1px solid rgba(162, 182, 217, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: #ffffff;
   color: var(--muted);
   flex-direction: column;
   gap: 5px;
@@ -717,10 +718,10 @@
   line-height: 1;
 }
 .pintado-acciones-app .variant-button.is-active {
-  border-color: rgba(141, 235, 110, 0.42);
-  background: rgba(141, 235, 110, 0.09);
-  color: #eefadf;
-  box-shadow: inset 0 0 0 1px rgba(141, 235, 110, 0.12);
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
 }
 
 
@@ -799,8 +800,8 @@
     justify-content: space-between;
     gap: 12px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: inset 0 0 0 1px rgba(154, 177, 217, 0.14);
+    background: rgba(0, 0, 0, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
   }
 .pintado-acciones-app .mobile-collapse-toggle::after {
     content: "+";
@@ -951,10 +952,10 @@
     z-index: 25;
     overflow: visible;
     padding: 0;
-    background: rgba(7, 12, 22, 0.5);
-    border-color: rgba(183, 196, 226, 0.14);
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(14px);
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.15);
   }
 .pintado-acciones-app .tool-panel .panel-block h2 {
     display: none;
@@ -974,7 +975,7 @@
     right: 0;
     bottom: 0;
     width: 48px;
-    background: linear-gradient(to right, transparent, rgba(7, 12, 22, 0.85));
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.9));
     pointer-events: none;
     z-index: 2;
   }
@@ -988,7 +989,7 @@
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.18) transparent;
+    scrollbar-color: rgba(0,0,0,0.25) transparent;
   }
 .pintado-acciones-app .tool-rail::-webkit-scrollbar {
     height: 3px;
@@ -997,7 +998,7 @@
     background: transparent;
   }
 .pintado-acciones-app .tool-rail::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.22);
+    background: rgba(0,0,0,0.3);
     border-radius: 3px;
   }
 .pintado-acciones-app .tool-rail > * {
@@ -1009,9 +1010,9 @@
     padding: 8px 4px;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    border: 1px solid rgba(188, 199, 226, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.12);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.03);
     font-size: 0.62rem;
   }
 .pintado-acciones-app .tool-grid {
@@ -1242,7 +1243,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.76rem;
-  color: #b7c6de;
+  color: #666666;
   margin: 0;
   opacity: 0;
   transition: opacity 0.3s;
@@ -1285,9 +1286,9 @@
   transform: scale(0.98);
 }
 .pintado-acciones-app .tutorial-audio-toggle.is-muted {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
-  color: #dbe7fa;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #333333;
 }
 .pintado-acciones-app .tutorial-voice-waves {
   display: flex;
@@ -1352,19 +1353,19 @@
   margin-left: auto;
 }
 .pintado-acciones-app .tut-btn-primary:hover {
-  background: #ffd75e;
-  box-shadow: 0 4px 18px rgba(255, 77, 106, 0.55);
+  background: var(--accent-strong);
+  box-shadow: 0 4px 18px rgba(221, 20, 95, 0.4);
   transform: translateY(-1px);
 }
 .pintado-acciones-app .tut-btn-secondary {
-  background: rgba(255, 255, 255, 0.09);
-  color: #f5f8ff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.05);
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.18);
 }
-.pintado-acciones-app .tut-btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
+.pintado-acciones-app .tut-btn-secondary:hover { background: rgba(0, 0, 0, 0.09); }
 .pintado-acciones-app .tut-btn-ghost {
   background: transparent;
-  color: #b4c0d3;
+  color: #666666;
   font-size: 0.8rem;
   padding: 8px 10px;
 }
@@ -1458,5 +1459,56 @@
 .pintado-acciones-app .tutorial-modal-close:hover {
   background: rgba(255, 255, 255, 1);
   transform: none;
+}
+
+/* Estilos para la sección de Jugadores */
+.pintado-acciones-app .players-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.pintado-acciones-app .player-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #ffffff;
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pintado-acciones-app .player-chip:hover {
+  border-color: var(--accent);
+  background: rgba(221, 20, 95, 0.08);
+  transform: translateY(-1px);
+}
+
+.pintado-acciones-app .player-chip:active {
+  transform: translateY(0);
+}
+
+.pintado-acciones-app .player-chip .dorsal {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.pintado-acciones-app .player-chip .nombre {
+  font-weight: 500;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.2;
 }
 

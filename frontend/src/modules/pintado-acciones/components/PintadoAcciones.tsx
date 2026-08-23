@@ -1,7 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import '../pintado-acciones.css';
 import engineScriptUrl from '../lib/pintado-acciones-engine.js?url';
 import { initializeABPLoader } from '../lib/abp-loader';
+import { plantillasService, equiposService } from '@shared/services/dataService';
+import type { Player } from '@modules/plantilla';
 
 declare global {
   interface Window {
@@ -9,6 +11,11 @@ declare global {
       mount?: () => (() => void) | undefined;
     };
   }
+}
+
+interface PintadoAccionesProps {
+  ownClubId?: string;
+  ownEquipoId?: string;
 }
 
 /**
@@ -19,8 +26,60 @@ declare global {
  * `window.PintadoAcciones.mount()` para no reescribir 2800+ líneas de
  * lógica probada. Este componente solo aporta el markup y el ciclo de vida.
  */
-export default function PintadoAcciones() {
+export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipoId }: PintadoAccionesProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [squad, setSquad] = useState<Player[]>([]);
+  const [loadingSquad, setLoadingSquad] = useState(false);
+  const [ownEquipoId, setOwnEquipoId] = useState<string>('');
+
+  // Obtener el equipo del club actual
+  useEffect(() => {
+    if (!ownClubId) return;
+
+    (async () => {
+      try {
+        const equipos = await equiposService.list({ club_id: ownClubId });
+        if (equipos && equipos.length > 0) {
+          // Seleccionar el primer equipo como predeterminado
+          setOwnEquipoId(equipos[0].id);
+        }
+      } catch (err) {
+        console.error('Error cargando equipos:', err);
+      }
+    })();
+  }, [ownClubId]);
+
+  // Cargar jugadores del equipo actual
+  useEffect(() => {
+    const equipoId = propsOwnEquipoId || ownEquipoId;
+    if (!equipoId) return;
+
+    (async () => {
+      try {
+        setLoadingSquad(true);
+        const rows = await plantillasService.list({ equipo_id: equipoId });
+        const mapped: Player[] = rows.map((p): Player => ({
+          id: p.id,
+          fotoUrl: p.foto_url || '',
+          competicion: '',
+          club: '',
+          equipo: '',
+          dorsal: p.dorsal ?? 0,
+          nombre: p.nombre,
+          apodo: p.apodo,
+          posicion: p.posicion,
+          posicionJuego: p.posicion_juego || '',
+          perfil: (p.perfil || 'D') as Player['perfil'],
+          estado: p.estado,
+        }));
+        setSquad(mapped.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
+      } catch (err) {
+        console.error('Error cargando plantilla:', err);
+      } finally {
+        setLoadingSquad(false);
+      }
+    })();
+  }, [propsOwnEquipoId, ownEquipoId]);
 
   useEffect(() => {
     let destroy: (() => void) | undefined;
@@ -149,7 +208,7 @@ export default function PintadoAcciones() {
 
               <section className="panel-block">
                 <div className="number-palette" aria-label="Numeros del 1 al 11">
-                  <div className="number-palette-header"><span>Dorsales</span></div>
+                  <div className="number-palette-header"><span>Números</span></div>
                   <div className="number-grid">
                     {Array.from({ length: 11 }, (_, i) => i + 1).map((n) => (
                       <button key={n} className="number-chip quick-insert-chip" type="button" data-insert-text={n}>
@@ -194,6 +253,37 @@ export default function PintadoAcciones() {
                     <span>Defensa</span>
                   </button>
                 </div>
+              </section>
+
+              <section className="panel-block">
+                <h2>Jugadores</h2>
+                {loadingSquad ? (
+                  <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
+                ) : squad.length > 0 ? (
+                  <div className="players-grid">
+                    {squad.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        className="player-chip"
+                        onClick={() => {
+                          const quickInsertChips = document.querySelectorAll('.quick-insert-chip');
+                          quickInsertChips.forEach(chip => {
+                            if (chip.getAttribute('data-insert-text') === String(player.dorsal)) {
+                              (chip as HTMLElement).click();
+                            }
+                          });
+                        }}
+                        title={`${player.nombre} (${player.dorsal})`}
+                      >
+                        <span className="dorsal">{player.dorsal}</span>
+                        <span className="nombre">{player.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
+                )}
               </section>
             </div>
           </aside>
@@ -241,15 +331,6 @@ export default function PintadoAcciones() {
                   </span>
                   <span className="stage-action-text">Limpiar</span>
                 </button>
-                <button id="captureFrame" type="button" className="stage-action-button">
-                  <span className="stage-action-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-                      <circle cx="12" cy="13" r="3"></circle>
-                    </svg>
-                  </span>
-                  <span className="stage-action-text">Congelar</span>
-                </button>
                 <button id="freezeHint" type="button" className="stage-action-button">
                   <span className="stage-action-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24">
@@ -259,16 +340,6 @@ export default function PintadoAcciones() {
                     </svg>
                   </span>
                   <span className="stage-action-text">Exportar PNG</span>
-                </button>
-                <button id="tutorialBtn" type="button" className="stage-action-button">
-                  <span className="stage-action-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <path d="M12 16v-4"></path>
-                      <path d="M12 8h.01"></path>
-                    </svg>
-                  </span>
-                  <span className="stage-action-text">Tutorial</span>
                 </button>
               </div>
               <p id="statusText" className="hidden"></p>
@@ -327,7 +398,7 @@ export default function PintadoAcciones() {
               <div className="tool-rail">
                 {/* Utilidades */}
                 <div className="tool-grid">
-                  <button className="tool-button" data-tool="move" aria-label="Mover" title="Mover">
+                  <button className="tool-button" data-tool="move" aria-label="Seleccionar" title="Seleccionar">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 4v16"></path>
                       <path d="M4 12h16"></path>
@@ -340,7 +411,7 @@ export default function PintadoAcciones() {
                       <path d="M20 12l-2.3-2.3"></path>
                       <path d="M20 12l-2.3 2.3"></path>
                     </svg>
-                    <span className="tool-label">Mover</span>
+                    <span className="tool-label">Seleccionar</span>
                   </button>
                   <button id="duplicateAnnotation" className="tool-button" type="button" aria-label="Duplicar" title="Duplicar seleccion">
                     <svg viewBox="0 0 24 24" aria-hidden="true">

@@ -84,6 +84,7 @@ import { InstalacionesView } from '@modules/instalaciones';
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
 const ExerciseDesigner = React.lazy(() => import('@modules/entrenamientos/components/ExerciseDesigner'));
 const PizarraTactica = React.lazy(() => import('@modules/tactica/components/PizarraTactica'));
+const PintadoAcciones = React.lazy(() => import('@modules/pintado-acciones/components/PintadoAcciones'));
 const AIModeView = React.lazy(() => import('@modules/ai-mode/components/AIModeView'));
 
 // Error Boundary para capturar errores en componentes lazy
@@ -133,6 +134,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/rendimiento-fisico': 'RENDIMIENTO FÍSICO',
   '/usuarios': 'USUARIOS',
   '/repositorio-tareas': 'REPOSITORIO DE TAREAS',
+  '/pintado-acciones': 'PINTADO DE ACCIONES',
   '/settings': 'CONFIGURACIÓN',
   '/settings/datasources': 'FUENTE DE DATOS'
 };
@@ -159,6 +161,7 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'REHABILITACIÓN': '/rehabilitacion',
   'RENDIMIENTO FÍSICO': '/rendimiento-fisico',
   'REPOSITORIO DE TAREAS': '/repositorio-tareas',
+  'PINTADO DE ACCIONES': '/pintado-acciones',
   'USUARIOS': '/usuarios',
   'CONFIGURACIÓN': '/settings',
   'FUENTE DE DATOS': '/settings#datasources'
@@ -1346,7 +1349,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const isMatchReportView = location.pathname.match(/^\/partidos\/[^/]+$/);
   const isSettingsView = location.pathname.startsWith('/settings');
   const isPizarraView = location.pathname === '/pizarra';
-  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView;
+  const isPintadoAccionesView = location.pathname === '/pintado-acciones';
+  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView;
   const hideShellHeader = isMatchReportView || isSettingsView;
 
   // Margen dinámico según estado del sidebar
@@ -1588,6 +1592,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} allSquad={currentClubSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
+              <Route path="/pintado-acciones" element={<PintadoAcciones ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
                 <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
