@@ -495,7 +495,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [expandedMediaBlock, setExpandedMediaBlock] = useState<string | null>(null);
   const [closedMediaBlocks, setClosedMediaBlocks] = useState<Set<string>>(new Set());
   const [collapsedPlanBlocks, setCollapsedPlanBlocks] = useState<Set<string>>(new Set());
+  const [collapsedPlanSections, setCollapsedPlanSections] = useState<Set<string>>(new Set());
   const [collapsedRivalBlocks, setCollapsedRivalBlocks] = useState<Set<string>>(new Set());
+  const [collapsedRivalSections, setCollapsedRivalSections] = useState<Set<string>>(new Set());
   const [expandedAbpCard, setExpandedAbpCard] = useState<{ section: AbpSection; id: string; label: string } | null>(null);
   const [expandedFormation, setExpandedFormation] = useState<{ type: 'initial' | 'window'; id?: string } | null>(null);
 
@@ -4001,10 +4003,26 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     });
   };
 
+  const togglePlanSectionCollapsed = (section: string) => {
+    setCollapsedPlanSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section); else next.add(section);
+      return next;
+    });
+  };
+
   const toggleRivalBlockCollapsed = (id: string) => {
     setCollapsedRivalBlocks(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleRivalSectionCollapsed = (section: string) => {
+    setCollapsedRivalSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section); else next.add(section);
       return next;
     });
   };
@@ -4129,8 +4147,22 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
              </div>
           </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[{ id: 'planConBalon', label: t('matchReport.attack'), icon: 'fa-futbol', color: 'text-red-500' }, { id: 'planSinBalon', label: t('matchReport.defense'), icon: 'fa-shield-halved', color: 'text-red-500' }, { id: 'planAbp', label: t('matchReport.transitions'), icon: 'fa-bolt', color: 'text-emerald-500' }].map((block) => (
+      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-3xl p-6 lg:p-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]"><i className="fa-solid fa-shield mr-2"></i>MI EQUIPO</h2>
+          <button
+            onClick={() => togglePlanSectionCollapsed('myTeam')}
+            title={collapsedPlanSections.has('myTeam') ? t('matchReport.showSection') : t('matchReport.hideSection')}
+            className="px-3 py-2 bg-blue-200 dark:bg-blue-900/40 hover:bg-blue-300 dark:hover:bg-blue-900/60 rounded-lg text-blue-600 dark:text-blue-400 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
+          >
+            <i className={`fa-solid fa-${collapsedPlanSections.has('myTeam') ? 'chevron-down' : 'chevron-up'}`}></i>
+            {collapsedPlanSections.has('myTeam') ? t('matchReport.show') : t('matchReport.hide')}
+          </button>
+        </div>
+
+        {!collapsedPlanSections.has('myTeam') && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[{ id: 'planConBalon', label: t('matchReport.attack'), icon: 'fa-futbol', color: 'text-blue-500' }, { id: 'planSinBalon', label: t('matchReport.defense'), icon: 'fa-shield-halved', color: 'text-blue-500' }, { id: 'planAbp', label: t('matchReport.transitions'), icon: 'fa-bolt', color: 'text-emerald-500' }].map((block) => (
           <div key={block.id} className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-xl space-y-5 flex flex-col relative group hover:border-[var(--surface-3)] transition-all">
             <div className="flex justify-between items-center">
                 <div className={`text-[11px] font-black ${block.color} uppercase tracking-[0.2em] flex items-center gap-2`}><i className={`fa-solid ${block.icon}`}></i> {block.label}</div>
@@ -4320,6 +4352,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             )}
           </div>
         ))}
+        </div>
+        )}
       </div>
     </div>
   );
@@ -4563,8 +4597,22 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
              </div>
           </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[{ id: 'rivalConBalon', label: t('matchReport.attack'), icon: 'fa-futbol', color: 'text-red-500' }, { id: 'rivalSinBalon', label: t('matchReport.defense'), icon: 'fa-shield-halved', color: 'text-red-500' }, { id: 'rivalAbp', label: t('matchReport.transitions'), icon: 'fa-bolt', color: 'text-emerald-500' }].map((block) => (
+      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-3xl p-6 lg:p-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]"><i className="fa-solid fa-shield-heart mr-2"></i>RIVAL</h2>
+          <button
+            onClick={() => toggleRivalSectionCollapsed('rival')}
+            title={collapsedRivalSections.has('rival') ? t('matchReport.showSection') : t('matchReport.hideSection')}
+            className="px-3 py-2 bg-blue-200 dark:bg-blue-900/40 hover:bg-blue-300 dark:hover:bg-blue-900/60 rounded-lg text-blue-600 dark:text-blue-400 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
+          >
+            <i className={`fa-solid fa-${collapsedRivalSections.has('rival') ? 'chevron-down' : 'chevron-up'}`}></i>
+            {collapsedRivalSections.has('rival') ? t('matchReport.show') : t('matchReport.hide')}
+          </button>
+        </div>
+
+        {!collapsedRivalSections.has('rival') && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[{ id: 'rivalConBalon', label: t('matchReport.attack'), icon: 'fa-futbol', color: 'text-blue-500' }, { id: 'rivalSinBalon', label: t('matchReport.defense'), icon: 'fa-shield-halved', color: 'text-blue-500' }, { id: 'rivalAbp', label: t('matchReport.transitions'), icon: 'fa-bolt', color: 'text-emerald-500' }].map((block) => (
           <div key={block.id} className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-xl space-y-5 flex flex-col relative group hover:border-[var(--surface-3)] transition-all">
             <div className="flex justify-between items-center">
                 <div className={`text-[11px] font-black ${block.color} uppercase tracking-[0.2em] flex items-center gap-2`}><i className={`fa-solid ${block.icon}`}></i> {block.label}</div>
@@ -4690,6 +4738,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             )}
           </div>
         ))}
+        </div>
+        )}
       </div>
 
       {/* BLOQUE ABP */}

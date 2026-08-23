@@ -1888,11 +1888,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
             <button
               type="button"
               onClick={() => {
-                if (window.confirm("¿Borrar todo?")) {
-                  pushHistoryNow();
-                  setFrames([[]]);
-                  setCurrentFrameIndex(0);
-                }
+                pushHistoryNow();
+                setFrames([[]]);
+                setCurrentFrameIndex(0);
               }}
               className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-red-100 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-50"
             >

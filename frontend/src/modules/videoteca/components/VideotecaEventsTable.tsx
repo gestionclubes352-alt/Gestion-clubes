@@ -192,7 +192,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
-        <table className="w-full text-xs">
+        <table className="w-full text-[9px]">
           <thead className="bg-slate-100 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
             <tr>
               <th className="px-3 sm:px-5 py-2.5 sm:py-3 text-left text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
@@ -281,7 +281,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${typeInfo.color} ${typeInfo.bgColor}`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${typeInfo.color} ${typeInfo.bgColor}`}
                     >
                       {event.type === 'GOL' && <i className="fa-solid fa-futbol mr-1"></i>}
                       {event.type === 'OCASION' && <i className="fa-solid fa-bullseye mr-1"></i>}
@@ -293,7 +293,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {showLado ? (
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${
                           ladoFavor
                             ? 'text-green-700 bg-green-100 dark:bg-green-900/30'
                             : 'text-red-700 bg-red-100 dark:bg-red-900/30'
@@ -308,7 +308,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {event.type === 'DUELO' ? (
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${
                           event.duelOutcome === 'GANADO'
                             ? 'text-green-700 bg-green-100 dark:bg-green-900/30'
                             : 'text-red-700 bg-red-100 dark:bg-red-900/30'
@@ -321,10 +321,10 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                     )}
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
-                    <p className="text-xs max-w-md line-clamp-2">{jugadorDetalle}</p>
+                    <p className="text-[9px] max-w-md line-clamp-2">{jugadorDetalle}</p>
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
-                    <p className="text-xs max-w-md line-clamp-2">{notaDetalle}</p>
+                    <p className="text-[9px] max-w-md line-clamp-2">{notaDetalle}</p>
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {report?.videoUrl ? (
