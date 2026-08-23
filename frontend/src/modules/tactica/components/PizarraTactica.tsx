@@ -1524,6 +1524,119 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className={`fa-solid ${drawingMode ? 'fa-pen' : 'fa-pen'} mr-2 text-[11px]`} />
                 {drawingMode ? 'MODO FLECHA ON' : 'MODO FLECHA'}
               </button>
+              {/* Opciones de dibujo */}
+              {drawingTools.state.tool && (
+                <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-3">OPCIONES</p>
+
+                  {/* Color */}
+                  <div className="mb-3">
+                    <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                      Color
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={drawingTools.state.stroke}
+                        onChange={e => drawingTools.setStroke(e.target.value)}
+                        className="h-8 w-12 rounded-md border border-slate-200 cursor-pointer dark:border-white/10"
+                      />
+                      <span className="text-[11px] text-slate-600 dark:text-slate-400">{drawingTools.state.stroke}</span>
+                    </div>
+                  </div>
+
+                  {/* Grosor */}
+                  <div className="mb-3">
+                    <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                      Grosor: <span className="font-normal">{drawingTools.state.lineWidth}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={drawingTools.state.lineWidth}
+                      onChange={e => drawingTools.setLineWidth(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Opacidad */}
+                  <div className="mb-3">
+                    <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                      Opacidad: <span className="font-normal">{Math.round(drawingTools.state.opacity * 100)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={drawingTools.state.opacity}
+                      onChange={e => drawingTools.setOpacity(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Focus Style */}
+                  {drawingTools.state.tool === 'focus' && (
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                        Estilo Foco
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['abierto', 'estrecho', 'cilindrico'].map(style => (
+                          <button
+                            key={style}
+                            onClick={() => drawingTools.setFocusStyle(style as any)}
+                            className={`h-8 rounded-md border text-[10px] font-black uppercase transition-all ${
+                              drawingTools.state.focusStyle === style
+                                ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                                : 'border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
+                            }`}
+                          >
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Spotlight Style */}
+                  {drawingTools.state.tool === 'spotlight' && (
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                        Estilo Light
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['filled', 'outline', 'beams'].map(style => (
+                          <button
+                            key={style}
+                            onClick={() => drawingTools.setSpotlightStyle(style as any)}
+                            className={`h-8 rounded-md border text-[10px] font-black uppercase transition-all ${
+                              drawingTools.state.spotlightStyle === style
+                                ? 'border-blue-400/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
+                                : 'border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300'
+                            }`}
+                          >
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Undo Button */}
+                  <button
+                    onClick={drawingTools.undo}
+                    disabled={drawingTools.state.tool === null}
+                    className="col-span-2 w-full mt-3 h-9 rounded-md border border-slate-200 bg-white text-[11px] font-black uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                  >
+                    <i className="fa-solid fa-undo mr-2 text-[10px]" />
+                    Deshacer
+                  </button>
+                </div>
+              )}
+
+              {/* Color de Flechas */}
               <div className="flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 dark:border-white/10 dark:bg-[#1a1a1a]">
                 <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   Color
