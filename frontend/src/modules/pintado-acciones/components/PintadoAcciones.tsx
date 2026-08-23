@@ -34,6 +34,7 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
   const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string }>>([]);
   const [selectedEquipoId, setSelectedEquipoId] = useState<string>('');
   const [selectedPlayerForInsertion, setSelectedPlayerForInsertion] = useState<Player | null>(null);
+  const [showPlayers, setShowPlayers] = useState(true);
 
   // Obtener los equipos del club actual
   useEffect(() => {
@@ -196,6 +197,7 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
               </label>
             </div>
           </div>
+          <div className="topbar-title">PINTADO DE ACCIONES</div>
         </header>
 
         <main className="workspace">
@@ -254,6 +256,9 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
 
           {/* Panel central: lienzo */}
           <section className="stage-panel">
+            <div className="stage-title-container">
+              <h1 className="stage-title">PINTADO DE ACCIONES</h1>
+            </div>
             <div id="stageToolbarPanel" className="stage-toolbar">
               <div className="mode-pill">
                 <span className="mode-label">Fuente: <strong id="sourceLabel">YouTube</strong></span>
@@ -330,9 +335,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
               <div id="youtubePlayer" className="media-layer is-visible"></div>
               <img id="backgroundImage" className="media-layer" alt="Fotograma congelado" />
               <canvas id="annotationCanvas"></canvas>
-              <div className="stage-empty-state">
-                <h3>PINTADO DE ACCIONES</h3>
-              </div>
             </div>
 
             <div className="playback-panel">
@@ -565,43 +567,58 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
 
             {/* Sección de Jugadores */}
             <section className="panel-block">
-              <h2>Jugadores</h2>
-              {equipos.length > 0 && (
-                <div className="equipo-selector">
-                  <label htmlFor="equipoSelect" className="equipo-label">Equipo:</label>
-                  <select
-                    id="equipoSelect"
-                    className="equipo-select"
-                    value={selectedEquipoId}
-                    onChange={(e) => setSelectedEquipoId(e.target.value)}
-                  >
-                    {equipos.map((equipo) => (
-                      <option key={equipo.id} value={equipo.id}>
-                        {equipo.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {loadingSquad ? (
-                <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
-              ) : squad.length > 0 ? (
-                <div className="players-grid">
-                  {squad.map((player) => (
-                    <button
-                      key={player.id}
-                      type="button"
-                      className={`player-chip ${selectedPlayerForInsertion?.id === player.id ? 'is-selected' : ''}`}
-                      onClick={() => setSelectedPlayerForInsertion(selectedPlayerForInsertion?.id === player.id ? null : player)}
-                      title={selectedPlayerForInsertion?.id === player.id ? `Clic en el campo para insertar ${player.nombre}` : `Clic para insertar ${player.nombre} en el campo`}
-                    >
-                      <span className="dorsal">{player.dorsal}</span>
-                      <span className="nombre">{player.nombre}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
+              <div className="panel-block-header">
+                <h2>Jugadores</h2>
+                <button
+                  type="button"
+                  className="toggle-players-button"
+                  onClick={() => setShowPlayers((prev) => !prev)}
+                  aria-expanded={showPlayers}
+                  title={showPlayers ? 'Ocultar jugadores' : 'Mostrar jugadores'}
+                >
+                  {showPlayers ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
+              {showPlayers && (
+                <>
+                  {equipos.length > 0 && (
+                    <div className="equipo-selector">
+                      <label htmlFor="equipoSelect" className="equipo-label">Equipo:</label>
+                      <select
+                        id="equipoSelect"
+                        className="equipo-select"
+                        value={selectedEquipoId}
+                        onChange={(e) => setSelectedEquipoId(e.target.value)}
+                      >
+                        {equipos.map((equipo) => (
+                          <option key={equipo.id} value={equipo.id}>
+                            {equipo.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {loadingSquad ? (
+                    <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
+                  ) : squad.length > 0 ? (
+                    <div className="players-grid">
+                      {squad.map((player) => (
+                        <button
+                          key={player.id}
+                          type="button"
+                          className={`player-chip ${selectedPlayerForInsertion?.id === player.id ? 'is-selected' : ''}`}
+                          onClick={() => setSelectedPlayerForInsertion(selectedPlayerForInsertion?.id === player.id ? null : player)}
+                          title={selectedPlayerForInsertion?.id === player.id ? `Clic en el campo para insertar ${player.nombre}` : `Clic para insertar ${player.nombre} en el campo`}
+                        >
+                          <span className="dorsal">{player.dorsal}</span>
+                          <span className="nombre">{player.nombre}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
+                  )}
+                </>
               )}
             </section>
           </aside>
