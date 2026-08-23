@@ -9,6 +9,9 @@ import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import html2canvas from 'html2canvas-pro';
 import { fetchFile } from '@ffmpeg/util';
 import { getFFmpeg } from '@shared/utils/ffmpegClient';
+import ataqueImage from '@modules/pintado-acciones/assets/campos/ataque/campo.png?url';
+import defensaImage from '@modules/pintado-acciones/assets/campos/defensa/campo.png?url';
+import completoImage from '@modules/pintado-acciones/assets/campos/ataque/campo.png?url';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '1-3-4-3': [
@@ -54,11 +57,11 @@ const PITCH_ASPECT = 105 / 68;
 const FIELD_LINE_EDGE_PERCENT = 2.6;
 const PITCH_PLAYER_3D_LIFT_PX = 2;
 const FIELD_BACKGROUND = {
-  backgroundColor: '#2d7a34',
+  backgroundColor: '#132e1c',
   backgroundImage: [
-    'radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.10) 100%)',
-    'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 0 56px, rgba(0, 0, 0, 0.08) 56px 112px)',
-    'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 128px)',
+    'radial-gradient(ellipse 95% 90% at 50% 45%, rgba(46, 125, 50, 0.38) 0%, rgba(19, 46, 28, 0.7) 45%, rgba(3, 8, 5, 0.94) 100%)',
+    'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 0 56px, rgba(0, 0, 0, 0.14) 56px 112px)',
+    'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 128px)',
   ].join(', '),
   backgroundBlendMode: 'soft-light, multiply, normal',
 } as const;
@@ -1146,10 +1149,48 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
+  const [abpImageUrl, setAbpImageUrl] = useState<string | null>(null);
+  const [campoTipo, setCampoTipo] = useState<'ataque' | 'defensa' | 'completo'>('completo');
 
   useEffect(() => {
     getFFmpeg().catch(err => console.error('Error loading FFmpeg:', err));
   }, []);
+
+  // Configurar botones de CAMPOS
+  useEffect(() => {
+    const loadAtaqueBtn = document.getElementById('loadAtaque');
+    const loadDefensaBtn = document.getElementById('loadDefensa');
+    const loadCompletoBtn = document.getElementById('loadCompleto');
+
+    const handleAtaque = () => {
+      setAbpImageUrl(ataqueImage);
+      setCampoTipo('ataque');
+    };
+    const handleDefensa = () => {
+      setAbpImageUrl(defensaImage);
+      setCampoTipo('defensa');
+    };
+    const handleCompleto = () => {
+      setAbpImageUrl(completoImage);
+      setCampoTipo('completo');
+    };
+
+    if (loadAtaqueBtn) {
+      loadAtaqueBtn.addEventListener('click', handleAtaque);
+    }
+    if (loadDefensaBtn) {
+      loadDefensaBtn.addEventListener('click', handleDefensa);
+    }
+    if (loadCompletoBtn) {
+      loadCompletoBtn.addEventListener('click', handleCompleto);
+    }
+
+    return () => {
+      if (loadAtaqueBtn) loadAtaqueBtn.removeEventListener('click', handleAtaque);
+      if (loadDefensaBtn) loadDefensaBtn.removeEventListener('click', handleDefensa);
+      if (loadCompletoBtn) loadCompletoBtn.removeEventListener('click', handleCompleto);
+    };
+  }, [ataqueImage, defensaImage, completoImage]);
 
   const downloadImage = async () => {
     if (!pitchRef.current) return;
@@ -1290,14 +1331,20 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </button>
               <button
                 onClick={() => {
-                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined, playerFotoUrl: undefined })));
+                  const nextVisible = !(showMyTeam && showRivalTeam);
+                  setShowMyTeam(nextVisible);
+                  setShowRivalTeam(nextVisible);
                   setSelectedPitchIds([]);
                   setSelectedSquadPlayerId(null);
                 }}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.13em] text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.13em] transition-all ${
+                  showMyTeam && showRivalTeam
+                    ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                    : 'border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]'
+                }`}
               >
-                <i className="fa-solid fa-broom mr-2 text-[11px]" />
-                QUITAR JUGADORES
+                <i className={`fa-solid ${showMyTeam && showRivalTeam ? 'fa-broom' : 'fa-eye'} mr-2 text-[11px]`} />
+                {showMyTeam && showRivalTeam ? 'QUITAR JUGADORES' : 'MOSTRAR JUGADORES'}
               </button>
               <button
                 type="button"
@@ -1384,6 +1431,61 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
                 BORRAR FLECHAS
               </button>
+
+              {/* CAMPOS Section */}
+              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-2">CAMPOS</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    id="loadAtaque"
+                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    type="button"
+                    title="Cargar posición de ataque"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
+                      <path d="M12 3v14"></path>
+                      <path d="M2 10h20"></path>
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                    Ataque
+                  </button>
+                  <button
+                    id="loadDefensa"
+                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    type="button"
+                    title="Cargar posición de defensa"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
+                      <path d="M12 3v14"></path>
+                      <path d="M2 10h20"></path>
+                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                    Defensa
+                  </button>
+                  <button
+                    id="loadCompleto"
+                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    type="button"
+                    title="Cargar campo completo"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
+                      <path d="M12 3v14"></path>
+                      <path d="M2 10h20"></path>
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
+                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
+                      <circle cx="16" cy="8" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                    Completo
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1620,7 +1722,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     <div className="pointer-events-none absolute inset-0 z-[2] rounded-[14px] bg-[linear-gradient(115deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.03)_26%,transparent_48%,rgba(0,0,0,0.18)_100%)]" />
                   </>
                 )}
-                {showFieldLines && (
+                {showFieldLines && !abpImageUrl && (
                 <svg
                   className="absolute inset-0 h-full w-full opacity-95 pointer-events-none"
                   viewBox="0 0 100 100"
@@ -1635,12 +1737,30 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     <circle cx="50" cy="50" r="0.38" fill="#ffffff" stroke="none" />
                     <circle cx="50" cy="12" r="0.38" fill="#ffffff" stroke="none" />
                     <circle cx="50" cy="88" r="0.38" fill="#ffffff" stroke="none" />
-                    <rect x="37" y="2.6" width="26" height="11.5" />
-                    <rect x="27" y="2.6" width="46" height="20.5" />
-                    <rect x="37" y="85.9" width="26" height="11.5" />
-                    <rect x="27" y="76.9" width="46" height="20.5" />
+                    {campoTipo !== 'defensa' && (
+                      <>
+                        <rect x="37" y="2.6" width="26" height="11.5" />
+                        <rect x="27" y="2.6" width="46" height="20.5" />
+                      </>
+                    )}
+                    {campoTipo !== 'ataque' && (
+                      <>
+                        <rect x="37" y="85.9" width="26" height="11.5" />
+                        <rect x="27" y="76.9" width="46" height="20.5" />
+                      </>
+                    )}
                   </g>
                 </svg>
+                )}
+
+                {/* ABP Image Layer */}
+                {abpImageUrl && (
+                  <img
+                    src={abpImageUrl}
+                    alt="ABP"
+                    className="absolute inset-0 h-full w-full object-cover rounded-[14px] opacity-85 pointer-events-none"
+                    style={is3DView ? { transform: 'translateZ(8px)' } : undefined}
+                  />
                 )}
 
                 <svg
@@ -2178,28 +2298,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           <i className="fa-solid fa-image mr-2 text-[11px]" />
                           {showPlayerPhotos ? 'OCULTAR FOTOS' : 'FOTOS JUGADORES'}
                         </button>
-                      )}
-
-                      {showPlayerPhotos && squad.length > 0 && (
-                        <div className="mt-3 grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
-                          {squad.map(player => (
-                            <div key={player.id} className="flex flex-col items-center gap-1">
-                              <div className="w-16 h-16 rounded-lg overflow-hidden border border-red-200 bg-red-50 flex items-center justify-center dark:border-red-500/20 dark:bg-red-500/10">
-                                {player.fotoUrl && player.fotoUrl.length > 1 ? (
-                                  <img src={player.fotoUrl} alt={player.nombre} className="w-full h-full object-cover" />
-                                ) : (
-                                  <span className="text-[20px] font-black text-red-600 dark:text-red-300">{(player.apodo || player.nombre).slice(0, 1).toUpperCase()}</span>
-                                )}
-                              </div>
-                              <span className="text-[9px] font-black text-red-600 text-center truncate w-full px-0.5 dark:text-red-300">
-                                {player.dorsal ? `#${player.dorsal}` : '-'}
-                              </span>
-                              <span className="text-[8px] text-red-500 text-center truncate w-full px-0.5 dark:text-red-300/70">
-                                {(player.apodo || player.nombre).slice(0, 8)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
                       )}
                     </div>
                   </div>
