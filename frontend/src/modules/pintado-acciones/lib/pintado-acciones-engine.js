@@ -39,14 +39,19 @@ const exportOverlayButton = document.getElementById("exportOverlay");
 const quickInsertChips = document.querySelectorAll(".quick-insert-chip");
 const collapsiblePanels = document.querySelectorAll("[data-collapsible]");
 
+if (!canvas) {
+  console.error("Canvas element not found. PintadoAcciones cannot initialize.");
+  return () => {};
+}
+
 const ctx = canvas.getContext("2d");
 let youtubeApiReadyPromise = null;
 let statusHideTimeoutId = 0;
 const state = {
   tool: "pen",
-  stroke: strokeColorInput.value,
-  fill: fillColorInput.value,
-  lineWidth: Number(lineWidthInput.value),
+  stroke: strokeColorInput?.value || "#dd145f",
+  fill: fillColorInput?.value || "#17307a",
+  lineWidth: Number(lineWidthInput?.value || 4),
   annotations: [],
   drawing: null,
   sourceMode: "youtube",
@@ -2065,8 +2070,8 @@ async function ensurePlayer(videoId, options = {}) {
   });
 }
 
-loadYoutubeButton.addEventListener("click", async () => {
-  const youtubeInput = parseYouTubeInput(youtubeUrlInput.value);
+loadYoutubeButton?.addEventListener("click", async () => {
+  const youtubeInput = parseYouTubeInput(youtubeUrlInput?.value || "");
   if (!youtubeInput?.videoId) {
     window.alert("Introduce una URL valida de YouTube o un ID de video.");
     return;
@@ -2109,7 +2114,7 @@ togglePlaybackButton?.addEventListener("click", () => {
   }
 });
 
-toggleDrawModeButton.addEventListener("click", () => {
+toggleDrawModeButton?.addEventListener("click", () => {
   if (state.sourceMode === "image") {
     setDrawEnabled(true);
     setStatus("Modo dibujo activo sobre la imagen congelada.");
@@ -2130,7 +2135,7 @@ toggleDrawModeButton.addEventListener("click", () => {
   }
 });
 
-freezeHintButton.addEventListener("click", async () => {
+freezeHintButton?.addEventListener("click", async () => {
   if (state.sourceMode === "youtube" && !hasLoadedBackgroundImage()) {
     await captureVideoFrame();
     if (!hasLoadedBackgroundImage()) {
@@ -2181,7 +2186,7 @@ function loadImageBlob(blob) {
   });
 }
 
-imageUploadInput.addEventListener("change", (event) => {
+imageUploadInput?.addEventListener("change", (event) => {
   const [file] = event.target.files || [];
   loadImageBlob(file);
 });
@@ -2225,15 +2230,15 @@ quickInsertChips.forEach((chip) => {
 duplicateAnnotationButton?.addEventListener("click", duplicateSelectedAnnotation);
 deleteAnnotationButton?.addEventListener("click", deleteSelectedAnnotation);
 
-strokeColorInput.addEventListener("input", (event) => {
+strokeColorInput?.addEventListener("input", (event) => {
   state.stroke = event.target.value;
 });
 
-fillColorInput.addEventListener("input", (event) => {
+fillColorInput?.addEventListener("input", (event) => {
   state.fill = event.target.value;
 });
 
-lineWidthInput.addEventListener("input", (event) => {
+lineWidthInput?.addEventListener("input", (event) => {
   state.lineWidth = Number(event.target.value);
 });
 
@@ -2257,11 +2262,11 @@ spotlightStyleButtons.forEach((button) => {
   });
 });
 
-sizeControlInput.addEventListener("input", (event) => {
+sizeControlInput?.addEventListener("input", (event) => {
   const targetIndex = state.selectedAnnotationIndex;
   const hasSelection = targetIndex >= 0 && targetIndex < state.annotations.length && state.resizeBaseline;
   const scaleFactor = Number(event.target.value) / 100;
-  sizeValue.textContent = `${Math.round(scaleFactor * 100)}%`;
+  if (sizeValue) sizeValue.textContent = `${Math.round(scaleFactor * 100)}%`;
 
   if (!hasSelection) {
     return;
@@ -2272,12 +2277,12 @@ sizeControlInput.addEventListener("input", (event) => {
 });
 
 let _opacityHistoryPushed = false;
-opacityControlInput.addEventListener("pointerdown", () => {
+opacityControlInput?.addEventListener("pointerdown", () => {
   _opacityHistoryPushed = false;
 });
-opacityControlInput.addEventListener("input", (event) => {
+opacityControlInput?.addEventListener("input", (event) => {
   const value = Number(event.target.value) / 100;
-  opacityValueEl.textContent = `${event.target.value}%`;
+  if (opacityValueEl) opacityValueEl.textContent = `${event.target.value}%`;
   const targetIndex = state.selectedAnnotationIndex;
   const hasSelection = targetIndex >= 0 && targetIndex < state.annotations.length;
   if (hasSelection) {
@@ -2292,7 +2297,7 @@ opacityControlInput.addEventListener("input", (event) => {
   }
 });
 
-undoActionButton.addEventListener("click", () => {
+undoActionButton?.addEventListener("click", () => {
   if (state.history.length === 0) return;
   state.annotations = state.history.pop();
   state.drawing = null;
