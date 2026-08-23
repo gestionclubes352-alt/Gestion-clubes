@@ -656,3 +656,177 @@ ul, ol {
   .py-4 { @apply py-2; }
   .gap-3 { @apply gap-1; }
 }
+
+/* ============================================================================
+   DRAWING TOOLS: Tool buttons for Pizarra Táctica (matching Pintado Acciones)
+   ============================================================================ */
+
+.tool-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 18px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.tool-rail {
+  width: 100%;
+  padding: 10px 8px 12px;
+  border-radius: 16px;
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.tool-grid-2col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 4px;
+}
+
+.tool-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  color: #333333;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.tool-divider-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #000000;
+}
+
+.tool-button {
+  position: relative;
+  width: 100%;
+  min-height: 72px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 10px 4px 7px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 160ms ease;
+  color: #333333;
+}
+
+.tool-button:hover {
+  transform: translateY(-1px);
+}
+
+.tool-button.is-active {
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+}
+
+.tool-button.is-active::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.tool-button svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: #333333;
+}
+
+.tool-button.is-active svg {
+  color: #ffffff;
+}
+
+.tool-button svg .solid {
+  fill: currentColor;
+  stroke: none;
+}
+
+.tool-label {
+  font-size: 0.62rem;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  color: #333333;
+  text-align: center;
+}
+
+.tool-button.is-active .tool-label {
+  color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tool-panel {
+    background: rgba(26, 26, 26, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .tool-rail {
+    background: #2a2a2a;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .tool-divider {
+    color: #999999;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .tool-divider-dot {
+    background: #ffffff;
+  }
+
+  .tool-button {
+    color: #e0e0e0;
+  }
+
+  .tool-button svg {
+    color: #e0e0e0;
+  }
+
+  .tool-button:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .tool-button.is-active {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .tool-button.is-active svg {
+    color: #000000;
+  }
+
+  .tool-button.is-active .tool-label {
+    color: #000000;
+  }
+
+  .tool-label {
+    color: #e0e0e0;
+  }
+}
