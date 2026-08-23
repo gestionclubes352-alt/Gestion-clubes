@@ -1533,6 +1533,18 @@
   transform: translateY(0);
 }
 
+.pintado-acciones-app .player-chip.is-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(221, 20, 95, 0.2);
+}
+
+.pintado-acciones-app .player-chip.is-selected .dorsal,
+.pintado-acciones-app .player-chip.is-selected .nombre {
+  color: #ffffff;
+}
+
 .pintado-acciones-app .player-chip .dorsal {
   font-weight: 700;
   font-size: 1.1rem;

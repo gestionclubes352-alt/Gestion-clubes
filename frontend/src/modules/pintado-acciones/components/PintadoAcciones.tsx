@@ -33,6 +33,7 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
   const [ownEquipoId, setOwnEquipoId] = useState<string>('');
   const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string }>>([]);
   const [selectedEquipoId, setSelectedEquipoId] = useState<string>('');
+  const [selectedPlayerForInsertion, setSelectedPlayerForInsertion] = useState<Player | null>(null);
 
   // Obtener los equipos del club actual
   useEffect(() => {
@@ -85,6 +86,41 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
       }
     })();
   }, [propsOwnEquipoId, selectedEquipoId]);
+
+  // Manejar inserción de jugador al hacer clic en el canvas
+  useEffect(() => {
+    if (!selectedPlayerForInsertion) return;
+
+    const canvas = document.getElementById('annotationCanvas') as HTMLCanvasElement;
+    if (!canvas) return;
+
+    const handleCanvasClick = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Insertar el dorsal del jugador en la posición del clic
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#dd145f';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(selectedPlayerForInsertion.dorsal), x, y);
+      }
+
+      // Deseleccionar el jugador después de la inserción
+      setSelectedPlayerForInsertion(null);
+    };
+
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.style.cursor = 'crosshair';
+
+    return () => {
+      canvas.removeEventListener('click', handleCanvasClick);
+      canvas.style.cursor = 'default';
+    };
+  }, [selectedPlayerForInsertion]);
 
   useEffect(() => {
     let destroy: (() => void) | undefined;
@@ -598,16 +634,9 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     <button
                       key={player.id}
                       type="button"
-                      className="player-chip"
-                      onClick={() => {
-                        const quickInsertChips = document.querySelectorAll('.quick-insert-chip');
-                        quickInsertChips.forEach(chip => {
-                          if (chip.getAttribute('data-insert-text') === String(player.dorsal)) {
-                            (chip as HTMLElement).click();
-                          }
-                        });
-                      }}
-                      title={`${player.nombre} (${player.dorsal})`}
+                      className={`player-chip ${selectedPlayerForInsertion?.id === player.id ? 'is-selected' : ''}`}
+                      onClick={() => setSelectedPlayerForInsertion(selectedPlayerForInsertion?.id === player.id ? null : player)}
+                      title={selectedPlayerForInsertion?.id === player.id ? `Clic en el campo para insertar ${player.nombre}` : `Clic para insertar ${player.nombre} en el campo`}
                     >
                       <span className="dorsal">{player.dorsal}</span>
                       <span className="nombre">{player.nombre}</span>
