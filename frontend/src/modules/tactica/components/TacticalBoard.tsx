@@ -129,13 +129,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
   const spacingFactor = 1.3;
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
   const fieldBackground = {
-    backgroundColor: '#1e8449',
-    backgroundImage: [
-      'radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.10) 0%, rgba(0, 0, 0, 0.05) 42%, rgba(0, 0, 0, 0.18) 100%)',
-      'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 0 56px, rgba(0, 0, 0, 0.06) 56px 112px)',
-      'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 128px)',
-    ].join(', '),
-    backgroundBlendMode: 'soft-light, multiply, normal',
+    backgroundColor: '#f5f5f5',
   } as const;
 
   return (
@@ -145,39 +139,6 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
       <div className="w-full flex-1 min-h-125 flex flex-col">
         <div className="relative flex-1 rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center p-4 md:p-8 border-[6px] md:border-12 border-white/5 overflow-hidden" style={fieldBackground}>
 
-          {/* Líneas del campo */}
-          <div className="absolute inset-0 pointer-events-none p-4 md:p-6 opacity-62">
-            <svg
-              className="w-full h-full"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              shapeRendering="geometricPrecision"
-              aria-hidden="true"
-            >
-              <g
-                fill="none"
-                stroke="#ffffff"
-                strokeOpacity="0.84"
-                strokeWidth="0.32"
-                vectorEffect="non-scaling-stroke"
-              >
-                <rect x="2.6" y="2.6" width="94.8" height="94.8" />
-                <line x1="2.6" y1="50" x2="97.4" y2="50" />
-
-                <circle cx="50" cy="50" r="11.5" />
-                <circle cx="50" cy="50" r="0.38" fill="#ffffff" stroke="none" />
-
-                <circle cx="50" cy="12" r="0.38" fill="#ffffff" stroke="none" />
-                <circle cx="50" cy="88" r="0.38" fill="#ffffff" stroke="none" />
-
-                <rect x="37" y="2.6" width="26" height="11.5" />
-                <rect x="27" y="2.6" width="46" height="20.5" />
-
-                <rect x="37" y="85.9" width="26" height="11.5" />
-                <rect x="27" y="76.9" width="46" height="20.5" />
-              </g>
-            </svg>
-          </div>
 
           {/* Posiciones e Interacción */}
           <div className="absolute inset-4 md:inset-6 z-10">
@@ -205,7 +166,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         {displayPlayers.map((p) => (
                           <div
                             key={p.id}
-                            className="flex items-center gap-2 py-1 border-b border-white/10 last:border-b-0"
+                            className="relative flex items-center gap-2 py-1 pl-4 border-b border-white/10 last:border-b-0"
                           >
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/20 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
                               {p.fotoUrl && p.fotoUrl.length > 1 ? (
@@ -224,7 +185,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                             </div>
                             <button
                               onClick={(e) => { e.stopPropagation(); onRemovePlayer(pos.id, p.id); }}
-                              className="ml-1 w-4 h-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center shrink-0 transition-all"
+                              className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center shrink-0 transition-all"
                               title="Quitar jugador del campo"
                             >
                               <i className="fa-solid fa-xmark text-white text-[7px]"></i>

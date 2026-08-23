@@ -4,8 +4,8 @@
  */
 
 // Importar las imágenes directamente
-import ataqueImage from '../assets/campos/ataque/campo.svg';
-import defensaImage from '../assets/campos/defensa/campo.svg';
+import ataqueImage from '../assets/campos/ataque/campo.png?url';
+import defensaImage from '../assets/campos/defensa/campo.png?url';
 
 export function initializeABPLoader() {
   console.log('ABP: Inicializando ABP Loader...');
@@ -45,14 +45,7 @@ export function initializeABPLoader() {
   });
 
   function loadFieldImage(type) {
-    const imageUrl = type === 'ataque' ? ataqueImage : defensaImage;
-
-    if (!imageUrl) {
-      console.warn(`ABP: No se encontró imagen para tipo "${type}"`);
-      return;
-    }
-
-    console.log(`ABP: Cargando imagen de ${type} desde:`, imageUrl);
+    console.log(`ABP: Limpiando imagen de fondo para ${type}`);
 
     // Ocultar cualquier video anterior
     const youtubePlayer = document.getElementById('youtubePlayer');
@@ -60,22 +53,14 @@ export function initializeABPLoader() {
       youtubePlayer.classList.remove('is-visible');
     }
 
-    // Cargar la imagen de fondo en el canvas
-    backgroundImage.src = imageUrl;
-    backgroundImage.classList.add('is-visible');
+    // No cargar imagen de fondo - dejar en blanco
+    backgroundImage.src = '';
+    backgroundImage.classList.remove('is-visible');
 
-    // Esperar a que la imagen se cargue
-    backgroundImage.onload = () => {
-      console.log(`ABP: Imagen de ${type} cargada exitosamente`);
-    };
-
-    backgroundImage.onerror = () => {
-      console.error(`ABP: Error al cargar imagen de ${type} desde:`, imageUrl);
-    };
-
-    // Hacer visible el lienzo y mostrar la imagen
+    // Hacer visible el lienzo sin imagen de fondo
     if (stage) {
       stage.classList.add('abp-mode');
+      stage.style.backgroundColor = '#f5f5f5';
     }
 
     // Cambiar etiqueta de fuente
