@@ -31,17 +31,22 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
   const [squad, setSquad] = useState<Player[]>([]);
   const [loadingSquad, setLoadingSquad] = useState(false);
   const [ownEquipoId, setOwnEquipoId] = useState<string>('');
+  const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [selectedEquipoId, setSelectedEquipoId] = useState<string>('');
 
-  // Obtener el equipo del club actual
+  // Obtener los equipos del club actual
   useEffect(() => {
     if (!ownClubId) return;
 
     (async () => {
       try {
-        const equipos = await equiposService.list({ club_id: ownClubId });
-        if (equipos && equipos.length > 0) {
+        const equiposList = await equiposService.list({ club_id: ownClubId });
+        if (equiposList && equiposList.length > 0) {
+          // Guardar lista de equipos para el filtro
+          setEquipos(equiposList.map((e: any) => ({ id: e.id, nombre: e.sub_equipo || e.nombre })));
           // Seleccionar el primer equipo como predeterminado
-          setOwnEquipoId(equipos[0].id);
+          setOwnEquipoId(equiposList[0].id);
+          setSelectedEquipoId(equiposList[0].id);
         }
       } catch (err) {
         console.error('Error cargando equipos:', err);
@@ -49,9 +54,9 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
     })();
   }, [ownClubId]);
 
-  // Cargar jugadores del equipo actual
+  // Cargar jugadores del equipo seleccionado
   useEffect(() => {
-    const equipoId = propsOwnEquipoId || ownEquipoId;
+    const equipoId = propsOwnEquipoId || selectedEquipoId;
     if (!equipoId) return;
 
     (async () => {
@@ -79,7 +84,7 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
         setLoadingSquad(false);
       }
     })();
-  }, [propsOwnEquipoId, ownEquipoId]);
+  }, [propsOwnEquipoId, selectedEquipoId]);
 
   useEffect(() => {
     let destroy: (() => void) | undefined;
@@ -253,37 +258,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     <span>Defensa</span>
                   </button>
                 </div>
-              </section>
-
-              <section className="panel-block">
-                <h2>Jugadores</h2>
-                {loadingSquad ? (
-                  <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
-                ) : squad.length > 0 ? (
-                  <div className="players-grid">
-                    {squad.map((player) => (
-                      <button
-                        key={player.id}
-                        type="button"
-                        className="player-chip"
-                        onClick={() => {
-                          const quickInsertChips = document.querySelectorAll('.quick-insert-chip');
-                          quickInsertChips.forEach(chip => {
-                            if (chip.getAttribute('data-insert-text') === String(player.dorsal)) {
-                              (chip as HTMLElement).click();
-                            }
-                          });
-                        }}
-                        title={`${player.nombre} (${player.dorsal})`}
-                      >
-                        <span className="dorsal">{player.dorsal}</span>
-                        <span className="nombre">{player.nombre}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
-                )}
               </section>
             </div>
           </aside>
@@ -594,6 +568,55 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                   </button>
                 </div>
               </div>
+            </section>
+
+            {/* Sección de Jugadores */}
+            <section className="panel-block">
+              <h2>Jugadores</h2>
+              {equipos.length > 0 && (
+                <div className="equipo-selector">
+                  <label htmlFor="equipoSelect" className="equipo-label">Equipo:</label>
+                  <select
+                    id="equipoSelect"
+                    className="equipo-select"
+                    value={selectedEquipoId}
+                    onChange={(e) => setSelectedEquipoId(e.target.value)}
+                  >
+                    {equipos.map((equipo) => (
+                      <option key={equipo.id} value={equipo.id}>
+                        {equipo.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {loadingSquad ? (
+                <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
+              ) : squad.length > 0 ? (
+                <div className="players-grid">
+                  {squad.map((player) => (
+                    <button
+                      key={player.id}
+                      type="button"
+                      className="player-chip"
+                      onClick={() => {
+                        const quickInsertChips = document.querySelectorAll('.quick-insert-chip');
+                        quickInsertChips.forEach(chip => {
+                          if (chip.getAttribute('data-insert-text') === String(player.dorsal)) {
+                            (chip as HTMLElement).click();
+                          }
+                        });
+                      }}
+                      title={`${player.nombre} (${player.dorsal})`}
+                    >
+                      <span className="dorsal">{player.dorsal}</span>
+                      <span className="nombre">{player.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
+              )}
             </section>
           </aside>
         </main>

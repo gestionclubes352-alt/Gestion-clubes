@@ -1462,11 +1462,47 @@
 }
 
 /* Estilos para la sección de Jugadores */
+.pintado-acciones-app .equipo-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pintado-acciones-app .equipo-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.pintado-acciones-app .equipo-select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #ffffff;
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pintado-acciones-app .equipo-select:hover {
+  border-color: var(--accent);
+}
+
+.pintado-acciones-app .equipo-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(221, 20, 95, 0.1);
+}
+
 .pintado-acciones-app .players-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
