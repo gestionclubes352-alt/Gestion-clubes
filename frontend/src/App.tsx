@@ -985,9 +985,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       team: event.team || currentTeam?.name || '',
       clubId: currentTeam?.id || event.clubId || '',
     };
+    // Guardamos el estado previo para poder revertir el update optimista si el guardado falla.
+    let previousEvent: CalendarEvent | undefined;
+    let wasNew = false;
     setEventsList(prev => {
-      const exists = prev.find(e => String(e.id) === eventId);
-      if (exists) return prev.map(e => String(e.id) === eventId ? eventWithClub : e);
+      previousEvent = prev.find(e => String(e.id) === eventId);
+      wasNew = !previousEvent;
+      if (previousEvent) return prev.map(e => String(e.id) === eventId ? eventWithClub : e);
       return [eventWithClub, ...prev];
     });
 
@@ -997,8 +1001,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
 
     try {
       const row = calendarEventToRow(eventWithClub);
-      console.log('Guardando evento:', row);
-      console.log('Event con club:', eventWithClub);
 
       // Validar que el evento tiene los campos requeridos
       if (!row.id) throw new Error('El evento debe tener un ID');
@@ -1006,19 +1008,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       if (!row.date) throw new Error('El evento debe tener una fecha');
       if (!row.type) throw new Error('El evento debe tener un tipo');
 
-      console.log('Validación pasada, llamando a upsert...');
-      const result = await eventosCalendarioService.upsert(row);
-      console.log('Resultado del upsert:', result);
+      await eventosCalendarioService.upsert(row);
       setShowStatus("Guardado correctamente");
+      setTimeout(() => setShowStatus(null), 2000);
     } catch (err) {
       console.error("Error guardando evento:", err);
-      console.error("Stack:", err instanceof Error ? err.stack : 'N/A');
       console.error("Evento que falló:", eventWithClub);
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      console.error("Mensaje de error:", errorMsg);
-      setShowStatus(`Error al sincronizar: ${errorMsg}`);
+      // El guardado falló de verdad: revertir el estado optimista para no mostrar
+      // un evento que en realidad no se ha persistido en la BD.
+      setEventsList(prev => {
+        if (wasNew) return prev.filter(e => String(e.id) !== eventId);
+        return previousEvent ? prev.map(e => String(e.id) === eventId ? previousEvent! : e) : prev;
+      });
+      setShowStatus(null);
+      alert(`No se pudo guardar el evento "${eventWithClub.title}".\n\nError: ${errorMsg}\n\nEl evento no se ha guardado, vuelve a intentarlo.`);
     }
-    setTimeout(() => setShowStatus(null), 2000);
   };
 
   const handleSaveEventAndViewReport = async (event: CalendarEvent) => {

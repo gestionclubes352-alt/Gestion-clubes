@@ -711,6 +711,8 @@
     "removePlayer": "Remove",
     "noPlayers": "No players",
     "absences": "ABSENCES",
+    "playersRosterTitle": "PLAYERS",
+    "notCalledUp": "NOT CALLED UP",
     "staffRoles": "STAFF ROLES",
     "staffRolesPlaceholder": "Describe the staff roles for this session...",
     "notesTitle": "NOTES",

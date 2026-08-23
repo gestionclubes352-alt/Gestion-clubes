@@ -164,9 +164,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [is3DView, setIs3DView] = useState(false);
-  const [ball, setBall] = useState<Ball>({ x: 50, y: 75 });
+  const [ballFrames, setBallFrames] = useState<Ball[]>([{ x: 50, y: 75 }]);
   const [draggingBall, setDraggingBall] = useState(false);
-  const mode = is3DView ? 'Vista 3D' : 'Normal';
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const frameDurationMs = FRAME_DURATION_MS / playbackSpeed;
   const [myTeamColor, setMyTeamColor] = useState(MY_TEAM_COLOR);
   const [rivalTeamColor, setRivalTeamColor] = useState(RIVAL_TEAM_COLOR);
   const [arrows, setArrows] = useState<TacticalArrow[]>([]);
@@ -193,7 +194,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     setOnStateRestore((state: any) => {
       if (state.frames) setFrames(state.frames);
       if (state.arrows) setArrows(state.arrows);
-      if (state.ball) setBall(state.ball);
+      if (Array.isArray(state.ballFrames) && state.ballFrames.length) {
+        setBallFrames(state.ballFrames);
+      } else if (state.ball) {
+        setBallFrames((state.frames ?? [[]]).map(() => state.ball));
+      }
     });
   }, [setOnStateRestore]);
 
@@ -213,29 +218,34 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         eventsList: [],
         frames,
         arrows: next,
-        ball,
+        ballFrames,
       });
 
       return next;
     });
   };
 
-  // Wrapper para registrar cambios en ball
+  // Wrapper para registrar cambios en la posición del balón del fotograma actual
   const updateBall = (newBall: Ball) => {
-    setBall(newBall);
+    setBallFrames(prev => {
+      const next = [...prev];
+      next[currentFrameIndex] = newBall;
 
-    // Registrar cambio en el historial
-    pushState({
-      squadList: squad,
-      usersList: [],
-      personalList: [],
-      competitionTeams: [],
-      clubesList: [],
-      campogramasList: [],
-      eventsList: [],
-      frames,
-      arrows,
-      ball: newBall,
+      // Registrar cambio en el historial
+      pushState({
+        squadList: squad,
+        usersList: [],
+        personalList: [],
+        competitionTeams: [],
+        clubesList: [],
+        campogramasList: [],
+        eventsList: [],
+        frames,
+        arrows,
+        ballFrames: next,
+      });
+
+      return next;
     });
   };
 
@@ -253,6 +263,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, [selectedArrowId]);
 
   const pitchPlayers = frames[currentFrameIndex] ?? [];
+  const ball = ballFrames[currentFrameIndex] ?? { x: 50, y: 75 };
   const updatePitchPlayers = (updater: PitchPlayer[] | ((prev: PitchPlayer[]) => PitchPlayer[])) => {
     setFrames(prev => {
       const next = [...prev];
@@ -270,7 +281,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         eventsList: [],
         frames: next,
         arrows,
-        ball,
+        ballFrames,
       });
 
       return next;
@@ -413,6 +424,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const myTeam = buildTeamPlayers(myFormation, 'my');
     const rivalTeam = buildTeamPlayers(rivalFormation, 'rival');
     setFrames([[...myTeam, ...rivalTeam]]);
+    setBallFrames([{ x: 50, y: 75 }]);
     setCurrentFrameIndex(0);
   }, [myFormation, rivalFormation, buildTeamPlayers]);
 
@@ -426,9 +438,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         }
         return prev + 1;
       });
-    }, FRAME_DURATION_MS);
+    }, frameDurationMs);
     return () => clearInterval(interval);
-  }, [isPlaying, frames.length]);
+  }, [isPlaying, frames.length, frameDurationMs]);
 
   useEffect(() => {
     const node = pitchStageRef.current;
@@ -996,10 +1008,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     }
 
     const newFrames = [[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]];
+    const newBallFrames = [{ x: 50, y: 75 }];
     const datos = {
       frames: newFrames,
       arrows: [],
-      ball: { x: 50, y: 75 },
+      ballFrames: newBallFrames,
       myFormation,
       rivalFormation,
       myTeamColor,
@@ -1025,7 +1038,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       });
       setSelectedBoardId(created.id);
       setArrows([]);
-      setBall({ x: 50, y: 75 });
+      setBallFrames(newBallFrames);
       setSelectedArrowId(null);
       clearPitchSelection();
       setCurrentFrameIndex(0);
@@ -1051,7 +1064,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const datos = {
       frames,
       arrows,
-      ball,
+      ballFrames,
       myFormation,
       rivalFormation,
       myTeamColor,
@@ -1094,7 +1107,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     if (Array.isArray(datos.frames) && datos.frames.length) setFrames(datos.frames);
     setCurrentFrameIndex(0);
     setArrows(Array.isArray(datos.arrows) ? datos.arrows : []);
-    setBall(datos.ball ?? { x: 50, y: 75 });
+    if (Array.isArray(datos.ballFrames) && datos.ballFrames.length) {
+      setBallFrames(datos.ballFrames);
+    } else {
+      const frameCount = Array.isArray(datos.frames) && datos.frames.length ? datos.frames.length : 1;
+      const fallbackBall = datos.ball ?? { x: 50, y: 75 };
+      setBallFrames(Array.from({ length: frameCount }, () => ({ ...fallbackBall })));
+    }
     if (datos.myFormation) setMyFormation(datos.myFormation);
     if (datos.rivalFormation) setRivalFormation(datos.rivalFormation);
     if (datos.myTeamColor) setMyTeamColor(datos.myTeamColor);
@@ -1261,14 +1280,24 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               <button
                 type="button"
                 onClick={() => setShowPlayerNumbers(v => !v)}
-                className={`col-span-2 h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
                   showPlayerNumbers
                     ? 'border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]'
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
                 }`}
               >
-                <i className={`fa-solid ${showPlayerNumbers ? 'fa-hashtag' : 'fa-minus'} mr-2 text-[11px]`} />
-                {showPlayerNumbers ? 'NÚMEROS ON' : 'NÚMEROS OFF'}
+                {showPlayerNumbers ? 'NUM. ON' : 'NUM. OFF'}
+              </button>
+              <button
+                onClick={() => {
+                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined, playerFotoUrl: undefined })));
+                  setSelectedPitchIds([]);
+                  setSelectedSquadPlayerId(null);
+                }}
+                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.13em] text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              >
+                <i className="fa-solid fa-broom mr-2 text-[11px]" />
+                QUITAR JUGADORES
               </button>
               <button
                 type="button"
@@ -1356,20 +1385,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 BORRAR FLECHAS
               </button>
             </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <button
-                onClick={() => {
-                  updatePitchPlayers(prev => prev.map(p => ({ ...p, playerId: undefined, playerName: undefined, playerInitials: undefined, playerDorsal: undefined, playerFotoUrl: undefined })));
-                  setSelectedPitchIds([]);
-                  setSelectedSquadPlayerId(null);
-                }}
-                className="h-12 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.13em] text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-              >
-                <i className="fa-solid fa-broom mr-2 text-[11px]" />
-                QUITAR JUGADORES
-              </button>
-            </div>
           </div>
         </div>
       </aside>
@@ -1410,15 +1425,55 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             onClick={() => {
               const newIndex = frames.length;
               setFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(p => ({ ...p }))]);
+              setBallFrames(prev => [...prev, { ...(prev[currentFrameIndex] ?? { x: 50, y: 75 }) }]);
               setCurrentFrameIndex(newIndex);
             }}
           >
             <i className="fa-solid fa-plus text-[12px]" />
           </button>
           <div className="flex gap-2 items-center">
-            <div className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-              {mode}
+            <div className="flex h-8 shrink-0 items-center gap-1.5">
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+                className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                title="Velocidad de reproducción"
+              >
+                <option value={1}>x1</option>
+                <option value={2}>x2</option>
+                <option value={3}>x3</option>
+              </select>
+              <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                {frames.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setCurrentFrameIndex(i)}
+                    className={`flex h-8 min-w-8 shrink-0 items-center justify-center rounded-md px-2 text-[14px] font-black transition-all ${
+                      i === currentFrameIndex
+                        ? 'bg-[var(--accent)] text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
             </div>
+            <button
+              type="button"
+              disabled={frames.length <= 1}
+              onClick={() => {
+                setFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
+                setBallFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
+                setCurrentFrameIndex(prev => Math.max(0, Math.min(prev, frames.length - 2)));
+              }}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed dark:bg-white/10' : 'bg-[#c92525] hover:opacity-90'}`}
+              title="Eliminar fotograma actual"
+              aria-label="Eliminar fotograma actual"
+            >
+              <i className="fa-solid fa-trash-can text-[12px]" />
+            </button>
 
             <select
               value={myFormation}
@@ -1467,36 +1522,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <i className="fa-solid fa-cube text-[12px]" />
             3D
           </button>
-          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-hide max-w-[140px] md:max-w-[260px]">
-            {frames.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setCurrentFrameIndex(i)}
-                className={`flex h-8 min-w-8 shrink-0 items-center justify-center rounded-md px-2 text-[14px] font-black transition-all ${
-                  i === currentFrameIndex
-                    ? 'bg-[var(--accent)] text-white'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={frames.length <= 1}
-            onClick={() => {
-              setFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
-              setCurrentFrameIndex(prev => Math.max(0, Math.min(prev, frames.length - 2)));
-            }}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed dark:bg-white/10' : 'bg-[#c92525] hover:opacity-90'}`}
-            title="Eliminar fotograma actual"
-            aria-label="Eliminar fotograma actual"
-          >
-            <i className="fa-solid fa-trash-can text-[12px]" />
-          </button>
-
           <div className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-3 dark:border-white/10">
             <button
               type="button"
@@ -1730,6 +1755,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     touchAction: 'none',
                     zIndex: draggingBall ? 9999 : 30,
                     userSelect: 'none',
+                    transition: draggingBall
+                      ? 'none'
+                      : isPlaying
+                        ? `left ${frameDurationMs}ms ease-in-out, top ${frameDurationMs}ms ease-in-out`
+                        : 'left 0.08s ease-out, top 0.08s ease-out',
                   }}
                   onPointerDown={e => {
                     if (isPlaying || is3DView) return;
@@ -1776,7 +1806,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         transition: isDragging
                           ? 'none'
                           : isPlaying
-                            ? `left ${FRAME_DURATION_MS}ms ease-in-out, top ${FRAME_DURATION_MS}ms ease-in-out, transform 0.3s ease-out`
+                            ? `left ${frameDurationMs}ms ease-in-out, top ${frameDurationMs}ms ease-in-out, transform 0.3s ease-out`
                             : 'left 0.08s ease-out, top 0.08s ease-out, transform 0.3s ease-out',
                       }}
                       onPointerDown={e => {

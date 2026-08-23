@@ -340,7 +340,7 @@ export const shareTokensService = createTableService<ShareToken>('share_tokens')
 // migración). Este shim evita que la app crashee al cargar; cada entidad se
 // sustituye por su servicio real en la Fase 2, módulo a módulo.
 interface LegacyStore<T = any> {
-  get(id?: string | number): Promise<{ data: T[] }>;
+  get(param?: string | number | boolean): Promise<{ data: T[] }>;
   upsert(item: T): Promise<T>;
   delete(id: string | number): Promise<void>;
   clearAll(): Promise<void>;
@@ -375,8 +375,9 @@ function createJsonPayloadStore<T extends { id: string } = any>(tableName: strin
   }
 
   return {
-    async get() {
-      if (cache) return { data: cache };
+    async get(force: boolean = false) {
+      if (cache && !force) return { data: cache };
+      if (force) cache = null;
       if (!inflight) {
         inflight = fetchAll().finally(() => { inflight = null; });
       }

@@ -80,6 +80,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [editingSessionEvent, setEditingSessionEvent] = useState<CalendarEvent | null>(null);
   const [playerVestColors, setPlayerVestColors] = useState<Record<string | number, { rojo: boolean; azul: boolean; verde: boolean }>>({});
+  const [rosterExternalTeamFilter, setRosterExternalTeamFilter] = useState<string[]>([]);
+  const [rosterExternalSearch, setRosterExternalSearch] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -597,24 +599,58 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       ...sessionPlayers,
       ...externalSessionPlayers.filter(p => attendance[String(p.id)] === 'Si'),
     ];
+
+    const rosterPositionColors: Record<string, { badge: string; bg: string; border: string; icon: string }> = {
+      Portero: { badge: 'bg-red-400', bg: 'bg-red-50', border: 'border-red-100', icon: 'GK' },
+      Defensa: { badge: 'bg-emerald-500', bg: 'bg-white', border: 'border-slate-100', icon: 'DF' },
+      Centrocampista: { badge: 'bg-blue-500', bg: 'bg-white', border: 'border-slate-100', icon: 'MF' },
+      Delantero: { badge: 'bg-red-500', bg: 'bg-white', border: 'border-slate-100', icon: 'ST' },
+    };
+    const getRosterPositionGroup = (player: Player) => {
+      const pos = (player.posicionJuego || player.posicion || '').toLowerCase();
+      if (pos.includes('portero') || pos.includes('por') || pos === 'gk') return 'Portero';
+      if (pos.includes('defensa') || pos.includes('central') || pos.includes('lateral') || pos.includes('df') || pos === 'dfc') return 'Defensa';
+      if (pos.includes('centrocampista') || pos.includes('medio') || pos.includes('mf') || pos === 'mc' || pos.includes('mco') || pos.includes('mcd') || pos.includes('pivote') || pos.includes('mediapunta')) return 'Centrocampista';
+      return 'Delantero';
+    };
+    const rosterPlayers = [...sessionPlayers].sort((a, b) => (a.dorsal ?? 0) - (b.dorsal ?? 0));
+    const getRosterStatus = (player: Player) => {
+      const playerId = String(player.id);
+      return selectiveAttendance ? (attendance[playerId] || '') : (attendance[playerId] || 'Si');
+    };
+    const attendingRosterPlayers = rosterPlayers.filter(p => getRosterStatus(p) === 'Si');
+    const notCalledRosterPlayers = rosterPlayers.filter(p => getRosterStatus(p) !== 'Si');
+    const groupedRoster = ['Portero', 'Defensa', 'Centrocampista', 'Delantero']
+      .map(group => [group, attendingRosterPlayers.filter(p => getRosterPositionGroup(p) === group)] as const)
+      .filter(([, players]) => players.length > 0);
+
+    const rosterAvailableExternalPlayers = externalSessionPlayers.filter(p => !attendance[String(p.id)]);
+    const rosterExternalTeams = Array.from(new Set(rosterAvailableExternalPlayers.map(p => p.equipo).filter(Boolean) as string[])).sort();
+    const rosterFilteredExternalPlayers = rosterAvailableExternalPlayers.filter(p => {
+      if (rosterExternalTeamFilter.length > 0 && !rosterExternalTeamFilter.includes(p.equipo || '')) return false;
+      const query = rosterExternalSearch.trim().toLowerCase();
+      if (query && !p.nombre.toLowerCase().includes(query)) return false;
+      return true;
+    });
+
     return (
-      <div className="animate-fade-in space-y-6 h-full flex flex-col relative pb-10">
-        <div className="space-y-4">
+      <div className="animate-fade-in space-y-3 h-full flex flex-col relative pb-10">
+        <div className="space-y-2">
           <div className="flex justify-center">
-            <button onClick={handleSaveSession} className="bg-[#1a4f9c] hover:bg-[#143e7b] text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg">
+            <button onClick={handleSaveSession} className="bg-[#1a4f9c] hover:bg-[#143e7b] text-white px-6 py-2 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg">
               <i className="fa-solid fa-floppy-disk"></i> {t('common.save')}
             </button>
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <button onClick={() => setActiveTraining(null)} className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={() => setActiveTraining(null)} className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2 text-xs">
               <i className="fa-solid fa-arrow-left"></i> {t('calendarView.back')}
             </button>
             <div>
-              <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm mb-1">
+              <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm">
                 <button
                   type="button"
                   onClick={() => setDetailTab('datos')}
-                  className={`px-4 py-1.5 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                  className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-tight transition-all ${
                     detailTab === 'datos' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
                   }`}
                 >
@@ -623,7 +659,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 <button
                   type="button"
                   onClick={() => setDetailTab('sesion')}
-                  className={`px-4 py-1.5 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                  className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-tight transition-all ${
                     detailTab === 'sesion' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
                   }`}
                 >
@@ -632,14 +668,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 <button
                   type="button"
                   onClick={() => setDetailTab('asistencias')}
-                  className={`px-4 py-1.5 rounded-lg font-black text-sm uppercase tracking-tight transition-all ${
+                  className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-tight transition-all ${
                     detailTab === 'asistencias' ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-[var(--accent)]'
                   }`}
                 >
                   {t('calendarView.tabAttendance')}
                 </button>
               </div>
-              <p className="text-slate-400 text-sm font-bold">{formatLongDate(sessionDate)} • {activeTraining.time}</p>
+              {detailTab !== 'sesion' && (
+                <p className="text-slate-400 text-xs font-bold mt-1">{formatLongDate(sessionDate)} • {activeTraining.time}</p>
+              )}
             </div>
           </div>
         </div>
@@ -669,7 +707,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         )}
 
         {detailTab === 'datos' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
@@ -777,261 +815,178 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             </div>
           </div>
 
-          <SessionAttendancePanel
-            players={sessionPlayers}
-            additionalPlayers={allowExternalPlayers ? externalSessionPlayers : []}
-            attendance={attendance}
-            onChange={setAttendance}
-            selectiveAttendance={selectiveAttendance}
-            hideExternalPlayers={mainTab === 'datosSesiones'}
-          />
-
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-vest text-[var(--accent)]"></i>
-                <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.vests', 'Petos de Entrenamiento')}</h4>
-              </div>
-              <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200">
-                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition" title="Rojo">
-                  <span className="w-3.5 h-3.5 rounded-full bg-red-500 shadow-sm"></span>
-                  <span className="text-[9px] font-black text-slate-500">R</span>
-                </label>
-                <div className="w-px h-4 bg-slate-200"></div>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition" title="Azul">
-                  <span className="w-3.5 h-3.5 rounded-full bg-blue-500 shadow-sm"></span>
-                  <span className="text-[9px] font-black text-slate-500">A</span>
-                </label>
-                <div className="w-px h-4 bg-slate-200"></div>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition" title="Verde">
-                  <span className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-sm"></span>
-                  <span className="text-[9px] font-black text-slate-500">V</span>
-                </label>
-              </div>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-              {squad.map(player => (
-                <div key={player.id} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 bg-slate-50">
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white flex items-center justify-center flex-shrink-0">
-                    {player.fotoUrl && player.fotoUrl.length > 1 ? (
-                      <img src={player.fotoUrl} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-[10px] font-black text-slate-500">{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black uppercase text-slate-700 truncate">{player.apodo || player.nombre}</p>
-                    <p className="text-[9px] text-slate-500"># {player.dorsal}</p>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={playerVestColors[player.id]?.rojo ?? false}
-                      onChange={(e) => setPlayerVestColors(prev => ({
-                        ...prev,
-                        [player.id]: { ...prev[player.id], rojo: e.target.checked, azul: prev[player.id]?.azul ?? false, verde: prev[player.id]?.verde ?? false }
-                      }))}
-                      className="w-4 h-4 rounded border-red-300 cursor-pointer accent-red-500"
-                      title="Rojo"
-                    />
-                    <input
-                      type="checkbox"
-                      checked={playerVestColors[player.id]?.azul ?? false}
-                      onChange={(e) => setPlayerVestColors(prev => ({
-                        ...prev,
-                        [player.id]: { ...prev[player.id], rojo: prev[player.id]?.rojo ?? false, azul: e.target.checked, verde: prev[player.id]?.verde ?? false }
-                      }))}
-                      className="w-4 h-4 rounded border-blue-300 cursor-pointer accent-blue-500"
-                      title="Azul"
-                    />
-                    <input
-                      type="checkbox"
-                      checked={playerVestColors[player.id]?.verde ?? false}
-                      onChange={(e) => setPlayerVestColors(prev => ({
-                        ...prev,
-                        [player.id]: { ...prev[player.id], rojo: prev[player.id]?.rojo ?? false, azul: prev[player.id]?.azul ?? false, verde: e.target.checked }
-                      }))}
-                      className="w-4 h-4 rounded border-green-300 cursor-pointer accent-green-500"
-                      title="Verde"
-                    />
-                  </div>
-                </div>
-              ))}
-              {squad.length === 0 && (
-                <p className="text-[12px] text-slate-400 text-center py-4">{t('calendarView.noPlayers', 'Sin jugadores')}</p>
-              )}
-            </div>
-          </div>
-
-          {false && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="flex items-center gap-2 mb-4">
               <i className="fa-solid fa-user-group text-[var(--accent)]"></i>
-              <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.attendanceTitle')}</h4>
+              <h4 className="text-[var(--accent)] font-black text-lg">({rosterPlayers.length})</h4>
             </div>
-            <div className="space-y-3 max-h-140 overflow-y-auto pr-2 min-h-140">
-              {(() => {
-                const positionColors: Record<string, { badge: string; bg: string; border: string; text: string; icon: string }> = {
-                  'POR': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
-                  'Portero': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
-                  'Defensa': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'Central': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'Lateral': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'Lateral izquierdo': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'Lateral derecho': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'DFC': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'DF': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-                  'Centrocampista': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
-                  'MC': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
-                  'MF': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
-                  'Delantero': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
-                  'DC': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
-                  'ST': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
-                };
-
-                const getPositionColor = (player: Player) => {
-                  const pos = player.posicionJuego || player.posicion || '';
-                  for (const [key, value] of Object.entries(positionColors)) {
-                    if (pos.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(pos.toLowerCase())) {
-                      return value;
-                    }
-                  }
-                  return { badge: 'bg-slate-400', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700', icon: 'MS' };
-                };
-
-                const groupPlayersByDemarcation = (players: Player[]) => {
-                  const grouped = new Map<string, Player[]>();
-                  const demarcations = ['Portero', 'Defensa', 'Centrocampista', 'Delantero'];
-
-                  players.forEach(p => {
-                    const pos = (p.posicionJuego || p.posicion || '').toLowerCase();
-                    let demarcation = 'Otros';
-
-                    if (pos.includes('portero') || pos.includes('por') || pos === 'gk') {
-                      demarcation = 'Portero';
-                    } else if (pos.includes('defensa') || pos.includes('central') || pos.includes('lateral') || pos.includes('df') || pos === 'dfc') {
-                      demarcation = 'Defensa';
-                    } else if (pos.includes('centrocampista') || pos.includes('medio') || pos.includes('mf') || pos === 'mc' || pos.includes('mco') || pos.includes('mcd')) {
-                      demarcation = 'Centrocampista';
-                    } else if (pos.includes('delantero') || pos.includes('st') || pos === 'dc') {
-                      demarcation = 'Delantero';
-                    }
-
-                    if (!grouped.has(demarcation)) grouped.set(demarcation, []);
-                    grouped.get(demarcation)!.push(p);
-                  });
-
-                  const result: [string, Player[]][] = [];
-                  demarcations.forEach(d => {
-                    if (grouped.has(d)) result.push([d, grouped.get(d)!]);
-                  });
-                  if (grouped.has('Otros')) result.push(['Otros', grouped.get('Otros')!]);
-                  return result;
-                };
-
-                const groupedAll = groupPlayersByDemarcation(sessionPlayers);
-
-                return (
-                  <>
-                    {sessionPlayers.length === 0 && (
-                      <div className="text-center text-slate-400 text-3xl font-black uppercase tracking-widest py-8">{t('calendarView.noPlayers')}</div>
-                    )}
-
-                    {groupedAll.map(([positionGroup, players]) => (
-                      <div key={positionGroup} className="space-y-1.5">
-                        {players.length > 0 && (
-                          <>
-                            <div className="flex items-center gap-2 mt-3 mb-1.5 pt-1">
-                              {(() => {
-                                const colors = getPositionColor(players[0]);
-                                return (
-                                  <>
-                                    <div className={`${colors.badge} text-white text-[10px] font-black px-2.5 py-1 rounded-lg`}>
-                                      {colors.icon}
-                                    </div>
-                                    <h5 className={`${colors.text} font-black text-[11px] uppercase tracking-widest`}>{positionGroup}</h5>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                            {players.map((player) => {
-                              const colors = getPositionColor(player);
-                              const playerId = String(player.id);
-                              const status = selectiveAttendance ? (attendance[playerId] || '') : (attendance[playerId] || 'Si');
-                              return (
-                                <div key={player.id} className={`flex items-center justify-between ${colors.bg} rounded-xl px-3 py-1.5 border ${colors.border}`}>
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className={`${colors.badge} text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[11px]`}>
-                                      {player.dorsal || player.nombre.charAt(0)}
-                                    </div>
-                                    <p className="text-[12px] font-black text-black truncate">{player.nombre}</p>
-                                  </div>
-                                  <SearchableSelect
-                                    value={status}
-                                    onChange={(e) => {
-                                      const nextStatus = e.target.value as AttendanceStatus | '';
-                                      setAttendance(prev => {
-                                        const next = { ...prev };
-                                        if (nextStatus) {
-                                          next[playerId] = nextStatus;
-                                        } else {
-                                          delete next[playerId];
-                                        }
-                                        return next;
-                                      });
-                                    }}
-                                    className={`px-3 py-2 rounded-xl border ${colors.border} ${colors.text} ${colors.bg} text-xs font-black`}
-                                  >
-                                    {selectiveAttendance && <option value="">{t('calendarView.notCounted')}</option>}
-                                    <option value="Si">{t('calendarView.attendYes')}</option>
-                                    {!selectiveAttendance && (
-                                      <>
-                                        <option value="Lesión">{t('calendarView.attendInjury')}</option>
-                                        <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
-                                        <option value="Descanso">{t('calendarView.attendRest')}</option>
-                                        <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
-                                        <option value="Otro">{t('calendarView.other')}</option>
-                                      </>
-                                    )}
-                                  </SearchableSelect>
-                                </div>
-                              );
-                            })}
-                          </>
-                        )}
+            {rosterPlayers.length === 0 ? (
+              <div className="text-center text-slate-400 text-sm font-black uppercase tracking-widest py-10">{t('calendarView.noPlayers')}</div>
+            ) : (
+              <div className="space-y-2">
+                {groupedRoster.map(([group, players]) => {
+                  const colors = rosterPositionColors[group];
+                  return (
+                    <div key={group} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className={`${colors.badge} text-white text-[10px] font-black px-2.5 py-1 rounded-lg`}>{colors.icon}</div>
+                        <h5 className="text-slate-500 font-black text-[11px] uppercase tracking-widest">{group}</h5>
                       </div>
-                    ))}
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-          )}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+                        {players.map((player) => {
+                          const playerId = String(player.id);
+                          const status = getRosterStatus(player);
+                          return (
+                            <div key={player.id} className={`flex items-center justify-between gap-2 ${colors.bg} rounded-lg px-2.5 py-1 border ${colors.border}`}>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className={`${colors.badge} text-white w-7 h-7 shrink-0 rounded-full flex items-center justify-center font-black text-[10px]`}>
+                                  {player.dorsal ?? player.nombre.charAt(0)}
+                                </div>
+                                <p className="text-[11px] font-black text-black truncate">{player.nombre}</p>
+                              </div>
+                              <SearchableSelect
+                                value={status}
+                                onChange={(e) => {
+                                  const nextStatus = e.target.value as AttendanceStatus | '';
+                                  setAttendance(prev => {
+                                    const next = { ...prev };
+                                    if (nextStatus) {
+                                      next[playerId] = nextStatus;
+                                    } else {
+                                      delete next[playerId];
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600 bg-white text-[10px] font-black shrink-0"
+                              >
+                                {selectiveAttendance && <option value="">{t('calendarView.notCounted')}</option>}
+                                <option value="Si">{t('calendarView.attendYes')}</option>
+                                {!selectiveAttendance && (
+                                  <>
+                                    <option value="Lesión">{t('calendarView.attendInjury')}</option>
+                                    <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
+                                    <option value="Descanso">{t('calendarView.attendRest')}</option>
+                                    <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
+                                    <option value="Otro">{t('calendarView.other')}</option>
+                                  </>
+                                )}
+                              </SearchableSelect>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
 
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <div className="flex items-center gap-2 mb-4">
-              <i className="fa-solid fa-user-gear text-[var(--accent)]"></i>
-              <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.staffRoles')}</h4>
+                {notCalledRosterPlayers.length > 0 && (
+                  <div className="space-y-1 pt-1 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <i className="fa-solid fa-user-xmark text-red-400"></i>
+                      <h5 className="text-red-500 font-black text-[11px] uppercase tracking-widest">{t('calendarView.notCalledUp')}</h5>
+                      <span className="ml-auto text-[10px] font-black text-red-400">{notCalledRosterPlayers.length}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+                      {notCalledRosterPlayers.map((player) => {
+                        const playerId = String(player.id);
+                        const status = getRosterStatus(player);
+                        return (
+                          <div key={player.id} className="flex items-center justify-between gap-2 bg-red-50 rounded-lg px-2.5 py-1 border border-red-100">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="bg-red-400 text-white w-7 h-7 shrink-0 rounded-full flex items-center justify-center font-black text-[10px]">
+                                {player.dorsal ?? player.nombre.charAt(0)}
+                              </div>
+                              <p className="text-[11px] font-black text-black truncate">{player.nombre}</p>
+                            </div>
+                            <SearchableSelect
+                              value={status}
+                              onChange={(e) => {
+                                const nextStatus = e.target.value as AttendanceStatus | '';
+                                setAttendance(prev => {
+                                  const next = { ...prev };
+                                  if (nextStatus) {
+                                    next[playerId] = nextStatus;
+                                  } else {
+                                    delete next[playerId];
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="px-2 py-1.5 rounded-lg border border-red-200 text-red-700 bg-white text-[10px] font-black shrink-0"
+                            >
+                              {selectiveAttendance && <option value="">{t('calendarView.notCounted')}</option>}
+                              <option value="Si">{t('calendarView.attendYes')}</option>
+                              {!selectiveAttendance && (
+                                <>
+                                  <option value="Lesión">{t('calendarView.attendInjury')}</option>
+                                  <option value="Vacaciones">{t('calendarView.attendVacation')}</option>
+                                  <option value="Descanso">{t('calendarView.attendRest')}</option>
+                                  <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
+                                  <option value="Otro">{t('calendarView.other')}</option>
+                                </>
+                              )}
+                            </SearchableSelect>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {allowExternalPlayers && rosterAvailableExternalPlayers.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <i className="fa-solid fa-user-plus text-slate-400"></i>
+                      <h5 className="text-slate-500 font-black text-[11px] uppercase tracking-widest">{t('calendarView.externalPlayers')}</h5>
+                      <span className="ml-auto text-[10px] font-black text-slate-400">{rosterFilteredExternalPlayers.length}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <MultiSelectFilter
+                        value={rosterExternalTeamFilter}
+                        onChange={setRosterExternalTeamFilter}
+                        allLabel={t('calendarView.filterAllTeams')}
+                        options={rosterExternalTeams.map((team) => ({ value: team, label: team }))}
+                        className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
+                      />
+                      <div className="relative flex-1">
+                        <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                        <input
+                          type="text"
+                          value={rosterExternalSearch}
+                          onChange={(e) => setRosterExternalSearch(e.target.value)}
+                          placeholder={t('calendarView.searchPlayerPlaceholder')}
+                          className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold placeholder:text-slate-300 focus:outline-none focus:border-[var(--accent)]"
+                        />
+                      </div>
+                    </div>
+                    {rosterFilteredExternalPlayers.length === 0 ? (
+                      <div className="text-center text-slate-400 text-xs font-bold py-3">{t('calendarView.noExternalPlayersFound')}</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {rosterFilteredExternalPlayers.map((player) => (
+                          <div key={player.id} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-200">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 shrink-0 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[10px]">
+                                {player.dorsal ?? player.nombre.charAt(0)}
+                              </div>
+                              <p className="text-[11px] font-black text-slate-700 truncate">{player.nombre}{player.equipo ? ` (${player.equipo})` : ''}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setAttendance(prev => ({ ...prev, [String(player.id)]: 'Si' }))}
+                              className="px-2 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-black hover:bg-emerald-100 shrink-0"
+                            >
+                              {t('calendarView.addPlayer')}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <textarea
-                value={rolesText}
-                onChange={(e) => setRolesText(e.target.value)}
-                rows={6}
-                placeholder={t('calendarView.staffRolesPlaceholder')}
-                className="w-full resize-none rounded-xl border border-slate-200 p-4 text-sm font-bold text-slate-600"
-              />
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <h4 className="text-[var(--accent)] font-black text-lg mb-4">{t('calendarView.notesTitle')}</h4>
-              <textarea
-                value={notesText}
-                onChange={(e) => setNotesText(e.target.value)}
-                rows={6}
-                placeholder={t('calendarView.notesPlaceholder')}
-                className="w-full resize-none rounded-xl border border-slate-200 p-4 text-sm font-bold text-slate-600"
-              />
-            </div>
+            )}
           </div>
         </div>
         )}

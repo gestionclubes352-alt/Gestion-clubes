@@ -29,6 +29,7 @@ import { fetchFile } from '@ffmpeg/util';
 import { getFFmpeg } from '@shared/utils/ffmpegClient';
 import EventsTableView from './EventsTableView';
 import MatchEventsRegistry from './MatchEventsRegistry';
+import VideoPlayer from '@shared/components/VideoPlayer';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -1969,20 +1970,21 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
         {/* Panel de CAMBIO - Selector de suplente y minuto */}
         {selectedPlayerForEvent && eventActionMenu.type === 'CAMBIO' && (
-          <div className="absolute inset-0 flex items-end justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-900 rounded-t-3xl p-6 shadow-2xl w-full max-w-2xl space-y-4">
+          <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl w-full max-w-xs space-y-3">
               <div className="text-center">
-                <h4 className="text-sm font-black text-[var(--text-strong)]">Sale: {selectedPlayerForEvent.dorsal} {selectedPlayerForEvent.nombre}</h4>
-                <p className="text-xs text-[var(--text-muted)] mt-1">Selecciona el suplente que entra</p>
+                <h4 className="text-xs font-black text-[var(--text-strong)]">Sale: {selectedPlayerForEvent.dorsal} {selectedPlayerForEvent.nombre}</h4>
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">Selecciona el suplente que entra</p>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-1.5 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
                   <SearchableSelect
                     value={eventActionMenu.playerInId || ''}
                     onChange={e => setEventActionMenu({ ...eventActionMenu, playerInId: e.target.value })}
-                    className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                    className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-3 py-2.5 text-xs font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                    dropdownSize="sm"
                     autoFocus
                   >
                     <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
@@ -1991,7 +1993,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-1.5 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
                   <input
                     type="number"
                     min={0}
@@ -1999,7 +2001,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     value={eventActionMenu.minute}
                     onChange={e => setEventActionMenu({ ...eventActionMenu, minute: e.target.value })}
                     placeholder="45"
-                    className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
+                    className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-3 py-2.5 text-xs font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -2009,14 +2011,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       setSelectedPlayerForEvent(null);
                       setEventActionMenu({ type: null, minute: '', videoTimestamp: undefined });
                     }}
-                    className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
+                    className="flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-[var(--text-strong)] hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
                   >
                     {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleConfirmEvent}
                     disabled={!eventActionMenu.playerInId || !eventActionMenu.minute}
-                    className="flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     {t('common.confirm')}
                   </button>
@@ -2479,19 +2481,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         />
         {value && (
           isDirectVideoUrl(value) ? (
-            <div className="relative">
-              <video
+            <div className="relative group">
+              <VideoPlayer
                 src={value}
-                controls
                 playsInline
-                controlsList="nofullscreen"
                 className="w-full rounded-2xl border border-[var(--border-soft)] bg-black"
               />
               <button
                 type="button"
                 onClick={() => setFullscreenAbpVideo(value)}
                 title={t('matchReport.video.fullscreen') as string}
-                className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-all"
+                className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100"
               >
                 <i className="fa-solid fa-expand text-xs"></i>
               </button>
@@ -2525,12 +2525,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         >
           <i className="fa-solid fa-xmark text-lg"></i>
         </button>
-        <video
+        <VideoPlayer
           src={fullscreenAbpVideo}
-          controls
           autoPlay
           playsInline
-          controlsList="nofullscreen"
           className="max-w-full max-h-full rounded-2xl"
         />
       </div>
@@ -3954,14 +3952,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerOut')}</label>
-                          <SearchableSelect value={substitutionEditForm.playerOutId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerOutId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
+                          <SearchableSelect value={substitutionEditForm.playerOutId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerOutId: e.target.value })} dropdownSize="sm" className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
                             <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
                             {playerOutOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
                           </SearchableSelect>
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-1 tracking-widest">{t('matchReport.matchEvents.playerIn')}</label>
-                          <SearchableSelect value={substitutionEditForm.playerInId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerInId: e.target.value })} className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-sm font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
+                          <SearchableSelect value={substitutionEditForm.playerInId} onChange={e => setSubstitutionEditForm({ ...substitutionEditForm, playerInId: e.target.value })} dropdownSize="sm" className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]">
                             <option value="">{t('matchReport.matchEvents.selectPlayer')}</option>
                             {playerInOptions.map(p => <option key={p.id} value={p.id}>{p.dorsal} {p.apodo || p.nombre}</option>)}
                           </SearchableSelect>
@@ -4256,10 +4254,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                           <>
                             {(report as any)[`${block.id}Video`] && isSupabaseUrl((report as any)[`${block.id}Video`]) && (
                               <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-0)]">
-                                <video key={(report as any)[`${block.id}Video`]} controls preload="metadata" className="w-full h-full" title={`${block.id}-video-plan`}>
-                                  <source src={(report as any)[`${block.id}Video`]} type="video/mp4" />
-                                  Tu navegador no soporta video HTML5
-                                </video>
+                                <VideoPlayer
+                                  key={(report as any)[`${block.id}Video`]}
+                                  src={(report as any)[`${block.id}Video`]}
+                                  className="w-full h-full"
+                                  title={`${block.id}-video-plan`}
+                                />
                               </div>
                             )}
                             {(report as any)[`${block.id}Video`] && isSupabaseUrl((report as any)[`${block.id}Video`]) && (

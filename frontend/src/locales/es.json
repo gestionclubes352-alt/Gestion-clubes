@@ -711,6 +711,8 @@
     "removePlayer": "Quitar",
     "noPlayers": "Sin jugadores",
     "absences": "AUSENCIAS",
+    "playersRosterTitle": "JUGADORES",
+    "notCalledUp": "NO CONVOCADOS",
     "staffRoles": "ROLES PERSONAL",
     "staffRolesPlaceholder": "Describe los roles del personal en esta sesión...",
     "notesTitle": "NOTAS",

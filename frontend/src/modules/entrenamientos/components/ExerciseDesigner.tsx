@@ -425,23 +425,32 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     return JSON.parse(JSON.stringify(items));
   };
 
-  /** Persistir snapshot (y miniatura) de una tarea en la DB. */
-  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[], thumbnail?: string, structure?: string) => {
+  /** Persistir snapshot (y miniatura) de una tarea en la DB. Devuelve true si se guardó realmente. */
+  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[], thumbnail?: string, structure?: string): Promise<boolean> => {
     try {
-      const { data } = await db.task_templates.get();
-      if (!data) return;
-      const existing = (data as TrainingTask[]).find(t => t.id === taskId);
-      if (existing) {
-        await db.task_templates.upsert({
-          ...existing,
-          designerSnapshot: snapshot,
-          fieldStructure: structure as TrainingTask['fieldStructure'],
-          ...(thumbnail ? { thumbnail } : {}),
-          updatedAt: new Date().toISOString(),
-        });
+      let { data } = await db.task_templates.get();
+      let existing = (data as TrainingTask[] | undefined)?.find(t => t.id === taskId);
+      if (!existing) {
+        // La caché en memoria puede no incluir aún la tarea (p.ej. recién creada
+        // desde otra vista): forzar un refetch real antes de rendirse.
+        ({ data } = await db.task_templates.get(true));
+        existing = (data as TrainingTask[] | undefined)?.find(t => t.id === taskId);
       }
+      if (!existing) {
+        console.error('No se encontró la tarea a guardar en task_templates:', taskId);
+        return false;
+      }
+      await db.task_templates.upsert({
+        ...existing,
+        designerSnapshot: snapshot,
+        fieldStructure: structure as TrainingTask['fieldStructure'],
+        ...(thumbnail ? { thumbnail } : {}),
+        updatedAt: new Date().toISOString(),
+      });
+      return true;
     } catch (err) {
       console.error('Error persistiendo snapshot:', err);
+      return false;
     }
   };
 
@@ -451,7 +460,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
     const thumbnail = renderThumbnail(snapshot, activeStructure);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
-    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
+    const ok = await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
+    if (!ok) {
+      setSaveStatus('ERROR AL GUARDAR LA TAREA - reinténtalo');
+      setTimeout(() => setSaveStatus(null), 5000);
+    }
   };
 
   /** Seleccionar una tarea y cargar su snapshot en el canvas */
@@ -500,7 +513,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     const snapshot = deepCloneItems(frames[currentFrameIndex]);
     const thumbnail = renderThumbnail(snapshot, activeStructure);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
-    await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
+    const ok = await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
+    if (!ok) {
+      setSaveStatus('ERROR AL GUARDAR LA TAREA - reinténtalo');
+      setTimeout(() => setSaveStatus(null), 5000);
+      return;
+    }
     if (options?.showToast !== false) {
       setSaveStatus('TAREA GUARDADA');
       setTimeout(() => setSaveStatus(null), 2000);

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 type NativeSelectProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'multiple' | 'size'> & {
   placeholder?: string;
+  dropdownSize?: 'sm' | 'md';
 };
 
 interface ParsedOption {
@@ -97,6 +98,7 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
   id,
   name,
   required,
+  dropdownSize = 'md',
   ...selectProps
 }) => {
   const options = useMemo(() => parseOptions(children), [children]);
@@ -172,10 +174,27 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
   const getDropdownPosition = () => {
     if (!rootRef.current) return { top: 0, left: 0 };
     const rect = rootRef.current.getBoundingClientRect();
+    const width = dropdownSize === 'sm' ? 240 : 300;
+    const left = Math.min(
+      Math.max(8, rect.right - width + window.scrollX),
+      window.innerWidth - width - 8 + window.scrollX
+    );
     return {
       top: rect.bottom + window.scrollY,
-      left: Math.max(0, rect.right - 300 + window.scrollX),
+      left: Math.max(8, left),
     };
+  };
+
+  const searchInputClassName = dropdownSize === 'sm'
+    ? 'w-full border-0 bg-white py-2 pl-8 pr-3 text-xs font-semibold text-slate-900 outline-none'
+    : 'w-full border-0 bg-white py-2.5 pl-8 pr-3 text-sm font-semibold text-slate-900 outline-none';
+
+  const optionClassName = (isSelected: boolean) => {
+    const base = dropdownSize === 'sm'
+      ? 'flex w-full items-center gap-2 px-3 py-1 text-left text-xs font-bold transition-colors'
+      : 'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm font-bold transition-colors';
+    const state = isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50';
+    return `${base} ${state} disabled:cursor-not-allowed disabled:opacity-45`;
   };
 
   return (
@@ -231,8 +250,8 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
           style={{
             top: `${pos.top}px`,
             left: `${pos.left}px`,
-            minWidth: '8rem',
-            maxWidth: 'min(16rem, calc(100vw - 2rem))',
+            minWidth: dropdownSize === 'sm' ? '7rem' : '8rem',
+            maxWidth: dropdownSize === 'sm' ? 'min(13rem, calc(100vw - 1rem))' : 'min(16rem, calc(100vw - 2rem))',
           }}
         >
           <div className="relative border-b border-slate-100">
@@ -250,11 +269,11 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
                 }
               }}
               placeholder="Buscar..."
-              className="w-full border-0 bg-white py-2.5 pl-8 pr-3 text-sm font-semibold text-slate-900 outline-none"
+              className={searchInputClassName}
             />
           </div>
 
-          <div role="listbox" className="max-h-56 overflow-y-auto py-1">
+          <div role="listbox" className={dropdownSize === 'sm' ? 'max-h-44 overflow-y-auto py-1' : 'max-h-56 overflow-y-auto py-1'}>
             {optionGroups.length === 0 ? (
               <div className="px-3 py-2 text-sm font-semibold text-slate-400">Sin resultados</div>
             ) : (
@@ -273,11 +292,7 @@ const SearchableSelect: React.FC<NativeSelectProps> = ({
                       aria-selected={option.value === selectedValue}
                       disabled={option.disabled}
                       onClick={() => handleSelect(option)}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm font-bold transition-colors ${
-                        option.value === selectedValue
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-slate-700 hover:bg-slate-50'
-                      } disabled:cursor-not-allowed disabled:opacity-45`}
+                      className={optionClassName(option.value === selectedValue)}
                     >
                       <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{option.label}</span>
                       {option.value === selectedValue && (
