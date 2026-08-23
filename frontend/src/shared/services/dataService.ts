@@ -238,8 +238,17 @@ export interface PizarraTactica {
   formacion: string;
   posiciones: unknown[];
   partido_id?: string | null;
+  carpeta_id?: string | null;
   /** Snapshot completo del estado de la pizarra (frames, flechas, balón, colores, etc). */
   datos?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PizarraCarpeta {
+  id: string;
+  equipo_id: string;
+  nombre: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -319,6 +328,7 @@ export const sesionesService = createTableService<Sesion>('sesiones');
 export const eventosCalendarioService = createTableService<EventoCalendario>('eventos_calendario');
 export const calendarioCompeticionService = createTableService<CalendarioCompeticionPartido>('calendario_competicion');
 export const pizarrasService = createTableService<PizarraTactica>('pizarras_tacticas');
+export const pizarrasCarpetasService = createTableService<PizarraCarpeta>('pizarras_carpetas');
 export const tareasService = createTableService<Tarea>('tareas');
 export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
 export const localidadesService = createTableService<Localidad>('localidades');

@@ -72,6 +72,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'CAMPOGRAMA',
     'DISEÑADOR',
     'PIZARRA TÁCTICA',
+    'PINTADO DE ACCIONES',
     'REPOSITORIO DE TAREAS',
     'VIDEOTECA',
     'CONFIGURACIÓN',

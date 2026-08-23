@@ -1,6 +1,6 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { plantillasService, equiposService, clubesService, pizarrasService } from '@shared/services/dataService';
-import type { Club, Equipo, PizarraTactica as PizarraTacticaRow } from '@shared/services/dataService';
+import { plantillasService, equiposService, clubesService, pizarrasService, pizarrasCarpetasService } from '@shared/services/dataService';
+import type { Club, Equipo, PizarraTactica as PizarraTacticaRow, PizarraCarpeta } from '@shared/services/dataService';
 import type { TacticalArrow } from '../types';
 import { useUndoRedo } from '@context/UndoRedoContext';
 import SearchableSelect from '@shared/components/SearchableSelect';
@@ -12,6 +12,8 @@ import { getFFmpeg } from '@shared/utils/ffmpegClient';
 import ataqueImage from '@modules/pintado-acciones/assets/campos/ataque/campo.png?url';
 import defensaImage from '@modules/pintado-acciones/assets/campos/defensa/campo.png?url';
 import completoImage from '@modules/pintado-acciones/assets/campos/ataque/campo.png?url';
+import { useDrawingTools } from '../hooks/useDrawingTools';
+import { DrawingShapes } from './DrawingShapes';
 
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '1-3-4-3': [
@@ -137,6 +139,7 @@ interface PizarraTacticaProps {
 
 const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const { pushState, setOnStateRestore } = useUndoRedo();
+  const drawingTools = useDrawingTools();
   const pitchStageRef = useRef<HTMLElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
   const [pitchStageSize, setPitchStageSize] = useState({ width: 0, height: 0 });
@@ -191,6 +194,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [selectedBoardId, setSelectedBoardId] = useState('');
   const [isSavingBoard, setIsSavingBoard] = useState(false);
   const [isLoadingBoards, setIsLoadingBoards] = useState(false);
+  const [carpetas, setCarpetas] = useState<PizarraCarpeta[]>([]);
+  const [selectedCarpetaId, setSelectedCarpetaId] = useState('');
+  const [isLoadingCarpetas, setIsLoadingCarpetas] = useState(false);
 
   // Configurar callback para restaurar estado de pizarra táctica
   useEffect(() => {
@@ -631,6 +637,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const start = getPitchPercentPoint(e.clientX, e.clientY);
     if (!start) return;
 
+    // Manejo de herramientas de dibujo
+    if (drawingTools.state.tool && e.target === e.currentTarget) {
+      drawingTools.startDrawing(start);
+      document.body.style.cursor = 'crosshair';
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
     const clickedArrow = getArrowAtPoint(start.x, start.y);
 
     if (isClickOnSvgElement) {
@@ -665,7 +679,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'crosshair';
     e.currentTarget.setPointerCapture(e.pointerId);
-  }, [getPitchPercentPoint, isPlaying, is3DView, drawingMode, getArrowAtPoint]);
+  }, [getPitchPercentPoint, isPlaying, is3DView, drawingMode, getArrowAtPoint, drawingTools]);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -715,6 +729,15 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      // Manejo de herramientas de dibujo
+      if (drawingTools.state.isDrawing && pitchRef.current) {
+        const rect = pitchRef.current.getBoundingClientRect();
+        const currentX = ((event.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((event.clientY - rect.top) / rect.height) * 100;
+        drawingTools.continueDrawing({ x: currentX, y: currentY });
+        return;
+      }
+
       if (isDrawingArrow && drawStart && pitchRef.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
@@ -789,6 +812,13 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     const onPointerUp = (event: MouseEvent | PointerEvent) => {
       cancelAnimationFrame(rafId.current);
+
+      // Finalizar dibujo
+      if (drawingTools.state.isDrawing) {
+        drawingTools.finishDrawing();
+        document.body.style.cursor = '';
+        return;
+      }
 
       if (draggingBall) {
         setDraggingBall(false);
@@ -886,7 +916,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('mouseup', onPointerUp);
     };
-  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball]);
+  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball, drawingTools]);
 
   const groupedSquad = useMemo(() => {
     const buckets: Record<string, SquadPlayer[]> = {
@@ -1001,6 +1031,85 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     }
   }, [selectedMyTeamId]);
 
+  useEffect(() => {
+    if (!selectedMyTeamId) {
+      setCarpetas([]);
+      setSelectedCarpetaId('');
+      return;
+    }
+    setIsLoadingCarpetas(true);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const rows = await pizarrasCarpetasService.list({ equipo_id: selectedMyTeamId });
+        if (!cancelled) {
+          setCarpetas([...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('No se pudieron cargar las carpetas de pizarras', err);
+          setCarpetas([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingCarpetas(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedMyTeamId]);
+
+  const refreshCarpetas = useCallback(async () => {
+    if (!selectedMyTeamId) {
+      setCarpetas([]);
+      return;
+    }
+    setIsLoadingCarpetas(true);
+    try {
+      const rows = await pizarrasCarpetasService.list({ equipo_id: selectedMyTeamId });
+      setCarpetas([...rows].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+    } catch (err) {
+      console.error('No se pudieron cargar las carpetas de pizarras', err);
+      setCarpetas([]);
+    } finally {
+      setIsLoadingCarpetas(false);
+    }
+  }, [selectedMyTeamId]);
+
+  const handleNewCarpeta = async () => {
+    if (!selectedMyTeamId) {
+      alert('Selecciona primero "Mi equipo" para poder crear una carpeta.');
+      return;
+    }
+    const nombre = window.prompt('Nombre de la nueva carpeta:')?.trim();
+    if (!nombre) return;
+
+    try {
+      const created = await pizarrasCarpetasService.create({ equipo_id: selectedMyTeamId, nombre });
+      setSelectedCarpetaId(created.id);
+      await refreshCarpetas();
+    } catch (err) {
+      console.error('No se pudo crear la carpeta', err);
+      alert('No se pudo crear la carpeta. Puede que ya exista una con ese nombre.');
+    }
+  };
+
+  const handleDeleteCarpeta = async () => {
+    if (!selectedCarpetaId) return;
+    const carpeta = carpetas.find(c => c.id === selectedCarpetaId);
+    if (!carpeta) return;
+    if (!window.confirm(`¿Eliminar la carpeta "${carpeta.nombre}"? Las pizarras que contiene no se borrarán, quedarán sin carpeta.`)) return;
+    try {
+      await pizarrasCarpetasService.remove(carpeta.id);
+      setSelectedCarpetaId('');
+      await refreshCarpetas();
+      await refreshSavedBoards();
+    } catch (err) {
+      console.error('No se pudo eliminar la carpeta', err);
+      alert('No se pudo eliminar la carpeta. Inténtalo de nuevo.');
+    }
+  };
+
   const handleNewBoard = async () => {
     const nombre = window.prompt('Nombre de la nueva pizarra:')?.trim();
     if (!nombre) return;
@@ -1037,6 +1146,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         nombre,
         formacion: myFormation,
         posiciones: [],
+        carpeta_id: selectedCarpetaId || null,
         datos,
       });
       setSelectedBoardId(created.id);
@@ -1088,7 +1198,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         const updated = await pizarrasService.update(currentBoard.id, { nombre, formacion: myFormation, datos });
         setSelectedBoardId(updated.id);
       } else {
-        const created = await pizarrasService.create({ equipo_id: selectedMyTeamId, nombre, formacion: myFormation, posiciones: [], datos });
+        const created = await pizarrasService.create({
+          equipo_id: selectedMyTeamId,
+          nombre,
+          formacion: myFormation,
+          posiciones: [],
+          carpeta_id: selectedCarpetaId || null,
+          datos,
+        });
         setSelectedBoardId(created.id);
       }
       await refreshSavedBoards();
@@ -1627,6 +1744,43 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           <div className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-3 dark:border-white/10">
             <button
               type="button"
+              onClick={handleNewCarpeta}
+              className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-black uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+              title="Crear una carpeta nueva para organizar pizarras"
+            >
+              <i className="fa-solid fa-folder-plus text-[12px]" />
+              NUEVA CARPETA
+            </button>
+
+            <select
+              value={selectedCarpetaId}
+              onChange={e => setSelectedCarpetaId(e.target.value)}
+              disabled={isLoadingCarpetas || carpetas.length === 0}
+              title="Carpeta donde guardar / desde la que filtrar pizarras"
+              className="h-8 max-w-[160px] rounded-md border border-slate-200 bg-white px-2 text-[12px] font-semibold text-slate-600 outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300"
+            >
+              <option value="">
+                {isLoadingCarpetas ? 'Cargando...' : carpetas.length ? 'Sin carpeta' : 'Sin carpetas'}
+              </option>
+              {carpetas.map(carpeta => (
+                <option key={carpeta.id} value={carpeta.id}>{carpeta.nombre}</option>
+              ))}
+            </select>
+
+            {selectedCarpetaId && (
+              <button
+                type="button"
+                onClick={handleDeleteCarpeta}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                title="Eliminar esta carpeta (las pizarras no se borran)"
+                aria-label="Eliminar carpeta"
+              >
+                <i className="fa-solid fa-folder-minus text-[12px]" />
+              </button>
+            )}
+
+            <button
+              type="button"
               onClick={handleNewBoard}
               className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-black uppercase tracking-[0.12em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
               title="Crear una pizarra nueva en blanco"
@@ -1645,9 +1799,28 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               <option value="">
                 {isLoadingBoards ? 'Cargando...' : savedBoards.length ? 'Pizarras guardadas' : 'Sin pizarras guardadas'}
               </option>
-              {savedBoards.map(board => (
-                <option key={board.id} value={board.id}>{board.nombre}</option>
-              ))}
+              {carpetas.map(carpeta => {
+                const boardsInCarpeta = savedBoards.filter(board => board.carpeta_id === carpeta.id);
+                if (!boardsInCarpeta.length) return null;
+                return (
+                  <optgroup key={carpeta.id} label={carpeta.nombre}>
+                    {boardsInCarpeta.map(board => (
+                      <option key={board.id} value={board.id}>{board.nombre}</option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+              {(() => {
+                const boardsSinCarpeta = savedBoards.filter(board => !board.carpeta_id);
+                if (!boardsSinCarpeta.length) return null;
+                return (
+                  <optgroup label="Sin carpeta">
+                    {boardsSinCarpeta.map(board => (
+                      <option key={board.id} value={board.id}>{board.nombre}</option>
+                    ))}
+                  </optgroup>
+                );
+              })()}
             </select>
 
             <button
@@ -1833,6 +2006,15 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       </g>
                     );
                   })}
+
+                  {/* Herramientas de dibujo */}
+                  <DrawingShapes
+                    shapes={drawingTools.shapes}
+                    currentShape={drawingTools.state.currentShape}
+                    selectedShapeId={drawingTools.state.selectedShapeId}
+                    viewBox="0 0 100 100"
+                    onShapeClick={drawingTools.selectShape}
+                  />
 
                   {isDrawingArrow && drawStart && (drawStart as any).x2 !== undefined && (
                     <g>

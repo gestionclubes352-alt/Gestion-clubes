@@ -194,7 +194,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       columnHelper.accessor('nombre', {
         header: t('playerTable.name', 'Nombre'),
         size: 180,
-        cell: info => <span className="text-slate-800 font-semibold text-sm whitespace-nowrap">{info.getValue()}</span>,
+        cell: info => <span className="text-slate-600 text-xs whitespace-nowrap">{info.getValue()}</span>,
       }),
       // 4. Apodo
       columnHelper.accessor('apodo', {
@@ -313,12 +313,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   }, [onEdit, onDelete]);
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
-      {/* PAGE TITLE */}
-      <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
-        {activeTab === 'rivales' ? 'Jugadores Rivales' : 'Mis Plantillas'}
-      </h2>
-
+    <div className="flex flex-col gap-3 animate-fade-in">
       {/* PESTAÑAS MIS PLANTILLAS / EQUIPOS RIVALES */}
       <div className="hidden sm:flex flex-wrap items-center justify-center gap-2">
         <button

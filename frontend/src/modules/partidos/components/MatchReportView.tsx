@@ -3014,7 +3014,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </div>
             )}
             <button
-              onClick={() => window.open('https://www.youtube.com/@GestionClubes', '_blank', 'noopener,noreferrer')}
+              onClick={() => window.open('https://studio.youtube.com/channel/UCFZFzmx3KNm9ZkCRrFZDC_Q/content', '_blank', 'noopener,noreferrer')}
               className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
               title="Abrir el canal de YouTube (sin login)"
             >

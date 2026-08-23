@@ -647,7 +647,6 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
         <div>
-          <h3 className="text-[var(--accent)] font-black text-xl uppercase tracking-tighter">{t('matchesList.matchHistory')}</h3>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('matchesList.matchHistoryDesc')}</p>
         </div>
         <button
@@ -945,21 +944,23 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           </div>
         </div>
       ) : viewMode === 'table' ? (
-        <DataTable<MatchRow>
-          data={tableRows}
-          columns={tableColumns}
-          actions={tableActions}
-          searchable
-          sortable
-          paginated
-          pageSize={30}
-          pageSizeOptions={[30, 50, 100]}
-          exportable
-          exportFilename="partidos"
-          emptyMessage={t('matchesList.noMatches')}
-          emptyIcon="fa-solid fa-calendar-xmark"
-          onRowClick={(row) => !row.match.readonly && onClickMatch && onClickMatch(row.match)}
-        />
+        <div className="text-lg">
+          <DataTable<MatchRow>
+            data={tableRows}
+            columns={tableColumns}
+            actions={tableActions}
+            searchable
+            sortable
+            paginated
+            pageSize={30}
+            pageSizeOptions={[30, 50, 100]}
+            exportable
+            exportFilename="partidos"
+            emptyMessage={t('matchesList.noMatches')}
+            emptyIcon="fa-solid fa-calendar-xmark"
+            onRowClick={(row) => !row.match.readonly && onClickMatch && onClickMatch(row.match)}
+          />
+        </div>
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {groupedMatches.map(({ groupKey, competition, jornada, matches }) => (

@@ -413,6 +413,49 @@ function measureTextShape(text, lineWidth) {
   };
 }
 
+function measurePlayerShape(shape) {
+  const radius = Math.max(14, (shape.lineWidth || 6) * 3);
+  const nameFontSize = Math.max(11, radius * 0.7);
+  ctx.save();
+  ctx.font = `700 ${nameFontSize}px Trebuchet MS`;
+  const nameWidth = ctx.measureText(shape.nombre || "").width;
+  ctx.restore();
+  return {
+    radius,
+    nameFontSize,
+    nameWidth,
+    nameHeight: nameFontSize + 6,
+    halfWidth: Math.max(radius, nameWidth / 2),
+  };
+}
+
+function drawPlayer(shape) {
+  const m = measurePlayerShape(shape);
+
+  ctx.save();
+  ctx.globalAlpha = shape.opacity ?? 1;
+
+  ctx.beginPath();
+  ctx.arc(shape.x, shape.y, m.radius, 0, Math.PI * 2);
+  ctx.fillStyle = shape.stroke;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#ffffff";
+  ctx.stroke();
+
+  ctx.font = `700 ${Math.max(12, m.radius)}px Trebuchet MS`;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(shape.dorsal), shape.x, shape.y);
+
+  ctx.font = `700 ${m.nameFontSize}px Trebuchet MS`;
+  ctx.textBaseline = "top";
+  ctx.fillText((shape.nombre || "").toUpperCase(), shape.x, shape.y + m.radius + 4);
+
+  ctx.restore();
+}
+
 function cloneShape(shape) {
   return JSON.parse(JSON.stringify(shape));
 }
@@ -452,6 +495,16 @@ function getShapeBounds(shape) {
       top: shape.y - boxHeight,
       right: shape.x + boxWidth,
       bottom: shape.y + 22,
+    };
+  }
+
+  if (shape.type === "player") {
+    const m = measurePlayerShape(shape);
+    return {
+      left: shape.x - m.halfWidth,
+      top: shape.y - m.radius,
+      right: shape.x + m.halfWidth,
+      bottom: shape.y + m.radius + m.nameHeight,
     };
   }
 
@@ -502,7 +555,7 @@ function translateShape(shape, dx, dy) {
     return;
   }
 
-  if (shape.type === "text" || shape.type === "callout") {
+  if (shape.type === "text" || shape.type === "callout" || shape.type === "player") {
     shape.x += dx;
     shape.y += dy;
     return;
@@ -535,7 +588,7 @@ function scaleShapeFromBaseline(shape, factor) {
     return scaledShape;
   }
 
-  if (scaledShape.type === "text" || scaledShape.type === "callout") {
+  if (scaledShape.type === "text" || scaledShape.type === "callout" || scaledShape.type === "player") {
     const anchor = scalePoint({ x: scaledShape.x, y: scaledShape.y }, center, factor);
     scaledShape.x = anchor.x;
     scaledShape.y = anchor.y;
@@ -623,7 +676,7 @@ function resizeShapeWithHandle(shape, handleIndex, newPoint, anchor) {
     return;
   }
 
-  if (shape.type === "text" || shape.type === "callout") {
+  if (shape.type === "text" || shape.type === "callout" || shape.type === "player") {
     const b = getShapeBounds(shape);
     const oldW = (b.right - b.left) || 1;
     const factor = ((newRight - newLeft) || 1) / oldW;
@@ -1431,6 +1484,9 @@ function drawShape(shape) {
   if (shape.type === "spotlight") {
     drawSpotlight(shape);
   }
+  if (shape.type === "player") {
+    drawPlayer(shape);
+  }
 
   ctx.restore();
 }
@@ -1837,7 +1893,7 @@ function buildYouTubeEmbedUrl(videoId, options = {}) {
   const params = new URLSearchParams({
     autoplay: "1",
     mute: "1",
-    controls: "1",
+    controls: "0",
     rel: "0",
     playsinline: "1",
     modestbranding: "1",
@@ -2881,6 +2937,23 @@ document.getElementById("tutorialBtn")?.addEventListener("click", () => {
   }
 });
 
+window.PintadoAcciones.addPlayerAnnotation = function addPlayerAnnotation(x, y, dorsal, nombre) {
+  pushHistory();
+  state.annotations.push({
+    type: "player",
+    x,
+    y,
+    dorsal,
+    nombre,
+    stroke: "#dd145f",
+    lineWidth: 6,
+    opacity: 1,
+  });
+  state.selectedAnnotationIndex = state.annotations.length - 1;
+  syncSizeControl();
+  redraw();
+};
+
 return function destroyPintadoAcciones() {
   document.removeEventListener("paste", handlePaste);
   window.removeEventListener("keydown", handleKeydown);
@@ -2889,5 +2962,6 @@ return function destroyPintadoAcciones() {
   if (state.player && typeof state.player.destroy === "function") {
     try { state.player.destroy(); } catch (error) { /* noop */ }
   }
+  delete window.PintadoAcciones.addPlayerAnnotation;
 };
 };

@@ -14,7 +14,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 17;
+const MENU_VERSION = 18;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -47,6 +47,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'RENDIMIENTO FÍSICO', labelKey: 'sidebar.fitnessLabel', icon: 'fa-dumbbell', section: 'medical' },
   // Herramientas
   { id: 'PIZARRA TÁCTICA', labelKey: 'sidebar.tacticalBoardLabel', icon: 'fa-chalkboard-user', section: 'planning' },
+  { id: 'PINTADO DE ACCIONES', labelKey: 'sidebar.actionPaintingLabel', icon: 'fa-paintbrush', section: 'planning' },
   { id: 'DISEÑADOR', labelKey: 'sidebar.designerLabel', icon: 'fa-person-running', section: 'planning' },
   { id: 'REPOSITORIO DE TAREAS', labelKey: 'sidebar.taskRepositoryLabel', icon: 'fa-book-open', section: 'planning' },
   // Contenido

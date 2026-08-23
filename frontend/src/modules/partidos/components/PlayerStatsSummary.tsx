@@ -331,9 +331,9 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
           <p className="text-xs font-bold text-slate-400">{t('playerStatsSummary.noData')}</p>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-slate-100">
-            <table className="w-full text-[6px]">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 text-slate-400 uppercase text-[5px] font-black tracking-widest">
+                <tr className="bg-slate-50 text-slate-400 uppercase text-xs font-black tracking-widest">
                   <th className="px-0.5 py-0.5 text-left">#</th>
                   <th className="px-0.5 py-0.5 text-left">{t('playerStatsSummary.player')}</th>
                   <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.matchesPlayed')}</th>
@@ -358,17 +358,17 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                       className={`text-slate-700 ${onSelectPlayer ? 'cursor-pointer hover:bg-slate-50' : ''}`}
                       onClick={() => onSelectPlayer && onSelectPlayer(row.playerId)}
                     >
-                      <td className="px-0.5 py-px font-black text-[5px]">{player?.dorsal ?? '-'}</td>
-                      <td className="px-0.5 py-px font-bold truncate max-w-32 text-[5px]">{player?.apodo || player?.nombre || row.playerId}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.matchesPlayed}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.starterCount}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.minutes}'</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{minutesPercent}%</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{starterPercent}%</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.goals}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.goalsConceded}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.yellowCards}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-[5px]">{row.redCards}</td>
+                      <td className="px-0.5 py-0 font-black text-xs">{player?.dorsal ?? '-'}</td>
+                      <td className="px-0.5 py-0 font-bold truncate max-w-32 text-xs">{player?.apodo || player?.nombre || row.playerId}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.matchesPlayed}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.starterCount}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.minutes}'</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{minutesPercent}%</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{starterPercent}%</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.goals}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.goalsConceded}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.yellowCards}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.redCards}</td>
                     </tr>
                   );
                 })}

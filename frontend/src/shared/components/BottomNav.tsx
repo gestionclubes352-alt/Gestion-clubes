@@ -44,6 +44,7 @@ const MORE_SECTIONS = [
     { id: 'DISEÑADOR', icon: 'fa-person-running', labelKey: 'sidebar.designerLabel' },
     { id: 'REPOSITORIO DE TAREAS', icon: 'fa-book-open', labelKey: 'sidebar.taskRepositoryLabel' },
     { id: 'PIZARRA TÁCTICA', icon: 'fa-chalkboard-user', labelKey: 'sidebar.tacticalBoardLabel' },
+    { id: 'PINTADO DE ACCIONES', icon: 'fa-paintbrush', labelKey: 'sidebar.actionPaintingLabel' },
   ]},
   { sectionLabel: 'sidebar.content', items: [
     { id: 'VIDEOTECA', icon: 'fa-video', labelKey: 'sidebar.videoLibraryLabel' },

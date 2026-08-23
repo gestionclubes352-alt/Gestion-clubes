@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import '../pintado-acciones.css';
 import engineScriptUrl from '../lib/pintado-acciones-engine.js?url';
-import { initializeABPLoader } from '../lib/abp-loader';
 import { plantillasService, equiposService } from '@shared/services/dataService';
 import type { Player } from '@modules/plantilla';
 
@@ -9,6 +8,7 @@ declare global {
   interface Window {
     PintadoAcciones?: {
       mount?: () => (() => void) | undefined;
+      addPlayerAnnotation?: (x: number, y: number, dorsal: number, nombre: string) => void;
     };
   }
 }
@@ -99,15 +99,14 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // Insertar el dorsal del jugador en la posición del clic
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.font = 'bold 24px Arial';
-        ctx.fillStyle = '#dd145f';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(selectedPlayerForInsertion.dorsal), x, y);
-      }
+      // Insertar el jugador como anotación del motor (círculo con dorsal + nombre),
+      // para que quede registrada, se redibuje correctamente y se pueda mover.
+      window.PintadoAcciones?.addPlayerAnnotation?.(
+        x,
+        y,
+        selectedPlayerForInsertion.dorsal,
+        selectedPlayerForInsertion.nombre
+      );
 
       // Deseleccionar el jugador después de la inserción
       setSelectedPlayerForInsertion(null);
@@ -132,16 +131,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
     script.onload = () => {
       if (cancelled) return;
       destroy = window.PintadoAcciones?.mount?.();
-
-      // Inicializar ABP loader después de montar el motor principal
-      // Esperar más tiempo para asegurar que todos los elementos estén listos
-      setTimeout(() => {
-        try {
-          initializeABPLoader();
-        } catch (error) {
-          console.error('Error inicializando ABP Loader:', error);
-        }
-      }, 500);
 
       // Agregar manejador de pantalla completa
       const fullscreenBtn = document.getElementById('fullscreenToggle');
@@ -260,41 +249,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                 </div>
               </section>
 
-              <section className="panel-block">
-                <h2>ABP</h2>
-                <div className="abp-buttons">
-                  <button
-                    id="loadAtaque"
-                    className="abp-button abp-ataque"
-                    type="button"
-                    title="Cargar campo de ataque en el canvas"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
-                      <path d="M12 3v14"></path>
-                      <path d="M2 10h20"></path>
-                      <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
-                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
-                    </svg>
-                    <span>Ataque</span>
-                  </button>
-                  <button
-                    id="loadDefensa"
-                    className="abp-button abp-defensa"
-                    type="button"
-                    title="Cargar campo de defensa en el canvas"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
-                      <path d="M12 3v14"></path>
-                      <path d="M2 10h20"></path>
-                      <circle cx="8" cy="16" r="1.5" fill="currentColor"></circle>
-                      <circle cx="16" cy="12" r="1.5" fill="currentColor"></circle>
-                    </svg>
-                    <span>Defensa</span>
-                  </button>
-                </div>
-              </section>
             </div>
           </aside>
 
@@ -376,6 +330,9 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
               <div id="youtubePlayer" className="media-layer is-visible"></div>
               <img id="backgroundImage" className="media-layer" alt="Fotograma congelado" />
               <canvas id="annotationCanvas"></canvas>
+              <div className="stage-empty-state">
+                <h3>PINTADO DE ACCIONES</h3>
+              </div>
             </div>
 
             <div className="playback-panel">

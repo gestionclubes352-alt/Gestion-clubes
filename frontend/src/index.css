@@ -340,9 +340,11 @@ ul, ol {
     font-size: 1rem;
   }
 
-  table th,
-  table td {
-    padding: 0.75rem 1rem;
+  @layer base {
+    table th,
+    table td {
+      padding: 0.75rem 1rem;
+    }
   }
 
   /* Header más espacioso */
@@ -372,9 +374,11 @@ ul, ol {
     font-size: 1.125rem;
   }
 
-  table th,
-  table td {
-    padding: 1rem 1.5rem;
+  @layer base {
+    table th,
+    table td {
+      padding: 1rem 1.5rem;
+    }
   }
 
   h1 {
@@ -412,9 +416,11 @@ ul, ol {
     font-size: 1.25rem;
   }
 
-  table th,
-  table td {
-    padding: 1.25rem 2rem;
+  @layer base {
+    table th,
+    table td {
+      padding: 1.25rem 2rem;
+    }
   }
 
   h1 {
@@ -460,12 +466,14 @@ ul, ol {
   .gap-4 { gap: 0.5rem; }
 
   /* Tablas más compactas */
-  table thead th {
-    padding: 0.5rem 0.75rem;
-  }
+  @layer base {
+    table thead th {
+      padding: 0.5rem 0.75rem;
+    }
 
-  table tbody td {
-    padding: 0.5rem 0.75rem;
+    table tbody td {
+      padding: 0.5rem 0.75rem;
+    }
   }
 
   /* Modales con altura máxima */

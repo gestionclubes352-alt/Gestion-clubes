@@ -54,7 +54,7 @@
   min-height: 100dvh;
   padding: 8px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   gap: 8px;
 }
 .pintado-acciones-app .topbar {
@@ -283,6 +283,7 @@
   gap: 6px;
   align-items: stretch;
   min-height: 0;
+  flex: 1;
 }
 .pintado-acciones-app .left-panel {
   grid-area: left;
@@ -309,6 +310,7 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 6px;
   position: relative;
+  flex: 1;
 }
 .pintado-acciones-app .stage-toolbar {
   display: flex;
@@ -418,7 +420,8 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  min-height: min(58vh, 560px);
+  min-height: 0;
+  flex: 1;
   max-width: 100%;
   overflow: hidden;
   border-radius: 20px;
@@ -738,6 +741,47 @@
     min-height: min(50vh, 480px);
   }
 
+}
+
+/* Portátiles anchos (17"/15") con columnas fijas demasiado grandes */
+@media (max-width: 1440px) {
+  .pintado-acciones-app .workspace {
+    grid-template-columns: 250px minmax(0, 1fr) 190px;
+  }
+}
+
+/* Portátiles con poca altura de viewport real (escalado de Windows al 125-150%
+   deja un viewport ancho >1180px pero con solo 550-700px de alto disponible,
+   así que el stage forzado a min-height en vh se desbordaba y descolocaba
+   el resto de paneles). Se reduce el alto mínimo del stage y los paddings
+   para que todo quepa sin solapamientos, dejando scroll interno como red
+   de seguridad en los paneles laterales. */
+@media (min-width: 1181px) and (max-height: 820px) {
+  .pintado-acciones-app .app-shell {
+    padding: 6px;
+    gap: 6px;
+  }
+  .pintado-acciones-app .stage {
+    min-height: min(36vh, 360px);
+  }
+  .pintado-acciones-app .stage-panel {
+    padding: 4px;
+    gap: 4px;
+  }
+  .pintado-acciones-app .left-panel,
+  .pintado-acciones-app .tool-panel {
+    padding: 8px;
+    gap: 8px;
+  }
+  .pintado-acciones-app .panel-block {
+    padding: 8px;
+  }
+  .pintado-acciones-app .panel-block h2 {
+    margin-bottom: 8px;
+  }
+  .pintado-acciones-app .players-grid {
+    max-height: 220px;
+  }
 }
 
 @media (max-width: 820px) {.pintado-acciones-app body {
@@ -1558,5 +1602,26 @@
   text-align: center;
   word-break: break-word;
   line-height: 1.2;
+}
+
+/* Empty state text overlay */
+.pintado-acciones-app .stage-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pintado-acciones-app .stage-empty-state h3 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(0, 0, 0, 0.15);
+  text-transform: uppercase;
+  text-align: center;
 }
 

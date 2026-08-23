@@ -365,7 +365,7 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
   };
 
   return (
-    <svg viewBox={viewBox} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-auto">
+    <>
       {/* Formas completadas */}
       {shapes.map(renderShape)}
 
@@ -386,6 +386,6 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
           opacity="0.5"
         />
       )}
-    </svg>
+    </>
   );
 };

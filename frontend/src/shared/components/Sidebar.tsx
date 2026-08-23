@@ -328,8 +328,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('planning') && (
-          <SidebarSection title={t('sidebar.sportsAreaLabel')} sectionKey="planning" collapsed={isCollapsed} hasActiveChild={['DISEÑADOR', 'PIZARRA TÁCTICA', 'SESIONES', 'COMPETICIÓN', 'PARTIDOS', 'VIDEOTECA', 'REPOSITORIO DE TAREAS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.sportsAreaLabel')} sectionKey="planning" collapsed={isCollapsed} hasActiveChild={['DISEÑADOR', 'PIZARRA TÁCTICA', 'PINTADO DE ACCIONES', 'SESIONES', 'COMPETICIÓN', 'PARTIDOS', 'VIDEOTECA', 'REPOSITORIO DE TAREAS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('PIZARRA TÁCTICA') && <SidebarItem icon="fa-chalkboard-user" label={t('sidebar.tacticalBoardLabel')} active={activeSection === 'PIZARRA TÁCTICA'} onClick={() => handleItemClick('PIZARRA TÁCTICA')} collapsed={isCollapsed} />}
+            {isVisible('PINTADO DE ACCIONES') && <SidebarItem icon="fa-paintbrush" label={t('sidebar.actionPaintingLabel')} active={activeSection === 'PINTADO DE ACCIONES'} onClick={() => handleItemClick('PINTADO DE ACCIONES')} collapsed={isCollapsed} />}
             {isVisible('DISEÑADOR') && <SidebarItem icon="fa-person-running" label={t('sidebar.designerLabel')} active={activeSection === 'DISEÑADOR'} onClick={() => handleItemClick('DISEÑADOR')} collapsed={isCollapsed} />}
             {isVisible('REPOSITORIO DE TAREAS') && <SidebarItem icon="fa-book-open" label={t('sidebar.taskRepositoryLabel')} active={activeSection === 'REPOSITORIO DE TAREAS'} onClick={() => handleItemClick('REPOSITORIO DE TAREAS')} collapsed={isCollapsed} />}
             {isVisible('SESIONES') && <SidebarItem icon="fa-calendar-days" label={t('sidebar.sessionsLabel')} active={activeSection === 'SESIONES'} onClick={() => handleItemClick('SESIONES')} collapsed={isCollapsed} />}
