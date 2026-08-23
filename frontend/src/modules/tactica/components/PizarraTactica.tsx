@@ -922,7 +922,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         ? { ...p, playerId: player.id, playerName: displayName, playerInitials: initials, playerDorsal: player.dorsal, playerFotoUrl: player.fotoUrl }
         : p
     )));
-    setSelectedPitchIds([]);
+    setSelectedPitchIds([pitchId]);
     setSelectedSquadPlayerId(null);
     setSelectedRivalPlayerId(null);
   };
@@ -1171,7 +1171,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       setCampoTipo('defensa');
     };
     const handleCompleto = () => {
-      setAbpImageUrl(completoImage);
+      setAbpImageUrl(null);
       setCampoTipo('completo');
     };
 

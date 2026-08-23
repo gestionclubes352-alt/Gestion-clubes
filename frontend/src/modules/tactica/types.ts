@@ -111,3 +111,51 @@ export const remapPlayersToFormation = (
     return { ...pos, playerIds };
   });
 };
+
+// Tipos para herramientas de dibujo
+export type DrawingToolType =
+  | 'arrow' | 'arrowStraight' | 'pen'
+  | 'text' | 'callout'
+  | 'rectangle' | 'ellipse' | 'zone' | 'triangleZone'
+  | 'connector' | 'focus' | 'spotlight'
+  | 'move' | 'select';
+
+export type FocusStyle = 'abierto' | 'estrecho' | 'cilindrico';
+export type SpotlightStyle = 'filled' | 'outline' | 'beams';
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface DrawingShape {
+  id: string;
+  type: DrawingToolType;
+  stroke: string;
+  fill?: string;
+  lineWidth: number;
+  opacity: number;
+  x?: number;
+  y?: number;
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+  points?: Point[];
+  text?: string;
+  focusStyle?: FocusStyle;
+  spotlightStyle?: SpotlightStyle;
+}
+
+export interface DrawingState {
+  tool: DrawingToolType | null;
+  isDrawing: boolean;
+  currentShape: DrawingShape | null;
+  selectedShapeId: string | null;
+  focusStyle: FocusStyle;
+  spotlightStyle: SpotlightStyle;
+  stroke: string;
+  fill: string;
+  lineWidth: number;
+  opacity: number;
+}
