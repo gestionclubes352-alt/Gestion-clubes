@@ -1977,6 +1977,31 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     </button>
                     <button
                       type="button"
+                      onClick={() => {
+                        if (selectedArrowId) {
+                          const arrow = arrows.find(a => a.id === selectedArrowId);
+                          if (arrow) {
+                            const duplicate = { ...arrow, id: `arrow-${Date.now()}-${Math.random()}` };
+                            updateArrows(prev => [...prev, duplicate]);
+                          }
+                        } else if (drawingTools.state.selectedShapeId) {
+                          drawingTools.duplicateShape(drawingTools.state.selectedShapeId);
+                        }
+                      }}
+                      className="tool-button"
+                      title="Duplicar elemento seleccionado"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="5" y="9" width="8" height="8"></rect>
+                        <rect x="11" y="5" width="8" height="8"></rect>
+                        <path d="M11 9h6v6h-6z" opacity="0.3"></path>
+                      </svg>
+                      <span className="tool-label">Duplicar</span>
+                    </button>
+                  </div>
+                  <div className="tool-grid tool-grid-2col">
+                    <button
+                      type="button"
                       data-tool="connector"
                       onClick={() => handleSelectTool(drawingTools.state.tool === 'connector' ? null : 'connector')}
                       className={`tool-button ${drawingTools.state.tool === 'connector' ? 'is-active' : ''}`}
@@ -2660,36 +2685,25 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         }
                       }}
                     >
-                      {isSelected && (
-                        <div
-                          className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/20 bg-black/80 px-1.5 py-1 shadow-xl"
-                          style={{ bottom: `${displaySize / 2 + 8}px` }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, ...clampPitchPlayerPosition(p, p.x - 2, p.y) } : p)); }} title="Aumentar tamaño">
-                            <i className="fa-solid fa-magnifying-glass-plus text-[9px]" />
-                          </button>
-                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, ...clampPitchPlayerPosition(p, p.x + 2, p.y) } : p)); }} title="Reducir tamaño">
-                            <i className="fa-solid fa-magnifying-glass-minus text-[9px]" />
-                          </button>
-                          <button className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/10" onClick={e => { e.stopPropagation(); updatePitchPlayers(prev => prev.map(p => p.id === player.id ? { ...p, rotation: ((p.rotation ?? 0) + 90) % 360 } : p)); }} title="Rotar 90 grados">
-                            <i className="fa-solid fa-rotate-right text-[9px]" />
-                          </button>
-                        </div>
-                      )}
-
                       <div
-                        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] font-black shadow-lg ${player.number === 1 ? 'text-white' : 'text-white'} ${isSelected ? 'ring-2 ring-white/60' : ''} ${isPendingConnector ? 'ring-4 ring-yellow-400 animate-pulse' : ''}`}
+                        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] font-black shadow-lg ${player.number === 1 ? 'text-white' : 'text-white'} ${isPendingConnector ? 'ring-4 ring-yellow-400 animate-pulse' : ''}`}
                         style={{
                           width: displaySize,
                           height: displaySize,
                           backgroundColor: player.color,
-                          borderColor: 'rgba(255,255,255,0.4)',
-                          boxShadow: is3DView
-                            ? '0 2px 3px rgba(0,0,0,0.28), inset 0 8px 14px rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.24)'
-                            : isDragging
-                              ? '0 14px 24px rgba(0,0,0,0.35)'
-                              : '0 8px 18px rgba(0,0,0,0.35)',
+                          borderColor: isSelected ? '#c60c30' : 'rgba(255,255,255,0.4)',
+                          borderWidth: isSelected ? '5px' : '3px',
+                          boxShadow: isSelected
+                            ? `0 0 0 3px #c60c30, ${is3DView
+                              ? '0 2px 3px rgba(0,0,0,0.28), inset 0 8px 14px rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.24)'
+                              : isDragging
+                                ? '0 14px 24px rgba(0,0,0,0.35)'
+                                : '0 8px 18px rgba(0,0,0,0.35)'}`
+                            : is3DView
+                              ? '0 2px 3px rgba(0,0,0,0.28), inset 0 8px 14px rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.24)'
+                              : isDragging
+                                ? '0 14px 24px rgba(0,0,0,0.35)'
+                                : '0 8px 18px rgba(0,0,0,0.35)',
                         }}
                       >
                         {showPlayerPhotos && player.playerFotoUrl ? (
