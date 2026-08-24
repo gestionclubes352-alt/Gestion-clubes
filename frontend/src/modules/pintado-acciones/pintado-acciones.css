@@ -4,19 +4,42 @@
    bare html, body, universal and element selectors). */
 
 .pintado-acciones-app {
-  /* Paleta alineada con el tema claro del resto de la app */
+  /* Paleta alineada con el diseño del resto de la app */
   --bg: #ffffff;
   --panel: rgba(255, 255, 255, 0.95);
   --panel-soft: rgba(0, 0, 0, 0.02);
-  --panel-border: #000000;
+  --panel-border: rgba(0, 0, 0, 0.12);
   --stage: #f5f5f5;
   --text: #1a1a1a;
-  --muted: #666666;
+  --text-secondary: #666666;
+  --muted: #999999;
   --accent: #dd145f;
   --accent-strong: #c21050;
   --button: #f0f0f0;
   --button-hover: #e0e0e0;
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.08);
+  --button-border: rgba(0, 0, 0, 0.15);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pintado-acciones-app {
+    --bg: #1a1a1a;
+    --panel: rgba(26, 26, 26, 0.95);
+    --panel-soft: rgba(255, 255, 255, 0.04);
+    --panel-border: rgba(255, 255, 255, 0.1);
+    --stage: #2a2a2a;
+    --text: #f5f5f5;
+    --text-secondary: #a0a0a0;
+    --muted: #666666;
+    --accent: #ff4f7f;
+    --accent-strong: #ff2d62;
+    --button: #2a2a2a;
+    --button-hover: #333333;
+    --button-border: rgba(255, 255, 255, 0.12);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  }
 }
 
 
@@ -24,14 +47,21 @@
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  font-family: Aptos, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Aptos, sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(221, 20, 95, 0.08), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(6, 214, 160, 0.06), transparent 22%),
+    radial-gradient(circle at top left, rgba(221, 20, 95, 0.06), transparent 28%),
     linear-gradient(135deg, #f9f9fb 0%, #ffffff 48%, #fafbfc 100%);
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pintado-acciones-app {
+    background:
+      radial-gradient(circle at top left, rgba(255, 79, 127, 0.08), transparent 28%),
+      linear-gradient(135deg, #1a1a1a 0%, #1f1f1f 50%, #1a1a1a 100%);
+  }
 }
 
 
@@ -60,13 +90,13 @@
 .pintado-acciones-app .topbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 12px;
   align-items: end;
   position: sticky;
   top: 0;
   z-index: 20;
-  padding: 4px 0 6px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
+  padding: 6px 0 8px;
+  background: linear-gradient(180deg, var(--panel), rgba(255, 255, 255, 0.92));
   backdrop-filter: blur(10px);
 }
 .pintado-acciones-app .brand,
@@ -76,7 +106,7 @@
 .pintado-acciones-app .stage-panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 22px;
+  border-radius: 16px;
   box-shadow: var(--shadow);
 }
 .pintado-acciones-app .brand {
@@ -89,8 +119,9 @@
 .pintado-acciones-app .brand h1,
 .pintado-acciones-app .panel-block h2 {
   margin: 0;
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-  letter-spacing: 0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Aptos, sans-serif;
+  letter-spacing: 0.01em;
+  font-weight: 600;
 }
 .pintado-acciones-app .brand-logo {
   display: block;
@@ -138,7 +169,8 @@
 .pintado-acciones-app .mode-label,
 .pintado-acciones-app .helper-text,
 .pintado-acciones-app #statusText {
-  color: var(--muted);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 .pintado-acciones-app .input-group input,
 .pintado-acciones-app .field input[type="range"],
@@ -147,18 +179,28 @@
 }
 .pintado-acciones-app input[type="text"] {
   height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.35);
-  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--button-border);
+  background: var(--bg);
   color: var(--text);
   padding: 0 14px;
+  font: inherit;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.pintado-acciones-app input[type="text"]:hover {
+  border-color: rgba(0, 0, 0, 0.25);
+}
+.pintado-acciones-app input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(221, 20, 95, 0.1);
 }
 .pintado-acciones-app select {
   width: 100%;
   height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.35);
-  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--button-border);
+  background: var(--bg);
   color: var(--text);
   padding: 0 14px;
   font: inherit;
@@ -166,14 +208,14 @@
   transition: background 160ms ease, border-color 160ms ease;
 }
 .pintado-acciones-app select:hover {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.55);
+  background: var(--button);
+  border-color: rgba(0, 0, 0, 0.25);
 }
 .pintado-acciones-app select:focus {
   outline: none;
-  background: rgba(0, 0, 0, 0.03);
-  border-color: #000000;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+  background: var(--button);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(221, 20, 95, 0.1);
 }
 .pintado-acciones-app select option {
   background: var(--bg);
@@ -192,18 +234,18 @@
   gap: 4px;
   min-height: 50px;
   padding: 6px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--button-border);
+  background: var(--bg);
   color: var(--text);
   cursor: pointer;
   transition: all 160ms ease;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 .pintado-acciones-app .abp-button:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: #000000;
+  background: var(--button);
+  border-color: rgba(0, 0, 0, 0.25);
   transform: translateY(-1px);
 }
 .pintado-acciones-app .abp-button svg {
@@ -235,17 +277,19 @@
 .pintado-acciones-app button,
 .pintado-acciones-app .upload-button {
   min-height: 44px;
-  border: 0;
-  border-radius: 12px;
+  border: 1px solid var(--button-border);
+  border-radius: 10px;
   padding: 10px 16px;
   background: var(--button);
   color: var(--text);
   cursor: pointer;
-  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  font: inherit;
+  font-weight: 500;
 }
 .pintado-acciones-app button:hover,
 .pintado-acciones-app .upload-button:hover,
@@ -253,16 +297,27 @@
 .pintado-acciones-app .variant-button:hover {
   transform: translateY(-1px);
   background: var(--button-hover);
+  border-color: rgba(0, 0, 0, 0.25);
 }
 .pintado-acciones-app button.primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  background: var(--accent);
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 600;
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+.pintado-acciones-app button.primary:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 .pintado-acciones-app button.secondary {
-  background: linear-gradient(135deg, #1d3c72, #2a5298);
-  color: #dbe8ff;
-  box-shadow: inset 0 0 0 1px rgba(100, 160, 255, 0.18);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+  border-color: var(--button-border);
+}
+.pintado-acciones-app button.secondary:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.25);
 }
 .pintado-acciones-app .upload-button {
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
@@ -350,11 +405,13 @@
   flex-wrap: wrap;
   width: 100%;
   padding: 10px 14px;
-  border-radius: 20px;
+  border-radius: 12px;
   background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--panel-border);
 }
 .pintado-acciones-app .mode-label {
   margin-right: auto;
+  font-weight: 500;
 }
 .pintado-acciones-app .stage-action-button {
   gap: 8px;
@@ -445,7 +502,6 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   min-height: 0;
-  flex: 1;
   max-width: 100%;
   overflow: hidden;
   border-radius: 20px;
@@ -464,6 +520,19 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: inherit;
   pointer-events: none;
+}
+/* Hide YouTube play icon in bottom-right corner */
+.pintado-acciones-app .stage::before {
+  content: "";
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 50px;
+  height: 50px;
+  background: var(--stage);
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 4px;
 }
 .pintado-acciones-app .media-layer,
 .pintado-acciones-app #annotationCanvas {
@@ -496,31 +565,32 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
-  background: rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 14px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
   width: 100%;
 }
 .pintado-acciones-app .playback-play-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 14px 6px 11px;
+  padding: 8px 14px;
   border: none;
   border-radius: 10px;
   background: var(--accent);
   color: #ffffff;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: background 160ms ease, box-shadow 160ms ease;
 }
 .pintado-acciones-app .playback-play-btn:hover {
-  background: #dd0f4f;
+  background: var(--accent-strong);
+  box-shadow: 0 4px 12px rgba(221, 20, 95, 0.3);
 }
 .pintado-acciones-app .playback-play-icon {
   display: inline-flex;
@@ -577,20 +647,23 @@
 }
 .pintado-acciones-app .panel-block {
   background: var(--panel-soft);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 18px;
-  padding: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 12px;
 }
 .pintado-acciones-app .panel-block h2 {
-  margin-bottom: 14px;
-  font-size: 1rem;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 .pintado-acciones-app .tool-rail {
   width: 100%;
   padding: 10px 8px 12px;
-  border-radius: 16px;
-  background: #f5f5f5;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: var(--stage);
+  border: 1px solid var(--panel-border);
   box-shadow: none;
 }
 .pintado-acciones-app .tool-grid {
@@ -608,18 +681,18 @@
   justify-content: center;
   gap: 5px;
   padding: 7px 4px;
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  color: #333333;
-  font-size: 0.68rem;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--muted);
+  font-size: 0.65rem;
   letter-spacing: 0.08em;
-  font-weight: 700;
+  font-weight: 600;
 }
 .pintado-acciones-app .tool-divider-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #000000;
+  background: var(--accent);
   box-shadow: none;
 }
 .pintado-acciones-app .tool-button {
@@ -632,12 +705,18 @@
   border-radius: 10px;
   flex-direction: column;
   gap: 6px;
+  cursor: pointer;
+  transition: all 160ms ease;
+  color: var(--text);
+}
+.pintado-acciones-app .tool-button:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 .pintado-acciones-app .tool-button.is-active {
-  background: #000000;
-  border-color: #000000;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 0 0 2px rgba(221, 20, 95, 0.2);
 }
 .pintado-acciones-app .tool-button.is-active::after {
   content: "";
@@ -658,8 +737,12 @@
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-  color: #333333;
+  color: var(--text-secondary);
   filter: none;
+  transition: color 160ms ease;
+}
+.pintado-acciones-app .tool-button:hover svg {
+  color: var(--text);
 }
 .pintado-acciones-app .tool-button.is-active svg {
   color: #ffffff;
@@ -670,11 +753,16 @@
   stroke: none;
 }
 .pintado-acciones-app .tool-label {
-  font-size: 0.62rem;
+  font-size: 0.625rem;
   line-height: 1.1;
-  letter-spacing: 0.03em;
-  color: #333333;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
   text-align: center;
+  font-weight: 500;
+  transition: color 160ms ease;
+}
+.pintado-acciones-app .tool-button:hover .tool-label {
+  color: var(--text);
 }
 .pintado-acciones-app .tool-button.is-active .tool-label {
   color: #ffffff;
@@ -682,18 +770,18 @@
 .pintado-acciones-app .number-palette {
   min-height: 100%;
   padding: 10px 10px 12px;
-  border-radius: 16px;
-  background: #f5f5f5;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  background: var(--stage);
+  border: 1px solid var(--panel-border);
   box-shadow: none;
 }
 .pintado-acciones-app .number-palette-header {
   margin-bottom: 10px;
-  color: #333333;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 600;
 }
 .pintado-acciones-app .number-grid {
   display: grid;
@@ -703,21 +791,24 @@
 .pintado-acciones-app .number-chip {
   min-height: 44px;
   padding: 0;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--button-border);
+  background: var(--bg);
   color: var(--text);
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 160ms ease;
 }
 .pintado-acciones-app .number-chip:hover {
-  border-color: #000000;
+  border-color: rgba(0, 0, 0, 0.25);
+  background: var(--button);
 }
 .pintado-acciones-app .number-chip.is-active {
-  border-color: #000000;
-  background: #000000;
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 0 0 2px rgba(221, 20, 95, 0.2);
 }
 .pintado-acciones-app .variant-picker {
   display: grid;
@@ -729,11 +820,17 @@
   min-height: 62px;
   padding: 8px 6px 7px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  background: #ffffff;
-  color: var(--muted);
+  border: 1px solid var(--button-border);
+  background: var(--bg);
+  color: var(--text-secondary);
   flex-direction: column;
   gap: 5px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+.pintado-acciones-app .variant-button:hover {
+  border-color: rgba(0, 0, 0, 0.25);
+  background: var(--button);
 }
 .pintado-acciones-app .variant-button svg {
   width: 100%;
@@ -743,12 +840,13 @@
 .pintado-acciones-app .variant-button span {
   font-size: 11px;
   line-height: 1;
+  font-weight: 500;
 }
 .pintado-acciones-app .variant-button.is-active {
-  border-color: #000000;
-  background: #000000;
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 0 0 2px rgba(221, 20, 95, 0.2);
 }
 
 
@@ -1611,12 +1709,12 @@
   min-height: 52px;
   padding: 6px 4px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  background: #ffffff;
+  border: 1px solid var(--button-border);
+  background: var(--bg);
   color: var(--text);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 160ms ease;
 }
 
 .pintado-acciones-app .player-chip:hover {
