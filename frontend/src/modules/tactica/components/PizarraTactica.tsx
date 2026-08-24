@@ -2691,10 +2691,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           width: displaySize,
                           height: displaySize,
                           backgroundColor: player.color,
-                          borderColor: isSelected ? '#c60c30' : 'rgba(255,255,255,0.4)',
+                          borderColor: isSelected ? '#ffffff' : 'rgba(255,255,255,0.4)',
                           borderWidth: isSelected ? '5px' : '3px',
                           boxShadow: isSelected
-                            ? `0 0 0 3px #c60c30, ${is3DView
+                            ? `0 0 0 3px #ffffff, ${is3DView
                               ? '0 2px 3px rgba(0,0,0,0.28), inset 0 8px 14px rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.24)'
                               : isDragging
                                 ? '0 14px 24px rgba(0,0,0,0.35)'
