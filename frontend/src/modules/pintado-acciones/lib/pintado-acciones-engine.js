@@ -4,6 +4,8 @@ const youtubeUrlInput = document.getElementById("youtubeUrl");
 const urlInputGroup = youtubeUrlInput?.closest(".input-group");
 const loadYoutubeButton = document.getElementById("loadYoutube");
 const togglePlaybackButton = document.getElementById("togglePlayback");
+const seekBackwardButton = document.getElementById("seekBackward");
+const seekForwardButton = document.getElementById("seekForward");
 const toggleDrawModeButton = document.getElementById("toggleDrawMode");
 const freezeHintButton = document.getElementById("freezeHint");
 const imageUploadInput = document.getElementById("imageUpload");
@@ -32,6 +34,9 @@ const sizeValue = document.getElementById("sizeValue");
 const opacityControlInput = document.getElementById("opacityControl");
 const opacityValueEl = document.getElementById("opacityValue");
 const focusStyleButtons = document.querySelectorAll("[data-focus-style]");
+const focusFollowKeyframeButton = document.getElementById("focusFollowKeyframe");
+const focusFollowEndButton = document.getElementById("focusFollowEnd");
+const focusFollowClearButton = document.getElementById("focusFollowClear");
 const spotlightStyleButtons = document.querySelectorAll("[data-spotlight-style]");
 const undoActionButton = document.getElementById("undoAction");
 const clearActionButton = document.getElementById("clearAction");
@@ -198,6 +203,9 @@ function formatTime(totalSeconds) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+const DRAW_MODE_ICON = `<path d="M4 16.5 15.5 5l3.5 3.5L7.5 20H4z"></path><path d="M13.5 7l3.5 3.5"></path>`;
+const PLAYBACK_MODE_ICON = `<path d="M6 4l14 8-14 8V4z"></path>`;
+
 function updatePlaybackUi() {
   canvas.classList.toggle("is-drawing", state.drawEnabled);
   toggleDrawModeButton.classList.toggle("is-active", state.drawEnabled);
@@ -205,8 +213,14 @@ function updatePlaybackUi() {
   if (drawLabel) {
     drawLabel.textContent = state.drawEnabled ? "DIBUJO ACTIVO" : "MODO REPRODUCIR";
   }
+  const drawIcon = toggleDrawModeButton.querySelector(".stage-action-icon svg");
+  if (drawIcon) {
+    drawIcon.innerHTML = state.drawEnabled ? DRAW_MODE_ICON : PLAYBACK_MODE_ICON;
+  }
   toggleDrawModeButton.setAttribute("aria-pressed", String(state.drawEnabled));
 }
+
+let lastFollowSyncTime = null;
 
 function syncTimeline() {
   if (!state.player || !state.playerReady) return;
@@ -218,6 +232,13 @@ function syncTimeline() {
     if (timeDisplay) {
       timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
     }
+    // Solo reaplicamos la interpolacion cuando el tiempo cambia de verdad, para no
+    // pisar un arrastre manual del foco mientras el video sigue pausado en el mismo instante.
+    const timeChanged = lastFollowSyncTime === null || Math.abs(currentTime - lastFollowSyncTime) > 0.05;
+    if (state.playerState !== "playing" && timeChanged && applyFollowKeyframes(currentTime)) {
+      redraw();
+    }
+    lastFollowSyncTime = currentTime;
   }
 }
 
@@ -246,6 +267,7 @@ function setSourceMode(mode) {
   if (sourceLabel) sourceLabel.textContent = mode === "youtube" ? "YouTube" : "Imagen";
   youtubeContainer.classList.toggle("is-visible", mode === "youtube");
   backgroundImage.classList.toggle("is-visible", mode === "image");
+  stage.classList.toggle("is-youtube-source", mode === "youtube");
   if (mode === "youtube") {
     state.stageAspectRatio = 16 / 9;
     stage.style.aspectRatio = "16 / 9";
@@ -349,6 +371,156 @@ function syncFocusStyleButtons(style = state.focusStyle) {
   focusStyleButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.focusStyle === style);
   });
+}
+
+function getSelectedFocusShape() {
+  const shape = state.annotations[state.selectedAnnotationIndex];
+  return shape?.type === "focus" ? shape : null;
+}
+
+function addFollowKeyframe() {
+  const shape = getSelectedFocusShape();
+  if (!shape) {
+    setStatus("Selecciona primero un foco con la herramienta Seleccionar para fijar su seguimiento.");
+    return;
+  }
+
+  if (!state.player || !state.playerReady) {
+    setStatus("Carga un video de YouTube para poder sincronizar el seguimiento con el tiempo.");
+    return;
+  }
+
+  pushHistory();
+  const time = Number(state.player.getCurrentTime?.() || 0);
+  const keyframes = Array.isArray(shape.keyframes) ? shape.keyframes.filter((k) => Math.abs(k.time - time) > 0.12) : [];
+  keyframes.push({ time, x1: shape.x1, y1: shape.y1, x2: shape.x2, y2: shape.y2 });
+  keyframes.sort((a, b) => a.time - b.time);
+  shape.keyframes = keyframes;
+  if (typeof shape.followEndTime === "number" && time >= shape.followEndTime) {
+    delete shape.followEndTime;
+  }
+  redraw();
+
+  setStatus(
+    keyframes.length >= 2
+      ? `Fotograma clave guardado en ${formatTime(time)} (${keyframes.length} en total). El foco aparecera en ese instante y seguira esta trayectoria al reproducir.`
+      : `Fotograma clave guardado en ${formatTime(time)}. El foco aparecera a partir de aqui. Mueve el foco a otro instante y vuelve a fijarlo para que empiece a moverse.`
+  );
+}
+
+function endFollowHere() {
+  const shape = getSelectedFocusShape();
+  if (!shape) {
+    setStatus("Selecciona primero un foco con la herramienta Seleccionar.");
+    return;
+  }
+
+  if (!shape.keyframes?.length) {
+    setStatus("Anade al menos un fotograma clave antes de marcar donde debe desaparecer el foco.");
+    return;
+  }
+
+  if (!state.player || !state.playerReady) {
+    setStatus("Carga un video de YouTube para poder sincronizar el final del seguimiento con el tiempo.");
+    return;
+  }
+
+  const time = Number(state.player.getCurrentTime?.() || 0);
+  const lastKeyframeTime = shape.keyframes[shape.keyframes.length - 1].time;
+  if (time <= lastKeyframeTime) {
+    setStatus("Marca el final en un instante posterior al ultimo fotograma clave del foco.");
+    return;
+  }
+
+  pushHistory();
+  shape.followEndTime = time;
+  redraw();
+  setStatus(`El foco desaparecera a partir de ${formatTime(time)}.`);
+}
+
+function clearFollowKeyframes() {
+  const shape = getSelectedFocusShape();
+  if (!shape || !shape.keyframes?.length) {
+    setStatus("El foco seleccionado no tiene seguimiento que borrar.");
+    return;
+  }
+
+  pushHistory();
+  shape.keyframes = [];
+  delete shape.followEndTime;
+  redraw();
+  setStatus("Seguimiento eliminado. El foco quedara siempre visible en su posicion actual.");
+}
+
+function isFocusHiddenAt(shape, currentTime) {
+  if (shape.type !== "focus" || !Array.isArray(shape.keyframes) || !shape.keyframes.length) {
+    return false;
+  }
+
+  const appearsAt = shape.keyframes[0].time;
+  if (currentTime < appearsAt - 0.001) {
+    return true;
+  }
+
+  return typeof shape.followEndTime === "number" && currentTime > shape.followEndTime;
+}
+
+function applyFollowKeyframes(currentTime) {
+  let changed = false;
+
+  state.annotations.forEach((shape) => {
+    if (shape.type !== "focus" || !Array.isArray(shape.keyframes) || shape.keyframes.length < 2) {
+      return;
+    }
+
+    const keyframes = shape.keyframes;
+    const nextIndex = keyframes.findIndex((k) => k.time >= currentTime);
+    let a;
+    let b;
+    let t;
+
+    if (nextIndex === -1) {
+      a = b = keyframes[keyframes.length - 1];
+      t = 0;
+    } else if (nextIndex === 0) {
+      a = b = keyframes[0];
+      t = 0;
+    } else {
+      a = keyframes[nextIndex - 1];
+      b = keyframes[nextIndex];
+      const span = b.time - a.time;
+      t = span > 0 ? (currentTime - a.time) / span : 0;
+    }
+
+    const lerp = (p, q) => p + (q - p) * t;
+    shape.x1 = lerp(a.x1, b.x1);
+    shape.y1 = lerp(a.y1, b.y1);
+    shape.x2 = lerp(a.x2, b.x2);
+    shape.y2 = lerp(a.y2, b.y2);
+    changed = true;
+  });
+
+  return changed;
+}
+
+let followRafId = 0;
+
+function followTick() {
+  followRafId = 0;
+  if (state.playerState !== "playing" || !state.player) {
+    return;
+  }
+
+  const time = Number(state.player.getCurrentTime?.() || 0);
+  if (applyFollowKeyframes(time)) {
+    redraw();
+  }
+  followRafId = requestAnimationFrame(followTick);
+}
+
+function ensureFollowLoop() {
+  if (followRafId) return;
+  followRafId = requestAnimationFrame(followTick);
 }
 
 function syncSpotlightStyleButtons(style = state.spotlightStyle) {
@@ -516,6 +688,39 @@ function getShapeBounds(shape) {
       right: shape.x1 + halfWidth,
       bottom: Math.max(shape.y1, shape.y2),
     };
+  }
+
+  if (shape.type === "arrow" || shape.type === "arrowStraight") {
+    const dx = shape.x2 - shape.x1;
+    const dy = shape.y2 - shape.y1;
+    const distance = Math.hypot(dx, dy);
+    let bounds = {
+      left: Math.min(shape.x1, shape.x2),
+      top: Math.min(shape.y1, shape.y2),
+      right: Math.max(shape.x1, shape.x2),
+      bottom: Math.max(shape.y1, shape.y2),
+    };
+
+    if (shape.type === "arrow" && distance >= 2) {
+      const normalX = -dy / distance;
+      const normalY = dx / distance;
+      const curveDirection = normalY > 0 ? -1 : 1;
+      const curveAmount = Math.max(26, Math.min(distance * 0.35, 120));
+      const controlX = (shape.x1 + shape.x2) / 2 + normalX * curveAmount * curveDirection;
+      const controlY = (shape.y1 + shape.y2) / 2 + normalY * curveAmount * curveDirection;
+      bounds.left = Math.min(bounds.left, controlX);
+      bounds.right = Math.max(bounds.right, controlX);
+      bounds.top = Math.min(bounds.top, controlY);
+      bounds.bottom = Math.max(bounds.bottom, controlY);
+    }
+
+    const headLength = Math.max(14, (shape.lineWidth || 4) * 4.5);
+    bounds.left -= headLength;
+    bounds.right += headLength;
+    bounds.top -= headLength;
+    bounds.bottom += headLength;
+
+    return bounds;
   }
 
   return {
@@ -1493,9 +1698,13 @@ function drawShape(shape) {
 
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const currentTime = Number(state.player?.getCurrentTime?.() || 0);
   state.annotations.forEach((shape, index) => {
+    if (isFocusHiddenAt(shape, currentTime)) {
+      return;
+    }
     drawShape(shape);
-    if (index === state.selectedAnnotationIndex && state.tool === "move") {
+    if (index === state.selectedAnnotationIndex && state.tool === "move" && state.playerState !== "playing") {
       drawSelection(shape);
     }
   });
@@ -1619,6 +1828,7 @@ function beginDrawing(event) {
     focusStyle: state.focusStyle,
     spotlightStyle: state.spotlightStyle,
     opacity: state.opacity,
+    ...(state.tool === "focus" ? { keyframes: [] } : {}),
   };
   redraw();
 }
@@ -2111,6 +2321,7 @@ async function ensurePlayer(videoId, options = {}) {
             if (togglePlaybackButton) togglePlaybackButton.textContent = "Pausar";
             setDrawEnabled(false);
             setStatus("Reproduciendo. Pausa cuando quieras fijar la accion.");
+            ensureFollowLoop();
           }
 
           if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
@@ -2151,6 +2362,14 @@ loadYoutubeButton?.addEventListener("click", async () => {
         : "La API de YouTube ha fallado. He cargado un reproductor compatible."
     );
   }
+});
+
+seekBackwardButton?.addEventListener("click", () => {
+  seekBy(-5);
+});
+
+seekForwardButton?.addEventListener("click", () => {
+  seekBy(5);
 });
 
 togglePlaybackButton?.addEventListener("click", () => {
@@ -2305,6 +2524,10 @@ focusStyleButtons.forEach((button) => {
     setTool("focus");
   });
 });
+
+focusFollowKeyframeButton?.addEventListener("click", addFollowKeyframe);
+focusFollowEndButton?.addEventListener("click", endFollowHere);
+focusFollowClearButton?.addEventListener("click", clearFollowKeyframes);
 
 spotlightStyleButtons.forEach((button) => {
   button.addEventListener("click", () => {
