@@ -13,8 +13,8 @@
   --text: #1a1a1a;
   --text-secondary: #666666;
   --muted: #999999;
-  --accent: #dd145f;
-  --accent-strong: #c21050;
+  --accent: #c60c30;
+  --accent-strong: #a00824;
   --button: #f0f0f0;
   --button-hover: #e0e0e0;
   --button-border: rgba(0, 0, 0, 0.15);
@@ -32,8 +32,8 @@
     --text: #f5f5f5;
     --text-secondary: #a0a0a0;
     --muted: #666666;
-    --accent: #ff4f7f;
-    --accent-strong: #ff2d62;
+    --accent: #e63946;
+    --accent-strong: #ff6b7a;
     --button: #2a2a2a;
     --button-hover: #333333;
     --button-border: rgba(255, 255, 255, 0.12);
@@ -80,11 +80,9 @@
   display: none !important;
 }
 .pintado-acciones-app .app-shell {
-  min-height: 100vh;
-  min-height: 100dvh;
   padding: 8px;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto;
   gap: 8px;
 }
 .pintado-acciones-app .topbar {
@@ -362,7 +360,8 @@
   padding: 6px;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
   gap: 6px;
   position: relative;
   flex: 1;
@@ -603,6 +602,32 @@
 .pintado-acciones-app .playback-play-icon svg {
   width: 16px;
   height: 16px;
+  fill: currentColor;
+  stroke: none;
+}
+.pintado-acciones-app .playback-skip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text, #1a1a1a);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+.pintado-acciones-app .playback-skip-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.pintado-acciones-app .playback-skip-btn svg {
+  width: 18px;
+  height: 18px;
   fill: currentColor;
   stroke: none;
 }
