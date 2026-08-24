@@ -2651,6 +2651,16 @@ canvas.addEventListener("pointerup", finishDrawing);
 canvas.addEventListener("pointercancel", finishDrawing);
 canvas.addEventListener("pointerleave", finishDrawing);
 
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  const point = getCanvasPoint(event);
+  const selectedIndex = findAnnotationAtPoint(point);
+  if (selectedIndex >= 0 && state.tool === "move") {
+    state.selectedAnnotationIndex = selectedIndex;
+    deleteSelectedAnnotation();
+  }
+});
+
 canvas.addEventListener("click", (event) => {
   if (state.tool !== "connector" || !state.drawEnabled) return;
   const point = getCanvasPoint(event);
