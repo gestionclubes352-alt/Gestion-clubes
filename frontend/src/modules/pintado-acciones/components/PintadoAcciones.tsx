@@ -34,7 +34,7 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
   const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string }>>([]);
   const [selectedEquipoId, setSelectedEquipoId] = useState<string>('');
   const [selectedPlayerForInsertion, setSelectedPlayerForInsertion] = useState<Player | null>(null);
-  const [showPlayers, setShowPlayers] = useState(true);
+  const [showPlayers, setShowPlayers] = useState(false);
 
   // Obtener los equipos del club actual
   useEffect(() => {
@@ -251,6 +251,63 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                 </div>
               </section>
 
+              {/* Sección de Jugadores */}
+              <section className="panel-block">
+                <div className="panel-block-header">
+                  <h2>Jugadores</h2>
+                  <button
+                    type="button"
+                    className="toggle-players-button"
+                    onClick={() => setShowPlayers((prev) => !prev)}
+                    aria-expanded={showPlayers}
+                    title={showPlayers ? 'Ocultar jugadores' : 'Mostrar jugadores'}
+                  >
+                    {showPlayers ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                </div>
+                {showPlayers && (
+                  <>
+                    {equipos.length > 0 && (
+                      <div className="equipo-selector">
+                        <label htmlFor="equipoSelect" className="equipo-label">Equipo:</label>
+                        <select
+                          id="equipoSelect"
+                          className="equipo-select"
+                          value={selectedEquipoId}
+                          onChange={(e) => setSelectedEquipoId(e.target.value)}
+                        >
+                          {equipos.map((equipo) => (
+                            <option key={equipo.id} value={equipo.id}>
+                              {equipo.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {loadingSquad ? (
+                      <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
+                    ) : squad.length > 0 ? (
+                      <div className="players-grid">
+                        {squad.map((player) => (
+                          <button
+                            key={player.id}
+                            type="button"
+                            className={`player-chip ${selectedPlayerForInsertion?.id === player.id ? 'is-selected' : ''}`}
+                            onClick={() => setSelectedPlayerForInsertion(selectedPlayerForInsertion?.id === player.id ? null : player)}
+                            title={selectedPlayerForInsertion?.id === player.id ? `Clic en el campo para insertar ${player.nombre}` : `Clic para insertar ${player.nombre} en el campo`}
+                          >
+                            <span className="dorsal">{player.dorsal}</span>
+                            <span className="nombre">{player.nombre}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
+                    )}
+                  </>
+                )}
+              </section>
+
             </div>
           </aside>
 
@@ -338,6 +395,13 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
             </div>
 
             <div className="playback-panel">
+              <button id="seekBackward" type="button" className="playback-skip-btn" aria-label="Retroceder 5 segundos" title="Retroceder 5 segundos">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M11 17V7l-7 5 7 5z"></path>
+                  <path d="M20 17V7l-7 5 7 5z"></path>
+                </svg>
+                <span>5</span>
+              </button>
               <button id="togglePlayback" type="button" className="playback-play-btn">
                 <span className="playback-play-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24">
@@ -345,6 +409,13 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                   </svg>
                 </span>
                 <span>Reproducir</span>
+              </button>
+              <button id="seekForward" type="button" className="playback-skip-btn" aria-label="Avanzar 5 segundos" title="Avanzar 5 segundos">
+                <span>5</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 17V7l7 5-7 5z"></path>
+                  <path d="M13 17V7l7 5-7 5z"></path>
+                </svg>
               </button>
               <input
                 id="timelineSeek"
@@ -365,42 +436,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
             <section className="panel-block">
               <h2>Herramientas</h2>
               <div className="tool-rail">
-                {/* Utilidades */}
-                <div className="tool-grid">
-                  <button className="tool-button" data-tool="move" aria-label="Seleccionar" title="Seleccionar">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 4v16"></path>
-                      <path d="M4 12h16"></path>
-                      <path d="M12 4l-2.3 2.3"></path>
-                      <path d="M12 4l2.3 2.3"></path>
-                      <path d="M12 20l-2.3-2.3"></path>
-                      <path d="M12 20l2.3-2.3"></path>
-                      <path d="M4 12l2.3-2.3"></path>
-                      <path d="M4 12l2.3 2.3"></path>
-                      <path d="M20 12l-2.3-2.3"></path>
-                      <path d="M20 12l-2.3 2.3"></path>
-                    </svg>
-                    <span className="tool-label">Seleccionar</span>
-                  </button>
-                  <button id="duplicateAnnotation" className="tool-button" type="button" aria-label="Duplicar" title="Duplicar seleccion">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <rect x="8" y="7" width="9" height="11" rx="1.8"></rect>
-                      <path d="M6.5 15.5H6A1.5 1.5 0 0 1 4.5 14V6A1.5 1.5 0 0 1 6 4.5h8A1.5 1.5 0 0 1 15.5 6v.5"></path>
-                    </svg>
-                    <span className="tool-label">Duplicar</span>
-                  </button>
-                  <button id="deleteAnnotation" className="tool-button" type="button" aria-label="Borrar" title="Borrar seleccion">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 7h14"></path>
-                      <path d="M10 11v6"></path>
-                      <path d="M14 11v6"></path>
-                      <path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-13"></path>
-                      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path>
-                    </svg>
-                    <span className="tool-label">Borrar</span>
-                  </button>
-                </div>
-
                 {/* FLECHAS */}
                 <div className="tool-divider"><span className="tool-divider-dot"></span>FLECHAS</div>
                 <div className="tool-grid">
@@ -422,11 +457,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                       <path d="M3 10 C5 4, 8 4, 11 10 C14 16, 17 16, 21 10" opacity="0.4" strokeWidth="1.2" strokeLinecap="round"></path>
                     </svg>
                   </button>
-                </div>
-
-                {/* TEXTOS */}
-                <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
-                <div className="tool-grid tool-grid-2col">
                   <button className="tool-button" data-tool="text" aria-label="Texto" title="Texto">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M5 8h6"></path>
@@ -436,6 +466,11 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     </svg>
                     <span className="tool-label">Texto</span>
                   </button>
+                </div>
+
+                {/* TEXTOS */}
+                <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
+                <div className="tool-grid tool-grid-2col">
                   <button className="tool-button" data-tool="callout" aria-label="Etiqueta" title="Etiqueta">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M7 7h8l2 2v7l-6 1.5-4-4V7z"></path>
@@ -526,6 +561,31 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                 {/* VARIOS */}
                 <div className="tool-divider"><span className="tool-divider-dot"></span>VARIOS</div>
                 <div className="tool-grid">
+                  <button className="tool-button" data-tool="move" aria-label="Mover" title="Mover">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 4v16"></path>
+                      <path d="M4 12h16"></path>
+                      <path d="M12 4l-2.3 2.3"></path>
+                      <path d="M12 4l2.3 2.3"></path>
+                      <path d="M12 20l-2.3-2.3"></path>
+                      <path d="M12 20l2.3-2.3"></path>
+                      <path d="M4 12l2.3-2.3"></path>
+                      <path d="M4 12l2.3 2.3"></path>
+                      <path d="M20 12l-2.3-2.3"></path>
+                      <path d="M20 12l-2.3 2.3"></path>
+                    </svg>
+                    <span className="tool-label">Mover</span>
+                  </button>
+                  <button id="deleteAnnotation" className="tool-button" type="button" aria-label="Papelera" title="Eliminar seleccion">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 7h14"></path>
+                      <path d="M10 11v6"></path>
+                      <path d="M14 11v6"></path>
+                      <path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-13"></path>
+                      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path>
+                    </svg>
+                    <span className="tool-label">Papelera</span>
+                  </button>
                   <button
                     className="tool-button"
                     data-tool="connector"
@@ -562,65 +622,29 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     <span className="tool-label">Triangulo</span>
                   </button>
                 </div>
+
+                {/* SEGUIMIENTO DEL FOCO */}
+                <div className="tool-divider"><span className="tool-divider-dot"></span>SEGUIMIENTO DEL FOCO</div>
+                <div className="focus-follow-controls">
+                  <button id="focusFollowKeyframe" type="button" className="stage-action-button" title="Fija la posicion actual del foco seleccionado en este instante del video">
+                    Fijar posicion aqui
+                  </button>
+                  <button id="focusFollowEnd" type="button" className="stage-action-button" title="El foco desaparecera a partir de este instante del video">
+                    Terminar seguimiento aqui
+                  </button>
+                  <button id="focusFollowClear" type="button" className="stage-action-button" title="Elimina el seguimiento del foco seleccionado">
+                    Quitar seguimiento
+                  </button>
+                  <p className="focus-follow-hint">
+                    Selecciona un foco, pausa el video en distintos momentos, coloca el foco sobre el jugador y pulsa
+                    &quot;Fijar posicion aqui&quot; en cada uno. El foco solo aparecera a partir del primer instante fijado, y
+                    seguira esa trayectoria al reproducir. Cuando quieras que deje de seguir al jugador, pausa en ese
+                    momento y pulsa &quot;Terminar seguimiento aqui&quot; para que desaparezca a partir de ahi.
+                  </p>
+                </div>
               </div>
             </section>
 
-            {/* Sección de Jugadores */}
-            <section className="panel-block">
-              <div className="panel-block-header">
-                <h2>Jugadores</h2>
-                <button
-                  type="button"
-                  className="toggle-players-button"
-                  onClick={() => setShowPlayers((prev) => !prev)}
-                  aria-expanded={showPlayers}
-                  title={showPlayers ? 'Ocultar jugadores' : 'Mostrar jugadores'}
-                >
-                  {showPlayers ? 'Ocultar' : 'Mostrar'}
-                </button>
-              </div>
-              {showPlayers && (
-                <>
-                  {equipos.length > 0 && (
-                    <div className="equipo-selector">
-                      <label htmlFor="equipoSelect" className="equipo-label">Equipo:</label>
-                      <select
-                        id="equipoSelect"
-                        className="equipo-select"
-                        value={selectedEquipoId}
-                        onChange={(e) => setSelectedEquipoId(e.target.value)}
-                      >
-                        {equipos.map((equipo) => (
-                          <option key={equipo.id} value={equipo.id}>
-                            {equipo.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {loadingSquad ? (
-                    <p className="text-sm text-gray-500 text-center py-2">Cargando jugadores...</p>
-                  ) : squad.length > 0 ? (
-                    <div className="players-grid">
-                      {squad.map((player) => (
-                        <button
-                          key={player.id}
-                          type="button"
-                          className={`player-chip ${selectedPlayerForInsertion?.id === player.id ? 'is-selected' : ''}`}
-                          onClick={() => setSelectedPlayerForInsertion(selectedPlayerForInsertion?.id === player.id ? null : player)}
-                          title={selectedPlayerForInsertion?.id === player.id ? `Clic en el campo para insertar ${player.nombre}` : `Clic para insertar ${player.nombre} en el campo`}
-                        >
-                          <span className="dorsal">{player.dorsal}</span>
-                          <span className="nombre">{player.nombre}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-2">No hay jugadores disponibles</p>
-                  )}
-                </>
-              )}
-            </section>
           </aside>
         </main>
       </div>
