@@ -1853,11 +1853,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         <path d="M3 10 C5 4, 8 4, 11 10 C14 16, 17 16, 21 10" opacity="0.4" strokeWidth="1.2" strokeLinecap="round"></path>
                       </svg>
                     </button>
-                  </div>
-
-                  {/* TEXTOS */}
-                  <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
-                  <div className="tool-grid tool-grid-2col">
                     <button
                       type="button"
                       data-tool="text"
@@ -1873,6 +1868,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       </svg>
                       <span className="tool-label">Texto</span>
                     </button>
+                  </div>
+
+                  {/* TEXTOS */}
+                  <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
+                  <div className="tool-grid tool-grid-2col">
                     <button
                       type="button"
                       data-tool="callout"
@@ -1952,6 +1952,28 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         <path d="M12 3v18M3 12h18M9 6l3-3 3 3M15 18l-3 3-3-3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
                       </svg>
                       <span className="tool-label">Mover</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedArrowId) {
+                          updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
+                          setSelectedArrowId(null);
+                        } else if (drawingTools.state.selectedShapeId) {
+                          drawingTools.deleteShape(drawingTools.state.selectedShapeId);
+                        }
+                      }}
+                      className="tool-button"
+                      title="Eliminar elemento seleccionado"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 7h14"></path>
+                        <path d="M10 11v6"></path>
+                        <path d="M14 11v6"></path>
+                        <path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-13"></path>
+                        <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path>
+                      </svg>
+                      <span className="tool-label">Papelera</span>
                     </button>
                     <button
                       type="button"
