@@ -45,15 +45,14 @@
 
 .pintado-acciones-app {
   margin: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Aptos, sans-serif;
   color: var(--text);
   background:
     radial-gradient(circle at top left, rgba(221, 20, 95, 0.06), transparent 28%),
     linear-gradient(135deg, #f9f9fb 0%, #ffffff 48%, #fafbfc 100%);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -80,22 +79,20 @@
   display: none !important;
 }
 .pintado-acciones-app .app-shell {
-  padding: 8px;
+  height: 100%;
+  padding: 4px;
   display: grid;
-  grid-template-rows: auto auto;
-  gap: 8px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 4px;
+  overflow: hidden;
 }
 .pintado-acciones-app .topbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 6px;
   align-items: end;
-  position: sticky;
-  top: 0;
   z-index: 20;
-  padding: 6px 0 8px;
-  background: linear-gradient(180deg, var(--panel), rgba(255, 255, 255, 0.92));
-  backdrop-filter: blur(10px);
+  padding: 4px 0 4px;
 }
 .pintado-acciones-app .brand,
 .pintado-acciones-app .left-panel,
@@ -144,8 +141,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 12px;
-  padding: 14px;
+  gap: 8px;
+  padding: 8px 10px;
 }
 .pintado-acciones-app .mobile-collapse-toggle {
   display: none;
@@ -160,7 +157,7 @@
 .pintado-acciones-app .input-group,
 .pintado-acciones-app .field {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 .pintado-acciones-app .input-group span,
 .pintado-acciones-app .field span,
@@ -274,10 +271,10 @@
 }
 .pintado-acciones-app button,
 .pintado-acciones-app .upload-button {
-  min-height: 44px;
+  min-height: 36px;
   border: 1px solid var(--button-border);
-  border-radius: 10px;
-  padding: 10px 16px;
+  border-radius: 8px;
+  padding: 6px 12px;
   background: var(--button);
   color: var(--text);
   cursor: pointer;
@@ -288,6 +285,7 @@
   text-align: center;
   font: inherit;
   font-weight: 500;
+  font-size: 0.8rem;
 }
 .pintado-acciones-app button:hover,
 .pintado-acciones-app .upload-button:hover,
@@ -331,12 +329,12 @@
 }
 .pintado-acciones-app .workspace {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr) 220px;
+  grid-template-columns: 260px minmax(0, 1fr) 170px;
   grid-template-areas: "left stage tools";
-  gap: 6px;
+  gap: 4px;
   align-items: stretch;
   min-height: 0;
-  flex: 1;
+  height: 100%;
 }
 .pintado-acciones-app .left-panel {
   grid-area: left;
@@ -349,22 +347,20 @@
 }
 .pintado-acciones-app .left-panel,
 .pintado-acciones-app .tool-panel {
-  padding: 10px;
+  padding: 6px;
   display: grid;
-  gap: 10px;
+  gap: 6px;
   align-content: start;
   min-height: 0;
   overflow: auto;
 }
 .pintado-acciones-app .stage-panel {
-  padding: 6px;
+  padding: 4px;
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto auto auto;
-  align-content: start;
-  gap: 6px;
+  gap: 4px;
   position: relative;
-  flex: 1;
 }
 
 .pintado-acciones-app .stage-title-container {
@@ -500,7 +496,6 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  min-height: 0;
   max-width: 100%;
   overflow: hidden;
   border-radius: 20px;
@@ -520,18 +515,17 @@
   border-radius: inherit;
   pointer-events: none;
 }
-/* Hide YouTube play icon in bottom-right corner */
-.pintado-acciones-app .stage::before {
+/* Hide YouTube play icon in bottom-right corner (solo cuando la fuente es un video de YouTube) */
+.pintado-acciones-app .stage.is-youtube-source::before {
   content: "";
   position: absolute;
-  bottom: 10px;
-  right: 10px;
-  width: 50px;
-  height: 50px;
-  background: var(--stage);
+  bottom: 0;
+  right: 0;
+  width: 64px;
+  height: 64px;
+  background: radial-gradient(circle at 100% 100%, var(--stage) 42%, rgba(0, 0, 0, 0) 72%);
   pointer-events: none;
   z-index: 2;
-  border-radius: 4px;
 }
 .pintado-acciones-app .media-layer,
 .pintado-acciones-app #annotationCanvas {
@@ -558,6 +552,19 @@
 }
 .pintado-acciones-app #annotationCanvas.is-drawing {
   pointer-events: auto;
+}
+/* Hide YouTube center play icon while drawing mode is active */
+.pintado-acciones-app #annotationCanvas.is-drawing::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90px;
+  height: 90px;
+  transform: translate(-50%, -50%);
+  background: var(--stage);
+  border-radius: 50%;
+  pointer-events: none;
 }
 /* Playback panel */
 .pintado-acciones-app .playback-panel {
@@ -673,19 +680,20 @@
 .pintado-acciones-app .panel-block {
   background: var(--panel-soft);
   border: 1px solid var(--panel-border);
-  border-radius: 14px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 8px;
 }
 .pintado-acciones-app .panel-block h2 {
-  margin-bottom: 12px;
-  font-size: 0.875rem;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--muted);
+  font-weight: 700;
 }
 .pintado-acciones-app .tool-rail {
   width: 100%;
-  padding: 10px 8px 12px;
+  padding: 6px 6px 8px;
   border-radius: 12px;
   background: var(--stage);
   border: 1px solid var(--panel-border);
@@ -693,8 +701,8 @@
 }
 .pintado-acciones-app .tool-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 .pintado-acciones-app .tool-grid-2col {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -720,16 +728,28 @@
   background: var(--accent);
   box-shadow: none;
 }
+.pintado-acciones-app .focus-follow-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 2px 4px;
+}
+.pintado-acciones-app .focus-follow-hint {
+  margin: 2px 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
 .pintado-acciones-app .tool-button {
   position: relative;
   width: 100%;
-  min-height: 72px;
+  min-height: 58px;
   background: transparent;
   border: 1px solid transparent;
-  padding: 10px 4px 7px;
-  border-radius: 10px;
+  padding: 6px 3px 4px;
+  border-radius: 8px;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   cursor: pointer;
   transition: all 160ms ease;
   color: var(--text);
@@ -778,8 +798,8 @@
   stroke: none;
 }
 .pintado-acciones-app .tool-label {
-  font-size: 0.625rem;
-  line-height: 1.1;
+  font-size: 0.55rem;
+  line-height: 1;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
   text-align: center;
@@ -811,17 +831,17 @@
 .pintado-acciones-app .number-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 5px;
 }
 .pintado-acciones-app .number-chip {
-  min-height: 44px;
+  min-height: 36px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--button-border);
   background: var(--bg);
   color: var(--text);
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 160ms ease;
 }
@@ -838,20 +858,21 @@
 .pintado-acciones-app .variant-picker {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 5px;
 }
 .pintado-acciones-app .variant-button {
   height: auto;
-  min-height: 62px;
-  padding: 8px 6px 7px;
-  border-radius: 10px;
+  min-height: 50px;
+  padding: 6px 4px 5px;
+  border-radius: 8px;
   border: 1px solid var(--button-border);
   background: var(--bg);
   color: var(--text-secondary);
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
   cursor: pointer;
   transition: all 160ms ease;
+  font-size: 0.7rem;
 }
 .pintado-acciones-app .variant-button:hover {
   border-color: rgba(0, 0, 0, 0.25);
@@ -883,9 +904,11 @@
     grid-template-areas:
       "stage stage"
       "left tools";
+    overflow-y: auto;
   }
 .pintado-acciones-app .stage {
     min-height: min(50vh, 480px);
+    height: auto;
   }
 
 }

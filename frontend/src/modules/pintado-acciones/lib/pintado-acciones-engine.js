@@ -452,6 +452,85 @@ function clearFollowKeyframes() {
   setStatus("Seguimiento eliminado. El foco quedara siempre visible en su posicion actual.");
 }
 
+function setElementAppearTime() {
+  const shape = state.selectedAnnotationIndex >= 0 && state.selectedAnnotationIndex < state.annotations.length
+    ? state.annotations[state.selectedAnnotationIndex]
+    : null;
+
+  if (!shape) {
+    setStatus("Selecciona un elemento primero.");
+    return;
+  }
+
+  if (!state.player || !state.playerReady) {
+    setStatus("Carga un video de YouTube para sincronizar tiempos.");
+    return;
+  }
+
+  const currentTime = Number(state.player.getCurrentTime?.() || 0);
+  pushHistory();
+  shape.appearTime = currentTime;
+  if (typeof shape.disappearTime !== "number" || shape.disappearTime <= currentTime) {
+    shape.disappearTime = undefined;
+  }
+  redraw();
+  setStatus(`Elemento aparecera a partir de ${formatTime(currentTime)}.`);
+}
+
+function setElementDisappearTime() {
+  const shape = state.selectedAnnotationIndex >= 0 && state.selectedAnnotationIndex < state.annotations.length
+    ? state.annotations[state.selectedAnnotationIndex]
+    : null;
+
+  if (!shape) {
+    setStatus("Selecciona un elemento primero.");
+    return;
+  }
+
+  if (!state.player || !state.playerReady) {
+    setStatus("Carga un video de YouTube para sincronizar tiempos.");
+    return;
+  }
+
+  if (typeof shape.appearTime !== "number") {
+    setStatus("Fija primero el tiempo de aparicion del elemento.");
+    return;
+  }
+
+  const currentTime = Number(state.player.getCurrentTime?.() || 0);
+  if (currentTime <= shape.appearTime) {
+    setStatus("El tiempo de desaparicion debe ser posterior al de aparicion.");
+    return;
+  }
+
+  pushHistory();
+  shape.disappearTime = currentTime;
+  redraw();
+  setStatus(`Elemento desaparecera a partir de ${formatTime(currentTime)}.`);
+}
+
+function clearElementVisibilityTiming() {
+  const shape = state.selectedAnnotationIndex >= 0 && state.selectedAnnotationIndex < state.annotations.length
+    ? state.annotations[state.selectedAnnotationIndex]
+    : null;
+
+  if (!shape) {
+    setStatus("Selecciona un elemento primero.");
+    return;
+  }
+
+  if (typeof shape.appearTime !== "number" && typeof shape.disappearTime !== "number") {
+    setStatus("El elemento seleccionado no tiene tiempos de visibilidad configurados.");
+    return;
+  }
+
+  pushHistory();
+  delete shape.appearTime;
+  delete shape.disappearTime;
+  redraw();
+  setStatus("Tiempos de visibilidad eliminados. El elemento sera siempre visible.");
+}
+
 function isFocusHiddenAt(shape, currentTime) {
   if (shape.type !== "focus" || !Array.isArray(shape.keyframes) || !shape.keyframes.length) {
     return false;
@@ -463,6 +542,65 @@ function isFocusHiddenAt(shape, currentTime) {
   }
 
   return typeof shape.followEndTime === "number" && currentTime > shape.followEndTime;
+}
+
+const ANIMATION_DURATION = 0.35; // Duración de transición de entrada/salida en segundos
+
+function getAnimationAlpha(shape, currentTime) {
+  const appearTime = typeof shape.appearTime === "number" ? shape.appearTime : null;
+  const disappearTime = typeof shape.disappearTime === "number" ? shape.disappearTime : null;
+
+  // Si estamos en la fase de entrada
+  if (appearTime !== null && currentTime < appearTime + ANIMATION_DURATION) {
+    if (currentTime < appearTime) return 0;
+    const fadeProgress = (currentTime - appearTime) / ANIMATION_DURATION;
+    return Math.min(1, fadeProgress);
+  }
+
+  // Si estamos en la fase de salida
+  if (disappearTime !== null && currentTime > disappearTime - ANIMATION_DURATION && currentTime > disappearTime) {
+    const timeSinceDisappear = currentTime - disappearTime;
+    const fadeProgress = Math.min(1, timeSinceDisappear / ANIMATION_DURATION);
+    return Math.max(0, 1 - fadeProgress);
+  }
+
+  // Estado normal
+  if (appearTime !== null && currentTime < appearTime) return 0;
+  if (disappearTime !== null && currentTime > disappearTime) return 0;
+
+  return 1;
+}
+
+function getStrokeDrawProgress(shape, currentTime) {
+  const appearTime = typeof shape.appearTime === "number" ? shape.appearTime : null;
+
+  if (appearTime === null) return 1;
+  if (currentTime < appearTime) return 0;
+  if (currentTime >= appearTime + ANIMATION_DURATION) return 1;
+
+  const fadeProgress = (currentTime - appearTime) / ANIMATION_DURATION;
+  return Math.min(1, fadeProgress);
+}
+
+function isShapeHiddenAt(shape, currentTime) {
+  // Para focos con keyframes, usar la lógica existente
+  if (shape.type === "focus" && Array.isArray(shape.keyframes) && shape.keyframes.length) {
+    return isFocusHiddenAt(shape, currentTime);
+  }
+
+  // Para todos los elementos, verificar timestamps de visibilidad
+  const appearTime = typeof shape.appearTime === "number" ? shape.appearTime : null;
+  const disappearTime = typeof shape.disappearTime === "number" ? shape.disappearTime : null;
+
+  if (appearTime !== null && currentTime < appearTime - 0.001) {
+    return true;
+  }
+
+  if (disappearTime !== null && currentTime > disappearTime) {
+    return true;
+  }
+
+  return false;
 }
 
 function applyFollowKeyframes(currentTime) {
@@ -552,17 +690,27 @@ function deleteSelectedAnnotation() {
   if (!hasSelection) return;
 
   pushHistory();
-  state.annotations.splice(targetIndex, 1);
+  const shape = state.annotations[targetIndex];
+  const currentTime = Number(state.player?.getCurrentTime?.() || 0);
 
-  if (state.selectedAnnotationIndex >= state.annotations.length) {
-    state.selectedAnnotationIndex = state.annotations.length - 1;
+  // Si el elemento no tiene disappearTime aún, establecerlo
+  if (typeof shape.disappearTime !== "number") {
+    shape.disappearTime = currentTime;
+    syncSizeControl();
+    redraw();
+    setStatus(`Elemento desaparecerá en ${formatTime(currentTime)}.`);
   } else {
-    state.selectedAnnotationIndex = -1;
+    // Si ya tiene disappearTime, eliminarlo completamente
+    state.annotations.splice(targetIndex, 1);
+    if (state.selectedAnnotationIndex >= state.annotations.length) {
+      state.selectedAnnotationIndex = state.annotations.length - 1;
+    } else {
+      state.selectedAnnotationIndex = -1;
+    }
+    syncSizeControl();
+    redraw();
+    setStatus("Anotacion borrada.");
   }
-
-  syncSizeControl();
-  redraw();
-  setStatus("Anotacion borrada.");
 }
 
 function measureTextShape(text, lineWidth) {
@@ -932,7 +1080,7 @@ function drawSelection(shape) {
   ctx.restore();
 }
 
-function drawArrow(shape) {
+function drawArrow(shape, drawProgress = 1) {
   const dx = shape.x2 - shape.x1;
   const dy = shape.y2 - shape.y1;
   const distance = Math.hypot(dx, dy);
@@ -950,6 +1098,21 @@ function drawArrow(shape) {
   const headLength = Math.max(14, shape.lineWidth * 4.5);
   const tangentAngle = Math.atan2(shape.y2 - controlY, shape.x2 - controlX);
   const headSpread = Math.PI / 8;
+
+  // Animar el trazo
+  if (drawProgress < 1) {
+    const arrowEnd = { x: shape.x1 + (shape.x2 - shape.x1) * drawProgress, y: shape.y1 + (shape.y2 - shape.y1) * drawProgress };
+    const curveT = drawProgress;
+    const curvePoint = {
+      x: Math.pow(1 - curveT, 2) * shape.x1 + 2 * (1 - curveT) * curveT * controlX + Math.pow(curveT, 2) * shape.x2,
+      y: Math.pow(1 - curveT, 2) * shape.y1 + 2 * (1 - curveT) * curveT * controlY + Math.pow(curveT, 2) * shape.y2,
+    };
+    ctx.beginPath();
+    ctx.moveTo(shape.x1, shape.y1);
+    ctx.quadraticCurveTo(controlX * curveT, controlY * curveT, curvePoint.x, curvePoint.y);
+    ctx.stroke();
+    return;
+  }
 
   ctx.beginPath();
   ctx.moveTo(shape.x1, shape.y1);
@@ -970,7 +1133,7 @@ function drawArrow(shape) {
   ctx.stroke();
 }
 
-function drawStraightArrow(shape) {
+function drawStraightArrow(shape, drawProgress = 1) {
   const dx = shape.x2 - shape.x1;
   const dy = shape.y2 - shape.y1;
   const distance = Math.hypot(dx, dy);
@@ -983,23 +1146,30 @@ function drawStraightArrow(shape) {
   const angle = Math.atan2(dy, dx);
   const headSpread = Math.PI / 8;
 
-  ctx.beginPath();
-  ctx.moveTo(shape.x1, shape.y1);
-  ctx.lineTo(shape.x2, shape.y2);
-  ctx.stroke();
+  // Animar el trazo
+  const endX = shape.x1 + dx * drawProgress;
+  const endY = shape.y1 + dy * drawProgress;
 
   ctx.beginPath();
-  ctx.moveTo(shape.x2, shape.y2);
-  ctx.lineTo(
-    shape.x2 - headLength * Math.cos(angle - headSpread),
-    shape.y2 - headLength * Math.sin(angle - headSpread)
-  );
-  ctx.moveTo(shape.x2, shape.y2);
-  ctx.lineTo(
-    shape.x2 - headLength * Math.cos(angle + headSpread),
-    shape.y2 - headLength * Math.sin(angle + headSpread)
-  );
+  ctx.moveTo(shape.x1, shape.y1);
+  ctx.lineTo(endX, endY);
   ctx.stroke();
+
+  // Solo dibujar la cabeza si estamos al 90%+ de progreso
+  if (drawProgress > 0.9) {
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(
+      endX - headLength * Math.cos(angle - headSpread),
+      endY - headLength * Math.sin(angle - headSpread)
+    );
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(
+      endX - headLength * Math.cos(angle + headSpread),
+      endY - headLength * Math.sin(angle + headSpread)
+    );
+    ctx.stroke();
+  }
 }
 
 function drawRectangle(shape) {
@@ -1641,23 +1811,29 @@ function drawSpotlight(shape) {
   drawSpotlightFilled(shape);
 }
 
-function drawShape(shape) {
+function drawShape(shape, currentTime = 0) {
   ctx.save();
-  ctx.globalAlpha = shape.opacity ?? 1;
+
+  const baseOpacity = shape.opacity ?? 1;
+  const animationAlpha = getAnimationAlpha(shape, currentTime);
+  ctx.globalAlpha = baseOpacity * animationAlpha;
+
   ctx.strokeStyle = shape.stroke;
   ctx.fillStyle = shape.stroke;
   ctx.lineWidth = shape.lineWidth;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
+  const drawProgress = getStrokeDrawProgress(shape, currentTime);
+
   if (shape.type === "pen") {
     drawPen(shape);
   }
   if (shape.type === "arrow") {
-    drawArrow(shape);
+    drawArrow(shape, drawProgress);
   }
   if (shape.type === "arrowStraight") {
-    drawStraightArrow(shape);
+    drawStraightArrow(shape, drawProgress);
   }
   if (shape.type === "rect") {
     drawRectangle(shape);
@@ -1700,16 +1876,16 @@ function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const currentTime = Number(state.player?.getCurrentTime?.() || 0);
   state.annotations.forEach((shape, index) => {
-    if (isFocusHiddenAt(shape, currentTime)) {
+    if (isShapeHiddenAt(shape, currentTime)) {
       return;
     }
-    drawShape(shape);
+    drawShape(shape, currentTime);
     if (index === state.selectedAnnotationIndex && state.tool === "move" && state.playerState !== "playing") {
       drawSelection(shape);
     }
   });
   if (state.drawing) {
-    drawShape(state.drawing);
+    drawShape(state.drawing, currentTime);
   }
 }
 
@@ -1926,6 +2102,7 @@ function finishDrawing(event) {
   state.drawing = null;
   syncSizeControl();
   redraw();
+  setStatus("Elemento añadido.");
 }
 
 function downloadCanvas(dataUrl, filename) {
@@ -3185,6 +3362,18 @@ window.PintadoAcciones.addPlayerAnnotation = function addPlayerAnnotation(x, y, 
   state.selectedAnnotationIndex = state.annotations.length - 1;
   syncSizeControl();
   redraw();
+};
+
+window.PintadoAcciones.setElementAppearTime = function setElementAppearTimeGlobal() {
+  setElementAppearTime();
+};
+
+window.PintadoAcciones.setElementDisappearTime = function setElementDisappearTimeGlobal() {
+  setElementDisappearTime();
+};
+
+window.PintadoAcciones.clearElementVisibilityTiming = function clearElementVisibilityTimingGlobal() {
+  clearElementVisibilityTiming();
 };
 
 return function destroyPintadoAcciones() {
