@@ -357,10 +357,17 @@
 .pintado-acciones-app .stage-panel {
   padding: 4px;
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto auto auto auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 4px;
   position: relative;
+}
+.pintado-acciones-app .stage-title-container,
+.pintado-acciones-app .stage-toolbar,
+.pintado-acciones-app .stage,
+.pintado-acciones-app .playback-panel {
+  width: 100%;
 }
 
 .pintado-acciones-app .stage-title-container {
@@ -896,27 +903,52 @@
 }
 
 
-@media (max-width: 1180px) {.pintado-acciones-app .topbar {
+/* Ultrawide 29"+ (~2560px y superior) */
+@media (min-width: 2200px) {
+  .pintado-acciones-app .workspace {
+    grid-template-columns: 300px minmax(0, 1fr) 220px;
+    gap: 6px;
+  }
+  .pintado-acciones-app .left-panel,
+  .pintado-acciones-app .tool-panel {
+    padding: 10px;
+    gap: 10px;
+  }
+  .pintado-acciones-app .panel-block {
+    padding: 12px;
+  }
+}
+
+/* Monitores desktop 1600-2199px */
+@media (min-width: 1600px) and (max-width: 2199px) {
+  .pintado-acciones-app .workspace {
+    grid-template-columns: 280px minmax(0, 1fr) 190px;
+    gap: 5px;
+  }
+}
+
+/* Portátiles 17"/15" (1181-1599px) */
+@media (min-width: 1181px) and (max-width: 1599px) {
+  .pintado-acciones-app .workspace {
+    grid-template-columns: 250px minmax(0, 1fr) 170px;
+  }
+}
+
+/* Portátiles/tablets <=1180px: layout de 2 columnas */
+@media (max-width: 1180px) {
+  .pintado-acciones-app .topbar {
     grid-template-columns: 1fr;
   }
-.pintado-acciones-app .workspace {
+  .pintado-acciones-app .workspace {
     grid-template-columns: 180px minmax(0, 1fr);
     grid-template-areas:
       "stage stage"
       "left tools";
     overflow-y: auto;
   }
-.pintado-acciones-app .stage {
+  .pintado-acciones-app .stage {
     min-height: min(50vh, 480px);
     height: auto;
-  }
-
-}
-
-/* Portátiles anchos (17"/15") con columnas fijas demasiado grandes */
-@media (max-width: 1440px) {
-  .pintado-acciones-app .workspace {
-    grid-template-columns: 250px minmax(0, 1fr) 190px;
   }
 }
 

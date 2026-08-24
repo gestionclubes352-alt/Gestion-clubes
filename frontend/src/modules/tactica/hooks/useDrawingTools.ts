@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { DrawingShape, DrawingState, DrawingToolType, Point, FocusStyle, SpotlightStyle } from '../types';
 
 const INITIAL_STATE: DrawingState = {
@@ -13,18 +13,23 @@ const INITIAL_STATE: DrawingState = {
   lineWidth: 1,
   opacity: 1,
   fontSize: 16,
+  dashed: false,
   pendingConnectorPlayerId: null,
 };
 
-export function useDrawingTools() {
+export function useDrawingTools(
+  shapes: DrawingShape[],
+  setShapes: Dispatch<SetStateAction<DrawingShape[]>>
+) {
   const [state, setState] = useState<DrawingState>(INITIAL_STATE);
-  const [shapes, setShapes] = useState<DrawingShape[]>([]);
   const historyRef = useRef<DrawingShape[][]>([]);
   const connectorSelectedPlayersRef = useRef<{ id: string; x: number; y: number }[]>([]);
+  const activeConnectorShapeIdRef = useRef<string | null>(null);
 
   // Herramientas
   const setTool = useCallback((tool: DrawingToolType | null) => {
     connectorSelectedPlayersRef.current = [];
+    activeConnectorShapeIdRef.current = null;
     setState(prev => ({ ...prev, tool, currentShape: null, isDrawing: false, pendingConnectorPlayerId: null }));
   }, []);
 
@@ -54,6 +59,10 @@ export function useDrawingTools() {
 
   const setFontSize = useCallback((fontSize: number) => {
     setState(prev => ({ ...prev, fontSize: Math.max(8, Math.min(48, fontSize)) }));
+  }, []);
+
+  const setDashed = useCallback((dashed: boolean) => {
+    setState(prev => ({ ...prev, dashed }));
   }, []);
 
   // Utilidades de shapes
@@ -108,6 +117,7 @@ export function useDrawingTools() {
       fontSize: state.fontSize,
       focusStyle: state.focusStyle,
       spotlightStyle: state.spotlightStyle,
+      dashed: state.dashed,
     };
 
     if (['pen', 'connector'].includes(state.tool)) {
@@ -182,38 +192,59 @@ export function useDrawingTools() {
   const addConnectorPlayer = useCallback((playerId: string, x: number, y: number) => {
     if (state.tool !== 'connector') return;
 
-    // Pulsar de nuevo el mismo jugador cancela la selección en curso
-    if (connectorSelectedPlayersRef.current.some(p => p.id === playerId)) {
+    const selected = connectorSelectedPlayersRef.current;
+    const last = selected[selected.length - 1];
+
+    // Pulsar de nuevo el último jugador finaliza la cadena de conexiones
+    if (last && last.id === playerId) {
       connectorSelectedPlayersRef.current = [];
+      activeConnectorShapeIdRef.current = null;
       setState(prev => ({ ...prev, pendingConnectorPlayerId: null }));
       return;
     }
 
-    connectorSelectedPlayersRef.current.push({ id: playerId, x, y });
+    selected.push({ id: playerId, x, y });
 
-    // Si se seleccionan 2 jugadores, crear la conexión automáticamente
-    if (connectorSelectedPlayersRef.current.length === 2) {
-      const [p1, p2] = connectorSelectedPlayersRef.current;
+    if (selected.length === 1) {
+      setState(prev => ({ ...prev, pendingConnectorPlayerId: playerId }));
+      return;
+    }
+
+    const prevPoint = selected[selected.length - 2];
+
+    if (selected.length === 2) {
+      // Primera conexión de la cadena: crear la forma
       pushHistory();
+      const newShapeId = `shape-${Date.now()}-${Math.random()}`;
+      activeConnectorShapeIdRef.current = newShapeId;
       const newShape: DrawingShape = {
-        id: `shape-${Date.now()}-${Math.random()}`,
+        id: newShapeId,
         type: 'connector',
-        points: [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }],
+        points: [{ x: prevPoint.x, y: prevPoint.y }, { x, y }],
         stroke: state.stroke,
         fill: state.fill,
         lineWidth: state.lineWidth,
         opacity: state.opacity,
       };
       setShapes(prev => [...prev, newShape]);
-      connectorSelectedPlayersRef.current = [];
-      setState(prev => ({ ...prev, pendingConnectorPlayerId: null }));
     } else {
-      setState(prev => ({ ...prev, pendingConnectorPlayerId: playerId }));
+      // Jugadores siguientes: extender la misma forma con un nuevo punto
+      const shapeId = activeConnectorShapeIdRef.current;
+      if (shapeId) {
+        setShapes(prev => prev.map(shape =>
+          shape.id === shapeId && shape.points
+            ? { ...shape, points: [...shape.points, { x, y }] }
+            : shape
+        ));
+      }
     }
+
+    setState(prev => ({ ...prev, pendingConnectorPlayerId: playerId }));
   }, [state.tool, state.stroke, state.fill, state.lineWidth, state.opacity, pushHistory]);
 
   const clearConnectorPlayers = useCallback(() => {
     connectorSelectedPlayersRef.current = [];
+    activeConnectorShapeIdRef.current = null;
     setState(prev => ({ ...prev, pendingConnectorPlayerId: null }));
   }, []);
 
@@ -289,6 +320,7 @@ export function useDrawingTools() {
     setFontSize,
     setFocusStyle,
     setSpotlightStyle,
+    setDashed,
 
     // Acciones
     startDrawing,

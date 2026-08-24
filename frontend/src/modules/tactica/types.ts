@@ -147,6 +147,7 @@ export interface DrawingShape {
   focusStyle?: FocusStyle;
   spotlightStyle?: SpotlightStyle;
   rotation?: number;
+  dashed?: boolean;
 }
 
 export interface DrawingState {
@@ -161,5 +162,6 @@ export interface DrawingState {
   lineWidth: number;
   opacity: number;
   fontSize: number;
+  dashed: boolean;
   pendingConnectorPlayerId: string | null;
 }

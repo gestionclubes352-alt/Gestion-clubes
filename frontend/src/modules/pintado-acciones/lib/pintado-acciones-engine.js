@@ -20,6 +20,7 @@ const stage = document.getElementById("stage");
 const backgroundImage = document.getElementById("backgroundImage");
 const youtubeContainer = document.getElementById("youtubePlayer");
 const stagePanel = document.querySelector(".stage-panel");
+const stageTitleContainer = document.querySelector(".stage-title-container");
 const stageToolbar = document.querySelector(".stage-toolbar");
 const stageToolbarToggleButton = document.getElementById("stageToolbarToggle");
 const playbackPanel = document.querySelector(".playback-panel");
@@ -307,21 +308,29 @@ function fitStageToViewport() {
     return;
   }
 
-  const maxWidth = stagePanel.clientWidth - 32;
+  const maxWidth = stagePanel.clientWidth - 8;
 
   const playbackHeight = playbackPanel?.offsetHeight || 0;
-  const availableHeight = stagePanel.clientHeight - stageToolbar.offsetHeight - playbackHeight - 24;
+  const titleHeight = stageTitleContainer?.offsetHeight || 0;
+  const availableHeight = stagePanel.clientHeight - stageToolbar.offsetHeight - playbackHeight - titleHeight - 16;
   const safeHeight = Math.max(220, availableHeight || 220);
   const heightFromWidth = maxWidth / aspectRatio;
 
+  let finalWidth;
   if (heightFromWidth <= safeHeight) {
-    stage.style.width = `${Math.max(0, maxWidth)}px`;
+    finalWidth = Math.max(0, maxWidth);
+    stage.style.width = `${finalWidth}px`;
     stage.style.height = `${Math.max(0, heightFromWidth)}px`;
-    return;
+  } else {
+    finalWidth = Math.max(0, safeHeight * aspectRatio);
+    stage.style.height = `${safeHeight}px`;
+    stage.style.width = `${finalWidth}px`;
   }
 
-  stage.style.height = `${safeHeight}px`;
-  stage.style.width = `${Math.max(0, safeHeight * aspectRatio)}px`;
+  const matchedWidth = `${finalWidth}px`;
+  if (stageTitleContainer) stageTitleContainer.style.maxWidth = matchedWidth;
+  if (stageToolbar) stageToolbar.style.maxWidth = matchedWidth;
+  if (playbackPanel) playbackPanel.style.maxWidth = matchedWidth;
 }
 
 function getCanvasPoint(event) {

@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { plantillasService, equiposService, clubesService, pizarrasService, pizarrasCarpetasService } from '@shared/services/dataService';
 import type { Club, Equipo, PizarraTactica as PizarraTacticaRow, PizarraCarpeta } from '@shared/services/dataService';
-import type { TacticalArrow, DrawingToolType } from '../types';
+import type { TacticalArrow, DrawingToolType, DrawingShape } from '../types';
 import { useUndoRedo } from '@context/UndoRedoContext';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
@@ -135,6 +135,9 @@ const sortPlayers = <T extends { nombre: string; dorsal?: number }>(players: T[]
   })
 );
 
+type FadeState = 'entering' | 'visible' | 'exiting';
+const FADE_DURATION_MS = 300;
+
 interface PizarraTacticaProps {
   /** Id del club propio (currentTeam.id) — cualquier otro equipo/club se trata como rival. */
   ownClubId?: string;
@@ -142,7 +145,6 @@ interface PizarraTacticaProps {
 
 const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const { pushState, setOnStateRestore } = useUndoRedo();
-  const drawingTools = useDrawingTools();
   const pitchStageRef = useRef<HTMLElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
   const [pitchStageSize, setPitchStageSize] = useState({ width: 0, height: 0 });
@@ -179,7 +181,80 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const frameDurationMs = FRAME_DURATION_MS / playbackSpeed;
   const [myTeamColor, setMyTeamColor] = useState(MY_TEAM_COLOR);
   const [rivalTeamColor, setRivalTeamColor] = useState(RIVAL_TEAM_COLOR);
-  const [arrows, setArrows] = useState<TacticalArrow[]>([]);
+  const [arrowFrames, setArrowFrames] = useState<TacticalArrow[][]>([[]]);
+  const [shapeFrames, setShapeFrames] = useState<DrawingShape[][]>([[]]);
+  const arrows = arrowFrames[currentFrameIndex] ?? [];
+  const shapes = shapeFrames[currentFrameIndex] ?? [];
+  const setShapesForCurrentFrame = useCallback((updater: DrawingShape[] | ((prev: DrawingShape[]) => DrawingShape[])) => {
+    setShapeFrames(prev => {
+      const next = [...prev];
+      const current = next[currentFrameIndex] ?? [];
+      next[currentFrameIndex] = typeof updater === 'function' ? (updater as (prev: DrawingShape[]) => DrawingShape[])(current) : updater;
+      return next;
+    });
+  }, [currentFrameIndex]);
+  const drawingTools = useDrawingTools(shapes, setShapesForCurrentFrame);
+
+  // Entrada/salida progresiva de flechas y formas al cambiar de fotograma:
+  // los elementos nuevos aparecen con fundido y los que desaparecen se
+  // mantienen brevemente en pantalla desvaneciéndose en vez de cortarse.
+  const [displayedArrows, setDisplayedArrows] = useState<(TacticalArrow & { _fade: FadeState })[]>(
+    () => arrows.map(a => ({ ...a, _fade: 'visible' as FadeState }))
+  );
+  const [displayedShapes, setDisplayedShapes] = useState<(DrawingShape & { _fade: FadeState })[]>(
+    () => shapes.map(s => ({ ...s, _fade: 'visible' as FadeState }))
+  );
+  const prevFadeFrameIndexRef = useRef(currentFrameIndex);
+
+  useEffect(() => {
+    const frameChanged = prevFadeFrameIndexRef.current !== currentFrameIndex;
+    prevFadeFrameIndexRef.current = currentFrameIndex;
+
+    setDisplayedArrows(prevList => {
+      if (!frameChanged) {
+        return arrows.map(a => ({ ...a, _fade: 'visible' as FadeState }));
+      }
+      const nextIds = new Set(arrows.map(a => a.id));
+      const stillHere = prevList.filter(a => a._fade !== 'exiting');
+      const stillHereIds = new Set(stillHere.map(a => a.id));
+      const kept = arrows.map(a => ({ ...a, _fade: (stillHereIds.has(a.id) ? 'visible' : 'entering') as FadeState }));
+      const leaving = stillHere.filter(a => !nextIds.has(a.id)).map(a => ({ ...a, _fade: 'exiting' as FadeState }));
+      return [...kept, ...leaving];
+    });
+
+    setDisplayedShapes(prevList => {
+      if (!frameChanged) {
+        return shapes.map(s => ({ ...s, _fade: 'visible' as FadeState }));
+      }
+      const nextIds = new Set(shapes.map(s => s.id));
+      const stillHere = prevList.filter(s => s._fade !== 'exiting');
+      const stillHereIds = new Set(stillHere.map(s => s.id));
+      const kept = shapes.map(s => ({ ...s, _fade: (stillHereIds.has(s.id) ? 'visible' : 'entering') as FadeState }));
+      const leaving = stillHere.filter(s => !nextIds.has(s.id)).map(s => ({ ...s, _fade: 'exiting' as FadeState }));
+      return [...kept, ...leaving];
+    });
+  }, [arrows, shapes, currentFrameIndex]);
+
+  useEffect(() => {
+    const hasEntering = displayedArrows.some(a => a._fade === 'entering') || displayedShapes.some(s => s._fade === 'entering');
+    if (!hasEntering) return;
+    const raf = requestAnimationFrame(() => {
+      setDisplayedArrows(prev => prev.map(a => (a._fade === 'entering' ? { ...a, _fade: 'visible' } : a)));
+      setDisplayedShapes(prev => prev.map(s => (s._fade === 'entering' ? { ...s, _fade: 'visible' } : s)));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [displayedArrows, displayedShapes]);
+
+  useEffect(() => {
+    const hasExiting = displayedArrows.some(a => a._fade === 'exiting') || displayedShapes.some(s => s._fade === 'exiting');
+    if (!hasExiting) return;
+    const timeout = setTimeout(() => {
+      setDisplayedArrows(prev => prev.filter(a => a._fade !== 'exiting'));
+      setDisplayedShapes(prev => prev.filter(s => s._fade !== 'exiting'));
+    }, FADE_DURATION_MS);
+    return () => clearTimeout(timeout);
+  }, [displayedArrows, displayedShapes]);
+
   const [isDrawingArrow, setIsDrawingArrow] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
@@ -218,7 +293,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   useEffect(() => {
     setOnStateRestore((state: any) => {
       if (state.frames) setFrames(state.frames);
-      if (state.arrows) setArrows(state.arrows);
+      if (Array.isArray(state.arrowFrames)) {
+        setArrowFrames(state.arrowFrames);
+      } else if (state.arrows) {
+        const frameCount = Array.isArray(state.frames) && state.frames.length ? state.frames.length : 1;
+        setArrowFrames(Array.from({ length: frameCount }, () => state.arrows));
+      }
       if (Array.isArray(state.ballFrames) && state.ballFrames.length) {
         setBallFrames(state.ballFrames);
       } else if (state.ball) {
@@ -227,10 +307,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     });
   }, [setOnStateRestore]);
 
-  // Wrapper para registrar cambios en arrows
+  // Wrapper para registrar cambios en las flechas del fotograma actual
   const updateArrows = (updater: TacticalArrow[] | ((prev: TacticalArrow[]) => TacticalArrow[])) => {
-    setArrows(prev => {
-      const next = typeof updater === 'function' ? (updater as (prev: TacticalArrow[]) => TacticalArrow[])(prev) : updater;
+    setArrowFrames(prev => {
+      const next = [...prev];
+      const current = next[currentFrameIndex] ?? [];
+      next[currentFrameIndex] = typeof updater === 'function' ? (updater as (prev: TacticalArrow[]) => TacticalArrow[])(current) : updater;
 
       // Registrar cambio en el historial
       pushState({
@@ -242,7 +324,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         campogramasList: [],
         eventsList: [],
         frames,
-        arrows: next,
+        arrowFrames: next,
         ballFrames,
       });
 
@@ -266,7 +348,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         campogramasList: [],
         eventsList: [],
         frames,
-        arrows,
+        arrowFrames,
         ballFrames: next,
       });
 
@@ -310,7 +392,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         campogramasList: [],
         eventsList: [],
         frames: next,
-        arrows,
+        arrowFrames,
         ballFrames,
       });
 
@@ -460,6 +542,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const rivalTeam = buildTeamPlayers(rivalFormation, 'rival');
     setFrames([[...myTeam, ...rivalTeam]]);
     setBallFrames([{ x: 50, y: 75 }]);
+    setArrowFrames([[]]);
+    setShapeFrames([[]]);
     setCurrentFrameIndex(0);
   }, [myFormation, rivalFormation, buildTeamPlayers]);
 
@@ -1231,9 +1315,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     const newFrames = [[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]];
     const newBallFrames = [{ x: 50, y: 75 }];
+    const newArrowFrames = [[]];
+    const newShapeFrames = [[]];
     const datos = {
       frames: newFrames,
-      arrows: [],
+      arrowFrames: newArrowFrames,
+      shapeFrames: newShapeFrames,
       ballFrames: newBallFrames,
       myFormation,
       rivalFormation,
@@ -1261,7 +1348,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       });
       setSelectedCarpetaId(carpetaId);
       setSelectedBoardId(created.id);
-      setArrows([]);
+      setArrowFrames(newArrowFrames);
+      setShapeFrames(newShapeFrames);
       setBallFrames(newBallFrames);
       setSelectedArrowId(null);
       clearPitchSelection();
@@ -1288,7 +1376,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     const datos = {
       frames,
-      arrows,
+      arrowFrames,
+      shapeFrames,
       ballFrames,
       myFormation,
       rivalFormation,
@@ -1344,7 +1433,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     if (Array.isArray(datos.frames) && datos.frames.length) setFrames(datos.frames);
     setCurrentFrameIndex(0);
-    setArrows(Array.isArray(datos.arrows) ? datos.arrows : []);
+    const loadedFrameCount = Array.isArray(datos.frames) && datos.frames.length ? datos.frames.length : 1;
+    if (Array.isArray(datos.arrowFrames) && datos.arrowFrames.length) {
+      setArrowFrames(datos.arrowFrames);
+    } else {
+      const fallbackArrows = Array.isArray(datos.arrows) ? datos.arrows : [];
+      setArrowFrames(Array.from({ length: loadedFrameCount }, () => fallbackArrows));
+    }
+    if (Array.isArray(datos.shapeFrames) && datos.shapeFrames.length) {
+      setShapeFrames(datos.shapeFrames);
+    } else {
+      setShapeFrames(Array.from({ length: loadedFrameCount }, () => []));
+    }
     if (Array.isArray(datos.ballFrames) && datos.ballFrames.length) {
       setBallFrames(datos.ballFrames);
     } else {
@@ -1700,6 +1800,37 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     />
                   </div>
 
+                  {/* Estilo de línea (solo flechas) */}
+                  {['arrow', 'arrowStraight'].includes(drawingTools.state.tool ?? '') && (
+                    <div className="mb-3">
+                      <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                        Estilo de línea
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => drawingTools.setDashed(false)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-semibold ${!drawingTools.state.dashed ? 'border-red-500 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-500/10 dark:text-red-300' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'}`}
+                        >
+                          <svg width="20" height="10" viewBox="0 0 20 10" aria-hidden="true">
+                            <line x1="1" y1="5" x2="19" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                          Continua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => drawingTools.setDashed(true)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-semibold ${drawingTools.state.dashed ? 'border-red-500 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-500/10 dark:text-red-300' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'}`}
+                        >
+                          <svg width="20" height="10" viewBox="0 0 20 10" aria-hidden="true">
+                            <line x1="1" y1="5" x2="19" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="3,2.5" />
+                          </svg>
+                          Discontinua
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Opacidad */}
                   <div className="mb-3">
                     <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
@@ -1853,6 +1984,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         <path d="M3 10 C5 4, 8 4, 11 10 C14 16, 17 16, 21 10" opacity="0.4" strokeWidth="1.2" strokeLinecap="round"></path>
                       </svg>
                     </button>
+                  </div>
+
+                  {/* TEXTOS */}
+                  <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
+                  <div className="tool-grid tool-grid-2col">
                     <button
                       type="button"
                       data-tool="text"
@@ -1868,11 +2004,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       </svg>
                       <span className="tool-label">Texto</span>
                     </button>
-                  </div>
-
-                  {/* TEXTOS */}
-                  <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
-                  <div className="tool-grid tool-grid-2col">
                     <button
                       type="button"
                       data-tool="callout"
@@ -2077,6 +2208,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               const newIndex = frames.length;
               setFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(p => ({ ...p }))]);
               setBallFrames(prev => [...prev, { ...(prev[currentFrameIndex] ?? { x: 50, y: 75 }) }]);
+              setArrowFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(a => ({ ...a }))]);
+              setShapeFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(s => JSON.parse(JSON.stringify(s)))]);
               setCurrentFrameIndex(newIndex);
             }}
           >
@@ -2117,6 +2250,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               onClick={() => {
                 setFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
                 setBallFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
+                setArrowFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
+                setShapeFrames(prev => prev.filter((_, i) => i !== currentFrameIndex));
                 setCurrentFrameIndex(prev => Math.max(0, Math.min(prev, frames.length - 2)));
               }}
               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white transition-all ${frames.length <= 1 ? 'bg-slate-200 cursor-not-allowed dark:bg-white/10' : 'bg-[#c92525] hover:opacity-90'}`}
@@ -2485,8 +2620,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   aria-hidden="true"
                   style={is3DView ? { transform: 'translateZ(10px)' } : undefined}
                 >
-                  {arrows.map(arrow => {
+                  {displayedArrows.map(arrow => {
                     const isSelected = arrow.id === selectedArrowId;
+                    const isGhost = arrow._fade !== 'visible';
                     const arrowHeadSize = 2;
                     const angle = Math.atan2(arrow.y2 - arrow.y1, arrow.x2 - arrow.x1);
                     const headX1 = arrow.x2 - arrowHeadSize * Math.cos(angle - Math.PI / 6);
@@ -2498,7 +2634,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       <g
                         key={arrow.id}
                         onMouseDown={(e: React.MouseEvent) => {
-                          if (is3DView) return;
+                          if (is3DView || isGhost) return;
                           e.stopPropagation();
                           if (!pitchRef.current) return;
                           const rect = pitchRef.current.getBoundingClientRect();
@@ -2518,7 +2654,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                           document.body.style.cursor = 'grabbing';
                           document.body.style.userSelect = 'none';
                         }}
-                        style={{ cursor: 'grab', pointerEvents: is3DView ? 'none' : 'auto' }}
+                        style={{
+                          cursor: 'grab',
+                          pointerEvents: is3DView || isGhost ? 'none' : 'auto',
+                          opacity: arrow._fade === 'visible' ? 1 : 0,
+                          transition: `opacity ${FADE_DURATION_MS}ms ease`,
+                        }}
                       >
                         <line
                           x1={arrow.x1}
@@ -2551,10 +2692,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
                   {/* Herramientas de dibujo */}
                   <DrawingShapes
-                    shapes={drawingTools.shapes}
+                    shapes={displayedShapes}
                     currentShape={drawingTools.state.currentShape}
                     selectedShapeId={drawingTools.state.selectedShapeId}
                     viewBox="0 0 100 100"
+                    fadeDurationMs={FADE_DURATION_MS}
                     onShapeClick={drawingTools.selectShape}
                     onShapePointerDown={handleShapePointerDown}
                     onRotateShape={(id) => drawingTools.rotateShape(id)}

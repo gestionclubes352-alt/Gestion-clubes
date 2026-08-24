@@ -2,10 +2,12 @@ import React from 'react';
 import type { DrawingShape, Point } from '../types';
 
 interface DrawingShapesProps {
-  shapes: DrawingShape[];
+  shapes: (DrawingShape & { _fade?: 'entering' | 'visible' | 'exiting' })[];
   currentShape: DrawingShape | null;
   selectedShapeId: string | null;
   viewBox: string;
+  /** Duración del fundido de entrada/salida al cambiar de fotograma (ms). */
+  fadeDurationMs?: number;
   onShapeClick?: (id: string) => void;
   onShapePointerDown?: (e: React.PointerEvent, id: string) => void;
   onRotateShape?: (id: string) => void;
@@ -24,6 +26,7 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
   currentShape,
   selectedShapeId,
   viewBox,
+  fadeDurationMs = 300,
   onShapeClick,
   onShapePointerDown,
   onRotateShape,
@@ -63,27 +66,71 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
       ? `M ${shape.x1} ${shape.y1} L ${shape.x2} ${shape.y2}`
       : `M ${shape.x1} ${shape.y1} Q ${controlX} ${controlY} ${shape.x2} ${shape.y2}`;
 
+    const dashArray = shape.dashed ? `${lineWidth * 2.5},${lineWidth * 2}` : undefined;
+
+    const rotation = shape.rotation || 0;
+    const cx = (shape.x1 + shape.x2) / 2;
+    const cy = (shape.y1 + shape.y2) / 2;
+
+    // Botón de rotar: se sitúa en la esquina superior derecha del bounding box
+    // de la flecha y gira junto con ella, igual que en el resto de formas.
+    const bboxX2 = Math.max(shape.x1, shape.x2);
+    const bboxY1 = Math.min(shape.y1, shape.y2);
+    const handleR = Math.max(2, lineWidth * 1.4);
+    const handleX = bboxX2 + handleR * 1.5;
+    const handleY = bboxY1 - handleR * 1.5;
+
     return (
-      <g key={shape.id} onClick={() => onShapeClick?.(shape.id)} onPointerDown={(e) => onShapePointerDown?.(e as any, shape.id)} style={{ cursor: isSelected ? 'move' : 'pointer', pointerEvents: 'auto' }}>
-        <path
-          d={d}
-          stroke={isSelected ? '#00ff00' : shape.stroke}
-          strokeWidth={isSelected ? lineWidth * 1.5 : lineWidth}
-          opacity={shape.opacity}
-          fill="none"
-          strokeLinecap="round"
-          style={{ pointerEvents: 'auto' }}
-        />
-        <path
-          d={`M ${headX1} ${headY1} L ${shape.x2} ${shape.y2} L ${headX2} ${headY2}`}
-          stroke={isSelected ? '#00ff00' : shape.stroke}
-          strokeWidth={isSelected ? lineWidth * 1.5 : lineWidth}
-          opacity={shape.opacity}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ pointerEvents: 'auto' }}
-        />
+      <g key={shape.id} transform={`rotate(${rotation} ${cx} ${cy})`}>
+        <g onClick={() => onShapeClick?.(shape.id)} onPointerDown={(e) => onShapePointerDown?.(e as any, shape.id)} style={{ cursor: isSelected ? 'move' : 'pointer', pointerEvents: 'auto' }}>
+          <path
+            d={d}
+            stroke={isSelected ? '#00ff00' : shape.stroke}
+            strokeWidth={isSelected ? lineWidth * 1.5 : lineWidth}
+            strokeDasharray={dashArray}
+            opacity={shape.opacity}
+            fill="none"
+            strokeLinecap="round"
+            style={{ pointerEvents: 'auto' }}
+          />
+          <path
+            d={`M ${headX1} ${headY1} L ${shape.x2} ${shape.y2} L ${headX2} ${headY2}`}
+            stroke={isSelected ? '#00ff00' : shape.stroke}
+            strokeWidth={isSelected ? lineWidth * 1.5 : lineWidth}
+            opacity={shape.opacity}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ pointerEvents: 'auto' }}
+          />
+        </g>
+
+        {/* Botón de rotación (solo visible si la forma está seleccionada) */}
+        {isSelected && onRotateShape && (
+          <g
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotateShape(shape.id); }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+          >
+            <circle cx={handleX} cy={handleY} r={handleR} fill="#00ff00" opacity={0.9} />
+            <path
+              d={`M ${handleX - handleR * 0.45} ${handleY - handleR * 0.1}
+                  A ${handleR * 0.5} ${handleR * 0.5} 0 1 1 ${handleX + handleR * 0.05} ${handleY + handleR * 0.48}`}
+              fill="none"
+              stroke="#0a2a12"
+              strokeWidth={handleR * 0.22}
+              strokeLinecap="round"
+            />
+            <path
+              d={`M ${handleX - handleR * 0.45} ${handleY - handleR * 0.1} L ${handleX - handleR * 0.75} ${handleY - handleR * 0.35} M ${handleX - handleR * 0.45} ${handleY - handleR * 0.1} L ${handleX - handleR * 0.15} ${handleY - handleR * 0.28}`}
+              fill="none"
+              stroke="#0a2a12"
+              strokeWidth={handleR * 0.22}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
+        )}
       </g>
     );
   };
@@ -394,8 +441,8 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
         {/* Botón de rotación (solo visible si la forma está seleccionada) */}
         {isSelected && onRotateShape && (
           <g
-            onClick={(e) => { e.stopPropagation(); onRotateShape(shape.id); }}
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotateShape(shape.id); }}
+            onClick={(e) => e.stopPropagation()}
             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
           >
             <circle cx={handleX} cy={handleY} r={handleR} fill="#00ff00" opacity={0.9} />
@@ -559,7 +606,21 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
   return (
     <>
       {/* Formas completadas */}
-      {shapes.map(renderShape)}
+      {shapes.map(shape => {
+        const fade = shape._fade ?? 'visible';
+        return (
+          <g
+            key={shape.id}
+            style={{
+              opacity: fade === 'visible' ? 1 : 0,
+              transition: `opacity ${fadeDurationMs}ms ease`,
+              pointerEvents: fade === 'visible' ? undefined : 'none',
+            }}
+          >
+            {renderShape(shape)}
+          </g>
+        );
+      })}
 
       {/* Forma en progreso */}
       {currentShape && renderShape(currentShape)}
