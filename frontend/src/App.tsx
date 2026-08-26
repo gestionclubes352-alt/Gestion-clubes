@@ -79,6 +79,9 @@ import { SettingsPage } from '@modules/settings';
 // Modules - Instalaciones
 import { InstalacionesView } from '@modules/instalaciones';
 
+// Modules - Residencia
+import { HabitacionesView, JugadoresResiView, ComidasView } from '@modules/residencia';
+
 // Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
 // Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
@@ -127,6 +130,9 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/competicion': 'COMPETICIÓN',
   '/competiciones': 'COMPETICIONES',
   '/instalaciones': 'INSTALACIONES',
+  '/residencia/jugadores': 'RESI_JUGADORES',
+  '/residencia/habitaciones': 'RESI_HABITACIONES',
+  '/residencia/comidas': 'RESI_COMIDAS',
   '/lesiones': 'LESIONES',
   '/historial-medico': 'HISTORIAL MÉDICO',
   '/reconocimientos': 'RECONOCIMIENTOS',
@@ -155,6 +161,9 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'COMPETICIÓN': '/competicion',
   'COMPETICIONES': '/competiciones',
   'INSTALACIONES': '/instalaciones',
+  'RESI_JUGADORES': '/residencia/jugadores',
+  'RESI_HABITACIONES': '/residencia/habitaciones',
+  'RESI_COMIDAS': '/residencia/comidas',
   'LESIONES': '/lesiones',
   'HISTORIAL MÉDICO': '/historial-medico',
   'RECONOCIMIENTOS': '/reconocimientos',
@@ -887,6 +896,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           ratingPsicologico: p.rating_psicologico,
           ratingHumano: p.rating_humano,
           estado: p.estado,
+          residencia: p.residencia ?? false,
           etapa: p.etapa,
           enlace: p.enlace,
           nombrePila: p.nombre_pila,
@@ -1639,6 +1649,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
               <Route path="/instalaciones" element={<InstalacionesView />} />
+              <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
+              <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
+              <Route path="/residencia/comidas" element={<ComidasView />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
@@ -1713,6 +1726,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             fecha_nacimiento: toSave.fechaNacimiento || undefined,
             apodo: toSave.apodo,
             estado: toSave.estado,
+            residencia: toSave.residencia ?? false,
             otra_demarcacion: toSave.otraDemarcacion,
             otra_posicion: toSave.otraPosicion,
             descripcion: toSave.descripcion,

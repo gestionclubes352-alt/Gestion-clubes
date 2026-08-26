@@ -14,7 +14,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 18;
+const MENU_VERSION = 19;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -52,6 +52,10 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'REPOSITORIO DE TAREAS', labelKey: 'sidebar.taskRepositoryLabel', icon: 'fa-book-open', section: 'planning' },
   // Contenido
   { id: 'VIDEOTECA', labelKey: 'sidebar.videoLibraryLabel', icon: 'fa-video', section: 'content' },
+  // Residencia
+  { id: 'RESI_JUGADORES', labelKey: 'sidebar.residenciaPlayersLabel', icon: 'fa-people-roof', section: 'residencia' },
+  { id: 'RESI_HABITACIONES', labelKey: 'sidebar.residenciaRoomsLabel', icon: 'fa-bed', section: 'residencia' },
+  { id: 'RESI_COMIDAS', labelKey: 'sidebar.residenciaMealsLabel', icon: 'fa-utensils', section: 'residencia' },
   // Admin
   { id: 'CLUBES', labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', section: 'admin' },
   { id: 'EQUIPOS', labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', section: 'admin' },
@@ -70,6 +74,7 @@ export const MENU_SECTIONS: { key: string; labelKey: string }[] = [
   { key: 'management', labelKey: 'sidebar.management' },
   { key: 'planning', labelKey: 'sidebar.planning' },
   { key: 'medical', labelKey: 'sidebar.medical' },
+  { key: 'residencia', labelKey: 'sidebar.residencia' },
   { key: 'tools', labelKey: 'sidebar.tools' },
   { key: 'content', labelKey: 'sidebar.content' },
   { key: 'admin', labelKey: 'sidebar.admin' },

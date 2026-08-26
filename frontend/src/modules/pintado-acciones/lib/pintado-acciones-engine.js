@@ -37,7 +37,6 @@ const opacityValueEl = document.getElementById("opacityValue");
 const focusStyleButtons = document.querySelectorAll("[data-focus-style]");
 const focusFollowKeyframeButton = document.getElementById("focusFollowKeyframe");
 const focusFollowEndButton = document.getElementById("focusFollowEnd");
-const focusFollowClearButton = document.getElementById("focusFollowClear");
 const spotlightStyleButtons = document.querySelectorAll("[data-spotlight-style]");
 const undoActionButton = document.getElementById("undoAction");
 const clearActionButton = document.getElementById("clearAction");
@@ -80,6 +79,9 @@ const state = {
   resizeAnchor: null,
   history: [],
   stageAspectRatio: 16 / 9,
+  currentVideoId: "",
+  currentPlaylistId: "",
+  tramoEndTime: null,
 };
 
 function setStatus(message) {
@@ -98,7 +100,7 @@ function setStatus(message) {
   statusText.classList.remove("hidden");
   statusHideTimeoutId = window.setTimeout(() => {
     statusText.classList.add("hidden");
-  }, 4200);
+  }, 1000);
 }
 
 function setConnectorHint(visible) {
@@ -227,6 +229,16 @@ function syncTimeline() {
   if (!state.player || !state.playerReady) return;
   const duration = Number(state.player.getDuration?.() || 0);
   state.playerDuration = duration;
+
+  if (
+    Number.isFinite(state.tramoEndTime) &&
+    state.playerState === "playing" &&
+    Number(state.player.getCurrentTime?.() || 0) >= state.tramoEndTime
+  ) {
+    state.player.seekTo(state.tramoEndTime, true);
+    state.player.pauseVideo();
+  }
+
   if (!state.seekDragging && timelineSeekInput && duration > 0) {
     const currentTime = Number(state.player.getCurrentTime?.() || 0);
     timelineSeekInput.value = String(Math.round((currentTime / duration) * 1000));
@@ -436,8 +448,8 @@ function endFollowHere() {
 
   const time = Number(state.player.getCurrentTime?.() || 0);
   const lastKeyframeTime = shape.keyframes[shape.keyframes.length - 1].time;
-  if (time <= lastKeyframeTime) {
-    setStatus("Marca el final en un instante posterior al ultimo fotograma clave del foco.");
+  if (time < lastKeyframeTime) {
+    setStatus("Marca el final en un instante posterior o igual al ultimo fotograma clave del foco.");
     return;
   }
 
@@ -445,20 +457,6 @@ function endFollowHere() {
   shape.followEndTime = time;
   redraw();
   setStatus(`El foco desaparecera a partir de ${formatTime(time)}.`);
-}
-
-function clearFollowKeyframes() {
-  const shape = getSelectedFocusShape();
-  if (!shape || !shape.keyframes?.length) {
-    setStatus("El foco seleccionado no tiene seguimiento que borrar.");
-    return;
-  }
-
-  pushHistory();
-  shape.keyframes = [];
-  delete shape.followEndTime;
-  redraw();
-  setStatus("Seguimiento eliminado. El foco quedara siempre visible en su posicion actual.");
 }
 
 function setElementAppearTime() {
@@ -2422,6 +2420,9 @@ function resetPlayerState() {
 
 async function ensurePlayer(videoId, options = {}) {
   const { playlistId = "", start = "" } = options;
+  state.currentVideoId = videoId;
+  state.currentPlaylistId = playlistId;
+  state.tramoEndTime = null;
   const container = document.getElementById("youtubePlayer");
 
   if (state.player?.destroy) {
@@ -2713,7 +2714,6 @@ focusStyleButtons.forEach((button) => {
 
 focusFollowKeyframeButton?.addEventListener("click", addFollowKeyframe);
 focusFollowEndButton?.addEventListener("click", endFollowHere);
-focusFollowClearButton?.addEventListener("click", clearFollowKeyframes);
 
 spotlightStyleButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -3385,6 +3385,142 @@ window.PintadoAcciones.clearElementVisibilityTiming = function clearElementVisib
   clearElementVisibilityTiming();
 };
 
+// Devuelve un snapshot serializable del tramo actual: video, rango de tiempo
+// (marcado con GRABAR TRAMO / STOP) y anotaciones. startTime/endTime son
+// opcionales y los aporta el componente React que gestiona la grabacion.
+window.PintadoAcciones.getSnapshot = function getSnapshot(range) {
+  if (state.sourceMode !== "youtube" || !state.currentVideoId) {
+    return null;
+  }
+
+  return {
+    sourceMode: "youtube",
+    videoId: state.currentVideoId,
+    playlistId: state.currentPlaylistId || "",
+    stageAspectRatio: state.stageAspectRatio,
+    startTime: Number.isFinite(range?.startTime) ? range.startTime : Number(state.player?.getCurrentTime?.() || 0),
+    endTime: Number.isFinite(range?.endTime) ? range.endTime : null,
+    annotations: state.annotations.map(cloneShape),
+  };
+};
+
+// Restaura un snapshot previamente guardado con getSnapshot(): carga el video
+// y reemplaza las anotaciones actuales por las del tramo guardado.
+window.PintadoAcciones.loadSnapshot = async function loadSnapshot(snapshot) {
+  if (!snapshot || snapshot.sourceMode !== "youtube" || !snapshot.videoId) {
+    return;
+  }
+
+  await ensurePlayer(snapshot.videoId, { playlistId: snapshot.playlistId || "", start: "" });
+
+  pushHistory();
+  state.annotations = Array.isArray(snapshot.annotations) ? snapshot.annotations.map(cloneShape) : [];
+  state.selectedAnnotationIndex = -1;
+  syncSizeControl();
+
+  const startTime = Number.isFinite(snapshot.startTime) ? snapshot.startTime : 0;
+  state.tramoEndTime = Number.isFinite(snapshot.endTime) ? snapshot.endTime : null;
+  if (state.player?.seekTo) {
+    state.player.seekTo(startTime, true);
+  }
+
+  redraw();
+  setStatus("Tramo cargado.");
+};
+
+// Devuelve el instante actual de reproduccion (segundos), usado por el
+// componente React para marcar el inicio/fin del tramo al grabar.
+window.PintadoAcciones.getCurrentTime = function getCurrentTime() {
+  return Number(state.player?.getCurrentTime?.() || 0);
+};
+
+// Reproduce el tramo [startTime, endTime] ya cargado (loadSnapshot) y lo
+// graba (video + anotaciones) capturando la pestaña con getDisplayMedia,
+// igual que hace captureVideoFrame() para el fotograma congelado. Devuelve
+// un Blob webm con el clip, listo para convertir a mp4 en el componente React.
+window.PintadoAcciones.recordSegment = async function recordSegment(startTime, endTime) {
+  if (!state.player || !state.playerReady) {
+    throw new Error("Carga el tramo antes de grabarlo.");
+  }
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error("Tu navegador no soporta la captura. Usa Chrome actualizado.");
+  }
+
+  setStatus("Selecciona 'Esta pestaña' en el diálogo y haz clic en Compartir...");
+
+  let captureStream;
+  try {
+    captureStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: "browser" },
+      audio: false,
+      preferCurrentTab: true,
+      selfBrowserSurface: "include",
+    });
+  } catch {
+    setStatus("Captura cancelada.");
+    throw new Error("Captura cancelada.");
+  }
+
+  const captureVideoEl = document.createElement("video");
+  captureVideoEl.muted = true;
+  captureVideoEl.srcObject = captureStream;
+  await new Promise((resolve) => { captureVideoEl.onloadedmetadata = resolve; });
+  await captureVideoEl.play();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const captureW = captureVideoEl.videoWidth;
+  const captureH = captureVideoEl.videoHeight;
+  const rect = stage.getBoundingClientRect();
+  const scaleX = captureW / window.innerWidth;
+  const scaleY = captureH / window.innerHeight;
+  const cropX = Math.round(rect.left * scaleX);
+  const cropY = Math.round(rect.top * scaleY);
+  const cropW = Math.round(rect.width * scaleX);
+  const cropH = Math.round(rect.height * scaleY);
+
+  const outputCanvas = document.createElement("canvas");
+  outputCanvas.width = cropW;
+  outputCanvas.height = cropH;
+  const octx = outputCanvas.getContext("2d");
+
+  state.player.seekTo(startTime, true);
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  state.player.playVideo();
+
+  const outputStream = outputCanvas.captureStream(30);
+  const mediaRecorder = new MediaRecorder(outputStream, { mimeType: "video/webm" });
+  const chunks = [];
+  mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+  const recordingDone = new Promise((resolve) => {
+    mediaRecorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+  });
+
+  mediaRecorder.start();
+
+  let rafId = 0;
+  const drawFrame = () => {
+    octx.drawImage(captureVideoEl, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+    const currentTime = Number(state.player?.getCurrentTime?.() || 0);
+    if (currentTime >= endTime) {
+      mediaRecorder.stop();
+      return;
+    }
+    rafId = requestAnimationFrame(drawFrame);
+  };
+  rafId = requestAnimationFrame(drawFrame);
+
+  const blob = await recordingDone;
+
+  window.cancelAnimationFrame(rafId);
+  captureStream.getTracks().forEach((t) => t.stop());
+  captureVideoEl.srcObject = null;
+  state.player.pauseVideo();
+  setStatus("Tramo grabado. Generando MP4...");
+
+  return blob;
+};
+
 return function destroyPintadoAcciones() {
   document.removeEventListener("paste", handlePaste);
   window.removeEventListener("keydown", handleKeydown);
@@ -3394,5 +3530,9 @@ return function destroyPintadoAcciones() {
     try { state.player.destroy(); } catch (error) { /* noop */ }
   }
   delete window.PintadoAcciones.addPlayerAnnotation;
+  delete window.PintadoAcciones.getSnapshot;
+  delete window.PintadoAcciones.loadSnapshot;
+  delete window.PintadoAcciones.getCurrentTime;
+  delete window.PintadoAcciones.recordSegment;
 };
 };

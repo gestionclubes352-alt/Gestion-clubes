@@ -688,6 +688,17 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 </SearchableSelect>
               </div>
               <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.residence', 'Residencia')}</label>
+                <SearchableSelect
+                  value={formData.residencia ? 'SI' : 'NO'}
+                  onChange={(e) => handleChange('residencia', e.target.value === 'SI')}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
+                >
+                  <option value="NO">{t('common.no', 'No')}</option>
+                  <option value="SI">{t('common.yes', 'Sí')}</option>
+                </SearchableSelect>
+              </div>
+              <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('common.status')}</label>
                 <SearchableSelect
                   value={formData.estado || 'APTO'}

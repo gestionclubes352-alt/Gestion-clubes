@@ -28,6 +28,7 @@ export interface Player {
   ratingPsicologico?: number;
   ratingHumano?: number;
   estado?: 'APTO' | 'LESIONADO' | 'OTRO';
+  residencia?: boolean;
   // Campos extendidos (Escuela Huesca / AppSheet)
   etapa?: string;
   enlace?: string;

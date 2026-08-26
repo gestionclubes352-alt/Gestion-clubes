@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as injuryService from '../../../shared/services/injuryService';
-import { db } from '../../../shared/services/dataService';
+import { db, plantillasService, equiposService, clubesService } from '../../../shared/services/dataService';
 import { useTranslation } from 'react-i18next';
 import type { Injury, InjurySeverity, InjuryStatus, BodyPart } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import BodyDiagram from './BodyDiagram';
 
 const severityColor: Record<InjurySeverity, string> = {
   'LEVE': 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
@@ -29,6 +30,7 @@ const InjuriesView: React.FC = () => {
   const [filter, setFilter] = useState<InjuryStatus | 'TODAS'>('TODAS');
   const [showModal, setShowModal] = useState(false);
   const [editInjury, setEditInjury] = useState<Injury | null>(null);
+  const [viewInjury, setViewInjury] = useState<Injury | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string|null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -94,25 +96,199 @@ const InjuriesView: React.FC = () => {
   };
 
 
+  // Vista de detalle de la lesión: foto, datos del jugador y zona lesionada en grande
+  interface InjuryDetailModalProps {
+    injury: Injury;
+    onClose: () => void;
+  }
+
+  const InjuryDetailModal: React.FC<InjuryDetailModalProps> = ({ injury, onClose }) => {
+    const { t } = useTranslation();
+    const [photoUrl, setPhotoUrl] = useState('');
+    const [position, setPosition] = useState('');
+
+    useEffect(() => {
+      (async () => {
+        const jugadores = await plantillasService.list();
+        const player = (jugadores || []).find(p => p.id === injury.playerId);
+        if (player) {
+          setPhotoUrl(player.foto_url || '');
+          setPosition(player.posicion || '');
+        }
+      })();
+    }, [injury.playerId]);
+
+    const daysLeft = (() => {
+      if (!injury.estimatedReturn) return null;
+      const diff = Math.ceil((new Date(injury.estimatedReturn).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return diff > 0 ? diff : 0;
+    })();
+
+    return (
+      <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto flex justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl space-y-4 relative h-fit self-start mt-8">
+          <button type="button" onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+            <i className="fa-solid fa-xmark text-xl"></i>
+          </button>
+
+          <div className="flex flex-row items-center gap-4">
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+              {photoUrl ? (
+                <img src={photoUrl} alt={injury.playerName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-black text-slate-300">
+                  {injury.playerName.split(' ').map(n => n[0]).join('')}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-1 text-left">
+              <h3 className="text-lg font-black text-slate-800">{injury.playerName}</h3>
+              {position && <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{position}</p>}
+              <div className="flex flex-wrap gap-2 mt-1">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${severityColor[injury.severity]}`}>
+                  {injury.severity}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor[injury.status]}`}>
+                  {statusLabel[injury.status]}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <div className="w-full max-w-[280px]">
+              <BodyDiagram bodyPart={injury.bodyPart} side={injury.side} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{t('medical.injuryType', 'Lesión')}</p>
+              <p className="text-xs font-semibold text-slate-800 leading-tight">{injury.type}</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{t('medical.bodyPart', 'Zona')}</p>
+              <p className="text-xs font-semibold text-slate-800 leading-tight">
+                {injury.bodyPart.charAt(0) + injury.bodyPart.slice(1).toLowerCase()} {injury.side ? `(${injury.side.charAt(0) + injury.side.slice(1).toLowerCase()})` : ''}
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{t('medical.dateOccurred', 'Fecha')}</p>
+              <p className="text-xs font-semibold text-slate-800 leading-tight">
+                {injury.dateOccurred ? new Date(injury.dateOccurred).toLocaleDateString() : '—'}
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{t('medical.returnDate', 'Vuelta est.')}</p>
+              <p className="text-xs font-semibold text-slate-800 leading-tight">
+                {injury.status === 'RECUPERADO'
+                  ? t('common.discharged', 'Alta')
+                  : injury.estimatedReturn
+                    ? `${new Date(injury.estimatedReturn).toLocaleDateString()} (${daysLeft}d)`
+                    : '—'}
+              </p>
+            </div>
+          </div>
+
+          {injury.notes && (
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{t('medical.notes', 'Notas')}</p>
+              <p className="text-xs text-slate-700 whitespace-pre-wrap leading-tight">{injury.notes}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Modal para añadir/editar lesión (definición única, no exportada)
   interface InjuryModalProps {
     initial: Injury | null;
     onClose: () => void;
     onSave: (injury: Partial<Injury>) => void;
+    readOnly?: boolean;
   }
 
-  const InjuryModal: React.FC<InjuryModalProps> = ({ initial, onClose, onSave }) => {
+  const InjuryModal: React.FC<InjuryModalProps> = ({ initial, onClose, onSave, readOnly = false }) => {
     const { t } = useTranslation();
     const [form, setForm] = useState<Partial<Injury>>(initial || {});
     const [saving, setSaving] = useState(false);
-    const [players, setPlayers] = useState<Array<{ id: string; nombre: string; apodo?: string; dorsal?: number; posicion?: string }>>([]);
+    const [players, setPlayers] = useState<Array<{ id: string; nombre: string; apodo?: string; dorsal?: number; posicion?: string; club?: string; equipo?: string }>>([]);
+    const [selectedClub, setSelectedClub] = useState('');
+    const [selectedTeam, setSelectedTeam] = useState('');
 
     useEffect(() => {
       (async () => {
-        const { data } = await db.players.get();
-        if (data) setPlayers(data as any[]);
+        const [jugadores, equipos, clubes] = await Promise.all([
+          plantillasService.list(),
+          equiposService.list(),
+          clubesService.list(),
+        ]);
+        const equiposById = new Map((equipos || []).map(e => [String(e.id), e]));
+        const clubesById = new Map((clubes || []).map(c => [String(c.id), c]));
+
+        const loadedPlayers = (jugadores || []).map(p => {
+          const equipoRow = equiposById.get(String(p.equipo_id));
+          const clubRow = equipoRow ? clubesById.get(String(equipoRow.club_id)) : undefined;
+          return {
+            id: p.id,
+            nombre: p.nombre,
+            apodo: p.apodo,
+            dorsal: p.dorsal ?? undefined,
+            posicion: p.posicion,
+            club: clubRow?.nombre || '',
+            equipo: equipoRow?.sub_equipo || equipoRow?.nombre || '',
+          };
+        });
+        setPlayers(loadedPlayers);
+
+        if (initial?.playerId) {
+          const current = loadedPlayers.find(p => p.id === initial.playerId);
+          if (current) {
+            setSelectedClub(current.club || '');
+            setSelectedTeam(current.equipo || '');
+          }
+        } else {
+          const uniqueClubs = Array.from(new Set(loadedPlayers.map(p => p.club).filter(Boolean)));
+          if (uniqueClubs.length === 1) {
+            setSelectedClub(uniqueClubs[0]);
+            const uniqueTeams = Array.from(new Set(
+              loadedPlayers.filter(p => p.club === uniqueClubs[0]).map(p => p.equipo).filter(Boolean)
+            ));
+            if (uniqueTeams.length === 1) setSelectedTeam(uniqueTeams[0]);
+          }
+        }
       })();
     }, []);
+
+    const clubs = React.useMemo(
+      () => Array.from(new Set(players.map(p => p.club).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
+      [players]
+    );
+
+    const teams = React.useMemo(
+      () => Array.from(new Set(
+        players
+          .filter(p => !selectedClub || p.club === selectedClub)
+          .map(p => p.equipo)
+          .filter(Boolean) as string[]
+      )).sort((a, b) => a.localeCompare(b)),
+      [players, selectedClub]
+    );
+
+    const filteredPlayers = React.useMemo(
+      () => players.filter(p => (!selectedClub || p.club === selectedClub) && (!selectedTeam || p.equipo === selectedTeam)),
+      [players, selectedClub, selectedTeam]
+    );
+
+    const handleClubChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setSelectedClub(e.target.value);
+      setSelectedTeam('');
+    };
+
+    const handleTeamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setSelectedTeam(e.target.value);
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const { name, value } = e.target;
@@ -141,21 +317,44 @@ const InjuriesView: React.FC = () => {
 
     return (
       <div className="fixed inset-0 bg-black/40 z-50 overflow-y-auto flex justify-center p-4">
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-lg space-y-4 relative h-fit self-start mt-8">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-3xl space-y-4 relative h-fit self-start mt-8">
           <button type="button" onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
             <i className="fa-solid fa-xmark text-xl"></i>
           </button>
           <h3 className="text-xl font-black text-[var(--accent)] mb-2">
-            {initial ? t('medical.editInjury', 'Editar Lesión') : t('medical.newInjury', 'Nueva Lesión')}
+            {readOnly ? t('medical.viewInjury', 'Detalle de Lesión') : initial ? t('medical.editInjury', 'Editar Lesión') : t('medical.newInjury', 'Nueva Lesión')}
           </h3>
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SearchableSelect
-              value={form.playerId || ''}
-              onChange={handlePlayerSelect}
+              disabled={readOnly}
+              value={selectedClub}
+              onChange={handleClubChange}
               className="border rounded-lg px-3 py-2 w-full"
             >
+              <option value="">{t('common.selectClub', 'Seleccionar club...')}</option>
+              {clubs.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </SearchableSelect>
+            <SearchableSelect
+              disabled={readOnly}
+              value={selectedTeam}
+              onChange={handleTeamChange}
+              className="border rounded-lg px-3 py-2 w-full"
+            >
+              <option value="">{t('common.selectTeam', 'Seleccionar equipo...')}</option>
+              {teams.map(eq => (
+                <option key={eq} value={eq}>{eq}</option>
+              ))}
+            </SearchableSelect>
+            <SearchableSelect
+              disabled={readOnly}
+              value={form.playerId || ''}
+              onChange={handlePlayerSelect}
+              className="border rounded-lg px-3 py-2 w-full md:col-span-2"
+            >
               <option value="">{t('common.selectPlayer', 'Seleccionar jugador...')}</option>
-              {players
+              {filteredPlayers
                 .slice()
                 .sort((a, b) => (a.apodo || a.nombre).localeCompare(b.apodo || b.nombre))
                 .map(p => (
@@ -166,6 +365,7 @@ const InjuriesView: React.FC = () => {
               }
             </SearchableSelect>
             <SearchableSelect
+              disabled={readOnly}
               name="type"
               value={form.type || ''}
               onChange={handleChange}
@@ -211,6 +411,7 @@ const InjuriesView: React.FC = () => {
               </optgroup>
             </SearchableSelect>
             <SearchableSelect
+              disabled={readOnly}
               name="bodyPart"
               value={form.bodyPart || ''}
               onChange={handleChange}
@@ -264,6 +465,18 @@ const InjuriesView: React.FC = () => {
               <option value="OTRO">Otro</option>
             </SearchableSelect>
             <SearchableSelect
+              disabled={readOnly}
+              name="side"
+              value={form.side || ''}
+              onChange={handleChange}
+              className="border rounded-lg px-3 py-2 w-full"
+            >
+              <option value="">{t('medical.side', 'Lado')}</option>
+              <option value="DERECHO">Dcho.</option>
+              <option value="IZQUIERDO">Izdo.</option>
+            </SearchableSelect>
+            <SearchableSelect
+              disabled={readOnly}
               name="severity"
               value={form.severity || ''}
               onChange={handleChange}
@@ -275,6 +488,7 @@ const InjuriesView: React.FC = () => {
               <option value="GRAVE">Grave</option>
             </SearchableSelect>
             <SearchableSelect
+              disabled={readOnly}
               name="status"
               value={form.status || ''}
               onChange={handleChange}
@@ -290,20 +504,31 @@ const InjuriesView: React.FC = () => {
               type="date"
               value={form.estimatedReturn || ''}
               onChange={handleChange}
+              disabled={readOnly}
               className="border rounded-lg px-3 py-2 w-full"
             />
+            {form.bodyPart && (
+              <div className="md:col-span-2 flex justify-center">
+                <div className="w-full max-w-xs">
+                  <BodyDiagram bodyPart={form.bodyPart} side={form.side} />
+                </div>
+              </div>
+            )}
             <textarea
               name="notes"
               value={form.notes || ''}
               onChange={handleChange}
+              disabled={readOnly}
               placeholder={t('medical.notes', 'Notas')}
-              className="border rounded-lg px-3 py-2 w-full"
+              className="border rounded-lg px-3 py-2 w-full md:col-span-2"
               rows={2}
             />
           </div>
-          <button type="submit" className="bg-[var(--accent)] text-white px-6 py-2 rounded-xl font-black w-full mt-4" disabled={saving}>
-            {saving ? t('common.saving', 'Guardando...') : t('common.save', 'Guardar')}
-          </button>
+          {!readOnly && (
+            <button type="submit" className="bg-[var(--accent)] text-white px-6 py-2 rounded-xl font-black w-full mt-4" disabled={saving}>
+              {saving ? t('common.saving', 'Guardando...') : t('common.save', 'Guardar')}
+            </button>
+          )}
         </form>
       </div>
     );
@@ -435,6 +660,7 @@ const InjuriesView: React.FC = () => {
                         )}
                       </td>
                       <td className="px-5 py-4 text-center">
+                        <button className="text-slate-500 hover:underline mr-2" onClick={e => { e.stopPropagation(); setViewInjury(injury); }}>Ver</button>
                         <button className="text-blue-500 hover:underline mr-2" onClick={e => { e.stopPropagation(); setEditInjury(injury); setShowModal(true); }}>Editar</button>
                         <button className="text-red-500 hover:underline" onClick={e => { e.stopPropagation(); handleDelete(injury.id); }}>Borrar</button>
                       </td>
@@ -450,6 +676,12 @@ const InjuriesView: React.FC = () => {
             initial={editInjury}
             onClose={() => { setShowModal(false); setEditInjury(null); }}
             onSave={handleSave}
+          />
+        )}
+        {viewInjury && (
+          <InjuryDetailModal
+            injury={viewInjury}
+            onClose={() => setViewInjury(null)}
           />
         )}
 

@@ -1772,6 +1772,49 @@
   background: rgba(221, 20, 95, 0.08);
 }
 
+.pintado-acciones-app .tramo-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pintado-acciones-app .tramo-actions button {
+  flex: 1;
+}
+
+.pintado-acciones-app .record-tramo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.pintado-acciones-app .record-tramo-icon {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.pintado-acciones-app .record-tramo-icon-play {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid currentColor;
+}
+.pintado-acciones-app .record-tramo-icon-stop {
+  background: currentColor;
+  border-radius: 2px;
+}
+.pintado-acciones-app .record-tramo-button.is-recording {
+  background: #b3132f;
+  color: #ffffff;
+  border-color: #b3132f;
+  animation: pintado-record-pulse 1.2s ease-in-out infinite;
+}
+@keyframes pintado-record-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(179, 19, 47, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(179, 19, 47, 0); }
+}
+
 .pintado-acciones-app .players-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,14 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import '../pintado-acciones.css';
 import engineScriptUrl from '../lib/pintado-acciones-engine.js?url';
-import { plantillasService, equiposService } from '@shared/services/dataService';
+import { plantillasService, equiposService, pintadoAccionesTramosService } from '@shared/services/dataService';
 import type { Player } from '@modules/plantilla';
+import type { PintadoAccionesTramo } from '@shared/services/dataService';
+import { getFFmpeg } from '@shared/utils/ffmpegClient';
+import { fetchFile } from '@ffmpeg/util';
 
 declare global {
   interface Window {
     PintadoAcciones?: {
       mount?: () => (() => void) | undefined;
       addPlayerAnnotation?: (x: number, y: number, dorsal: number, nombre: string) => void;
+      getSnapshot?: (range?: { startTime?: number; endTime?: number | null }) => Record<string, unknown> | null;
+      loadSnapshot?: (snapshot: Record<string, unknown>) => Promise<void>;
+      getCurrentTime?: () => number;
+      recordSegment?: (startTime: number, endTime: number) => Promise<Blob>;
     };
   }
 }
@@ -35,6 +42,13 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
   const [selectedEquipoId, setSelectedEquipoId] = useState<string>('');
   const [selectedPlayerForInsertion, setSelectedPlayerForInsertion] = useState<Player | null>(null);
   const [showPlayers, setShowPlayers] = useState(false);
+  const [tramos, setTramos] = useState<PintadoAccionesTramo[]>([]);
+  const [selectedTramoId, setSelectedTramoId] = useState<string>('');
+  const [isSavingTramo, setIsSavingTramo] = useState(false);
+  const [isLoadingTramo, setIsLoadingTramo] = useState(false);
+  const [isRecordingTramo, setIsRecordingTramo] = useState(false);
+  const [isDownloadingTramo, setIsDownloadingTramo] = useState(false);
+  const recordingStartTimeRef = useRef<number | null>(null);
 
   // Obtener los equipos del club actual
   useEffect(() => {
@@ -87,6 +101,156 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
       }
     })();
   }, [propsOwnEquipoId, selectedEquipoId]);
+
+  const refreshTramos = async (equipoId: string) => {
+    try {
+      const rows = await pintadoAccionesTramosService.list({ equipo_id: equipoId });
+      setTramos(rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
+    } catch (err) {
+      console.error('Error cargando tramos guardados:', err);
+    }
+  };
+
+  // Cargar tramos guardados del equipo seleccionado
+  useEffect(() => {
+    const equipoId = propsOwnEquipoId || selectedEquipoId;
+    if (!equipoId) return;
+    refreshTramos(equipoId);
+  }, [propsOwnEquipoId, selectedEquipoId]);
+
+  const handleStartRecording = () => {
+    if (!window.PintadoAcciones?.getCurrentTime) {
+      alert('Carga un video de YouTube antes de grabar un tramo.');
+      return;
+    }
+    recordingStartTimeRef.current = window.PintadoAcciones.getCurrentTime();
+    setIsRecordingTramo(true);
+  };
+
+  const handleStopRecording = async () => {
+    const equipoId = propsOwnEquipoId || selectedEquipoId;
+    if (!equipoId) {
+      alert('Selecciona primero un equipo para poder guardar el tramo.');
+      setIsRecordingTramo(false);
+      return;
+    }
+
+    const startTime = recordingStartTimeRef.current ?? 0;
+    const endTime = window.PintadoAcciones?.getCurrentTime?.() ?? startTime;
+    setIsRecordingTramo(false);
+    recordingStartTimeRef.current = null;
+
+    const snapshot = window.PintadoAcciones?.getSnapshot?.({
+      startTime: Math.min(startTime, endTime),
+      endTime: Math.max(startTime, endTime),
+    });
+    if (!snapshot) {
+      alert('Carga un video de YouTube y dibuja sobre él antes de guardar un tramo.');
+      return;
+    }
+
+    const nombre = window.prompt('Nombre del tramo:', '')?.trim();
+    if (!nombre) return;
+
+    setIsSavingTramo(true);
+    try {
+      const created = await pintadoAccionesTramosService.create({ equipo_id: equipoId, nombre, datos: snapshot });
+      setSelectedTramoId(created.id);
+      await refreshTramos(equipoId);
+    } catch (err) {
+      console.error('No se pudo guardar el tramo', err);
+      alert('No se pudo guardar el tramo. Inténtalo de nuevo.');
+    } finally {
+      setIsSavingTramo(false);
+    }
+  };
+
+  const handleLoadTramo = async (tramoId: string) => {
+    setSelectedTramoId(tramoId);
+    if (!tramoId) return;
+    const tramo = tramos.find((t) => t.id === tramoId);
+    if (!tramo) return;
+
+    setIsLoadingTramo(true);
+    try {
+      await window.PintadoAcciones?.loadSnapshot?.(tramo.datos);
+    } catch (err) {
+      console.error('No se pudo cargar el tramo', err);
+      alert('No se pudo cargar el tramo. Inténtalo de nuevo.');
+    } finally {
+      setIsLoadingTramo(false);
+    }
+  };
+
+  const handleDeleteTramo = async () => {
+    if (!selectedTramoId) return;
+    const tramo = tramos.find((t) => t.id === selectedTramoId);
+    if (!tramo) return;
+    if (!window.confirm(`¿Eliminar el tramo "${tramo.nombre}"?`)) return;
+
+    try {
+      await pintadoAccionesTramosService.remove(tramo.id);
+      setSelectedTramoId('');
+      const equipoId = propsOwnEquipoId || selectedEquipoId;
+      if (equipoId) await refreshTramos(equipoId);
+    } catch (err) {
+      console.error('No se pudo eliminar el tramo', err);
+      alert('No se pudo eliminar el tramo. Inténtalo de nuevo.');
+    }
+  };
+
+  const handleDownloadTramo = async () => {
+    if (!selectedTramoId) return;
+    const tramo = tramos.find((t) => t.id === selectedTramoId);
+    if (!tramo) return;
+
+    const datos = tramo.datos as { startTime?: number; endTime?: number };
+    const startTime = Number(datos?.startTime ?? 0);
+    const endTime = Number(datos?.endTime);
+    if (!Number.isFinite(endTime) || endTime <= startTime) {
+      alert('Este tramo no tiene un rango de tiempo válido para descargar.');
+      return;
+    }
+
+    setIsDownloadingTramo(true);
+    try {
+      // Aseguramos que el video y las anotaciones del tramo están cargados antes de grabar.
+      await window.PintadoAcciones?.loadSnapshot?.(tramo.datos);
+      const webmBlob = await window.PintadoAcciones?.recordSegment?.(startTime, endTime);
+      if (!webmBlob) return;
+
+      const safeName = tramo.nombre.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+
+      try {
+        const ffmpeg = await getFFmpeg();
+        await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
+        await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']);
+        const data = await ffmpeg.readFile('output.mp4');
+        const mp4Blob = new Blob([data as BlobPart], { type: 'video/mp4' });
+        const url = URL.createObjectURL(mp4Blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tramo-${safeName}.mp4`;
+        a.click();
+        URL.revokeObjectURL(url);
+        await ffmpeg.deleteFile('input.webm');
+        await ffmpeg.deleteFile('output.mp4');
+      } catch (err) {
+        console.error('Error convirtiendo a MP4, se descarga en WEBM:', err);
+        const url = URL.createObjectURL(webmBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tramo-${safeName}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('No se pudo descargar el tramo', err);
+      alert(err instanceof Error ? err.message : 'No se pudo descargar el tramo. Inténtalo de nuevo.');
+    } finally {
+      setIsDownloadingTramo(false);
+    }
+  };
 
   // Manejar inserción de jugador al hacer clic en el canvas
   useEffect(() => {
@@ -306,6 +470,68 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     )}
                   </>
                 )}
+              </section>
+
+              {/* Sección de Tramos guardados */}
+              <section className="panel-block">
+                <h2>Tramos guardados</h2>
+                <label className="field">
+                  <span>Selecciona un tramo</span>
+                  <select
+                    value={selectedTramoId}
+                    onChange={(e) => handleLoadTramo(e.target.value)}
+                    disabled={isLoadingTramo || isRecordingTramo || tramos.length === 0}
+                  >
+                    <option value="">
+                      {tramos.length === 0 ? 'No hay tramos guardados' : 'Elegir tramo...'}
+                    </option>
+                    {tramos.map((tramo) => (
+                      <option key={tramo.id} value={tramo.id}>
+                        {tramo.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="tramo-actions">
+                  {!isRecordingTramo ? (
+                    <button
+                      type="button"
+                      className="primary record-tramo-button"
+                      onClick={handleStartRecording}
+                      disabled={isSavingTramo}
+                    >
+                      <span className="record-tramo-icon record-tramo-icon-play" aria-hidden="true" />
+                      GRABAR TRAMO
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="record-tramo-button is-recording"
+                      onClick={handleStopRecording}
+                      disabled={isSavingTramo}
+                    >
+                      <span className="record-tramo-icon record-tramo-icon-stop" aria-hidden="true" />
+                      {isSavingTramo ? 'Guardando...' : 'STOP'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDeleteTramo}
+                    disabled={!selectedTramoId || isRecordingTramo}
+                  >
+                    Eliminar tramo
+                  </button>
+                </div>
+                <div className="tramo-actions">
+                  <button
+                    type="button"
+                    onClick={handleDownloadTramo}
+                    disabled={!selectedTramoId || isRecordingTramo || isDownloadingTramo}
+                    title="Descarga el tramo como video MP4 con las anotaciones incrustadas"
+                  >
+                    {isDownloadingTramo ? 'Generando MP4...' : 'Descargar tramo (MP4)'}
+                  </button>
+                </div>
               </section>
 
             </div>
@@ -631,9 +857,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                   </button>
                   <button id="focusFollowEnd" type="button" className="stage-action-button" title="El foco desaparecera a partir de este instante del video">
                     Terminar seguimiento aqui
-                  </button>
-                  <button id="focusFollowClear" type="button" className="stage-action-button" title="Elimina el seguimiento del foco seleccionado">
-                    Quitar seguimiento
                   </button>
                   <p className="focus-follow-hint">
                     Selecciona un foco, pausa el video en distintos momentos, coloca el foco sobre el jugador y pulsa

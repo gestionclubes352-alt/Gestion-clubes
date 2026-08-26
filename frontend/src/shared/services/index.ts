@@ -16,11 +16,15 @@ export {
   equiposRivalesService,
   localidadesService,
   instalacionesCamposService,
+  residenciaHabitacionesService,
+  residenciaJugadoresService,
+  residenciaComidasService,
 } from './dataService';
 export type {
   Club, Equipo, Jugador, Personal, Usuario,
   Competicion, Partido, Sesion, PizarraTactica, Tarea,
   EquipoRival, Localidad, InstalacionCampo,
+  ResidenciaHabitacion, ResidenciaJugador, ResidenciaComida,
 } from './dataService';
 
 // Shim temporal de compatibilidad (Fase 1 de la migración, ver dataService.ts)

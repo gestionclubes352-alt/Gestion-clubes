@@ -10,9 +10,8 @@ export async function getInjuries(): Promise<Injury[]> {
 }
 
 export async function addInjury(injury: Omit<Injury, 'id'>): Promise<string> {
-  const id = String(Date.now());
-  await db.injuries.upsert({ ...injury, id });
-  return id;
+  const saved = await db.injuries.upsert(injury as Injury);
+  return (saved as Injury).id;
 }
 
 export async function updateInjury(id: string, injury: Partial<Injury>): Promise<void> {

@@ -89,6 +89,7 @@ export interface Jugador { // tabla `plantillas`
   fecha_nacimiento?: string;
   apodo?: string;
   estado?: 'APTO' | 'LESIONADO' | 'OTRO';
+  residencia?: boolean;
   otra_demarcacion?: string;
   otra_posicion?: string;
   descripcion?: string;
@@ -253,6 +254,16 @@ export interface PizarraCarpeta {
   updated_at?: string;
 }
 
+export interface PintadoAccionesTramo {
+  id: string;
+  equipo_id: string;
+  nombre: string;
+  /** Snapshot del tramo: videoId, playlistId, tiempo actual, anotaciones. */
+  datos: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Tarea {
   id: string;
   club_id: string;
@@ -273,6 +284,40 @@ export interface EquipoRival {
   escudo_url?: string | null;
   competicion?: string | null;
   temporada?: string | null;
+  notas?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ResidenciaHabitacion {
+  id: string;
+  club_id?: string | null;
+  nombre: string;
+  capacidad?: number | null;
+  planta?: string | null;
+  notas?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ResidenciaJugador {
+  id: string;
+  club_id?: string | null;
+  jugador_id?: string | null;
+  habitacion_id?: string | null;
+  fecha_entrada?: string | null;
+  fecha_salida?: string | null;
+  notas?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ResidenciaComida {
+  id: string;
+  club_id?: string | null;
+  fecha: string;
+  turno: string;
+  menu?: string | null;
   notas?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -329,10 +374,14 @@ export const eventosCalendarioService = createTableService<EventoCalendario>('ev
 export const calendarioCompeticionService = createTableService<CalendarioCompeticionPartido>('calendario_competicion');
 export const pizarrasService = createTableService<PizarraTactica>('pizarras_tacticas');
 export const pizarrasCarpetasService = createTableService<PizarraCarpeta>('pizarras_carpetas');
+export const pintadoAccionesTramosService = createTableService<PintadoAccionesTramo>('pintado_acciones_tramos');
 export const tareasService = createTableService<Tarea>('tareas');
 export const equiposRivalesService = createTableService<EquipoRival>('equipos_rivales');
 export const localidadesService = createTableService<Localidad>('localidades');
 export const instalacionesCamposService = createTableService<InstalacionCampo>('instalaciones_campos');
+export const residenciaHabitacionesService = createTableService<ResidenciaHabitacion>('residencia_habitaciones');
+export const residenciaJugadoresService = createTableService<ResidenciaJugador>('residencia_jugadores');
+export const residenciaComidasService = createTableService<ResidenciaComida>('residencia_comidas');
 export const shareTokensService = createTableService<ShareToken>('share_tokens');
 
 // Ejemplo de uso en un componente:
@@ -633,6 +682,63 @@ interface StoredMatchReport {
   updated_at?: string;
 }
 
+/** Tabla `lesiones` (076_lesiones.sql): columnas propias en snake_case. */
+function createInjuriesStore(): LegacyStore<any> {
+  return {
+    async get(id?: string | number) {
+      let query = supabase.from('lesiones').select('*');
+      if (id !== undefined) query = query.eq('id', id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return {
+        data: (data ?? []).map((row: any) => ({
+          id: row.id,
+          playerId: row.player_id,
+          playerName: row.player_name,
+          type: row.type,
+          bodyPart: row.body_part,
+          side: row.side ?? undefined,
+          severity: row.severity,
+          status: row.status,
+          dateOccurred: row.date_occurred,
+          estimatedReturn: row.estimated_return ?? undefined,
+          actualReturn: row.actual_return ?? undefined,
+          mechanism: row.mechanism ?? undefined,
+          notes: row.notes ?? undefined,
+        })),
+      };
+    },
+    async upsert(item: any) {
+      const row: Record<string, unknown> = {
+        player_id: item.playerId,
+        player_name: item.playerName,
+        type: item.type,
+        body_part: item.bodyPart,
+        side: item.side ?? null,
+        severity: item.severity,
+        status: item.status,
+        date_occurred: item.dateOccurred,
+        estimated_return: item.estimatedReturn ?? null,
+        actual_return: item.actualReturn ?? null,
+        mechanism: item.mechanism ?? null,
+        notes: item.notes ?? null,
+      };
+      if (item.id) row.id = item.id;
+      const { data, error } = await supabase.from('lesiones').upsert(row).select().single();
+      if (error) throw error;
+      return { ...item, id: data.id };
+    },
+    async delete(id: string | number) {
+      const { error } = await supabase.from('lesiones').delete().eq('id', id);
+      if (error) throw error;
+    },
+    async clearAll() {
+      const { error } = await supabase.from('lesiones').delete().neq('id', '');
+      if (error) throw error;
+    },
+  };
+}
+
 function createMatchReportsStore(): LegacyStore<any> {
   return {
     async get(id?: string | number) {
@@ -830,7 +936,7 @@ export const db = {
   task_templates: createJsonPayloadStore('task_templates'),
   exercises: createExercisesStore(),
   match_reports: createMatchReportsStore(),
-  injuries: createLegacyStub(),
+  injuries: createInjuriesStore(),
   fitness_profiles: createLegacyStub(),
   medical_checkups: createLegacyStub(),
   medical_records: createLegacyStub(),

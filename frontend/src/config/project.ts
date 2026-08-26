@@ -75,6 +75,9 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'PINTADO DE ACCIONES',
     'REPOSITORIO DE TAREAS',
     'VIDEOTECA',
+    'RESI_JUGADORES',
+    'RESI_HABITACIONES',
+    'RESI_COMIDAS',
     'CONFIGURACIÓN',
   ],
   defaultVisibleSections: [
@@ -82,6 +85,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'management',
     'planning',
     'medical',
+    'residencia',
     'tools',
     'content',
     'admin',

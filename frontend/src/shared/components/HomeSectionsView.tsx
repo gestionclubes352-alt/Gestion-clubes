@@ -64,6 +64,20 @@ const HOME_SECTIONS: HomeSection[] = [
     ],
   },
   {
+    key: 'residencia',
+    titleKey: 'sidebar.residencia',
+    icon: 'fa-house-user',
+    color: 'from-amber-500 to-amber-700',
+    bgLight: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+    textColor: 'text-amber-100',
+    items: [
+      { labelKey: 'sidebar.residenciaPlayersLabel', icon: 'fa-people-roof', route: '/residencia/jugadores', menuId: 'RESI_JUGADORES' },
+      { labelKey: 'sidebar.residenciaRoomsLabel', icon: 'fa-bed', route: '/residencia/habitaciones', menuId: 'RESI_HABITACIONES' },
+      { labelKey: 'sidebar.residenciaMealsLabel', icon: 'fa-utensils', route: '/residencia/comidas', menuId: 'RESI_COMIDAS' },
+    ],
+  },
+  {
     key: 'admin',
     titleKey: 'sidebar.admin',
     icon: 'fa-gear',
