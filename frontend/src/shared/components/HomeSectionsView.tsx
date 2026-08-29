@@ -56,6 +56,8 @@ const HOME_SECTIONS: HomeSection[] = [
     borderColor: 'border-rose-200',
     textColor: 'text-rose-100',
     items: [
+      { labelKey: 'sidebar.medicionesAnalisisLabel', icon: 'fa-chart-line', route: '/mediciones/analisis', menuId: 'MEDICIONES_ANALISIS' },
+      { labelKey: 'sidebar.mediciones', icon: 'fa-face-smile', route: '/mediciones/registro', menuId: 'MEDICIONES_REGISTRO' },
       { labelKey: 'sidebar.injuriesLabel', icon: 'fa-band-aid', route: '/lesiones', menuId: 'LESIONES' },
       { labelKey: 'sidebar.medicalHistoryLabel', icon: 'fa-file-medical', route: '/historial-medico', menuId: 'HISTORIAL MÉDICO' },
       { labelKey: 'sidebar.checkupsLabel', icon: 'fa-stethoscope', route: '/reconocimientos', menuId: 'RECONOCIMIENTOS' },
@@ -132,7 +134,7 @@ const HomeSectionsView: React.FC = () => {
               <div className="space-y-1.5 md:space-y-1.5 lg:space-y-2 2xl:space-y-2 3xl:space-y-2.5 flex-1">
                 {visibleItems.map(item => (
                   <button
-                    key={item.route}
+                    key={item.menuId}
                     onClick={() => navigate(item.route)}
                     className="w-full flex items-center gap-2.5 px-3 md:px-3.5 lg:px-4 2xl:px-4 py-2 md:py-2 lg:py-2.5 2xl:py-2.5 3xl:py-3 rounded-lg md:rounded-xl text-left bg-white/10 hover:bg-white/15 border border-white/10 hover:border-white/20 transition-all group"
                   >

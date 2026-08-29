@@ -341,7 +341,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('medical') && (
-          <SidebarSection title={t('sidebar.medical')} sectionKey="medical" collapsed={isCollapsed} hasActiveChild={['LESIONES', 'HISTORIAL MÉDICO', 'RECONOCIMIENTOS', 'REHABILITACIÓN', 'RENDIMIENTO FÍSICO'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.medical')} sectionKey="medical" collapsed={isCollapsed} hasActiveChild={['MEDICIONES_REGISTRO', 'MEDICIONES_ANALISIS', 'LESIONES', 'HISTORIAL MÉDICO', 'RECONOCIMIENTOS', 'REHABILITACIÓN', 'RENDIMIENTO FÍSICO'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+            {isVisible('MEDICIONES_REGISTRO') && <SidebarItem icon="fa-clipboard-list" label={t('sidebar.medicionesRegistroLabel')} active={activeSection === 'MEDICIONES_REGISTRO'} onClick={() => handleItemClick('MEDICIONES_REGISTRO')} collapsed={isCollapsed} />}
+            {isVisible('MEDICIONES_ANALISIS') && <SidebarItem icon="fa-chart-line" label={t('sidebar.medicionesAnalisisLabel')} active={activeSection === 'MEDICIONES_ANALISIS'} onClick={() => handleItemClick('MEDICIONES_ANALISIS')} collapsed={isCollapsed} />}
             {isVisible('LESIONES') && <SidebarItem icon="fa-band-aid" label={t('sidebar.injuriesLabel')} active={activeSection === 'LESIONES'} onClick={() => handleItemClick('LESIONES')} collapsed={isCollapsed} />}
             {isVisible('HISTORIAL MÉDICO') && <SidebarItem icon="fa-file-medical" label={t('sidebar.medicalHistoryLabel')} active={activeSection === 'HISTORIAL MÉDICO'} onClick={() => handleItemClick('HISTORIAL MÉDICO')} collapsed={isCollapsed} />}
             {isVisible('RECONOCIMIENTOS') && <SidebarItem icon="fa-stethoscope" label={t('sidebar.checkupsLabel')} active={activeSection === 'RECONOCIMIENTOS'} onClick={() => handleItemClick('RECONOCIMIENTOS')} collapsed={isCollapsed} />}

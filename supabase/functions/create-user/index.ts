@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Solo un Administrador puede gestionar usuarios.' }, 403);
   }
 
-  let body: { user_id?: string; email?: string; password?: string; nombre?: string; rol?: string; estado?: string; club_id?: string | null };
+  let body: { user_id?: string; email?: string; password?: string; nombre?: string; rol?: string; estado?: string; club_id?: string | null; jugador_id?: string | null };
   try {
     body = await req.json();
   } catch {
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
     return json({ id: body.user_id }, 200);
   }
 
-  const { email, password, nombre, rol, estado, club_id } = body;
+  const { email, password, nombre, rol, estado, club_id, jugador_id } = body;
   if (!email || !password || !nombre) {
     return json({ error: 'Email, contraseña y nombre son obligatorios.' }, 400);
   }
@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
       rol: rol || 'Tecnico',
       estado: estado || 'Activo',
       club_id: club_id ?? null,
+      jugador_id: jugador_id ?? null,
     })
     .eq('id', created.user.id);
 

@@ -34,7 +34,7 @@ async function extractFunctionErrorMessage(error: unknown): Promise<string> {
 /** Emails con acceso de desarrollador (ven todos los clubs sin restricción). */
 export const DEV_EMAILS = ['mikelzarate@gmail.com', 'ilandaleioa@gmail.com'];
 
-export type UserRole = 'Responsable' | 'Administrador' | 'Tecnico' | 'Pendiente';
+export type UserRole = 'Responsable' | 'Administrador' | 'Tecnico' | 'Jugador' | 'Pendiente';
 
 export interface AuthUser {
   id: string;
@@ -47,9 +47,10 @@ export interface AuthUser {
 }
 
 export interface NewUserPerfil {
-  rol: 'Administrador' | 'Responsable' | 'Tecnico';
+  rol: 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador';
   estado: 'Activo' | 'Inactivo' | 'Pendiente';
   clubId?: string | null;
+  jugadorId?: string | null;
 }
 
 class AuthServiceStub {
@@ -67,6 +68,7 @@ class AuthServiceStub {
         rol: perfil.rol,
         estado: perfil.estado,
         club_id: perfil.clubId ?? null,
+        jugador_id: perfil.jugadorId ?? null,
       },
     });
 

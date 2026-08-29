@@ -82,6 +82,9 @@ import { InstalacionesView } from '@modules/instalaciones';
 // Modules - Residencia
 import { HabitacionesView, JugadoresResiView, ComidasView } from '@modules/residencia';
 
+// Modules - Mediciones
+import { RegistroDiarioView, AnalisisMedicionesView, FormularioPublicoView } from '@modules/mediciones';
+
 // Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
 // Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
@@ -133,6 +136,8 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/residencia/jugadores': 'RESI_JUGADORES',
   '/residencia/habitaciones': 'RESI_HABITACIONES',
   '/residencia/comidas': 'RESI_COMIDAS',
+  '/mediciones/registro': 'MEDICIONES_REGISTRO',
+  '/mediciones/analisis': 'MEDICIONES_ANALISIS',
   '/lesiones': 'LESIONES',
   '/historial-medico': 'HISTORIAL MÉDICO',
   '/reconocimientos': 'RECONOCIMIENTOS',
@@ -164,6 +169,8 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'RESI_JUGADORES': '/residencia/jugadores',
   'RESI_HABITACIONES': '/residencia/habitaciones',
   'RESI_COMIDAS': '/residencia/comidas',
+  'MEDICIONES_REGISTRO': '/mediciones/registro',
+  'MEDICIONES_ANALISIS': '/mediciones/analisis',
   'LESIONES': '/lesiones',
   'HISTORIAL MÉDICO': '/historial-medico',
   'RECONOCIMIENTOS': '/reconocimientos',
@@ -446,7 +453,7 @@ const App: React.FC = () => {
   const location = useLocation();
 
   // Rutas públicas que no requieren autenticación
-  const isPublicRoute = location.pathname.startsWith('/share/') || location.pathname.startsWith('/public-channel/');
+  const isPublicRoute = location.pathname.startsWith('/share/') || location.pathname.startsWith('/public-channel/') || location.pathname === '/mediciones/formulario-publico';
 
   // If on a public route, skip auth gate
   if (isPublicRoute && !authLoading) {
@@ -454,6 +461,7 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/share/:token" element={<PublicShareView />} />
         <Route path="/public-channel/:token" element={<PublicChannelView />} />
+        <Route path="/mediciones/formulario-publico" element={<FormularioPublicoView />} />
       </Routes>
     );
   }
@@ -993,6 +1001,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       estado: u.estado,
       departamento: u.rol === 'Tecnico' ? 'Personal' : 'Directiva',
       clubId: u.club_id ?? undefined,
+      jugadorId: u.jugador_id ?? undefined,
     }));
     setUsersList(users);
   };
@@ -1191,10 +1200,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     navigate(`/partidos/${matchId}`);
   };
 
-  const filteredSquadList = useMemo(
-    () => squadList.filter(player => matchesSelectedTeams(player.equipo, selectedTeams)),
-    [squadList, selectedTeams]
-  );
+  const filteredSquadList = useMemo(() => {
+    const base = perfil?.rol === 'Jugador'
+      ? squadList.filter(player => String(player.id) === String(perfil.jugador_id))
+      : squadList;
+    return base.filter(player => matchesSelectedTeams(player.equipo, selectedTeams));
+  }, [squadList, selectedTeams, perfil]);
 
   const currentClubSquadList = useMemo(
     () => currentTeam
@@ -1730,6 +1741,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
               <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
               <Route path="/residencia/comidas" element={<ComidasView />} />
+              <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
+              <Route path="/mediciones/analisis" element={<AnalisisMedicionesView />} />
               <Route path="/lesiones" element={<InjuriesView />} />
               <Route path="/historial-medico" element={<MedicalHistoryView />} />
               <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
@@ -1873,13 +1886,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
         }}
       />}
-      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
+      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} players={squadList} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
         if (isNewUser) {
           try {
             const result = await authService.createAuthUser(u.email, password || '', u.nombre, {
-              rol: u.rol as 'Administrador' | 'Responsable' | 'Tecnico',
+              rol: u.rol as 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador',
               estado: u.estado as 'Activo' | 'Inactivo' | 'Pendiente',
               clubId: u.clubId || currentTeam?.id || null,
+              jugadorId: u.jugadorId || null,
             });
             if (!result.success) {
               alert(result.error || 'No se pudo crear el usuario.');
@@ -1899,6 +1913,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             rol: u.rol as Usuario['rol'],
             estado: u.estado as Usuario['estado'],
             club_id: u.clubId || currentTeam?.id || null,
+            jugador_id: u.jugadorId || null,
           });
           if (password) {
             const pwResult = await authService.setUserPassword(String(u.id), password);

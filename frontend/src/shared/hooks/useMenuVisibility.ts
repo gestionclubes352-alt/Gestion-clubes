@@ -6,6 +6,11 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { DEFAULT_VISIBLE_MENU_SET, DEFAULT_VISIBLE_SECTIONS_SET } from '../../config/project';
+import { useAuth } from '@context/AuthContext';
+
+/** Únicos ítems/secciones que puede ver el rol Jugador, sin importar la config de deploy. */
+const JUGADOR_ALLOWED_MENU_IDS = new Set(['INICIO', 'PLANTILLAS', 'MEDICIONES_REGISTRO', 'MEDICIONES_ANALISIS']);
+const JUGADOR_ALLOWED_SECTIONS = new Set(['general', 'management', 'medical']);
 
 const STORAGE_KEY = 'menu-visibility';
 const VERSION_KEY = 'menu-visibility-version';
@@ -14,7 +19,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 19;
+const MENU_VERSION = 22;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -40,6 +45,8 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'PARTIDOS', labelKey: 'sidebar.matchesLabel', icon: 'fa-futbol', section: 'planning' },
   { id: 'COMPETICIÓN', labelKey: 'sidebar.competitionLabel', icon: 'fa-ranking-star', section: 'planning' },
   // Área Médica
+  { id: 'MEDICIONES_REGISTRO', labelKey: 'sidebar.medicionesRegistroLabel', icon: 'fa-clipboard-list', section: 'medical' },
+  { id: 'MEDICIONES_ANALISIS', labelKey: 'sidebar.medicionesAnalisisLabel', icon: 'fa-chart-line', section: 'medical' },
   { id: 'LESIONES', labelKey: 'sidebar.injuriesLabel', icon: 'fa-band-aid', section: 'medical' },
   { id: 'HISTORIAL MÉDICO', labelKey: 'sidebar.medicalHistoryLabel', icon: 'fa-file-medical', section: 'medical' },
   { id: 'RECONOCIMIENTOS', labelKey: 'sidebar.checkupsLabel', icon: 'fa-stethoscope', section: 'medical' },
@@ -131,6 +138,8 @@ function saveVisibility(v: MenuVisibility): void {
  */
 export function useMenuVisibility() {
   const [visibility, setVisibility] = useState<MenuVisibility>(loadVisibility);
+  const { perfil } = useAuth();
+  const isJugador = perfil?.rol === 'Jugador';
 
   // Sincronizar con otros pestañas/ventanas
   useEffect(() => {
@@ -145,13 +154,18 @@ export function useMenuVisibility() {
 
   /** Comprobar si una sección es visible (solo lectura, desde config de deploy) */
   const isSectionVisible = useCallback(
-    (sectionKey: string): boolean => isSectionVisibleFromConfig(sectionKey),
-    []
+    (sectionKey: string): boolean => {
+      if (isJugador) return JUGADOR_ALLOWED_SECTIONS.has(sectionKey);
+      return isSectionVisibleFromConfig(sectionKey);
+    },
+    [isJugador]
   );
 
   /** Comprobar si un menú es visible (por defecto sí) */
   const isVisible = useCallback(
     (menuId: string): boolean => {
+      if (isJugador) return JUGADOR_ALLOWED_MENU_IDS.has(menuId);
+
       const item = ALL_MENU_ITEMS.find(m => m.id === menuId);
       if (item?.locked) return true;
 
@@ -164,7 +178,7 @@ export function useMenuVisibility() {
 
       return isDefaultVisible(menuId);
     },
-    [visibility]
+    [visibility, isJugador]
   );
 
   /** Cambiar la visibilidad de un menú */

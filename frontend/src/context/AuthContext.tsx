@@ -8,7 +8,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../shared/services/supabaseClient';
 
-export type Rol = 'Administrador' | 'Responsable' | 'Tecnico';
+export type Rol = 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador';
 export type Estado = 'Activo' | 'Inactivo' | 'Pendiente';
 
 export interface UsuarioPerfil {
@@ -18,6 +18,7 @@ export interface UsuarioPerfil {
   email: string;
   rol: Rol;
   estado: Estado;
+  jugador_id: string | null;
 }
 
 interface AuthContextType {
@@ -33,6 +34,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isResponsable: boolean;
   isTecnico: boolean;
+  isJugador: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPerfilLoading(true);
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, club_id, nombre, email, rol, estado')
+      .select('id, club_id, nombre, email, rol, estado, jugador_id')
       .eq('id', userId)
       .single();
 
@@ -130,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin: perfil?.rol === 'Administrador',
     isResponsable: perfil?.rol === 'Responsable',
     isTecnico: perfil?.rol === 'Tecnico',
+    isJugador: perfil?.rol === 'Jugador',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

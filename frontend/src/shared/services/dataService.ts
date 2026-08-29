@@ -141,8 +141,9 @@ export interface Usuario {
   club_id: string | null;
   nombre: string;
   email: string;
-  rol: 'Administrador' | 'Responsable' | 'Tecnico';
+  rol: 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador';
   estado: 'Activo' | 'Inactivo' | 'Pendiente';
+  jugador_id?: string | null;
 }
 
 export interface Competicion {
@@ -348,6 +349,35 @@ export interface InstalacionCampo {
   updated_at?: string;
 }
 
+export interface RpeRespuesta {
+  id: string;
+  club_id?: string | null;
+  jugador_id: string;
+  fecha: string;
+  rpe?: number | null;
+  animo?: number | null;
+  motivacion?: number | null;
+  molestia?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WellnessRespuesta {
+  id: string;
+  club_id?: string | null;
+  jugador_id: string;
+  fecha: string;
+  sueno?: number | null;
+  musc?: number | null;
+  aerob?: number | null;
+  zona_cargada?: string | null;
+  molestias?: string | null;
+  semaforo?: string | null;
+  comentario?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ShareToken {
   id: string;
   match_report_id: string;
@@ -384,6 +414,8 @@ export const instalacionesCamposService = createTableService<InstalacionCampo>('
 export const residenciaHabitacionesService = createTableService<ResidenciaHabitacion>('residencia_habitaciones');
 export const residenciaJugadoresService = createTableService<ResidenciaJugador>('residencia_jugadores');
 export const residenciaComidasService = createTableService<ResidenciaComida>('residencia_comidas');
+export const rpeRespuestasService = createTableService<RpeRespuesta>('rpe_respuestas');
+export const wellnessRespuestasService = createTableService<WellnessRespuesta>('wellness_respuestas');
 export const shareTokensService = createTableService<ShareToken>('share_tokens');
 
 // Ejemplo de uso en un componente:

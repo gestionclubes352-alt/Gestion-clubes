@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import type { User } from '../types';
 import { uploadStaffPhoto } from '../../../shared/services/staffPhotoService';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import type { Player } from '../../plantilla/types';
 
 interface EditUserModalProps {
   user: User;
   isNew?: boolean;
   clubId?: string;
+  players?: Player[];
   onClose: () => void;
   onSave: (user: User, password?: string) => Promise<void>;
 }
@@ -19,9 +21,10 @@ const getInitials = (name: string): string => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
-const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onClose, onSave }) => {
+const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, players, onClose, onSave }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<User>({ ...user });
+  const isPlayerRole = formData.rol === 'Jugador';
   const [password, setPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -39,6 +42,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
   };
 
   const handleSave = async () => {
+    if (isPlayerRole && !formData.jugadorId) {
+      alert(t('editUser.playerRequired'));
+      return;
+    }
 
     let fotoUrl = formData.fotoUrl;
     if (photoFile && clubId) {
@@ -161,6 +168,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
                 <option value="Responsable">{t('editUser.roleResponsable')}</option>
                 <option value="Administrador">{t('editUser.roleAdmin')}</option>
                 <option value="Tecnico">{t('editUser.roleTechnician')}</option>
+                <option value="Jugador">{t('editUser.rolePlayer')}</option>
               </SearchableSelect>
             </div>
             <div>
@@ -175,6 +183,33 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, onCl
               </SearchableSelect>
             </div>
           </div>
+
+          {isPlayerRole && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.linkedPlayer')}</label>
+              <SearchableSelect
+                value={formData.jugadorId || ''}
+                onChange={(e) => {
+                  const playerId = e.target.value;
+                  const player = players?.find(p => String(p.id) === playerId);
+                  setFormData(prev => ({
+                    ...prev,
+                    jugadorId: playerId,
+                    nombre: player?.nombreCompleto || player?.nombre || prev.nombre,
+                    email: player?.correo || prev.email,
+                  }));
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
+              >
+                <option value="">{t('editUser.selectPlayer')}</option>
+                {(players || []).map(p => (
+                  <option key={p.id} value={String(p.id)}>
+                    {(p.nombreCompleto || p.nombre) + (p.dorsal ? ` (#${p.dorsal})` : '')}
+                  </option>
+                ))}
+              </SearchableSelect>
+            </div>
+          )}
         </div>
 
         <div className="p-4 sm:p-8 bg-slate-50 border-t border-slate-100 flex gap-3 sm:gap-4">

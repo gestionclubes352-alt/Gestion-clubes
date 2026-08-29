@@ -260,27 +260,27 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                   key={event.id}
                   className="bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 >
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {event.matchDate ? new Date(event.matchDate).toLocaleDateString('es-ES') : '-'}
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400">
                     {event.nombreInterno || '-'}
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400">
                     {event.competition || '-'}
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-600 dark:text-slate-400">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400">
                     {event.jornada || '-'}
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-800 dark:text-slate-200">
                     <span className="font-semibold">
                       {event.localTeam || 'Local'} vs {event.visitorTeam || 'Visitante'}
                     </span>
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-800 dark:text-slate-200">
                     <span className="font-semibold tabular-nums">{getMatchScoreLabel(event, report)}</span>
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-800 dark:text-slate-200">
                     <span className="font-semibold">{event.minute}'</span>
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3">
@@ -326,11 +326,11 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                       <span className="text-slate-300">-</span>
                     )}
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
-                    <p className="text-[9px] max-w-md line-clamp-2">{jugadorDetalle}</p>
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-800 dark:text-slate-200">
+                    <p className="max-w-md line-clamp-2">{jugadorDetalle}</p>
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-slate-800 dark:text-slate-200">
-                    <p className="text-[9px] max-w-md line-clamp-2">{notaDetalle}</p>
+                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-800 dark:text-slate-200">
+                    <p className="max-w-md line-clamp-2">{notaDetalle}</p>
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3">
                     {report?.videoUrl ? (

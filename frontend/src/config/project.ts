@@ -78,6 +78,8 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'RESI_JUGADORES',
     'RESI_HABITACIONES',
     'RESI_COMIDAS',
+    'MEDICIONES_REGISTRO',
+    'MEDICIONES_ANALISIS',
     'CONFIGURACIÓN',
   ],
   defaultVisibleSections: [
