@@ -3478,6 +3478,11 @@ window.PintadoAcciones.recordSegment = async function recordSegment(startTime, e
   const cropW = Math.round(rect.width * scaleX);
   const cropH = Math.round(rect.height * scaleY);
 
+  if (cropW <= 0 || cropH <= 0) {
+    captureStream.getTracks().forEach((t) => t.stop());
+    throw new Error("No se pudo calcular el área a grabar. Asegúrate de compartir 'Esta pestaña' completa.");
+  }
+
   const outputCanvas = document.createElement("canvas");
   outputCanvas.width = cropW;
   outputCanvas.height = cropH;
@@ -3498,11 +3503,18 @@ window.PintadoAcciones.recordSegment = async function recordSegment(startTime, e
 
   mediaRecorder.start();
 
+  // Salvaguarda: si el video de YouTube deja de avanzar (buffering, pestaña
+  // en background, etc.) el bucle nunca alcanzaría endTime y la grabación
+  // quedaría colgada indefinidamente. Cortamos por tiempo real transcurrido
+  // (duración del tramo + margen) además de por currentTime.
+  const segmentDurationMs = Math.max(0, (endTime - startTime) * 1000);
+  const hardDeadline = Date.now() + segmentDurationMs + 15000;
+
   let rafId = 0;
   const drawFrame = () => {
     octx.drawImage(captureVideoEl, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
     const currentTime = Number(state.player?.getCurrentTime?.() || 0);
-    if (currentTime >= endTime) {
+    if (currentTime >= endTime || Date.now() >= hardDeadline) {
       mediaRecorder.stop();
       return;
     }
@@ -3516,6 +3528,12 @@ window.PintadoAcciones.recordSegment = async function recordSegment(startTime, e
   captureStream.getTracks().forEach((t) => t.stop());
   captureVideoEl.srcObject = null;
   state.player.pauseVideo();
+
+  if (!blob.size) {
+    setStatus("La grabación salió vacía. Inténtalo de nuevo.");
+    throw new Error("La grabación del tramo salió vacía (0 bytes). Vuelve a intentarlo sin cambiar de pestaña durante la captura.");
+  }
+
   setStatus("Tramo grabado. Generando MP4...");
 
   return blob;

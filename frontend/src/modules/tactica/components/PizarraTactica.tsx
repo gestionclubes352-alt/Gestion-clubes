@@ -57,6 +57,21 @@ const RIVAL_TEAM_COLOR = '#1976d2';
 const MY_KEEPER_COLOR = '#e91e63';
 const RIVAL_KEEPER_COLOR = '#fdd835';
 const PANEL_COLORS = ['#d32f2f', '#1976d2', '#ffffff'];
+type TextSizePreset = 'S' | 'M' | 'L' | 'XL';
+const TEXT_SIZE_PRESETS: TextSizePreset[] = ['S', 'M', 'L', 'XL'];
+const TEXT_SIZE_VALUES: Record<TextSizePreset, number> = { S: 2.5, M: 3.5, L: 5, XL: 7 };
+const TEXT_COLOR_PRESETS = [
+  '#ffffff',
+  '#111111',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#22c55e',
+  '#06b6d4',
+  '#3b82f6',
+  '#8b5cf6',
+];
 const FRAME_DURATION_MS = 1200;
 const PITCH_ASPECT = 105 / 68;
 const FIELD_LINE_EDGE_PERCENT = 2.6;
@@ -143,8 +158,22 @@ interface PizarraTacticaProps {
   ownClubId?: string;
 }
 
+const PLAN_PARTIDO_SECTION_LABELS: Record<string, string> = {
+  planConBalon: 'Ataque',
+  planSinBalon: 'Defensa',
+  planAbp: 'Transiciones',
+};
+
 const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const { pushState, setOnStateRestore } = useUndoRedo();
+  const linkedParams = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const partidoId = params.get('partidoId') || undefined;
+    const seccion = params.get('seccion') || undefined;
+    const boardId = params.get('boardId') || undefined;
+    const isNew = params.get('new') === '1';
+    return partidoId && seccion ? { partidoId, seccion, boardId, isNew } : null;
+  }, []);
   const pitchStageRef = useRef<HTMLElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
   const [pitchStageSize, setPitchStageSize] = useState({ width: 0, height: 0 });
@@ -400,6 +429,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     });
   };
 
+  const skipFormationResetRef = useRef(false);
   const draggingId = useRef<string | null>(null);
   const draggingIds = useRef<string[]>([]);
   const draggingStart = useRef({ x: 0, y: 0 });
@@ -538,6 +568,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, [myTeamColor, rivalTeamColor]);
 
   useEffect(() => {
+    if (skipFormationResetRef.current) {
+      skipFormationResetRef.current = false;
+      return;
+    }
     const myTeam = buildTeamPlayers(myFormation, 'my');
     const rivalTeam = buildTeamPlayers(rivalFormation, 'rival');
     setFrames([[...myTeam, ...rivalTeam]]);
@@ -1189,6 +1223,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     return () => { cancelled = true; };
   }, [selectedMyTeamId]);
 
+  const linkedBoardLoadedRef = useRef(false);
+
   const refreshSavedBoards = useCallback(async () => {
     if (!selectedMyTeamId) {
       setSavedBoards([]);
@@ -1334,6 +1370,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       selectedRivalClubId,
       selectedRivalTeamId,
       rivalPlayers,
+      campoTipo,
     };
 
     setIsSavingBoard(true);
@@ -1344,6 +1381,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         formacion: myFormation,
         posiciones: [],
         carpeta_id: carpetaId || null,
+        partido_id: linkedParams?.partidoId ?? null,
+        seccion: linkedParams?.seccion ?? null,
         datos,
       });
       setSelectedCarpetaId(carpetaId);
@@ -1371,7 +1410,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       return;
     }
     const currentBoard = selectedBoardId ? savedBoards.find(b => b.id === selectedBoardId) : null;
-    const nombre = window.prompt('Nombre de la pizarra:', currentBoard?.nombre ?? '')?.trim();
+
+    // En el flujo de Plan de Partido, la pizarra queda vinculada a un partido+sección:
+    // se actualiza directamente sin pedir nombre para no crear duplicados.
+    const nombre = linkedParams
+      ? (currentBoard?.nombre ?? `Plan de partido · ${PLAN_PARTIDO_SECTION_LABELS[linkedParams.seccion] || linkedParams.seccion}`)
+      : window.prompt('Nombre de la pizarra:', currentBoard?.nombre ?? '')?.trim();
     if (!nombre) return;
 
     const datos = {
@@ -1391,11 +1435,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       selectedRivalClubId,
       selectedRivalTeamId,
       rivalPlayers,
+      campoTipo,
     };
 
     setIsSavingBoard(true);
     try {
-      if (currentBoard && currentBoard.nombre === nombre) {
+      if (currentBoard) {
         const updated = await pizarrasService.update(currentBoard.id, {
           nombre,
           formacion: myFormation,
@@ -1410,9 +1455,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           formacion: myFormation,
           posiciones: [],
           carpeta_id: selectedCarpetaId || null,
+          partido_id: linkedParams?.partidoId ?? null,
+          seccion: linkedParams?.seccion ?? null,
           datos,
         });
         setSelectedBoardId(created.id);
+        linkedBoardLoadedRef.current = true;
       }
       await refreshSavedBoards();
     } catch (err) {
@@ -1452,6 +1500,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       const fallbackBall = datos.ball ?? { x: 50, y: 75 };
       setBallFrames(Array.from({ length: frameCount }, () => ({ ...fallbackBall })));
     }
+    if ((datos.myFormation && datos.myFormation !== myFormation) || (datos.rivalFormation && datos.rivalFormation !== rivalFormation)) {
+      skipFormationResetRef.current = true;
+    }
     if (datos.myFormation) setMyFormation(datos.myFormation);
     if (datos.rivalFormation) setRivalFormation(datos.rivalFormation);
     if (datos.myTeamColor) setMyTeamColor(datos.myTeamColor);
@@ -1464,7 +1515,27 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     if (datos.selectedRivalClubId) setSelectedRivalClubId(datos.selectedRivalClubId);
     if (datos.selectedRivalTeamId) setSelectedRivalTeamId(datos.selectedRivalTeamId);
     if (Array.isArray(datos.rivalPlayers)) setRivalPlayers(datos.rivalPlayers);
+    const loadedCampoTipo: 'ataque' | 'defensa' | 'completo' = datos.campoTipo ?? 'completo';
+    setCampoTipo(loadedCampoTipo);
+    setAbpImageUrl(
+      loadedCampoTipo === 'ataque' ? ataqueImage : loadedCampoTipo === 'defensa' ? defensaImage : null
+    );
   };
+
+  useEffect(() => {
+    if (!linkedParams || linkedBoardLoadedRef.current || isLoadingBoards || !savedBoards.length) return;
+    if (linkedParams.isNew) {
+      linkedBoardLoadedRef.current = true;
+      return;
+    }
+    const linkedBoard = linkedParams.boardId
+      ? savedBoards.find(b => b.id === linkedParams.boardId)
+      : savedBoards.find(b => b.partido_id === linkedParams.partidoId && b.seccion === linkedParams.seccion);
+    if (linkedBoard) {
+      linkedBoardLoadedRef.current = true;
+      handleLoadBoard(linkedBoard.id);
+    }
+  }, [linkedParams, savedBoards, isLoadingBoards]);
 
   const handleDeleteBoard = async () => {
     if (!selectedBoardId) return;
@@ -1629,6 +1700,41 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-white text-slate-800 dark:bg-[#121212] dark:text-slate-100">
+      {linkedParams && (
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <i className="fa-solid fa-link"></i>
+          Plan de Partido · {PLAN_PARTIDO_SECTION_LABELS[linkedParams.seccion] || linkedParams.seccion}
+          <button
+            type="button"
+            onClick={handleSaveBoard}
+            disabled={isSavingBoard}
+            className="ml-1 flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 hover:bg-white/25 transition-colors normal-case tracking-normal font-bold disabled:opacity-50"
+          >
+            <i className={`fa-solid ${isSavingBoard ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} text-[10px]`}></i>
+            Guardar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.opener && !window.opener.closed) {
+                try {
+                  window.opener.dispatchEvent(new Event('focus'));
+                } catch {
+                  // ignore si el opener es de otro origen
+                }
+                window.opener.focus();
+                window.close();
+              } else {
+                window.location.href = `/partidos/${linkedParams.partidoId}?tab=${encodeURIComponent('PLAN DE PARTIDO')}`;
+              }
+            }}
+            className="flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 hover:bg-white/25 transition-colors normal-case tracking-normal font-bold"
+          >
+            <i className="fa-solid fa-arrow-left text-[10px]"></i>
+            Volver
+          </button>
+        </div>
+      )}
       <aside className={`${mobileTeamPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} md:flex md:static md:z-auto md:w-[290px] shrink-0 flex-col border-r border-slate-200 bg-[#f8f9fa] dark:border-white/10 dark:bg-[#121212]`}>
         <div className="flex h-[58px] items-center gap-3 border-b border-slate-200 px-5 text-[11px] font-black uppercase tracking-[0.15em] text-slate-500 dark:border-white/10 dark:text-slate-400">
           <i className="fa-solid fa-bars text-[18px]" />
@@ -1754,8 +1860,83 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 </div>
               </div>
 
-              {/* Opciones de dibujo */}
-              {drawingTools.state.tool && (
+              {/* Texto (contenido, tamaño y color) — para crear o para editar el seleccionado. Siempre visible, sin depender de acordeones colapsados. */}
+              {(() => {
+                const isTextTool = ['text', 'callout'].includes(drawingTools.state.tool ?? '');
+                const selectedTextShape = shapes.find(
+                  s => s.id === drawingTools.state.selectedShapeId && ['text', 'callout'].includes(s.type)
+                );
+                if (!isTextTool && !selectedTextShape) return null;
+
+                const currentText = selectedTextShape ? (selectedTextShape.text || '') : (drawingTools.state.textDraft ?? '');
+                const currentFontSize = selectedTextShape ? (selectedTextShape.fontSize ?? 16) : drawingTools.state.fontSize;
+                const currentColor = selectedTextShape ? selectedTextShape.stroke : drawingTools.state.stroke;
+
+                return (
+                  <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                    <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
+                      {selectedTextShape ? 'Texto seleccionado' : 'Texto'}
+                    </label>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="text"
+                        value={currentText}
+                        onChange={e => {
+                          if (selectedTextShape) {
+                            drawingTools.updateShapeText(selectedTextShape.id, e.target.value);
+                          } else {
+                            drawingTools.setTextDraft(e.target.value);
+                          }
+                        }}
+                        placeholder="Escribe el texto..."
+                        maxLength={40}
+                        autoFocus
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                      />
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {TEXT_SIZE_PRESETS.map(size => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => {
+                              drawingTools.setFontSize(TEXT_SIZE_VALUES[size]);
+                              if (selectedTextShape) {
+                                drawingTools.updateShapeFontSize(selectedTextShape.id, TEXT_SIZE_VALUES[size]);
+                              }
+                            }}
+                            className={`rounded-lg border py-1.5 text-[10px] font-black uppercase transition-all ${currentFontSize === TEXT_SIZE_VALUES[size] ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'}`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {TEXT_COLOR_PRESETS.map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              drawingTools.setStroke(c);
+                              if (selectedTextShape) {
+                                drawingTools.updateShapeStroke(selectedTextShape.id, c);
+                              }
+                            }}
+                            style={{ backgroundColor: c }}
+                            className={`h-6 w-6 rounded-full border-2 transition-all ${currentColor === c ? 'border-[var(--accent)] scale-110' : 'border-slate-200 hover:scale-105 dark:border-white/20'}`}
+                            aria-label={`Color de texto ${c}`}
+                            title={c}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Opciones de dibujo (también visible al tener un texto/etiqueta seleccionado) */}
+              {(drawingTools.state.tool || shapes.some(
+                s => s.id === drawingTools.state.selectedShapeId && ['text', 'callout'].includes(s.type)
+              )) && (
                 <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
                   <button
                     type="button"
@@ -1769,6 +1950,10 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   {showDrawingOptions && (
                   <div>
 
+                  {!['text', 'callout'].includes(drawingTools.state.tool ?? '') && !shapes.some(
+                    s => s.id === drawingTools.state.selectedShapeId && ['text', 'callout'].includes(s.type)
+                  ) && (
+                  <>
                   {/* Color */}
                   <div className="mb-3">
                     <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
@@ -1799,6 +1984,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       className="w-full"
                     />
                   </div>
+                  </>
+                  )}
 
                   {/* Estilo de línea (solo flechas) */}
                   {['arrow', 'arrowStraight'].includes(drawingTools.state.tool ?? '') && (
@@ -1846,37 +2033,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       className="w-full"
                     />
                   </div>
-
-                  {/* Tamaño de Fuente (solo para textos) */}
-                  {['text', 'callout'].includes(drawingTools.state.tool ?? '') && (
-                    <div className="mb-3">
-                      <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
-                        Fuente: <span className="font-normal">{drawingTools.state.fontSize}px</span>
-                      </label>
-                      <div className="flex gap-2 items-center">
-                        <button
-                          onClick={() => drawingTools.setFontSize(Math.max(8, drawingTools.state.fontSize - 2))}
-                          className="h-7 w-7 rounded-md border border-slate-200 bg-white text-[10px] font-black text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="range"
-                          min="8"
-                          max="48"
-                          value={drawingTools.state.fontSize}
-                          onChange={e => drawingTools.setFontSize(Number(e.target.value))}
-                          className="w-full"
-                        />
-                        <button
-                          onClick={() => drawingTools.setFontSize(Math.min(48, drawingTools.state.fontSize + 2))}
-                          className="h-7 w-7 rounded-md border border-slate-200 bg-white text-[10px] font-black text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Focus Style */}
                   {drawingTools.state.tool === 'focus' && (
@@ -2496,6 +2652,29 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 <i className="fa-solid fa-eraser mr-2 text-[11px]" />
                 Limpiar
               </button>
+              <button
+                onClick={() => {
+                  if (selectedArrowId) {
+                    updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
+                    setSelectedArrowId(null);
+                  } else if (drawingTools.state.selectedShapeId) {
+                    drawingTools.deleteShape(drawingTools.state.selectedShapeId);
+                  } else if (selectedPitchIds.length > 0) {
+                    updatePitchPlayers(prev => prev.filter(p => !selectedPitchIds.includes(p.id)));
+                    setSelectedPitchIds([]);
+                  }
+                }}
+                disabled={!selectedArrowId && !drawingTools.state.selectedShapeId && selectedPitchIds.length === 0}
+                title="Elimina el elemento seleccionado en el campo"
+                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
+                  !selectedArrowId && !drawingTools.state.selectedShapeId && selectedPitchIds.length === 0
+                    ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-white/10 dark:bg-white/5 dark:text-slate-500'
+                    : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-[#1a1a1a] dark:text-red-400 dark:hover:bg-red-500/10'
+                }`}
+              >
+                <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
+                Borrar
+              </button>
             </div>
             <div className="flex gap-3">
               <button
@@ -2575,28 +2754,28 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 {showFieldLines && !abpImageUrl && (
                 <svg
                   className="absolute inset-0 h-full w-full opacity-95 pointer-events-none"
-                  viewBox="0 0 100 100"
+                  viewBox="0 0 105 68"
                   preserveAspectRatio="none"
                   aria-hidden="true"
                   style={is3DView ? { transform: 'translateZ(5px)' } : undefined}
                 >
                   <g fill="none" stroke="#ffffff" strokeOpacity="0.95" strokeWidth="0.16">
-                    <rect x="2.6" y="2.6" width="94.8" height="94.8" rx="1.6" />
-                    <line x1="2.6" y1="50" x2="97.4" y2="50" />
-                    <circle cx="50" cy="50" r="11.5" />
-                    <circle cx="50" cy="50" r="0.38" fill="#ffffff" stroke="none" />
-                    <circle cx="50" cy="12" r="0.38" fill="#ffffff" stroke="none" />
-                    <circle cx="50" cy="88" r="0.38" fill="#ffffff" stroke="none" />
+                    <rect x="2.73" y="1.77" width="99.54" height="64.46" rx="1" />
+                    <line x1="2.73" y1="34" x2="102.27" y2="34" />
+                    <circle cx="52.5" cy="34" r="7.82" />
+                    <circle cx="52.5" cy="34" r="0.26" fill="#ffffff" stroke="none" />
+                    <circle cx="52.5" cy="8.16" r="0.26" fill="#ffffff" stroke="none" />
+                    <circle cx="52.5" cy="59.84" r="0.26" fill="#ffffff" stroke="none" />
                     {campoTipo !== 'defensa' && (
                       <>
-                        <rect x="37" y="2.6" width="26" height="11.5" />
-                        <rect x="27" y="2.6" width="46" height="20.5" />
+                        <rect x="38.85" y="1.77" width="27.3" height="7.82" />
+                        <rect x="28.35" y="1.77" width="48.3" height="13.94" />
                       </>
                     )}
                     {campoTipo !== 'ataque' && (
                       <>
-                        <rect x="37" y="85.9" width="26" height="11.5" />
-                        <rect x="27" y="76.9" width="46" height="20.5" />
+                        <rect x="38.85" y="58.41" width="27.3" height="7.82" />
+                        <rect x="28.35" y="52.29" width="48.3" height="13.94" />
                       </>
                     )}
                   </g>
@@ -2700,6 +2879,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     onShapeClick={drawingTools.selectShape}
                     onShapePointerDown={handleShapePointerDown}
                     onRotateShape={(id) => drawingTools.rotateShape(id)}
+                    onShapeDoubleClick={(id) => {
+                      const shape = shapes.find(s => s.id === id);
+                      if (!shape) return;
+                      const nuevoTexto = window.prompt('Editar texto:', shape.text ?? '');
+                      if (nuevoTexto !== null) {
+                        drawingTools.updateShapeText(id, nuevoTexto);
+                      }
+                    }}
                   />
 
                   {isDrawingArrow && drawStart && (drawStart as any).x2 !== undefined && (
@@ -2775,9 +2962,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   const isPendingConnector = drawingTools.state.tool === 'connector' && drawingTools.state.pendingConnectorPlayerId === player.id;
                   const isDragging = draggingIds.current.includes(player.id);
                   const isMarkedForDelete = isDragging && dragOutsideField;
-                  const baseSize = (player.number === 1 ? 44 : 40) * playerScale;
-                  const perspectiveFactor = is3DView ? 0.42 + (player.y / 100) * 0.58 : 1;
-                  const displaySize = baseSize * perspectiveFactor;
+                  const displaySize = 40 * playerScale;
 
                   return (
                     <div

@@ -8,8 +8,8 @@ import type { CompetitionTeam } from '@modules/competicion';
 import type { Campograma } from '@modules/entrenamientos';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
-import { db, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
-import type { Equipo, Jugador, Club, Competicion, Localidad, InstalacionCampo } from '@shared/services/dataService';
+import { db, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService, pizarrasService } from '@shared/services/dataService';
+import type { Equipo, Jugador, Club, Competicion, Localidad, InstalacionCampo, PizarraTactica as PizarraTacticaRow } from '@shared/services/dataService';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
@@ -211,7 +211,10 @@ function findTeamByName<T>(teams: T[], wantedNames: string[], getName: (t: T) =>
 
 const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], campogramasList = [], onSave, onDelete, onTeamCreated }) => {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState('DATOS GENERALES');
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabFromUrl = new URLSearchParams(window.location.search).get('tab');
+    return tabFromUrl || 'DATOS GENERALES';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
@@ -1093,6 +1096,48 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     };
     loadData();
   }, [match.id]);
+
+  const [planPizarras, setPlanPizarras] = useState<Record<string, PizarraTacticaRow[]>>({});
+  const [loadingPlanPizarras, setLoadingPlanPizarras] = useState(false);
+
+  const refreshPlanPizarras = async () => {
+    setLoadingPlanPizarras(true);
+    try {
+      const rows = await pizarrasService.list({ partido_id: match.id });
+      const grouped: Record<string, PizarraTacticaRow[]> = {};
+      for (const row of rows) {
+        const key = row.seccion || '';
+        if (!key) continue;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(row);
+      }
+      Object.values(grouped).forEach(list => list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+      setPlanPizarras(grouped);
+    } catch (e) {
+      console.error('Error loading pizarras del plan de partido:', e);
+    } finally {
+      setLoadingPlanPizarras(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshPlanPizarras();
+  }, [match.id]);
+
+  useEffect(() => {
+    const onFocus = () => refreshPlanPizarras();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [match.id]);
+
+  const handleRemovePizarra = async (pizarraId: string) => {
+    try {
+      await pizarrasService.remove(pizarraId);
+      await refreshPlanPizarras();
+    } catch (e) {
+      console.error('Error eliminando pizarra:', e);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -2383,6 +2428,24 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     } catch (err) {
       console.error('[match-report-upload]', err);
       alert(t('matchReport.alerts.saveError'));
+    }
+  };
+
+  const [docUploading, setDocUploading] = useState<'planDocUrl' | 'rivalDocUrl' | null>(null);
+
+  const handleDocFileUpload = async (field: 'planDocUrl' | 'rivalDocUrl', file?: File) => {
+    if (!file) return;
+    setDocUploading(field);
+    try {
+      const url = await uploadMatchReportFile(file, match.id);
+      const next = { ...report, [field]: url };
+      setReport(next);
+      persistReport(next);
+    } catch (err) {
+      console.error('[match-report-doc-upload]', err);
+      alert(t('matchReport.alerts.saveError'));
+    } finally {
+      setDocUploading(null);
     }
   };
 
@@ -4133,12 +4196,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
              </div>
              <div>
                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.tacticalDoc')}</label>
-                <input type="text" value={report.planDocUrl} onChange={(e) => handleChange('planDocUrl', e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
-                {report.planDocUrl && (
-                  <div className="mt-4 aspect-[4/3] rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
-                    <iframe title="documento-plan" src={getDocEmbedUrl(report.planDocUrl)} className="w-full h-full"></iframe>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <input type="text" value={report.planDocUrl} onChange={(e) => handleChange('planDocUrl', e.target.value)} onBlur={() => persistReport(report)} className="flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                  <label className="shrink-0 px-4 py-4 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] border border-[var(--border-soft)] rounded-2xl text-[var(--text-muted)] cursor-pointer flex items-center justify-center transition-all" title={t('matchReport.video.uploadFile')}>
+                    {docUploading === 'planDocUrl' ? (
+                      <i className="fa-solid fa-spinner fa-spin text-sm"></i>
+                    ) : (
+                      <i className="fa-solid fa-upload text-sm"></i>
+                    )}
+                    <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*" className="hidden" disabled={docUploading !== null} onChange={(e) => handleDocFileUpload('planDocUrl', e.target.files?.[0])} />
+                  </label>
+                </div>
                 {report.planDocUrl && (
                   <a className="text-[11px] font-black text-[var(--accent)] underline inline-block mt-2" href={report.planDocUrl} target="_blank" rel="noreferrer">
                     {t('matchReport.video.openPdfNewTab')}
@@ -4149,7 +4217,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       </div>
       <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-3xl p-6 lg:p-8 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]"><i className="fa-solid fa-shield mr-2"></i>MI EQUIPO</h2>
+          <h2 className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]"><i className="fa-solid fa-shield"></i></h2>
           <button
             onClick={() => togglePlanSectionCollapsed('myTeam')}
             title={collapsedPlanSections.has('myTeam') ? t('matchReport.showSection') : t('matchReport.hideSection')}
@@ -4161,7 +4229,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
 
         {!collapsedPlanSections.has('myTeam') && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
         {[{ id: 'planConBalon', label: t('matchReport.attack'), icon: 'fa-futbol', color: 'text-blue-500' }, { id: 'planSinBalon', label: t('matchReport.defense'), icon: 'fa-shield-halved', color: 'text-blue-500' }, { id: 'planAbp', label: t('matchReport.transitions'), icon: 'fa-bolt', color: 'text-emerald-500' }].map((block) => (
           <div key={block.id} className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-xl space-y-5 flex flex-col relative group hover:border-[var(--surface-3)] transition-all">
             <div className="flex justify-between items-center">
@@ -4330,6 +4398,46 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         )}
                     </div>
                     {renderBlockImages(`${block.id}Images` as any)}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">Pizarra táctica</label>
+                          <a
+                            href={`/pizarra?${new URLSearchParams({ partidoId: String(match.id), seccion: block.id, new: '1' }).toString()}`}
+                            target="_blank"
+                            className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-colors text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-chalkboard text-xs"></i>
+                            Añadir pizarra
+                          </a>
+                        </div>
+                        {(planPizarras[block.id]?.length ?? 0) > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                            {planPizarras[block.id].map(pizarra => (
+                              <div key={pizarra.id} className="relative group/pizarra bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 flex flex-col items-center gap-1.5">
+                                <button
+                                  onClick={() => handleRemovePizarra(pizarra.id)}
+                                  title="Eliminar pizarra"
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[var(--surface-2)] hover:bg-red-500/80 hover:text-white flex items-center justify-center text-[var(--text-muted)] opacity-0 group-hover/pizarra:opacity-100 transition-all text-[9px]"
+                                >
+                                  <i className="fa-solid fa-xmark"></i>
+                                </button>
+                                <i className="fa-solid fa-chalkboard text-emerald-500 text-lg"></i>
+                                <span className="text-[9px] font-bold text-[var(--text)] text-center truncate w-full" title={pizarra.nombre}>{pizarra.nombre}</span>
+                                <a
+                                  href={`/pizarra?${new URLSearchParams({ partidoId: String(match.id), seccion: block.id, boardId: pizarra.id }).toString()}`}
+                                  target="_blank"
+                                  className="text-[9px] font-black text-[var(--accent)] underline"
+                                >
+                                  Abrir
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {loadingPlanPizarras && (planPizarras[block.id]?.length ?? 0) === 0 && (
+                          <p className="text-[9px] text-[var(--text-muted)] mt-1">Cargando pizarras...</p>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -4583,7 +4691,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
              </div>
              <div>
                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.tacticalDoc')}</label>
-                <input type="text" value={report.rivalDocUrl} onChange={(e) => handleChange('rivalDocUrl', e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                <div className="flex gap-2">
+                  <input type="text" value={report.rivalDocUrl} onChange={(e) => handleChange('rivalDocUrl', e.target.value)} onBlur={() => persistReport(report)} className="flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                  <label className="shrink-0 px-4 py-4 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] border border-[var(--border-soft)] rounded-2xl text-[var(--text-muted)] cursor-pointer flex items-center justify-center transition-all" title={t('matchReport.video.uploadFile')}>
+                    {docUploading === 'rivalDocUrl' ? (
+                      <i className="fa-solid fa-spinner fa-spin text-sm"></i>
+                    ) : (
+                      <i className="fa-solid fa-upload text-sm"></i>
+                    )}
+                    <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*" className="hidden" disabled={docUploading !== null} onChange={(e) => handleDocFileUpload('rivalDocUrl', e.target.files?.[0])} />
+                  </label>
+                </div>
                 {report.rivalDocUrl && (
                   <div className="mt-4 aspect-[4/3] rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
                     <iframe title="documento" src={getDocEmbedUrl(report.rivalDocUrl)} className="w-full h-full"></iframe>

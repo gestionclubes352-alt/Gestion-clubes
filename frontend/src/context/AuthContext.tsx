@@ -70,14 +70,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        cargarPerfil(session.user.id);
-      } else {
-        setPerfil(null);
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      // Supabase dispara TOKEN_REFRESHED (y a veces SIGNED_IN) automáticamente
+      // al recuperar el foco de la pestaña (autoRefreshToken). Si el usuario
+      // no ha cambiado, evitamos recargar perfil/estado para no provocar una
+      // "resincronización" visible al volver de otra pestaña.
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(session);
+        return;
       }
+      setSession(session);
+      setUser(prevUser => {
+        const nextUser = session?.user ?? null;
+        if (prevUser?.id === nextUser?.id) return prevUser;
+        if (nextUser) {
+          cargarPerfil(nextUser.id);
+        } else {
+          setPerfil(null);
+        }
+        return nextUser;
+      });
     });
 
     return () => listener.subscription.unsubscribe();

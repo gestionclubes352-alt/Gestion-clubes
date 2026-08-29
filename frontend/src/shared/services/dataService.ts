@@ -240,6 +240,8 @@ export interface PizarraTactica {
   posiciones: unknown[];
   partido_id?: string | null;
   carpeta_id?: string | null;
+  /** Sección del Plan de Partido a la que pertenece (planConBalon/planSinBalon/planAbp), si procede. */
+  seccion?: string | null;
   /** Snapshot completo del estado de la pizarra (frames, flechas, balón, colores, etc). */
   datos?: Record<string, unknown>;
   created_at?: string;

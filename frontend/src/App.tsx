@@ -637,7 +637,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       setCompeticionesList([]);
       setCompetitionCalendarList([]);
       setActiveCampograma(null);
-      setIsLoading(true);
+      setIsLoadingCore(true);
+      setIsLoadingExtra(true);
       fetchData();
     }
   }, [currentTeam?.id]);
@@ -686,7 +687,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const [eventsList, setEventsList] = useState<CalendarEvent[]>([]);
   const [competicionesList, setCompeticionesList] = useState<Competicion[]>([]);
   const [competitionCalendarList, setCompetitionCalendarList] = useState<CalendarioCompeticionPartido[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // isLoadingCore: datos "ligeros" que necesita /plantillas (plantillas + equipos + clubes).
+  // isLoadingExtra: el resto de tablas (usuarios, personal, eventos, competiciones, calendario de competición).
+  // Se separan para que las rutas ligeras (p.ej. /plantillas) no esperen a que termine todo lo demás.
+  const [isLoadingCore, setIsLoadingCore] = useState(true);
+  const [isLoadingExtra, setIsLoadingExtra] = useState(true);
+  // Alias de compatibilidad: true mientras cualquiera de los dos grupos esté cargando.
+  const isLoading = isLoadingCore || isLoadingExtra;
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAIMode, setIsAIMode] = useState(false);
@@ -834,145 +841,205 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     return normalized === '26/27' || normalized === '2026/2027';
   };
 
+  // ── Fetchers individuales ────────────────────────────────────────────────
+  // fetchData original se dividió en fetchers por tabla para que cada ruta pueda
+  // pedir solo lo que necesita (p.ej. /plantillas no debería esperar a usuarios,
+  // personal, eventos, competiciones o calendario de competición). fetchData()
+  // se mantiene como wrapper que llama a todos, para no romper los call-sites
+  // existentes que hacen `await fetchData()` tras un CRUD.
+
+  // Equipos + Clubes: se cargan juntos porque el mapeo de jugadores (fetchSquad)
+  // necesita ambos como lookup. Devuelve los datos crudos y mapeados para poder
+  // reutilizarlos sin volver a pedirlos a la BD.
+  const fetchTeamsAndClubes = async () => {
+    const [ctRes, clRes] = await Promise.all([
+      equiposService.list(),
+      clubesService.list(),
+    ]);
+
+    const ctFallback = currentTeam?.id === 'cd-derio'
+      ? [...INITIAL_COMPETITION_TEAMS]
+      : currentTeam?.id === 'escuela-huesca'
+        ? [...HUESCA_JUVENIL_2627_COMPETITION_TEAMS]
+        : [];
+    const mappedTeamsRaw: CompetitionTeam[] = (ctRes || []).map((e: Equipo): CompetitionTeam => ({
+      id: e.id,
+      clubId: e.club_id,
+      nombre: e.nombre,
+      estadio: e.estadio || '',
+      localidad: e.localidad || '',
+      logoUrl: e.logo_url || getFederationTeamLogo(e.nombre_en_fed) || getFederationTeamLogo(e.nombre) || undefined,
+      equipo: e.sub_equipo,
+      nombreEnFed: e.nombre_en_fed,
+      etapa: e.categoria,
+      competicion: e.competicion,
+      temporada: e.temporada,
+      enlace: e.enlace,
+    }));
+    const mappedTeams = currentTeam?.id === 'escuela-huesca'
+      ? mappedTeamsRaw.filter(team => isCurrentCompetitionSeason(team.temporada))
+      : mappedTeamsRaw;
+    const finalTeams = mergeWithConstants(mappedTeams, ctFallback, []);
+    setCompetitionTeams(finalTeams);
+
+    const clFallback = currentTeam?.id === 'escuela-huesca' ? [...HUESCA_CLUBES] : [];
+    const mappedClubes: Club[] = (clRes || []).map((c: DbClub): Club => ({
+      id: c.id,
+      nombre: c.nombre,
+      logoUrl: c.escudo_url || getFederationTeamLogo(c.nombre) || undefined,
+      localidad: c.ciudad,
+    }));
+    const finalClubes = mergeWithConstants(mappedClubes, clFallback, []);
+    setClubesList(finalClubes);
+
+    return { ctRes: (ctRes || []) as Equipo[], clRes: (clRes || []) as DbClub[], finalTeams, finalClubes };
+  };
+
+  // Plantillas: necesita el lookup de equipos/clubes para derivar nombres. Si no se le
+  // pasan ya cargados (p.ej. desde fetchData, que los pide en paralelo), los pide él mismo.
+  const fetchSquad = async (teamsAndClubes?: { ctRes: Equipo[]; clRes: DbClub[] }) => {
+    const [pRes, resolvedTeamsAndClubes] = await Promise.all([
+      plantillasService.list(),
+      teamsAndClubes ? Promise.resolve(teamsAndClubes) : fetchTeamsAndClubes(),
+    ]);
+    const { ctRes, clRes } = resolvedTeamsAndClubes;
+
+    // Lookups (equipo_id -> equipo, club_id -> club) para derivar nombres en jugadores
+    const equiposById = new Map((ctRes || []).map((e: Equipo) => [String(e.id), e]));
+    const clubesByIdForSquad = new Map((clRes || []).map((c: DbClub) => [String(c.id), c]));
+
+    // Usar datos Huesca como fallback solo para escuela-huesca
+    const squadFallback = currentTeam?.id === 'escuela-huesca'
+      ? [...HUESCA_CADETE_A_PLAYERS, ...HUESCA_JUVENIL_A_PLAYERS]
+      : [];
+    const mappedSquad: Player[] = (pRes || []).map((p: Jugador): Player => {
+      const equipoRow = equiposById.get(String(p.equipo_id));
+      const clubRow = equipoRow ? clubesByIdForSquad.get(String(equipoRow.club_id)) : undefined;
+      const clubIdFallback = equipoRow?.club_id || currentTeam?.id || '';
+      // Fallback para equipoFallback: si el equipo no existe, intentar obtenerlo de otros equipos cargados
+      const equipoFallback = !equipoRow ? (ctRes || []).find(e => String(e.id) === String(p.equipo_id)) : undefined;
+      // Log para diagnosticar jugadores que no se muestran
+      if (!equipoRow) {
+        console.warn(`[DEBUG] Jugador "${p.nombre}" con equipo_id "${p.equipo_id}" no encontrado en equipos. equipoFallback:`, equipoFallback?.nombre);
+      }
+      return {
+        id: p.id,
+        fotoUrl: p.foto_url || '',
+        competicion: equipoRow?.competicion || equipoFallback?.competicion || '',
+        club: clubRow?.nombre || currentTeam?.name || '',
+        equipo: equipoRow?.sub_equipo || equipoRow?.nombre || equipoFallback?.sub_equipo || equipoFallback?.nombre || '',
+        dorsal: p.dorsal ?? undefined,
+        nombre: p.nombre,
+        apodo: p.apodo,
+        posicion: p.posicion,
+        posicionJuego: p.posicion_juego || '',
+        perfil: (p.perfil || 'D') as Player['perfil'],
+        descripcion: p.descripcion,
+        ataque: p.ataque,
+        defensa: p.defensa,
+        persona: p.persona,
+        observaciones: p.observaciones,
+        fechaNacimiento: p.fecha_nacimiento,
+        partidosJugados: p.partidos_jugados,
+        minutos: p.minutos,
+        titular: p.titular,
+        goles: p.goles,
+        ratingTecnica: p.rating_tecnica,
+        ratingTactica: p.rating_tactica,
+        ratingCondicional: p.rating_condicional,
+        ratingPsicologico: p.rating_psicologico,
+        ratingHumano: p.rating_humano,
+        estado: p.estado,
+        residencia: p.residencia ?? false,
+        etapa: p.etapa,
+        enlace: p.enlace,
+        nombrePila: p.nombre_pila,
+        primerApellido: p.primer_apellido,
+        segundoApellido: p.segundo_apellido,
+        dni: p.dni,
+        telefono: p.telefono,
+        correo: p.correo,
+        temporada: p.temporada,
+        clubId: clubIdFallback,
+        equipoId: p.equipo_id,
+        nombreCompleto: p.nombre_completo,
+        anioNacimiento: p.anio_nacimiento,
+        nombreTutor: p.nombre_tutor,
+        correoTutor: p.correo_tutor,
+        telefonoTutor: p.telefono_tutor,
+      };
+    });
+    setSquadList(mergeWithConstants(mappedSquad, squadFallback, []));
+  };
+
+  const fetchCampogramas = async () => {
+    const cRes = await db.campogramas.get();
+    setCampogramasList(cRes.data || []);
+  };
+
+  const fetchEvents = async () => {
+    const eRes = await eventosCalendarioService.list();
+    // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
+    setEventsList((eRes || []).map(eventRowToCalendarEvent));
+  };
+
+  const fetchUsers = async () => {
+    const uRes = await usuariosService.list();
+    const users: User[] = (uRes || []).map((u: Usuario): User => ({
+      id: u.id,
+      nombre: u.nombre,
+      email: u.email,
+      rol: u.rol,
+      estado: u.estado,
+      departamento: u.rol === 'Tecnico' ? 'Personal' : 'Directiva',
+      clubId: u.club_id ?? undefined,
+    }));
+    setUsersList(users);
+  };
+
+  const fetchPersonal = async () => {
+    const persRes = await personalService.list();
+    setPersonalList((persRes as Personal[]) || []);
+  };
+
+  const fetchCompeticiones = async () => {
+    const compRes = await competicionesService.list();
+    setCompeticionesList((compRes || []) as Competicion[]);
+  };
+
+  const fetchCalendarioCompeticion = async () => {
+    const calCompRes = await calendarioCompeticionService.list();
+    setCompetitionCalendarList((calCompRes || []) as CalendarioCompeticionPartido[]);
+  };
+
+  // "Core": lo mínimo que necesita /plantillas (plantillas + equipos + clubes).
+  const fetchCoreData = async () => {
+    const teamsAndClubes = await fetchTeamsAndClubes();
+    await fetchSquad(teamsAndClubes);
+  };
+
+  // "Extra": el resto de tablas, no bloquean el render de rutas ligeras como /plantillas.
+  const fetchExtraData = async () => {
+    await Promise.all([
+      fetchCampogramas(),
+      fetchUsers(),
+      fetchEvents(),
+      fetchPersonal(),
+      fetchCompeticiones(),
+      fetchCalendarioCompeticion(),
+    ]);
+  };
+
   const fetchData = async (forceSync = false) => {
     if (forceSync) setIsSyncing(true);
 
     try {
-      const [pRes, cRes, uRes, eRes, ctRes, persRes, clRes, compRes, calCompRes] = await Promise.all([
-        plantillasService.list(),
-        db.campogramas.get(),
-        usuariosService.list(),
-        eventosCalendarioService.list(),
-        equiposService.list(),
-        personalService.list(),
-        clubesService.list(),
-        competicionesService.list(),
-        calendarioCompeticionService.list(),
-      ]);
-
-      // Lookups (equipo_id -> equipo, club_id -> club) para derivar nombres en jugadores
-      const equiposById = new Map((ctRes || []).map((e: Equipo) => [String(e.id), e]));
-      const clubesByIdForSquad = new Map((clRes || []).map((c: DbClub) => [String(c.id), c]));
-
-      // Usar datos Huesca como fallback solo para escuela-huesca
-      const squadFallback = currentTeam?.id === 'escuela-huesca'
-        ? [...HUESCA_CADETE_A_PLAYERS, ...HUESCA_JUVENIL_A_PLAYERS]
-        : [];
-      const mappedSquad: Player[] = (pRes || []).map((p: Jugador): Player => {
-        const equipoRow = equiposById.get(String(p.equipo_id));
-        const clubRow = equipoRow ? clubesByIdForSquad.get(String(equipoRow.club_id)) : undefined;
-        const clubIdFallback = equipoRow?.club_id || currentTeam?.id || '';
-        // Fallback para equipoFallback: si el equipo no existe, intentar obtenerlo de otros equipos cargados
-        const equipoFallback = !equipoRow ? (ctRes || []).find(e => String(e.id) === String(p.equipo_id)) : undefined;
-        // Log para diagnosticar jugadores que no se muestran
-        if (!equipoRow) {
-          console.warn(`[DEBUG] Jugador "${p.nombre}" con equipo_id "${p.equipo_id}" no encontrado en equipos. equipoFallback:`, equipoFallback?.nombre);
-        }
-        return {
-          id: p.id,
-          fotoUrl: p.foto_url || '',
-          competicion: equipoRow?.competicion || equipoFallback?.competicion || '',
-          club: clubRow?.nombre || currentTeam?.name || '',
-          equipo: equipoRow?.sub_equipo || equipoRow?.nombre || equipoFallback?.sub_equipo || equipoFallback?.nombre || '',
-          dorsal: p.dorsal ?? undefined,
-          nombre: p.nombre,
-          apodo: p.apodo,
-          posicion: p.posicion,
-          posicionJuego: p.posicion_juego || '',
-          perfil: (p.perfil || 'D') as Player['perfil'],
-          descripcion: p.descripcion,
-          ataque: p.ataque,
-          defensa: p.defensa,
-          persona: p.persona,
-          observaciones: p.observaciones,
-          fechaNacimiento: p.fecha_nacimiento,
-          partidosJugados: p.partidos_jugados,
-          minutos: p.minutos,
-          titular: p.titular,
-          goles: p.goles,
-          ratingTecnica: p.rating_tecnica,
-          ratingTactica: p.rating_tactica,
-          ratingCondicional: p.rating_condicional,
-          ratingPsicologico: p.rating_psicologico,
-          ratingHumano: p.rating_humano,
-          estado: p.estado,
-          residencia: p.residencia ?? false,
-          etapa: p.etapa,
-          enlace: p.enlace,
-          nombrePila: p.nombre_pila,
-          primerApellido: p.primer_apellido,
-          segundoApellido: p.segundo_apellido,
-          dni: p.dni,
-          telefono: p.telefono,
-          correo: p.correo,
-          temporada: p.temporada,
-          clubId: clubIdFallback,
-          equipoId: p.equipo_id,
-          nombreCompleto: p.nombre_completo,
-          anioNacimiento: p.anio_nacimiento,
-          nombreTutor: p.nombre_tutor,
-          correoTutor: p.correo_tutor,
-          telefonoTutor: p.telefono_tutor,
-        };
-      });
-      setSquadList(mergeWithConstants(mappedSquad, squadFallback, []));
-      setCampogramasList(cRes.data || []);
-
-      // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
-      setEventsList((eRes || []).map(eventRowToCalendarEvent));
-      setCompeticionesList((compRes || []) as Competicion[]);
-      setCompetitionCalendarList((calCompRes || []) as CalendarioCompeticionPartido[]);
-
-      // Usuarios desde Supabase (acceso al sistema)
-      const users: User[] = (uRes || []).map((u: Usuario): User => ({
-        id: u.id,
-        nombre: u.nombre,
-        email: u.email,
-        rol: u.rol,
-        estado: u.estado,
-        departamento: u.rol === 'Tecnico' ? 'Personal' : 'Directiva',
-        clubId: u.club_id ?? undefined,
-      }));
-
-      setUsersList(users);
-
-      // Cargar personal desde la tabla `personal`
-      setPersonalList((persRes as Personal[]) || []);
-
-      // Equipos desde Supabase, con fallback para CD Derio
-      const ctFallback = currentTeam?.id === 'cd-derio'
-        ? [...INITIAL_COMPETITION_TEAMS]
-        : currentTeam?.id === 'escuela-huesca'
-          ? [...HUESCA_JUVENIL_2627_COMPETITION_TEAMS]
-          : [];
-      const mappedTeamsRaw: CompetitionTeam[] = (ctRes || []).map((e: Equipo): CompetitionTeam => ({
-        id: e.id,
-        clubId: e.club_id,
-        nombre: e.nombre,
-        estadio: e.estadio || '',
-        localidad: e.localidad || '',
-        logoUrl: e.logo_url || getFederationTeamLogo(e.nombre_en_fed) || getFederationTeamLogo(e.nombre) || undefined,
-        equipo: e.sub_equipo,
-        nombreEnFed: e.nombre_en_fed,
-        etapa: e.categoria,
-        competicion: e.competicion,
-        temporada: e.temporada,
-        enlace: e.enlace,
-      }));
-      const mappedTeams = currentTeam?.id === 'escuela-huesca'
-        ? mappedTeamsRaw.filter(team => isCurrentCompetitionSeason(team.temporada))
-        : mappedTeamsRaw;
-      setCompetitionTeams(mergeWithConstants(mappedTeams, ctFallback, []));
-
-      // Clubes desde Supabase, con fallback para Escuela Huesca
-      const clFallback = currentTeam?.id === 'escuela-huesca' ? [...HUESCA_CLUBES] : [];
-      const mappedClubes: Club[] = (clRes || []).map((c: DbClub): Club => ({
-        id: c.id,
-        nombre: c.nombre,
-        logoUrl: c.escudo_url || getFederationTeamLogo(c.nombre) || undefined,
-        localidad: c.ciudad,
-      }));
-      setClubesList(mergeWithConstants(mappedClubes, clFallback, []));
+      // Se lanzan en paralelo (igual que antes), pero se resuelven de forma independiente:
+      // el grupo "core" (plantillas/equipos/clubes) marca isLoadingCore=false en cuanto termina,
+      // sin esperar a que termine el grupo "extra", para que /plantillas pueda renderizar antes.
+      const corePromise = fetchCoreData().finally(() => setIsLoadingCore(false));
+      const extraPromise = fetchExtraData().finally(() => setIsLoadingExtra(false));
+      await Promise.all([corePromise, extraPromise]);
 
       if (forceSync) {
         setShowStatus("Sincronizaci�n completa");
@@ -982,7 +1049,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       console.error("Error cargando datos:", err);
       setShowStatus("Error de conexi�n");
     } finally {
-      setIsLoading(false);
+      setIsLoadingCore(false);
+      setIsLoadingExtra(false);
       setIsSyncing(false);
     }
   };
@@ -1424,7 +1492,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         <>
         {/* pb-24 hasta lg: la bottom nav es visible por debajo de 1024px y taparía el contenido */}
         <div className={`flex-1 min-h-0 overflow-y-auto w-full ${!hideShellSidebar ? 'px-3 pt-3 pb-24 sm:px-4 md:px-6 md:pt-4 lg:px-12 lg:pt-6 lg:pb-10 pb-safe-nav' : ''} scrollbar-hide`}>
-          {clubLoadError ? <ClubErrorScreen /> : isLoading ? <LoadingScreen /> : (
+          {clubLoadError ? <ClubErrorScreen /> : isLoadingCore ? <LoadingScreen /> : (
             <React.Suspense fallback={<LoadingScreen />}>
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
@@ -1446,13 +1514,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     console.error('✗ Error guardando jugador:', msg);
                     alert(`Error al guardar: ${msg}`);
                   }
-                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
+                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchSquad(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
               } />
               <Route path="/staff" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <StaffTable
                   staff={filteredPersonalList}
                   onEdit={staff => { setIsNewStaff(false); setEditingStaff(staff); }}
-                  onDelete={async id => { try { await personalService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                  onDelete={async id => { try { await personalService.remove(id); await fetchPersonal(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
                   onCreate={() => { const newStaff: Personal = { id: crypto.randomUUID(), nombre: '', cargo: '', club_id: currentTeam?.id || '', telefono: undefined, dni: undefined, foto_url: undefined }; setIsNewStaff(true); setEditingStaff(newStaff); }}
                   clubes={clubesList}
                   userClubId={perfil?.club_id || currentTeam?.id || ''}
@@ -1469,13 +1538,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     try {
                       if (exists) await clubesService.update(c.id, payload);
                       else await clubesService.create(payload);
-                      await fetchData();
+                      await fetchTeamsAndClubes();
                     } catch (e) {
                       alert(e instanceof Error ? e.message : 'Error al guardar el club');
                     }
                   }}
                   onDelete={async id => {
-                    try { await clubesService.remove(id); await fetchData(); }
+                    try { await clubesService.remove(id); await fetchTeamsAndClubes(); }
                     catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el club'); }
                   }}
                 />
@@ -1502,7 +1571,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     try {
                       if (exists) await equiposService.update(t.id, payload);
                       else await equiposService.create(payload);
-                      await fetchData();
+                      await fetchCoreData();
                     } catch (e) {
                       const message = (e as { message?: string } | null)?.message;
                       alert(message || 'Error al guardar el equipo');
@@ -1516,7 +1585,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     if (!window.confirm(warning)) return;
                     try {
                       await equiposService.remove(id);
-                      await fetchData();
+                      await fetchCoreData();
                       setShowStatus('Equipo eliminado correctamente');
                       setTimeout(() => setShowStatus(null), 2000);
                     }
@@ -1548,7 +1617,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     try {
                       if (exists) await equiposService.update(t.id, payload);
                       else await equiposService.create(payload);
-                      await fetchData();
+                      await fetchCoreData();
                     } catch (e) {
                       const message = (e as { message?: string } | null)?.message;
                       alert(message || 'Error al guardar el equipo');
@@ -1560,7 +1629,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       ? `Este equipo tiene ${affected} jugador${affected === 1 ? '' : 'es'} en su plantilla. Al eliminarlo se borrarán también esos jugadores de forma permanente. ¿Continuar?`
                       : '¿Eliminar este equipo?';
                     if (!window.confirm(warning)) return;
-                    try { await equiposService.remove(id); await fetchData(); }
+                    try { await equiposService.remove(id); await fetchCoreData(); }
                     catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el equipo'); }
                   }}
                 />
@@ -1596,7 +1665,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                       <h3 className="text-3xl font-black text-sport-primary uppercase tracking-tighter">{t('app.campogramas')}</h3>
                       <button onClick={() => setShowNewCampModal(true)} className="w-full md:w-auto bg-sport-primary text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl"><i className="fa-solid fa-plus text-lg"></i> {t('app.new')}</button>
                     </div>
-                    <CampogramaGrid campogramas={filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name))} onSelect={setActiveCampograma} onDelete={async id => { await db.campogramas.delete(id); await fetchData(); }} />
+                    <CampogramaGrid campogramas={filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name))} onSelect={setActiveCampograma} onDelete={async id => { await db.campogramas.delete(id); await fetchCampogramas(); }} />
                   </div>
                 )
               } />
@@ -1604,12 +1673,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/pintado-acciones" element={<PintadoAcciones ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/partidos" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <LatestMatches
                   matches={filteredMatchesList}
                   onSave={async () => { }}
@@ -1630,6 +1702,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                 />
               } />
               <Route path="/partidos/:matchId" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <MatchReportWrapper
                   filteredEventsList={filteredEventsList}
                   currentTeamId={currentTeam?.id}
@@ -1637,17 +1710,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   campogramasList={campogramasList}
                   onSave={handleSaveEvent}
                   onDelete={handleDeleteEvent}
-                  onTeamCreated={fetchData}
+                  onTeamCreated={fetchCoreData}
                 />
               } />
-              <Route path="/videoteca" element={<Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
+              <Route path="/videoteca" element={isLoadingExtra ? <LoadingScreen /> : <Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
               <Route path="/competicion" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
               <Route path="/tabla-clasificacion" element={
+                isLoadingExtra ? <LoadingScreen /> :
                 <LeagueTableFullPage teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
-              <Route path="/competiciones" element={<CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={fetchData} />} />
+              <Route path="/competiciones" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={() => Promise.all([fetchCompeticiones(), fetchCalendarioCompeticion(), fetchTeamsAndClubes()])} />
+              } />
               <Route path="/instalaciones" element={<InstalacionesView />} />
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
               <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
@@ -1659,15 +1737,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/rendimiento-fisico" element={<FitnessView />} />
               <Route path="/repositorio-tareas" element={<TaskRepositoryView />} />
               <Route path="/usuarios" element={userRole !== 'Tecnico'
-                ? <UserTable
+                ? (isLoadingExtra ? <LoadingScreen /> : <UserTable
                     users={usersList}
                     onEdit={setEditingUser}
-                    onDelete={async id => { try { await usuariosService.remove(id); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                    onDelete={async id => { try { await usuariosService.remove(id); await fetchUsers(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
                     onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal' } as User); }}
-                    onApprove={async (user, rol) => { try { await usuariosService.update(user.id, { rol, estado: 'Activo' }); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al aprobar'); } }}
-                    onReject={async (user) => { try { await usuariosService.update(user.id, { estado: 'Inactivo' }); await fetchData(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al rechazar'); } }}
-                    onRefresh={fetchData}
-                  />
+                    onApprove={async (user, rol) => { try { await usuariosService.update(user.id, { rol, estado: 'Activo' }); await fetchUsers(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al aprobar'); } }}
+                    onReject={async (user) => { try { await usuariosService.update(user.id, { estado: 'Inactivo' }); await fetchUsers(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al rechazar'); } }}
+                    onRefresh={fetchUsers}
+                  />)
                 : <Navigate to="/" replace />
               } />
               <Route path="/settings" element={userRole === 'Responsable' || userRole === 'Administrador' ? <SettingsPage /> : <Navigate to="/" replace />} />
@@ -1773,8 +1851,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               return result;
             });
             setEditingPlayer(null);
-            console.log('[App.tsx] Modal cerrado, llamando fetchData...');
-            await fetchData();
+            console.log('[App.tsx] Modal cerrado, llamando fetchSquad...');
+            await fetchSquad();
           } catch (e) {
             console.error('[App.tsx] Error al guardar jugador:', e);
             const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
@@ -1807,7 +1885,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               alert(result.error || 'No se pudo crear el usuario.');
               return;
             }
-            await fetchData();
+            await fetchUsers();
             setEditingUser(null); setIsNewUser(false);
           } catch (e) {
             alert(e instanceof Error ? e.message : 'Error al crear el usuario');
@@ -1829,7 +1907,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               return;
             }
           }
-          await fetchData();
+          await fetchUsers();
           setEditingUser(null); setIsNewUser(false);
         } catch (e) {
           alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
@@ -1861,7 +1939,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           } else {
             await personalService.update(s.id, preparedData);
           }
-          await fetchData();
+          await fetchPersonal();
           setEditingStaff(null);
           setIsNewStaff(false);
         } catch (e) {
@@ -1869,9 +1947,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           alert(e instanceof Error ? e.message : 'Error al guardar el personal');
         }
       }} />}
-      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchData} />}
-      {showNewModal && <NewEventModal initialDate={newModalInitialDate ?? new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); setNewModalInitialDate(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchData} />}
-      {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchData(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
+      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchCoreData} />}
+      {showNewModal && <NewEventModal initialDate={newModalInitialDate ?? new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); setNewModalInitialDate(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchCoreData} />}
+      {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchCampogramas(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
       {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
 
     </div>

@@ -224,7 +224,13 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
       try {
         const ffmpeg = await getFFmpeg();
         await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob));
-        await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']);
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('La conversión a MP4 tardó demasiado (>90s)')), 90000)
+        );
+        await Promise.race([
+          ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', 'output.mp4']),
+          timeout,
+        ]);
         const data = await ffmpeg.readFile('output.mp4');
         const mp4Blob = new Blob([data as BlobPart], { type: 'video/mp4' });
         const url = URL.createObjectURL(mp4Blob);
@@ -296,6 +302,18 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
     script.onload = () => {
       if (cancelled) return;
       destroy = window.PintadoAcciones?.mount?.();
+
+      // Si venimos desde otra vista con un video ya seleccionado (p.ej. el
+      // Plan de Partido), lo precargamos automáticamente en el motor.
+      const initialVideoUrl = new URLSearchParams(window.location.search).get('videoUrl');
+      if (initialVideoUrl) {
+        const youtubeUrlInput = document.getElementById('youtubeUrl') as HTMLInputElement | null;
+        const loadYoutubeButton = document.getElementById('loadYoutube') as HTMLButtonElement | null;
+        if (youtubeUrlInput && loadYoutubeButton) {
+          youtubeUrlInput.value = initialVideoUrl;
+          loadYoutubeButton.click();
+        }
+      }
 
       // Agregar manejador de pantalla completa
       const fullscreenBtn = document.getElementById('fullscreenToggle');
