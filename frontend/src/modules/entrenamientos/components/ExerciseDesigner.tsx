@@ -1351,9 +1351,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     }));
   };
   const deleteSelectedItem = () => {
-    if (!selectedId) return;
+    const idsToDelete = selectedIds.length > 0 ? selectedIds : (selectedId ? [selectedId] : []);
+    if (idsToDelete.length === 0) return;
     pushHistoryNow();
-    updateFrames(items.filter(i => i.id !== selectedId));
+    updateFrames(items.filter(i => !idsToDelete.includes(i.id)));
     clearSelection();
   };
 
@@ -1896,6 +1897,20 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
             >
               <i className="fa-solid fa-trash-can text-[11px]" />
               Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={deleteSelectedItem}
+              disabled={selectedIds.length === 0 && !selectedId}
+              title="Elimina el elemento seleccionado en el campo"
+              className={`flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedIds.length === 0 && !selectedId
+                  ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'border-red-100 bg-white text-red-600 hover:bg-red-50'
+              }`}
+            >
+              <i className="fa-solid fa-eraser text-[11px]" />
+              Borrar
             </button>
             <button
               type="button"

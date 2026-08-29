@@ -74,6 +74,8 @@ export interface DataTableProps<T> {
   hideToolbar?: boolean;
   /** Compact mode with smaller padding */
   compact?: boolean;
+  /** Override the default cell text size classes (default: 'text-[13px]') */
+  cellTextClassName?: string;
   /** Sticky header */
   stickyHeader?: boolean;
   /** Max height for scrollable body (e.g., '500px') */
@@ -366,6 +368,7 @@ function DataTable<T extends Record<string, any>>({
   toolbarRight,
   hideToolbar = false,
   compact = false,
+  cellTextClassName = 'text-[13px]',
   stickyHeader = false,
   maxHeight,
   footer,
@@ -649,7 +652,7 @@ function DataTable<T extends Record<string, any>>({
                     {row.getVisibleCells().map(cell => (
                       <td
                         key={cell.id}
-                        className={`${px} ${py} text-[13px] text-slate-700 leading-relaxed`}
+                        className={`${px} ${py} ${cellTextClassName} text-slate-700 leading-relaxed`}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>

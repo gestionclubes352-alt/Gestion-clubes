@@ -34,6 +34,8 @@ const EVENTO_TIPO_OPTIONS: { value: string; label: string }[] = [
   { value: 'GOL', label: 'Goles' },
   { value: 'OCASION', label: 'Ocasiones' },
   { value: 'DUELO', label: 'Duelos' },
+  { value: 'MCB', label: 'MCB' },
+  { value: 'MSB', label: 'MSB' },
   { value: 'NOTA', label: 'Notas' },
 ];
 
@@ -310,6 +312,8 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             if (tipo === 'GOL') return goals.length > 0;
             if (tipo === 'OCASION') return events.some((e) => e.type === 'OCASION');
             if (tipo === 'DUELO') return events.some((e) => e.type === 'DUELO');
+            if (tipo === 'MCB') return events.some((e) => e.type === 'MCB');
+            if (tipo === 'MSB') return events.some((e) => e.type === 'MSB');
             if (tipo === 'NOTA') return events.some((e) => e.type === 'NOTA');
             return false;
           });
@@ -747,6 +751,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             exportFilename="videoteca"
             emptyMessage="No hay vídeos disponibles"
             emptyIcon="fa-solid fa-video-slash"
+            cellTextClassName="text-[11px]"
           />
           {filteredVideos.map((video) => {
             if (!expandedRows.has(video.matchId)) return null;
@@ -758,11 +763,13 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             const goalsContra = goals.filter(g => g.side === 'CONTRA');
             const ocasiones = (report.videoEvents || []).filter(e => e.type === 'OCASION');
             const duelos = (report.videoEvents || []).filter(e => e.type === 'DUELO');
+            const mcbEvents = (report.videoEvents || []).filter(e => e.type === 'MCB');
+            const msbEvents = (report.videoEvents || []).filter(e => e.type === 'MSB');
             const notas = (report.videoEvents || []).filter(e => e.type === 'NOTA');
 
             return (
               <div key={`details-${video.matchId}`} className="border-t border-slate-200 bg-slate-50/50 p-3 md:p-4 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                   {/* Goles a favor */}
                   <div className="space-y-1.5">
                     <h4 className="text-xs font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2">
@@ -877,6 +884,70 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
                                 onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(duelo.videoTimestamp ?? 0); }}
                                 className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-amber-600/20 text-amber-600 hover:bg-amber-600 hover:text-white transition-all flex items-center justify-center"
                                 title="Ver duelo"
+                              >
+                                <i className="fa-solid fa-play text-[7px]"></i>
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* MCB */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-blue-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                      MCB ({mcbEvents.length})
+                    </h4>
+                    <div className="space-y-0.5">
+                      {mcbEvents.length === 0 ? (
+                        <p className="text-[10px] text-slate-400">Sin eventos MCB</p>
+                      ) : (
+                        mcbEvents.map((mcb) => (
+                          <div key={mcb.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-blue-100 flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1">
+                              <span className="text-blue-600 font-black text-xs">{mcb.minute}'</span>
+                              {getPlayerName(mcb.playerId)}
+                            </span>
+                            {video.vimeoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(mcb.videoTimestamp ?? 0); }}
+                                className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-blue-600/20 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center"
+                                title="Ver evento MCB"
+                              >
+                                <i className="fa-solid fa-play text-[7px]"></i>
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* MSB */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-violet-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-violet-600"></span>
+                      MSB ({msbEvents.length})
+                    </h4>
+                    <div className="space-y-0.5">
+                      {msbEvents.length === 0 ? (
+                        <p className="text-[10px] text-slate-400">Sin eventos MSB</p>
+                      ) : (
+                        msbEvents.map((msb) => (
+                          <div key={msb.id} className="text-xs font-bold text-slate-700 bg-white rounded px-2 py-1 border border-violet-100 flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1">
+                              <span className="text-violet-600 font-black text-xs">{msb.minute}'</span>
+                              {getPlayerName(msb.playerId)}
+                            </span>
+                            {video.vimeoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => { setVideoModalUrl(video.vimeoUrl); setVideoModalTimestamp(msb.videoTimestamp ?? 0); }}
+                                className="ml-auto flex-shrink-0 w-5 h-5 rounded-full bg-violet-600/20 text-violet-600 hover:bg-violet-600 hover:text-white transition-all flex items-center justify-center"
+                                title="Ver evento MSB"
                               >
                                 <i className="fa-solid fa-play text-[7px]"></i>
                               </button>

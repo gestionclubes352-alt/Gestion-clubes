@@ -57,6 +57,10 @@ const getEventTypeLabel = (type: VideoEvent['type']): { label: string; color: st
       return { label: 'Duelo', color: 'text-amber-700', bgColor: 'bg-amber-100 dark:bg-amber-900/30' };
     case 'NOTA':
       return { label: 'Nota', color: 'text-blue-700', bgColor: 'bg-blue-100 dark:bg-blue-900/30' };
+    case 'MCB':
+      return { label: 'MCB', color: 'text-sky-700', bgColor: 'bg-sky-100 dark:bg-sky-900/30' };
+    case 'MSB':
+      return { label: 'MSB', color: 'text-violet-700', bgColor: 'bg-violet-100 dark:bg-violet-900/30' };
     default:
       return { label: type, color: 'text-slate-700', bgColor: 'bg-slate-100 dark:bg-slate-900/30' };
   }
@@ -132,7 +136,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
       if (eventoTipoFilter.length > 0 && !eventoTipoFilter.includes(event.type)) return false;
       if (
         ladoFilter.length > 0 &&
-        (event.type === 'GOL' || event.type === 'OCASION') &&
+        (event.type === 'GOL' || event.type === 'OCASION' || event.type === 'MCB' || event.type === 'MSB') &&
         (!event.goalSide || !ladoFilter.includes(event.goalSide))
       ) return false;
       if (playerFilter.length > 0 && !playerFilter.includes(String(event.playerId))) return false;
@@ -243,12 +247,12 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
 
               // Renderizar jugador y nota por separado según el tipo
               const jugadorDetalle =
-                event.type === 'GOL' || event.type === 'OCASION' || event.type === 'DUELO'
+                event.type === 'GOL' || event.type === 'OCASION' || event.type === 'DUELO' || event.type === 'MCB' || event.type === 'MSB'
                   ? getPlayerName(event.playerId, playersById)
                   : '-';
               const notaDetalle = event.type === 'NOTA' ? (event.note || '-') : '-';
 
-              const showLado = event.type === 'GOL' || event.type === 'OCASION';
+              const showLado = event.type === 'GOL' || event.type === 'OCASION' || event.type === 'MCB' || event.type === 'MSB';
               const ladoFavor = event.goalSide === 'FAVOR';
 
               return (
@@ -287,6 +291,8 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                       {event.type === 'OCASION' && <i className="fa-solid fa-bullseye mr-1"></i>}
                       {event.type === 'DUELO' && <i className="fa-solid fa-people-arrows mr-1"></i>}
                       {event.type === 'NOTA' && <i className="fa-solid fa-note-sticky mr-1"></i>}
+                      {event.type === 'MCB' && <i className="fa-solid fa-futbol mr-1"></i>}
+                      {event.type === 'MSB' && <i className="fa-solid fa-shield-halved mr-1"></i>}
                       {typeInfo.label}
                     </span>
                   </td>

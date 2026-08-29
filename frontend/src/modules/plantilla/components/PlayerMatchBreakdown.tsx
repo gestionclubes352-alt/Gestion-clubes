@@ -198,7 +198,7 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full text-[11px]">
                   <thead>
                     <tr className="text-slate-400 uppercase text-[9px] font-black tracking-widest">
                       <th className="px-3 py-2 text-left">{t('common.date', 'Fecha')}</th>
@@ -219,26 +219,26 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                       )?.label;
                       return (
                         <tr key={String(row.match.id)} className="text-slate-700">
-                          <td className="px-3 py-2 font-bold whitespace-nowrap">
+                          <td className="px-3 py-2 font-semibold whitespace-nowrap">
                             {row.match.date ? new Date(row.match.date).toLocaleDateString() : '—'}
                           </td>
-                          <td className="px-3 py-2 font-bold truncate max-w-56">
+                          <td className="px-3 py-2 font-semibold truncate max-w-56">
                             {formatTeam(row.match.localTeam, row.match.localTeamClubId)} vs{' '}
                             {formatTeam(row.match.visitorTeam || row.match.opponent, row.match.visitorTeamClubId)}
                           </td>
-                          <td className="px-3 py-2 text-center font-bold text-[var(--accent)]">
+                          <td className="px-3 py-2 text-center font-semibold text-[var(--accent)]">
                             {playerPositionInMatch || '—'}
                           </td>
-                          <td className="px-3 py-2 text-center font-bold">
+                          <td className="px-3 py-2 text-center font-semibold">
                             {row.report?.formation || '—'}
                           </td>
-                          <td className="px-3 py-2 text-center font-black text-[var(--accent)]">{row.minutes}'</td>
-                          <td className="px-3 py-2 text-center font-bold">
+                          <td className="px-3 py-2 text-center font-bold text-[var(--accent)]">{row.minutes}'</td>
+                          <td className="px-3 py-2 text-center font-semibold">
                             {row.isStarter ? t('editPlayer.starter') : t('editPlayer.substitute', 'Suplente')}
                           </td>
-                          <td className="px-3 py-2 text-center font-bold">{row.goals}</td>
-                          <td className="px-3 py-2 text-center font-bold">{row.yellowCards}</td>
-                          <td className="px-3 py-2 text-center font-bold">{row.redCards}</td>
+                          <td className="px-3 py-2 text-center font-semibold">{row.goals}</td>
+                          <td className="px-3 py-2 text-center font-semibold">{row.yellowCards}</td>
+                          <td className="px-3 py-2 text-center font-semibold">{row.redCards}</td>
                         </tr>
                       );
                     })}

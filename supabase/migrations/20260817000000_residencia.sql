@@ -67,17 +67,23 @@ ALTER TABLE residencia_habitaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE residencia_jugadores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE residencia_comidas ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "residencia_habitaciones: leer si autenticado" ON residencia_habitaciones;
 CREATE POLICY "residencia_habitaciones: leer si autenticado" ON residencia_habitaciones
     FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "residencia_habitaciones: escribir si autenticado" ON residencia_habitaciones;
 CREATE POLICY "residencia_habitaciones: escribir si autenticado" ON residencia_habitaciones
     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "residencia_jugadores: leer si autenticado" ON residencia_jugadores;
 CREATE POLICY "residencia_jugadores: leer si autenticado" ON residencia_jugadores
     FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "residencia_jugadores: escribir si autenticado" ON residencia_jugadores;
 CREATE POLICY "residencia_jugadores: escribir si autenticado" ON residencia_jugadores
     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "residencia_comidas: leer si autenticado" ON residencia_comidas;
 CREATE POLICY "residencia_comidas: leer si autenticado" ON residencia_comidas
     FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "residencia_comidas: escribir si autenticado" ON residencia_comidas;
 CREATE POLICY "residencia_comidas: escribir si autenticado" ON residencia_comidas
     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');

@@ -164,4 +164,5 @@ export interface DrawingState {
   fontSize: number;
   dashed: boolean;
   pendingConnectorPlayerId: string | null;
+  textDraft: string;
 }

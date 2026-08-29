@@ -11,6 +11,7 @@ interface DrawingShapesProps {
   onShapeClick?: (id: string) => void;
   onShapePointerDown?: (e: React.PointerEvent, id: string) => void;
   onRotateShape?: (id: string) => void;
+  onShapeDoubleClick?: (id: string) => void;
 }
 
 // Convierte el grosor elegido en el panel (1-10) a un ancho de trazo expresado
@@ -30,6 +31,7 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
   onShapeClick,
   onShapePointerDown,
   onRotateShape,
+  onShapeDoubleClick,
 }) => {
   const renderArrow = (shape: DrawingShape) => {
     if (shape.x1 === undefined || shape.y1 === undefined || shape.x2 === undefined || shape.y2 === undefined) return null;
@@ -319,7 +321,8 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
         opacity={shape.opacity}
         onClick={() => onShapeClick?.(shape.id)}
         onPointerDown={(e) => onShapePointerDown?.(e as any, shape.id)}
-        style={{ cursor: isSelected ? 'move' : 'pointer', userSelect: 'none' }}
+        onDoubleClick={(e) => { e.stopPropagation(); onShapeDoubleClick?.(shape.id); }}
+        style={{ cursor: isSelected ? 'move' : 'pointer', userSelect: 'none', pointerEvents: 'auto' }}
       >
         {shape.text || ''}
       </text>
@@ -336,7 +339,7 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
     const isSelected = selectedShapeId === shape.id;
 
     return (
-      <g key={shape.id} onClick={() => onShapeClick?.(shape.id)} onPointerDown={(e) => onShapePointerDown?.(e as any, shape.id)} style={{ cursor: isSelected ? 'move' : 'pointer', pointerEvents: 'auto' }}>
+      <g key={shape.id} onClick={() => onShapeClick?.(shape.id)} onPointerDown={(e) => onShapePointerDown?.(e as any, shape.id)} onDoubleClick={(e) => { e.stopPropagation(); onShapeDoubleClick?.(shape.id); }} style={{ cursor: isSelected ? 'move' : 'pointer', pointerEvents: 'auto' }}>
         <rect
           x={shape.x}
           y={shape.y - boxHeight}

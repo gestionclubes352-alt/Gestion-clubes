@@ -24,8 +24,10 @@ CREATE TRIGGER trg_pintado_acciones_tramos_updated_at
 -- RLS: mismo patron que pizarras_tacticas (leer/escribir si autenticado)
 ALTER TABLE pintado_acciones_tramos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "pintado_acciones_tramos: leer si autenticado" ON pintado_acciones_tramos;
 CREATE POLICY "pintado_acciones_tramos: leer si autenticado" ON pintado_acciones_tramos
     FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "pintado_acciones_tramos: escribir si autenticado" ON pintado_acciones_tramos;
 CREATE POLICY "pintado_acciones_tramos: escribir si autenticado" ON pintado_acciones_tramos
     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');

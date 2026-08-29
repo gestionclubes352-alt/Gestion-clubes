@@ -12,9 +12,10 @@ const INITIAL_STATE: DrawingState = {
   fill: '#17307a',
   lineWidth: 1,
   opacity: 1,
-  fontSize: 16,
+  fontSize: 3.5,
   dashed: false,
   pendingConnectorPlayerId: null,
+  textDraft: 'Texto',
 };
 
 export function useDrawingTools(
@@ -58,11 +59,15 @@ export function useDrawingTools(
   }, []);
 
   const setFontSize = useCallback((fontSize: number) => {
-    setState(prev => ({ ...prev, fontSize: Math.max(8, Math.min(48, fontSize)) }));
+    setState(prev => ({ ...prev, fontSize: Math.max(1, Math.min(10, fontSize)) }));
   }, []);
 
   const setDashed = useCallback((dashed: boolean) => {
     setState(prev => ({ ...prev, dashed }));
+  }, []);
+
+  const setTextDraft = useCallback((textDraft: string) => {
+    setState(prev => ({ ...prev, textDraft }));
   }, []);
 
   // Utilidades de shapes
@@ -125,7 +130,7 @@ export function useDrawingTools(
     } else if (['text', 'callout'].includes(state.tool)) {
       newShape.x = point.x;
       newShape.y = point.y;
-      newShape.text = 'Texto';
+      newShape.text = state.textDraft.trim() || 'Texto';
     } else {
       newShape.x1 = point.x;
       newShape.y1 = point.y;
@@ -174,9 +179,21 @@ export function useDrawingTools(
       return;
     }
 
+    const createdShape = state.currentShape;
+    const isTextShape = ['text', 'callout'].includes(createdShape.type);
+
     pushHistory();
-    setShapes(prev => [...prev, state.currentShape]);
-    setState(prev => ({ ...prev, isDrawing: false, currentShape: null }));
+    setShapes(prev => [...prev, createdShape]);
+    setState(prev => ({
+      ...prev,
+      isDrawing: false,
+      currentShape: null,
+      // Tras colocar un texto/etiqueta, desactivar la herramienta y
+      // seleccionar el elemento recién creado para poder editarlo enseguida
+      // (si no, la herramienta queda activa y cada clic crea un texto nuevo).
+      tool: isTextShape ? null : prev.tool,
+      selectedShapeId: isTextShape ? createdShape.id : prev.selectedShapeId,
+    }));
   }, [state, pushHistory]);
 
   const cancelDrawing = useCallback(() => {
@@ -186,6 +203,18 @@ export function useDrawingTools(
   const updateShapeText = useCallback((id: string, text: string) => {
     setShapes(prev => prev.map(shape =>
       shape.id === id ? { ...shape, text } : shape
+    ));
+  }, []);
+
+  const updateShapeFontSize = useCallback((id: string, fontSize: number) => {
+    setShapes(prev => prev.map(shape =>
+      shape.id === id ? { ...shape, fontSize } : shape
+    ));
+  }, []);
+
+  const updateShapeStroke = useCallback((id: string, stroke: string) => {
+    setShapes(prev => prev.map(shape =>
+      shape.id === id ? { ...shape, stroke } : shape
     ));
   }, []);
 
@@ -321,6 +350,7 @@ export function useDrawingTools(
     setFocusStyle,
     setSpotlightStyle,
     setDashed,
+    setTextDraft,
 
     // Acciones
     startDrawing,
@@ -333,6 +363,8 @@ export function useDrawingTools(
     duplicateShape,
     selectShape,
     updateShapeText,
+    updateShapeFontSize,
+    updateShapeStroke,
     addConnectorPlayer,
     clearConnectorPlayers,
     moveShape,

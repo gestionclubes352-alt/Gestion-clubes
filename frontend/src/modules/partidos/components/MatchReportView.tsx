@@ -8,8 +8,8 @@ import type { CompetitionTeam } from '@modules/competicion';
 import type { Campograma } from '@modules/entrenamientos';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
-import { db, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
-import type { Equipo, Jugador, Club, Competicion, Localidad, InstalacionCampo } from '@shared/services/dataService';
+import { db, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService, pizarrasService } from '@shared/services/dataService';
+import type { Equipo, Jugador, Club, Competicion, Localidad, InstalacionCampo, PizarraTactica as PizarraTacticaRow } from '@shared/services/dataService';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
 import EquipoSelect from '@shared/components/EquipoSelect';
@@ -211,7 +211,10 @@ function findTeamByName<T>(teams: T[], wantedNames: string[], getName: (t: T) =>
 
 const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], campogramasList = [], onSave, onDelete, onTeamCreated }) => {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState('DATOS GENERALES');
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabFromUrl = new URLSearchParams(window.location.search).get('tab');
+    return tabFromUrl || 'DATOS GENERALES';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
@@ -449,6 +452,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const stopTimeoutRef = useRef<any>(null);
 
   const [fullscreenAbpVideo, setFullscreenAbpVideo] = useState<string | null>(null);
+  const [tablaEventosPlaySeconds, setTablaEventosPlaySeconds] = useState<number | null>(null);
 
   useEffect(() => {
     if (!fullscreenAbpVideo) return;
@@ -478,6 +482,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [duelPlayerSelection, setDuelPlayerSelection] = useState<string | number | ''>('');
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
+  const [momentDialogType, setMomentDialogType] = useState<'MCB' | 'MSB' | null>(null);
+  const [momentSideSelection, setMomentSideSelection] = useState<'FAVOR' | 'CONTRA' | ''>('');
+  const [momentZoneSelection, setMomentZoneSelection] = useState<1 | 2 | 3 | ''>('');
   const [eventToast, setEventToast] = useState<string | null>(null);
   const eventToastTimeoutRef = useRef<any>(null);
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
@@ -1094,6 +1101,48 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     loadData();
   }, [match.id]);
 
+  const [planPizarras, setPlanPizarras] = useState<Record<string, PizarraTacticaRow[]>>({});
+  const [loadingPlanPizarras, setLoadingPlanPizarras] = useState(false);
+
+  const refreshPlanPizarras = async () => {
+    setLoadingPlanPizarras(true);
+    try {
+      const rows = await pizarrasService.list({ partido_id: match.id });
+      const grouped: Record<string, PizarraTacticaRow[]> = {};
+      for (const row of rows) {
+        const key = row.seccion || '';
+        if (!key) continue;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(row);
+      }
+      Object.values(grouped).forEach(list => list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+      setPlanPizarras(grouped);
+    } catch (e) {
+      console.error('Error loading pizarras del plan de partido:', e);
+    } finally {
+      setLoadingPlanPizarras(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshPlanPizarras();
+  }, [match.id]);
+
+  useEffect(() => {
+    const onFocus = () => refreshPlanPizarras();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [match.id]);
+
+  const handleRemovePizarra = async (pizarraId: string) => {
+    try {
+      await pizarrasService.remove(pizarraId);
+      await refreshPlanPizarras();
+    } catch (e) {
+      console.error('Error eliminando pizarra:', e);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -1395,7 +1444,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
   };
 
-  const handleAddEvent = (type: VideoEvent['type'], options?: { goalSide?: 'FAVOR' | 'CONTRA'; playerId?: string | number; duelOutcome?: 'GANADO' | 'PERDIDO'; note?: string }) => {
+  const handleAddEvent = (type: VideoEvent['type'], options?: { goalSide?: 'FAVOR' | 'CONTRA'; playerId?: string | number; duelOutcome?: 'GANADO' | 'PERDIDO'; note?: string; zone?: 1 | 2 | 3 }) => {
     const eventTime = Math.max(0, currentTimeSec - 5);
     const resolvedPlayerId = options?.playerId ?? (selectedPlayerId === '' ? undefined : selectedPlayerId);
     const newEvent: VideoEvent = {
@@ -1406,6 +1455,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       playerId: resolvedPlayerId,
       goalSide: options?.goalSide,
       duelOutcome: options?.duelOutcome,
+      zone: options?.zone,
       timestamp: Date.now(),
       videoTimestamp: eventTime
     };
@@ -2327,6 +2377,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'OCASION', label: t('matchReport.events.chance'), bg: 'bg-red-600', icon: 'fa-bullseye' },
     { id: 'DUELO', label: t('matchReport.events.duel'), bg: 'bg-amber-500', icon: 'fa-people-arrows' },
     { id: 'NOTA', label: t('matchReport.events.note'), bg: 'bg-slate-500', icon: 'fa-comment' },
+    { id: 'MCB', label: 'MCB', bg: 'bg-blue-600', icon: 'fa-futbol' },
+    { id: 'MSB', label: 'MSB', bg: 'bg-indigo-600', icon: 'fa-shield-halved' },
   ];
 
   const eventTypeLabels: Record<string, string> = {
@@ -2334,6 +2386,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     'OCASION': t('matchReport.events.chance'),
     'DUELO': t('matchReport.events.duel'),
     'NOTA': t('matchReport.events.note'),
+    'MCB': 'MCB',
+    'MSB': 'MSB',
   };
 
   const goalSideLabels: Record<string, string> = {
@@ -2383,6 +2437,24 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     } catch (err) {
       console.error('[match-report-upload]', err);
       alert(t('matchReport.alerts.saveError'));
+    }
+  };
+
+  const [docUploading, setDocUploading] = useState<'planDocUrl' | 'rivalDocUrl' | null>(null);
+
+  const handleDocFileUpload = async (field: 'planDocUrl' | 'rivalDocUrl', file?: File) => {
+    if (!file) return;
+    setDocUploading(field);
+    try {
+      const url = await uploadMatchReportFile(file, match.id);
+      const next = { ...report, [field]: url };
+      setReport(next);
+      persistReport(next);
+    } catch (err) {
+      console.error('[match-report-doc-upload]', err);
+      alert(t('matchReport.alerts.saveError'));
+    } finally {
+      setDocUploading(null);
     }
   };
 
@@ -3044,6 +3116,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                               setIsNoteDialogOpen(true);
                               return;
                             }
+                            if (btn.id === 'MCB' || btn.id === 'MSB') {
+                              setMomentSideSelection('');
+                              setMomentZoneSelection('');
+                              setMomentDialogType(btn.id);
+                              return;
+                            }
                             handleAddEvent(btn.id as any);
                             flashEventToast(btn.label);
                           }}
@@ -3559,6 +3637,85 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
          )}
 
+         {momentDialogType && (
+            <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-sm mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl">
+                    <div className="text-center space-y-2">
+                        <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">{momentDialogType}</div>
+                        <h3 className="text-lg font-black text-[var(--text-strong)]">
+                          {momentSideSelection === '' ? t('matchReport.goalDialog.favorOrAgainst') : 'Selecciona la zona'}
+                        </h3>
+                    </div>
+                    {momentSideSelection === '' ? (
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setMomentSideSelection('FAVOR')}
+                            className="py-4 rounded-2xl bg-blue-600/90 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest"
+                          >
+                            {t('matchReport.goalDialog.inFavor')}
+                          </button>
+                          <button
+                            onClick={() => setMomentSideSelection('CONTRA')}
+                            className="py-4 rounded-2xl bg-blue-600/90 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest"
+                          >
+                            {t('matchReport.goalDialog.against')}
+                          </button>
+                      </div>
+                    ) : (
+                      <div className="mt-6 space-y-4">
+                        <svg viewBox="0 0 100 60" className="w-full rounded-xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: '#2d7a34' }}>
+                          <g fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="0.4">
+                            <rect x="1" y="1" width="98" height="58" rx="1" />
+                            <rect x="1" y="17" width="12" height="26" />
+                            <rect x="87" y="17" width="12" height="26" />
+                            <circle cx="50" cy="30" r="8" />
+                            <line x1="33.3" y1="1" x2="33.3" y2="59" strokeDasharray="1.5,1.5" />
+                            <line x1="66.6" y1="1" x2="66.6" y2="59" strokeDasharray="1.5,1.5" />
+                          </g>
+                          {[1, 2, 3].map((zone) => (
+                            <rect
+                              key={zone}
+                              x={(zone - 1) * 33.3}
+                              y="0"
+                              width="33.3"
+                              height="60"
+                              fill={momentZoneSelection === zone ? 'rgba(37,99,235,0.45)' : 'transparent'}
+                              stroke="transparent"
+                              className="cursor-pointer"
+                              onClick={() => setMomentZoneSelection(zone as 1 | 2 | 3)}
+                            />
+                          ))}
+                          <text x="16.6" y="33" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 1</text>
+                          <text x="50" y="33" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 2</text>
+                          <text x="83.3" y="33" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 3</text>
+                        </svg>
+                        <p className="text-center text-[9px] text-slate-400 dark:text-white/40">Zona 1: cerca de mi portero</p>
+                        <button
+                          onClick={() => {
+                            if (momentZoneSelection === '') return;
+                            const type = momentDialogType;
+                            setMomentDialogType(null);
+                            handleAddEvent(type, { goalSide: momentSideSelection, zone: momentZoneSelection });
+                            flashEventToast(type);
+                            setMomentSideSelection('');
+                            setMomentZoneSelection('');
+                          }}
+                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${momentZoneSelection === '' ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30' : 'bg-blue-600/90 hover:bg-blue-600 text-white'}`}
+                        >
+                          {t('common.confirm')}
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setMomentDialogType(null); setMomentSideSelection(''); setMomentZoneSelection(''); }}
+                      className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                </div>
+            </div>
+         )}
+
          <div className="p-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0a0a0a] space-y-2">
             <div className="flex items-center justify-between">
                 <span className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">{t('matchReport.events.history')}</span>
@@ -3623,6 +3780,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                     {ev.type === 'DUELO' && ev.duelOutcome && (
                                         <span className={`text-[9px] font-black uppercase tracking-widest ${ev.duelOutcome === 'GANADO' ? 'text-emerald-400' : 'text-red-400'}`}>
                                             {duelOutcomeLabels[ev.duelOutcome || ''] || ev.duelOutcome}
+                                        </span>
+                                    )}
+                                    {(ev.type === 'MCB' || ev.type === 'MSB') && ev.goalSide && (
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
+                                            {goalSideLabels[ev.goalSide || ''] || ev.goalSide}
+                                        </span>
+                                    )}
+                                    {(ev.type === 'MCB' || ev.type === 'MSB') && ev.zone && (
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">
+                                            ZONA {ev.zone}
                                         </span>
                                     )}
                                 </div>
@@ -4133,12 +4300,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
              </div>
              <div>
                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.tacticalDoc')}</label>
-                <input type="text" value={report.planDocUrl} onChange={(e) => handleChange('planDocUrl', e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
-                {report.planDocUrl && (
-                  <div className="mt-4 aspect-[4/3] rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
-                    <iframe title="documento-plan" src={getDocEmbedUrl(report.planDocUrl)} className="w-full h-full"></iframe>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <input type="text" value={report.planDocUrl} onChange={(e) => handleChange('planDocUrl', e.target.value)} onBlur={() => persistReport(report)} className="flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                  <label className="shrink-0 px-4 py-4 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] border border-[var(--border-soft)] rounded-2xl text-[var(--text-muted)] cursor-pointer flex items-center justify-center transition-all" title={t('matchReport.video.uploadFile')}>
+                    {docUploading === 'planDocUrl' ? (
+                      <i className="fa-solid fa-spinner fa-spin text-sm"></i>
+                    ) : (
+                      <i className="fa-solid fa-upload text-sm"></i>
+                    )}
+                    <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*" className="hidden" disabled={docUploading !== null} onChange={(e) => handleDocFileUpload('planDocUrl', e.target.files?.[0])} />
+                  </label>
+                </div>
                 {report.planDocUrl && (
                   <a className="text-[11px] font-black text-[var(--accent)] underline inline-block mt-2" href={report.planDocUrl} target="_blank" rel="noreferrer">
                     {t('matchReport.video.openPdfNewTab')}
@@ -4149,7 +4321,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       </div>
       <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-3xl p-6 lg:p-8 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]"><i className="fa-solid fa-shield mr-2"></i>MI EQUIPO</h2>
+          <h2 className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]"><i className="fa-solid fa-shield"></i></h2>
           <button
             onClick={() => togglePlanSectionCollapsed('myTeam')}
             title={collapsedPlanSections.has('myTeam') ? t('matchReport.showSection') : t('matchReport.hideSection')}
@@ -4161,7 +4333,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
 
         {!collapsedPlanSections.has('myTeam') && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
         {[{ id: 'planConBalon', label: t('matchReport.attack'), icon: 'fa-futbol', color: 'text-blue-500' }, { id: 'planSinBalon', label: t('matchReport.defense'), icon: 'fa-shield-halved', color: 'text-blue-500' }, { id: 'planAbp', label: t('matchReport.transitions'), icon: 'fa-bolt', color: 'text-emerald-500' }].map((block) => (
           <div key={block.id} className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-xl space-y-5 flex flex-col relative group hover:border-[var(--surface-3)] transition-all">
             <div className="flex justify-between items-center">
@@ -4330,6 +4502,46 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         )}
                     </div>
                     {renderBlockImages(`${block.id}Images` as any)}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">Pizarra táctica</label>
+                          <a
+                            href={`/pizarra?${new URLSearchParams({ partidoId: String(match.id), seccion: block.id, new: '1' }).toString()}`}
+                            target="_blank"
+                            className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-colors text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-chalkboard text-xs"></i>
+                            Añadir pizarra
+                          </a>
+                        </div>
+                        {(planPizarras[block.id]?.length ?? 0) > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                            {planPizarras[block.id].map(pizarra => (
+                              <div key={pizarra.id} className="relative group/pizarra bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg p-3 flex flex-col items-center gap-1.5">
+                                <button
+                                  onClick={() => handleRemovePizarra(pizarra.id)}
+                                  title="Eliminar pizarra"
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[var(--surface-2)] hover:bg-red-500/80 hover:text-white flex items-center justify-center text-[var(--text-muted)] opacity-0 group-hover/pizarra:opacity-100 transition-all text-[9px]"
+                                >
+                                  <i className="fa-solid fa-xmark"></i>
+                                </button>
+                                <i className="fa-solid fa-chalkboard text-emerald-500 text-lg"></i>
+                                <span className="text-[9px] font-bold text-[var(--text)] text-center truncate w-full" title={pizarra.nombre}>{pizarra.nombre}</span>
+                                <a
+                                  href={`/pizarra?${new URLSearchParams({ partidoId: String(match.id), seccion: block.id, boardId: pizarra.id }).toString()}`}
+                                  target="_blank"
+                                  className="text-[9px] font-black text-[var(--accent)] underline"
+                                >
+                                  Abrir
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {loadingPlanPizarras && (planPizarras[block.id]?.length ?? 0) === 0 && (
+                          <p className="text-[9px] text-[var(--text-muted)] mt-1">Cargando pizarras...</p>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -4583,7 +4795,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
              </div>
              <div>
                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.tacticalDoc')}</label>
-                <input type="text" value={report.rivalDocUrl} onChange={(e) => handleChange('rivalDocUrl', e.target.value)} className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                <div className="flex gap-2">
+                  <input type="text" value={report.rivalDocUrl} onChange={(e) => handleChange('rivalDocUrl', e.target.value)} onBlur={() => persistReport(report)} className="flex-1 bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4 text-sm focus:outline-none font-bold text-[var(--text)]" placeholder="https://..." />
+                  <label className="shrink-0 px-4 py-4 bg-[var(--surface-1)] hover:bg-[var(--surface-2)] border border-[var(--border-soft)] rounded-2xl text-[var(--text-muted)] cursor-pointer flex items-center justify-center transition-all" title={t('matchReport.video.uploadFile')}>
+                    {docUploading === 'rivalDocUrl' ? (
+                      <i className="fa-solid fa-spinner fa-spin text-sm"></i>
+                    ) : (
+                      <i className="fa-solid fa-upload text-sm"></i>
+                    )}
+                    <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,image/*" className="hidden" disabled={docUploading !== null} onChange={(e) => handleDocFileUpload('rivalDocUrl', e.target.files?.[0])} />
+                  </label>
+                </div>
                 {report.rivalDocUrl && (
                   <div className="mt-4 aspect-[4/3] rounded-2xl overflow-hidden border border-[var(--border-soft)] bg-[var(--surface-1)]">
                     <iframe title="documento" src={getDocEmbedUrl(report.rivalDocUrl)} className="w-full h-full"></iframe>
@@ -5502,6 +5724,44 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   const renderTablaEventos = () => (
     <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32 p-4 lg:p-12">
+      {tablaEventosPlaySeconds !== null && (
+        <div className="bg-[var(--surface-0)] rounded-[40px] border border-[var(--border-soft)] shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-8 py-4 border-b border-[var(--border-soft)]">
+            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+              <i className="fa-solid fa-play text-red-500"></i> {t('matchReport.events.playClip')}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTablaEventosPlaySeconds(null)}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/40 hover:text-[var(--text-strong)] flex items-center justify-center transition-all"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <div className="w-full aspect-video bg-black relative">
+            {!report.videoUrl ? (
+              <div className="w-full h-full flex items-center justify-center text-slate-500 dark:text-white/60 text-xs font-black uppercase tracking-widest">
+                {t('matchReport.video.noVideo')}
+              </div>
+            ) : isBlockedEmbed(report.videoUrl) ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-500 dark:text-white/60">
+                <i className="fa-solid fa-ban text-4xl"></i>
+                <p className="text-xs font-black uppercase tracking-widest">{t('matchReport.video.providerBlocked')}</p>
+                <a href={report.videoUrl} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest">{t('matchReport.video.openNewTab')}</a>
+              </div>
+            ) : (
+              <iframe
+                key={`${report.videoUrl}-${tablaEventosPlaySeconds}`}
+                title="reproductor-tabla-eventos"
+                src={getEmbedUrl(report.videoUrl, tablaEventosPlaySeconds)}
+                className="w-full h-full"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              ></iframe>
+            )}
+          </div>
+        </div>
+      )}
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6 mb-8">
           <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
@@ -5512,6 +5772,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           events={report.videoEvents || []}
           squad={squad}
           teamName={dgForm.nombreInterno}
+          onPlay={(event) => {
+            setTablaEventosPlaySeconds(timeToSeconds(event.minute));
+          }}
           onEdit={(event) => {
             startEditing(event);
             setActiveTab('EVENTOS');

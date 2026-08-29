@@ -28,11 +28,12 @@ export interface Match {
 export interface VideoEvent {
   id: string;
   minute: string;
-  type: 'GOL' | 'OCASION' | 'DUELO' | 'NOTA';
+  type: 'GOL' | 'OCASION' | 'DUELO' | 'NOTA' | 'MCB' | 'MSB';
   note: string;
   playerId?: string | number;
   goalSide?: 'FAVOR' | 'CONTRA';
   duelOutcome?: 'GANADO' | 'PERDIDO';
+  zone?: 1 | 2 | 3;
   timestamp: number;
   videoTimestamp?: number;
 }

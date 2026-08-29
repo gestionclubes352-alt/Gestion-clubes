@@ -166,6 +166,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
         }
 
         if (isPlayer) {
+          const playerScale = is3D ? 1 : (item.scale || 1);
           return (
             <div
               key={item.id}
@@ -174,7 +175,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 left: x,
                 top: y,
                 width: '5%',
-                transform: `translate(-50%, -50%) scale(${item.scale || 1})`,
+                transform: `translate(-50%, -50%) scale(${playerScale})`,
                 transformStyle: 'preserve-3d',
                 aspectRatio: '1 / 1',
               }}
