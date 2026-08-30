@@ -19,6 +19,8 @@ export {
   residenciaHabitacionesService,
   residenciaJugadoresService,
   residenciaComidasService,
+  residenciaComedorTokensService,
+  residenciaComedorAccesosService,
   rpeRespuestasService,
   wellnessRespuestasService,
 } from './dataService';
@@ -27,6 +29,7 @@ export type {
   Competicion, Partido, Sesion, PizarraTactica, Tarea,
   EquipoRival, Localidad, InstalacionCampo,
   ResidenciaHabitacion, ResidenciaJugador, ResidenciaComida,
+  ResidenciaComedorToken, ResidenciaComedorAcceso,
   RpeRespuesta, WellnessRespuesta,
 } from './dataService';
 

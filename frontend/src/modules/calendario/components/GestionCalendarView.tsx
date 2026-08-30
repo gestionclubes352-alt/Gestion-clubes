@@ -114,19 +114,6 @@ const normalizeTeamKey = (value?: string | number | null) =>
     .trim()
     .toLowerCase();
 
-const generateUUID = (): string => {
-  // Usar crypto.randomUUID si está disponible (navegadores modernos)
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback: generar un UUID v4 manualmente
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
-
 const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], players = [], ownClubId, showFilters = true }) => {
   const { t, i18n } = useTranslation();
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
@@ -376,8 +363,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return new Date();
   });
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
-  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [playerFilter, setPlayerFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -416,6 +401,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       return { instalacionNombre: principal?.nombre || '', campoNombre: seleccionado.nombre || '' };
     }
     return { instalacionNombre: seleccionado.nombre || '', campoNombre: '' };
+  };
+  const localidadesById = useMemo(() => new Map(localidades.map(l => [l.id, l])), [localidades]);
+  const resolveEventLocationLabel = (ev: CalendarEvent): string | null => {
+    const localidad = ev.localidad_id ? localidadesById.get(ev.localidad_id) : undefined;
+    const { instalacionNombre, campoNombre } = getInstalacionYCampo(ev);
+    const parts = [instalacionNombre, campoNombre, localidad?.nombre].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
   };
 
   useEffect(() => {
@@ -999,27 +991,102 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     <p className="text-sm font-bold text-slate-700">{selectedEvent.time || t('calendarView.noTime')}</p>
                   </div>
                 </div>
-                {selectedEvent.location && (
+                {(resolveEventLocationLabel(selectedEvent) || selectedEvent.location) && (
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
                       <i className="fa-solid fa-location-dot text-sm"></i>
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('common.location')}</p>
-                      <p className="text-sm font-bold text-slate-700">{selectedEvent.location}</p>
+                      <p className="text-sm font-bold text-slate-700">{resolveEventLocationLabel(selectedEvent) || selectedEvent.location}</p>
                     </div>
                   </div>
                 )}
-                {selectedEvent.type === 'Partido' && selectedEvent.opponent && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-                      <i className="fa-solid fa-futbol text-sm"></i>
+                {selectedEvent.type === 'Partido' ? (
+                  <>
+                    {(selectedEvent.localTeam && selectedEvent.visitorTeam) ? (
+                      (() => {
+                        const localDisplay = resolveMatchSideDisplay(selectedEvent, selectedEvent.localTeam, selectedEvent.localTeamClubId);
+                        const visitorDisplay = resolveMatchSideDisplay(selectedEvent, selectedEvent.visitorTeam, selectedEvent.visitorTeamClubId);
+                        const localLogo = resolveTeamLogo(selectedEvent.localTeamClubId, selectedEvent.localTeam, resolveTeamDisplayName(selectedEvent.localTeam));
+                        const visitorLogo = resolveTeamLogo(selectedEvent.visitorTeamClubId, selectedEvent.visitorTeam, resolveTeamDisplayName(selectedEvent.visitorTeam));
+                        const sameName = (side: { clubName: string; teamName: string }) =>
+                          !side.teamName || side.teamName.trim().toLowerCase() === side.clubName.trim().toLowerCase();
+                        return (
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                              <i className="fa-solid fa-futbol text-sm"></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.match', 'Partido')}</p>
+                              <div className="mt-1 space-y-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {localLogo && <img src={localLogo} alt="" className="h-5 w-5 flex-shrink-0 object-contain" />}
+                                  <span className="truncate text-sm font-bold text-slate-700">
+                                    {localDisplay.clubName}
+                                    {!sameName(localDisplay) && <span className="ml-1 text-slate-400 font-black">({localDisplay.teamName})</span>}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] font-black uppercase text-slate-300">vs</p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {visitorLogo && <img src={visitorLogo} alt="" className="h-5 w-5 flex-shrink-0 object-contain" />}
+                                  <span className="truncate text-sm font-bold text-slate-700">
+                                    {visitorDisplay.clubName}
+                                    {!sameName(visitorDisplay) && <span className="ml-1 text-slate-400 font-black">({visitorDisplay.teamName})</span>}
+                                  </span>
+                                </div>
+                              </div>
+                              {selectedEvent.score && (
+                                <p className="mt-1 text-base font-black text-[var(--accent)]">{selectedEvent.score}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : selectedEvent.opponent && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                          <i className="fa-solid fa-futbol text-sm"></i>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.opponent')}</p>
+                          <p className="text-sm font-bold text-slate-700">{selectedEvent.opponent}</p>
+                          {selectedEvent.score && (
+                            <p className="mt-1 text-base font-black text-[var(--accent)]">{selectedEvent.score}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {(() => {
+                      const validJornada = selectedEvent.jornada && selectedEvent.jornada.trim() && selectedEvent.jornada.trim() !== '-';
+                      if (!selectedEvent.competition && !validJornada) return null;
+                      return (
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                            <i className="fa-solid fa-trophy text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.competition', 'Competición')}</p>
+                            <p className="text-sm font-bold text-slate-700">
+                              {[selectedEvent.competition, validJornada ? `${t('calendarView.matchday', 'Jornada')} ${selectedEvent.jornada}` : null].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  selectedEvent.team && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                        <i className="fa-solid fa-shield-halved text-sm"></i>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('newEvent.team')}</p>
+                        <p className="text-sm font-bold text-slate-700">{selectedEvent.team}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.opponent')}</p>
-                      <p className="text-sm font-bold text-slate-700">{selectedEvent.opponent}</p>
-                    </div>
-                  </div>
+                  )
                 )}
                 {selectedEvent.notes && (
                   <div className="mt-2 rounded-xl bg-slate-50 p-4">

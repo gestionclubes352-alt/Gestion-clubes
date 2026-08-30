@@ -326,6 +326,31 @@ export interface ResidenciaComida {
   updated_at?: string;
 }
 
+export interface ResidenciaComedorToken {
+  id: string;
+  club_id?: string | null;
+  jugador_id: string;
+  token: string;
+  activo: boolean;
+  revocado_en?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ResidenciaComedorAcceso {
+  id: string;
+  club_id?: string | null;
+  jugador_id: string;
+  comida_id?: string | null;
+  fecha: string;
+  turno: string;
+  registrado_en: string;
+  origen: 'qr' | 'manual';
+  notas?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Localidad {
   id: string;
   club_id?: string | null;
@@ -414,6 +439,8 @@ export const instalacionesCamposService = createTableService<InstalacionCampo>('
 export const residenciaHabitacionesService = createTableService<ResidenciaHabitacion>('residencia_habitaciones');
 export const residenciaJugadoresService = createTableService<ResidenciaJugador>('residencia_jugadores');
 export const residenciaComidasService = createTableService<ResidenciaComida>('residencia_comidas');
+export const residenciaComedorTokensService = createTableService<ResidenciaComedorToken>('residencia_comedor_tokens');
+export const residenciaComedorAccesosService = createTableService<ResidenciaComedorAcceso>('residencia_comedor_accesos');
 export const rpeRespuestasService = createTableService<RpeRespuesta>('rpe_respuestas');
 export const wellnessRespuestasService = createTableService<WellnessRespuesta>('wellness_respuestas');
 export const shareTokensService = createTableService<ShareToken>('share_tokens');

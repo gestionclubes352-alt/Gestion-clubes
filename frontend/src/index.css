@@ -508,11 +508,6 @@ ul, ol {
 
 /* Ancho >= 1920px: Máximo contenido con margen */
 @media (min-width: 1920px) {
-  main {
-    max-width: calc(100% - 320px); /* Sidebar + main */
-    margin: 0 auto;
-  }
-
   .content-container {
     max-width: 1600px;
     margin: 0 auto;

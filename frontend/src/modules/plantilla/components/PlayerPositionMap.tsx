@@ -214,9 +214,9 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
       </div>
 
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-[10px] text-slate-300">
+        <table className="w-full text-[9px] text-slate-300">
           <thead>
-            <tr className="uppercase text-slate-500 font-black tracking-widest">
+            <tr className="uppercase text-slate-500 font-black tracking-widest text-[8px]">
               <th className="text-left px-2 py-1">{t('common.date', 'Fecha')}</th>
               <th className="text-left px-2 py-1">{t('common.match', 'Partido')}</th>
               <th className="text-left px-2 py-1">{t('common.position')}</th>

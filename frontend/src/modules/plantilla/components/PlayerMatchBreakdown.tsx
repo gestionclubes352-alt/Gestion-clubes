@@ -198,9 +198,9 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
+                <table className="w-full text-[9px]">
                   <thead>
-                    <tr className="text-slate-400 uppercase text-[9px] font-black tracking-widest">
+                    <tr className="text-slate-400 uppercase text-[8px] font-black tracking-widest">
                       <th className="px-3 py-2 text-left">{t('common.date', 'Fecha')}</th>
                       <th className="px-3 py-2 text-left">{t('playerStatsSummary.filterMatch', 'Partido')}</th>
                       <th className="px-3 py-2 text-center">{t('common.position', 'Posición')}</th>
