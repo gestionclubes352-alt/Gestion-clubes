@@ -8,7 +8,7 @@ export interface SerieTendencia {
 }
 
 const ALTO = 220;
-const ANCHO = 640;
+const ANCHO = 1400;
 const PAD = 28;
 
 /** Gráfico de líneas 0-10 sin dependencias externas: eje Y fijo, varias series con huecos (spanGaps). */
@@ -32,7 +32,7 @@ const TendenciaChart: React.FC<{ dias: string[]; series: SerieTendencia[] }> = (
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${ANCHO} ${ALTO + 24}`} className="w-full min-w-[420px]" style={{ maxHeight: 320 }}>
+      <svg viewBox={`0 0 ${ANCHO} ${ALTO + 24}`} className="w-full min-w-[900px]" style={{ maxHeight: 380 }}>
         {[0, 2.5, 5, 7.5, 10].map((v) => (
           <g key={v}>
             <line x1={PAD} x2={ANCHO - PAD} y1={y(v)} y2={y(v)} stroke="#e2e5eb" strokeWidth={1} />

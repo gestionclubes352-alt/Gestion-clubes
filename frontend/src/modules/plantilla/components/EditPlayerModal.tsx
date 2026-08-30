@@ -996,7 +996,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   </div>
                   <div>
                     <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{t('editPlayer.email', 'Correo')}</label>
-                    <input type="email" value={formData.correo || ''} onChange={(e) => handleChange('correo' as keyof Player, e.target.value)}
+                    <input type="email" value={formData.correo || ''} onChange={(e) => handleChange('correo' as keyof Player, e.target.value.trim().toLowerCase())}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none font-semibold text-slate-700" />
                   </div>
                   <div>

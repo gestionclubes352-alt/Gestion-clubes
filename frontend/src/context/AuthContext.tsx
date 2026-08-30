@@ -98,13 +98,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [cargarPerfil]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     return { error: error?.message ?? null };
   };
 
   const signUp = async (email: string, password: string, nombre: string) => {
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       options: { data: { nombre } }, // usado por el trigger handle_new_user()
     });

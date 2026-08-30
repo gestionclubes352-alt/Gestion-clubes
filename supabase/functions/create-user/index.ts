@@ -79,7 +79,8 @@ Deno.serve(async (req) => {
     return json({ id: body.user_id }, 200);
   }
 
-  const { email, password, nombre, rol, estado, club_id, jugador_id } = body;
+  const { password, nombre, rol, estado, club_id, jugador_id } = body;
+  const email = body.email?.trim().toLowerCase();
   if (!email || !password || !nombre) {
     return json({ error: 'Email, contraseña y nombre son obligatorios.' }, 400);
   }

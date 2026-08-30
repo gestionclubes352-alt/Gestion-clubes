@@ -196,7 +196,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, play
                     ...prev,
                     jugadorId: playerId,
                     nombre: player?.nombreCompleto || player?.nombre || prev.nombre,
-                    email: player?.correo || prev.email,
+                    email: player?.correo ? player.correo.trim().toLowerCase() : prev.email,
                   }));
                 }}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"

@@ -407,7 +407,7 @@ const AnalisisMedicionesView: React.FC = () => {
         {dias.length === 0 && <p className="text-sm text-slate-400 italic">Sin respuestas registradas todavía</p>}
       </div>
 
-      {fecha && (
+      {fecha && !esJugador && (
         <div className="flex flex-wrap gap-3">
           <div className={`flex-1 min-w-[220px] rounded-2xl border p-3 text-sm ${faltantes.rpe.length === 0 ? 'bg-[var(--accent)]/10 border-transparent text-[var(--accent)]' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
             <strong className="block text-[11px] uppercase tracking-widest opacity-80 mb-1.5">Sin RPE hoy</strong>
