@@ -162,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
         {/* Marca separada de la navegación */}
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[var(--surface-1)] border border-slate-200 dark:border-[var(--border-soft)] hover:bg-slate-100 dark:hover:bg-[var(--surface-2)] transition-all"
+          className="flex items-center gap-2 md:gap-3 px-1.5 sm:px-2 md:px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[var(--surface-1)] border border-slate-200 dark:border-[var(--border-soft)] hover:bg-slate-100 dark:hover:bg-[var(--surface-2)] transition-all flex-shrink-0"
           title="HOME"
           aria-label="HOME"
         >
@@ -179,10 +179,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
           </span>
         </button>
 
-        <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4 ml-1 sm:ml-2 md:ml-4">
+        <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-1 sm:ml-2 md:ml-4">
           <button
             onClick={() => navigate('/')}
-            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-2 rounded-xl border transition-all ${
               isHomeActive
                 ? 'bg-[var(--accent)] text-white border-transparent shadow-lg shadow-[var(--accent)]/20'
                 : 'bg-slate-50 dark:bg-[var(--surface-1)] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[var(--border-soft)] hover:border-[var(--accent)]/40 hover:bg-slate-100 dark:hover:bg-[var(--surface-2)]'
@@ -191,12 +191,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             aria-label="HOME"
           >
             <i className="fa-solid fa-house text-sm"></i>
-            <span className="hidden md:inline text-sm font-bold tracking-tight">HOME</span>
+            <span className="hidden sm:inline text-sm font-bold tracking-tight">HOME</span>
           </button>
 
           <button
             onClick={() => navigate('/calendario')}
-            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-2 rounded-xl border transition-all ${
               isCalendarActive
                 ? 'bg-[var(--accent)] text-white border-transparent shadow-lg shadow-[var(--accent)]/20'
                 : 'bg-slate-50 dark:bg-[var(--surface-1)] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[var(--border-soft)] hover:border-[var(--accent)]/40 hover:bg-slate-100 dark:hover:bg-[var(--surface-2)]'
@@ -205,13 +205,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             aria-label="calendario"
           >
             <i className="fa-solid fa-calendar-days text-sm"></i>
-            <span className="hidden md:inline text-sm font-bold tracking-tight">calendario</span>
+            <span className="hidden sm:inline text-sm font-bold tracking-tight">calendario</span>
           </button>
         </div>
       </div>
 
       {/* Lado derecho - AI Mode toggle + Toggle tema + Perfil */}
-      <div className="flex items-center gap-1.5 md:gap-3">
+      <div className="flex items-center gap-1 sm:gap-1.5 md:gap-3">
         {hasTeamOptions && (
           <div className="relative" ref={teamFilterRef}>
             <button

@@ -9,8 +9,8 @@ import { DEFAULT_VISIBLE_MENU_SET, DEFAULT_VISIBLE_SECTIONS_SET } from '../../co
 import { useAuth } from '@context/AuthContext';
 
 /** Únicos ítems/secciones que puede ver el rol Jugador, sin importar la config de deploy. */
-const JUGADOR_ALLOWED_MENU_IDS = new Set(['INICIO', 'PLANTILLAS', 'MEDICIONES_REGISTRO', 'MEDICIONES_ANALISIS']);
-const JUGADOR_ALLOWED_SECTIONS = new Set(['general', 'management', 'medical']);
+const JUGADOR_ALLOWED_MENU_IDS = new Set(['INICIO', 'PLANTILLAS', 'MEDICIONES_REGISTRO', 'MEDICIONES_ANALISIS', 'VIDEOTECA']);
+const JUGADOR_ALLOWED_SECTIONS = new Set(['general', 'management', 'medical', 'planning']);
 
 const STORAGE_KEY = 'menu-visibility';
 const VERSION_KEY = 'menu-visibility-version';

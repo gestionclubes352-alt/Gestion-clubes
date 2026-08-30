@@ -96,7 +96,8 @@ interface VideoRow {
 
 const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = [], ownClubId }) => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { perfil } = useAuth();
+  const esJugador = perfil?.rol === 'Jugador';
   const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
   const [playersById, setPlayersById] = useState<Map<string | number, Jugador>>(new Map());
   const [clubsById, setClubsById] = useState<Map<string | number, Club>>(new Map());
@@ -189,16 +190,16 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
 
   // Generate channel share link on mount
   useEffect(() => {
-    if (!profile?.club_id) return;
+    if (!perfil?.club_id || esJugador) return;
     (async () => {
       try {
-        const shareData = await getOrCreateChannelShareLink(profile.club_id);
+        const shareData = await getOrCreateChannelShareLink(perfil.club_id!);
         setChannelShareUrl(getChannelShareUrl(shareData.token));
       } catch (err) {
         console.error('Error al generar enlace de canal:', err);
       }
     })();
-  }, [profile?.club_id]);
+  }, [perfil?.club_id, esJugador]);
 
   // Partidos que tienen vídeo del informe (base de todo lo que se muestra en la Videoteca).
   const matchesWithVideo = useMemo(
@@ -467,13 +468,15 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
     }),
   ], [expandedRows]);
 
-  const tableActions: DataTableAction<VideoRow>[] = useMemo(() => [
-    {
-      icon: 'fa-regular fa-file-lines',
-      label: 'Ver informe completo',
-      onClick: (row) => navigate(`/partidos/${row.matchId}`),
-    },
-  ], [navigate]);
+  const tableActions: DataTableAction<VideoRow>[] = useMemo(() => (
+    esJugador ? [] : [
+      {
+        icon: 'fa-regular fa-file-lines',
+        label: 'Ver informe completo',
+        onClick: (row) => navigate(`/partidos/${row.matchId}`),
+      },
+    ]
+  ), [navigate, esJugador]);
 
   return (
     <div className="animate-fade-in space-y-6">

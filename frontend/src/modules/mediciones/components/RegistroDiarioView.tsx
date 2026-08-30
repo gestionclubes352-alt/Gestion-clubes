@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Jugador } from '@shared/services/dataService';
 import { plantillasService, equiposService, rpeRespuestasService, wellnessRespuestasService } from '@shared/services';
 import { useAuth } from '@context/AuthContext';
@@ -99,6 +100,7 @@ const SelectorJugador: React.FC<{
 };
 
 const RegistroDiarioView: React.FC = () => {
+  const navigate = useNavigate();
   const { perfil } = useAuth();
   const esJugador = perfil?.rol === 'Jugador';
   const [jugadores, setJugadores] = useState<Jugador[]>([]);
@@ -209,6 +211,7 @@ const RegistroDiarioView: React.FC = () => {
 
       setOk('Respuesta guardada correctamente');
       resetFormulario();
+      setTimeout(() => navigate('/'), 800);
     } catch (err) {
       console.error('Error guardando mediciones:', err);
       setError(err instanceof Error ? err.message : 'Error al guardar');
