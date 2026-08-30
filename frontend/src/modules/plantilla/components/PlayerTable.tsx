@@ -286,10 +286,17 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         size: 110,
         cell: info => textCell(info.getValue()),
       }),
-      columnHelper.accessor('correo', {
-        header: t('playerTable.email', 'Correo'),
-        size: 180,
-        cell: info => textCell(info.getValue()),
+      columnHelper.accessor('residencia', {
+        header: t('playerTable.residencia', 'Residencia'),
+        size: 100,
+        cell: info => {
+          const val = info.getValue();
+          return (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${val ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+              {val ? 'SI' : 'NO'}
+            </span>
+          );
+        },
       }),
     ];
     return allColumns;

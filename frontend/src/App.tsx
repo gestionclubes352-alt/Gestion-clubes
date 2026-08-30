@@ -80,7 +80,10 @@ import { SettingsPage } from '@modules/settings';
 import { InstalacionesView } from '@modules/instalaciones';
 
 // Modules - Residencia
-import { HabitacionesView, JugadoresResiView, ComidasView } from '@modules/residencia';
+import {
+  HabitacionesView, JugadoresResiView, ComidasView,
+  ComedorFichajeView, ComedorLandingView, ComedorAccesosView, ComedorQrImprimirView,
+} from '@modules/residencia';
 
 // Modules - Mediciones
 import { RegistroDiarioView, AnalisisMedicionesView, FormularioPublicoView } from '@modules/mediciones';
@@ -136,6 +139,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/residencia/jugadores': 'RESI_JUGADORES',
   '/residencia/habitaciones': 'RESI_HABITACIONES',
   '/residencia/comidas': 'RESI_COMIDAS',
+  '/residencia/comedor': 'RESI_COMEDOR',
   '/mediciones/registro': 'MEDICIONES_REGISTRO',
   '/mediciones/analisis': 'MEDICIONES_ANALISIS',
   '/lesiones': 'LESIONES',
@@ -169,6 +173,7 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'RESI_JUGADORES': '/residencia/jugadores',
   'RESI_HABITACIONES': '/residencia/habitaciones',
   'RESI_COMIDAS': '/residencia/comidas',
+  'RESI_COMEDOR': '/residencia/comedor',
   'MEDICIONES_REGISTRO': '/mediciones/registro',
   'MEDICIONES_ANALISIS': '/mediciones/analisis',
   'LESIONES': '/lesiones',
@@ -470,7 +475,11 @@ const App: React.FC = () => {
   const location = useLocation();
 
   // Rutas públicas que no requieren autenticación
-  const isPublicRoute = location.pathname.startsWith('/share/') || location.pathname.startsWith('/public-channel/') || location.pathname === '/mediciones/formulario-publico';
+  const isPublicRoute = location.pathname.startsWith('/share/')
+    || location.pathname.startsWith('/public-channel/')
+    || location.pathname === '/mediciones/formulario-publico'
+    || location.pathname === '/comedor'
+    || location.pathname.startsWith('/comedor/');
 
   // If on a public route, skip auth gate
   if (isPublicRoute && !authLoading) {
@@ -479,6 +488,8 @@ const App: React.FC = () => {
         <Route path="/share/:token" element={<PublicShareView />} />
         <Route path="/public-channel/:token" element={<PublicChannelView />} />
         <Route path="/mediciones/formulario-publico" element={<FormularioPublicoView />} />
+        <Route path="/comedor" element={<ComedorLandingView />} />
+        <Route path="/comedor/:token" element={<ComedorFichajeView />} />
       </Routes>
     );
   }
@@ -1791,6 +1802,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
               <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
               <Route path="/residencia/comidas" element={<ComidasView />} />
+              <Route path="/residencia/comedor" element={<ComedorAccesosView />} />
+              <Route path="/residencia/comedor/qr" element={<ComedorQrImprimirView />} />
               <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
               <Route path="/mediciones/analisis" element={<AnalisisMedicionesView />} />
               <Route path="/lesiones" element={<InjuriesView />} />

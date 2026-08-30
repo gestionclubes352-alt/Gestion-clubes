@@ -63,6 +63,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'RESI_JUGADORES', labelKey: 'sidebar.residenciaPlayersLabel', icon: 'fa-people-roof', section: 'residencia' },
   { id: 'RESI_HABITACIONES', labelKey: 'sidebar.residenciaRoomsLabel', icon: 'fa-bed', section: 'residencia' },
   { id: 'RESI_COMIDAS', labelKey: 'sidebar.residenciaMealsLabel', icon: 'fa-utensils', section: 'residencia' },
+  { id: 'RESI_COMEDOR', labelKey: 'sidebar.residenciaDiningLabel', icon: 'fa-qrcode', section: 'residencia' },
   // Admin
   { id: 'CLUBES', labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', section: 'admin' },
   { id: 'EQUIPOS', labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', section: 'admin' },

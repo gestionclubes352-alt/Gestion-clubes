@@ -342,10 +342,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {isSectionVisible('residencia') && (
-          <SidebarSection title={t('sidebar.residencia')} sectionKey="residencia" collapsed={isCollapsed} hasActiveChild={['RESI_JUGADORES', 'RESI_HABITACIONES', 'RESI_COMIDAS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.residencia')} sectionKey="residencia" collapsed={isCollapsed} hasActiveChild={['RESI_JUGADORES', 'RESI_HABITACIONES', 'RESI_COMIDAS', 'RESI_COMEDOR'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {isVisible('RESI_JUGADORES') && <SidebarItem icon="fa-people-roof" label={t('sidebar.residenciaPlayersLabel')} active={activeSection === 'RESI_JUGADORES'} onClick={() => handleItemClick('RESI_JUGADORES')} collapsed={isCollapsed} />}
             {isVisible('RESI_HABITACIONES') && <SidebarItem icon="fa-bed" label={t('sidebar.residenciaRoomsLabel')} active={activeSection === 'RESI_HABITACIONES'} onClick={() => handleItemClick('RESI_HABITACIONES')} collapsed={isCollapsed} />}
             {isVisible('RESI_COMIDAS') && <SidebarItem icon="fa-utensils" label={t('sidebar.residenciaMealsLabel')} active={activeSection === 'RESI_COMIDAS'} onClick={() => handleItemClick('RESI_COMIDAS')} collapsed={isCollapsed} />}
+            {isVisible('RESI_COMEDOR') && <SidebarItem icon="fa-qrcode" label={t('sidebar.residenciaDiningLabel')} active={activeSection === 'RESI_COMEDOR'} onClick={() => handleItemClick('RESI_COMEDOR')} collapsed={isCollapsed} />}
           </SidebarSection>
           )}
 

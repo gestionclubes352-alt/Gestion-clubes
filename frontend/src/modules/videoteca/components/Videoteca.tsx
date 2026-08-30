@@ -515,7 +515,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
       </div>
 
       {/* Filtros: Tipo, Equipo, Jugadores */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className={`grid grid-cols-1 gap-3 ${esJugador ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
         <div>
           <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Tipo</label>
           <MultiSelectFilter
@@ -525,15 +525,17 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             allLabel="Todos los tipos"
           />
         </div>
-        <div>
-          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Equipo</label>
-          <MultiSelectFilter
-            options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
-            value={equipoInternoFilter}
-            onChange={setEquipoInternoFilter}
-            allLabel="Todos los equipos"
-          />
-        </div>
+        {!esJugador && (
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Equipo</label>
+            <MultiSelectFilter
+              options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
+              value={equipoInternoFilter}
+              onChange={setEquipoInternoFilter}
+              allLabel="Todos los equipos"
+            />
+          </div>
+        )}
         <div>
           <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Jugadores</label>
           <MultiSelectFilter

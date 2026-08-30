@@ -3,6 +3,7 @@ import type { ResidenciaJugador, ResidenciaHabitacion, Jugador, Equipo } from '@
 import { residenciaJugadoresService, residenciaHabitacionesService, plantillasService, equiposService } from '@shared/services';
 import { useAuth } from '@context/AuthContext';
 import type { ResidenciaJugadorFormData } from '../types';
+import QrComedorModal from './QrComedorModal';
 
 const calcularAnyos = (fechaNacimiento?: string): number | null => {
   if (!fechaNacimiento) return null;
@@ -196,6 +197,7 @@ const JugadoresResiView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [editingJugador, setEditingJugador] = useState<Jugador | null>(null);
+  const [qrJugador, setQrJugador] = useState<Jugador | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -332,14 +334,15 @@ const JugadoresResiView: React.FC = () => {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <div className="min-w-[900px]">
-            <div className="grid grid-cols-[2fr_1.2fr_1fr_0.6fr_1.2fr_1.4fr] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <div className="min-w-[980px]">
+            <div className="grid grid-cols-[2fr_1.2fr_1fr_0.6fr_1.2fr_1.4fr_0.6fr] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Jugador</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Equipo</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">F. Nacimiento</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Edad</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Habitación</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada — Salida</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Comedor</span>
             </div>
             {filtered.map(j => {
               const registro = getRegistro(j.id);
@@ -347,7 +350,7 @@ const JugadoresResiView: React.FC = () => {
                 <div
                   key={j.id}
                   onClick={() => setEditingJugador(j)}
-                  className="grid grid-cols-[2fr_1.2fr_1fr_0.6fr_1.2fr_1.4fr] gap-3 px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-all cursor-pointer items-center"
+                  className="grid grid-cols-[2fr_1.2fr_1fr_0.6fr_1.2fr_1.4fr_0.6fr] gap-3 px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-all cursor-pointer items-center"
                 >
                   <span className="font-black text-[var(--accent)] uppercase tracking-tighter truncate">{j.nombre}</span>
                   <span className="text-sm text-slate-600 truncate">{getEquipoNombre(j.equipo_id)}</span>
@@ -361,6 +364,15 @@ const JugadoresResiView: React.FC = () => {
                     {registro?.fecha_entrada || registro?.fecha_salida
                       ? `${registro?.fecha_entrada || '?'} — ${registro?.fecha_salida || 'actualidad'}`
                       : '—'}
+                  </span>
+                  <span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setQrJugador(j); }}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all"
+                      title="QR comedor"
+                    >
+                      <i className="fa-solid fa-qrcode"></i>
+                    </button>
                   </span>
                 </div>
               );
@@ -379,6 +391,14 @@ const JugadoresResiView: React.FC = () => {
         onSave={handleSave}
         onDelete={handleDelete}
       />
+
+      {qrJugador && (
+        <QrComedorModal
+          jugadorId={qrJugador.id ? String(qrJugador.id) : null}
+          jugadorNombre={qrJugador.nombre}
+          onClose={() => setQrJugador(null)}
+        />
+      )}
     </div>
   );
 };
