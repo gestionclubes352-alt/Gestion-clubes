@@ -31,6 +31,8 @@ export interface WellnessFormData {
 /** Fila de la tabla de análisis: combina RPE + Wellness de un jugador en un día, con z-scores de tendencia. */
 export interface FilaMediciones {
   jugador_id: string;
+  rpe_id: string | number | null;
+  wellness_id: string | number | null;
   nombre: string;
   wellness: number | null;
   sueno: number | null;

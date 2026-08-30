@@ -68,59 +68,122 @@ const AnalisisMedicionesView: React.FC = () => {
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
   const [metricas, setMetricas] = useState<Set<string>>(new Set(['rpe', 'animo', 'motivacion']));
   const [orden, setOrden] = useState<{ col: keyof FilaMediciones; dir: 'asc' | 'desc' }>({ col: 'nombre', dir: 'asc' });
+  const [filaEditando, setFilaEditando] = useState<FilaMediciones | null>(null);
+  const [edicion, setEdicion] = useState<Record<string, number | string | undefined>>({});
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [borrandoId, setBorrandoId] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [equipos, rpeRaw, wellnessRaw] = await Promise.all([
-          equiposService.list(perfil?.club_id ? { club_id: perfil.club_id } : undefined),
-          rpeRespuestasService.list(),
-          wellnessRespuestasService.list(),
-        ]);
-        const primerEquipo = (equipos || []).find((e) => e.nombre?.trim().toLowerCase() === 'primer equipo');
-        const jugadoresPrimerEquipo = primerEquipo
-          ? await plantillasService.list({ equipo_id: primerEquipo.id })
-          : [];
-        const jugadoresTodos = jugadoresPrimerEquipo?.length ? jugadoresPrimerEquipo : await plantillasService.list();
-        const jugadoresData = esJugador
-          ? (jugadoresTodos || []).filter((j) => j.id === perfil?.jugador_id)
-          : jugadoresTodos;
-        setJugadores(jugadoresData || []);
+  const cargarDatos = async (esPrimeraCarga: boolean) => {
+    try {
+      if (esPrimeraCarga) setLoading(true);
+      setError(null);
+      const [equipos, rpeRaw, wellnessRaw] = await Promise.all([
+        equiposService.list(perfil?.club_id ? { club_id: perfil.club_id } : undefined),
+        rpeRespuestasService.list(),
+        wellnessRespuestasService.list(),
+      ]);
+      const primerEquipo = (equipos || []).find((e) => e.nombre?.trim().toLowerCase() === 'primer equipo');
+      const jugadoresPrimerEquipo = primerEquipo
+        ? await plantillasService.list({ equipo_id: primerEquipo.id })
+        : [];
+      const jugadoresTodos = jugadoresPrimerEquipo?.length ? jugadoresPrimerEquipo : await plantillasService.list();
+      const jugadoresData = esJugador
+        ? (jugadoresTodos || []).filter((j) => j.id === perfil?.jugador_id)
+        : jugadoresTodos;
+      setJugadores(jugadoresData || []);
 
-        const rpeFiltrado = esJugador ? (rpeRaw || []).filter((r) => r.jugador_id === perfil?.jugador_id) : (rpeRaw || []);
-        const wellnessFiltrado = esJugador ? (wellnessRaw || []).filter((w) => w.jugador_id === perfil?.jugador_id) : (wellnessRaw || []);
+      const rpeFiltrado = esJugador ? (rpeRaw || []).filter((r) => r.jugador_id === perfil?.jugador_id) : (rpeRaw || []);
+      const wellnessFiltrado = esJugador ? (wellnessRaw || []).filter((w) => w.jugador_id === perfil?.jugador_id) : (wellnessRaw || []);
 
-        const rpeConZ = conZScoresPorTendencia(rpeFiltrado, [
-          ['rpe' as any, 'z_rpe'],
-          ['animo' as any, 'z_animo'],
-          ['motivacion' as any, 'z_motivacion'],
-        ]);
-        setRpeData(rpeConZ as any);
+      const rpeConZ = conZScoresPorTendencia(rpeFiltrado, [
+        ['rpe' as any, 'z_rpe'],
+        ['animo' as any, 'z_animo'],
+        ['motivacion' as any, 'z_motivacion'],
+      ]);
+      setRpeData(rpeConZ as any);
 
-        const wellnessConZ = construirWellnessCompuesto(wellnessFiltrado);
-        const wellnessConTodosZ = conZScoresPorTendencia(wellnessConZ as any, [
-          ['sueno' as any, 'z_sueno'],
-          ['musc' as any, 'z_musc'],
-          ['aerob' as any, 'z_aerob'],
-        ]);
-        setWellnessData(wellnessConTodosZ as any);
+      const wellnessConZ = construirWellnessCompuesto(wellnessFiltrado);
+      const wellnessConTodosZ = conZScoresPorTendencia(wellnessConZ as any, [
+        ['sueno' as any, 'z_sueno'],
+        ['musc' as any, 'z_musc'],
+        ['aerob' as any, 'z_aerob'],
+      ]);
+      setWellnessData(wellnessConTodosZ as any);
 
+      if (esPrimeraCarga) {
         const dias = Array.from(new Set([
           ...rpeFiltrado.map((r) => r.fecha),
           ...wellnessFiltrado.map((w) => w.fecha),
         ])).sort().reverse();
         setFecha(dias[0] || null);
         setJugadorSel((jugadoresData || [])[0]?.id || null);
-      } catch (err) {
-        console.error('Error cargando mediciones:', err);
-        setError('Error al cargar los datos de mediciones');
-      } finally {
-        setLoading(false);
       }
-    })();
+    } catch (err) {
+      console.error('Error cargando mediciones:', err);
+      setError('Error al cargar los datos de mediciones');
+    } finally {
+      if (esPrimeraCarga) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarDatos(true);
   }, [esJugador, perfil?.jugador_id, perfil?.club_id]);
+
+  const abrirEdicion = (fila: FilaMediciones) => {
+    setFilaEditando(fila);
+    setEdicion({
+      rpe: fila.rpe ?? undefined,
+      animo: fila.animo ?? undefined,
+      motivacion: fila.motivacion ?? undefined,
+      sueno: fila.sueno ?? undefined,
+      musc: fila.musc ?? undefined,
+      aerob: fila.aerob ?? undefined,
+    });
+  };
+
+  const guardarEdicion = async () => {
+    if (!filaEditando) return;
+    setGuardandoEdicion(true);
+    try {
+      if (filaEditando.rpe_id) {
+        await rpeRespuestasService.update(filaEditando.rpe_id, {
+          rpe: edicion.rpe === undefined ? null : Number(edicion.rpe),
+          animo: edicion.animo === undefined ? null : Number(edicion.animo),
+          motivacion: edicion.motivacion === undefined ? null : Number(edicion.motivacion),
+        } as any);
+      }
+      if (filaEditando.wellness_id) {
+        await wellnessRespuestasService.update(filaEditando.wellness_id, {
+          sueno: edicion.sueno === undefined ? null : Number(edicion.sueno),
+          musc: edicion.musc === undefined ? null : Number(edicion.musc),
+          aerob: edicion.aerob === undefined ? null : Number(edicion.aerob),
+        } as any);
+      }
+      setFilaEditando(null);
+      await cargarDatos(false);
+    } catch (err) {
+      console.error('Error editando registro:', err);
+      setError(err instanceof Error ? err.message : 'Error al editar el registro');
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const borrarFila = async (fila: FilaMediciones) => {
+    if (!window.confirm(`¿Borrar el registro de ${fila.nombre} del ${fecha ? formatearFecha(fecha) : ''}?`)) return;
+    setBorrandoId(fila.jugador_id);
+    try {
+      if (fila.rpe_id) await rpeRespuestasService.remove(fila.rpe_id);
+      if (fila.wellness_id) await wellnessRespuestasService.remove(fila.wellness_id);
+      await cargarDatos(false);
+    } catch (err) {
+      console.error('Error borrando registro:', err);
+      setError(err instanceof Error ? err.message : 'Error al borrar el registro');
+    } finally {
+      setBorrandoId(null);
+    }
+  };
 
   const nombrePorId = useMemo(() => {
     const m = new Map<string, string>();
@@ -172,6 +235,8 @@ const AnalisisMedicionesView: React.FC = () => {
 
       return {
         jugador_id: jid,
+        rpe_id: r?.id ?? null,
+        wellness_id: w?.id ?? null,
         nombre: nombrePorId.get(jid) || '(desconocido)',
         wellness: (w as any)?.wellness ?? null,
         sueno: w?.sueno ?? null,
@@ -375,11 +440,14 @@ const AnalisisMedicionesView: React.FC = () => {
                     </span>
                   </th>
                 ))}
+                {!esJugador && (
+                  <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Acciones</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {filas.length === 0 ? (
-                <tr><td colSpan={COLUMNAS_TABLA.length} className="text-center py-8 text-slate-400 italic">Sin respuestas ese día</td></tr>
+                <tr><td colSpan={COLUMNAS_TABLA.length + (esJugador ? 0 : 1)} className="text-center py-8 text-slate-400 italic">Sin respuestas ese día</td></tr>
               ) : (
                 <>
                   {filaEquipo()}
@@ -390,6 +458,31 @@ const AnalisisMedicionesView: React.FC = () => {
                       className={`border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${fila.jugador_id === jugadorSel ? 'bg-[var(--accent)]/5' : ''}`}
                     >
                       {COLUMNAS_TABLA.map((col) => celdaColumna(col, fila))}
+                      {!esJugador && (
+                        <td className="px-3 py-2 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => abrirEdicion(fila)}
+                              title="Editar registro"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                            >
+                              <i className="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button
+                              onClick={() => borrarFila(fila)}
+                              disabled={borrandoId === fila.jugador_id}
+                              title="Borrar registro"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:border-red-400 hover:text-red-500 transition-all disabled:opacity-50"
+                            >
+                              {borrandoId === fila.jugador_id ? (
+                                <i className="fa-solid fa-spinner animate-spin text-xs"></i>
+                              ) : (
+                                <i className="fa-solid fa-trash text-xs"></i>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </>
@@ -435,6 +528,88 @@ const AnalisisMedicionesView: React.FC = () => {
         </div>
         <TendenciaChart dias={diasAsc} series={seriesChart} />
       </div>
+
+      {filaEditando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setFilaEditando(null)}>
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-[var(--text-strong)] uppercase tracking-tighter">
+                Editar registro · {filaEditando.nombre}
+              </h3>
+              <button onClick={() => setFilaEditando(null)} className="text-slate-400 hover:text-slate-600">
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {filaEditando.rpe_id && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">RPE del entrenamiento</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['rpe', 'animo', 'motivacion'] as const).map((campo) => (
+                    <div key={campo}>
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">{campo}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step={0.5}
+                        value={edicion[campo] ?? ''}
+                        onChange={(e) => setEdicion((prev) => ({ ...prev, [campo]: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center focus:outline-none focus:border-[var(--accent)]"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filaEditando.wellness_id && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wellness diario</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['sueno', 'musc', 'aerob'] as const).map((campo) => (
+                    <div key={campo}>
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">{campo}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step={0.5}
+                        value={edicion[campo] ?? ''}
+                        onChange={(e) => setEdicion((prev) => ({ ...prev, [campo]: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center focus:outline-none focus:border-[var(--accent)]"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!filaEditando.rpe_id && !filaEditando.wellness_id && (
+              <p className="text-sm text-slate-400 italic">Sin registro editable para este jugador.</p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setFilaEditando(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarEdicion}
+                disabled={guardandoEdicion}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-[var(--accent)] text-white font-black text-xs uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all disabled:opacity-50"
+              >
+                {guardandoEdicion ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

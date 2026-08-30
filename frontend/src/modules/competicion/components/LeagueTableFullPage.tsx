@@ -1,11 +1,13 @@
 import React from 'react';
 import type { CompetitionTeam } from '../types';
 import type { Match } from '../../partidos/types';
+import type { CalendarioCompeticionPartido } from '@shared/services/dataService';
 import LeagueTable from './LeagueTable';
 
 interface LeagueTableFullPageProps {
   teams?: CompetitionTeam[];
   matches?: Match[];
+  calendarMatches?: CalendarioCompeticionPartido[];
   clubId?: string;
   clubName?: string;
 }
@@ -13,6 +15,7 @@ interface LeagueTableFullPageProps {
 const LeagueTableFullPage: React.FC<LeagueTableFullPageProps> = ({
   teams = [],
   matches = [],
+  calendarMatches = [],
   clubId,
   clubName,
 }) => {
@@ -21,6 +24,7 @@ const LeagueTableFullPage: React.FC<LeagueTableFullPageProps> = ({
       <LeagueTable
         teams={teams}
         matches={matches}
+        calendarMatches={calendarMatches}
         clubId={clubId}
         clubName={clubName}
       />

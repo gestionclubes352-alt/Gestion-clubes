@@ -18,7 +18,7 @@ import PublicChannelView from '@modules/videoteca/components/PublicChannelView';
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
-import { Header, BottomNav, HomeSectionsView } from '@shared/components';
+import { Header, BottomNav, HomeSectionsView, PlayerHomeView } from '@shared/components';
 import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService, competicionesService, calendarioCompeticionService } from '@shared/services/dataService';
 import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal, Competicion, CalendarioCompeticionPartido } from '@shared/services/dataService';
 import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
@@ -1489,12 +1489,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             onMenuClick={() => setIsSidebarOpen(true)}
             showMenuButton={!isAIMode}
             isAIMode={isAIMode}
-            onToggleAIMode={() => setIsAIMode(!isAIMode)}
+            onToggleAIMode={userRole === 'Jugador' ? undefined : () => setIsAIMode(!isAIMode)}
             onLogout={onLogout}
             teamOptions={teamFilterOptions}
           />
         )}
-        {isAIMode ? (
+        {isAIMode && userRole !== 'Jugador' ? (
           <React.Suspense fallback={<LoadingScreen />}>
           <AIModeView
             context={{
@@ -1517,6 +1517,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         <div className={`flex-1 min-h-0 overflow-y-auto w-full ${!hideShellSidebar ? 'px-3 pt-3 pb-24 sm:px-4 md:px-6 md:pt-4 lg:px-12 lg:pt-6 lg:pb-10 pb-safe-nav' : ''} scrollbar-hide`}>
           {clubLoadError ? <ClubErrorScreen /> : isLoadingCore ? <LoadingScreen /> : (
             <React.Suspense fallback={<LoadingScreen />}>
+            {userRole === 'Jugador' ? (
+            <Routes>
+              <Route path="/" element={<PlayerHomeView />} />
+              <Route path="/plantillas" element={
+                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={() => {}} onSave={async () => {}} />
+              } />
+              <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
+              <Route path="/videoteca" element={isLoadingExtra ? <LoadingScreen /> : <Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
+              <Route path="/competicion" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+              } />
+              <Route path="/calendario" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={() => {}} onClickEvent={handleCalendarEventClick} onDeleteEvent={() => {}} onSaveEvent={async () => {}} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            ) : (
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
@@ -1739,11 +1758,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/videoteca" element={isLoadingExtra ? <LoadingScreen /> : <Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
               <Route path="/competicion" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
               <Route path="/tabla-clasificacion" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <LeagueTableFullPage teams={filteredCompetitionTeams} matches={filteredMatchesList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+                <LeagueTableFullPage teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
               } />
               <Route path="/competiciones" element={
                 isLoadingExtra ? <LoadingScreen /> :
@@ -1776,6 +1795,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/settings" element={userRole === 'Responsable' || userRole === 'Administrador' ? <SettingsPage /> : <Navigate to="/" replace />} />
               <Route path="*" element={<div className="p-20 text-center uppercase font-black text-slate-300">{t('app.pageNotFound')}</div>} />
             </Routes>
+            )}
             </React.Suspense>
           )}
         </div>

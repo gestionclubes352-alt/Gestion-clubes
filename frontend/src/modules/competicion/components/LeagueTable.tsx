@@ -4,6 +4,7 @@ import { DataTable } from '../../../shared/components/DataTable';
 import type { CompetitionTeam } from '../types';
 import type { Match } from '../../partidos/types';
 import { getTeamConfig } from '@shared/services/dataService';
+import type { CalendarioCompeticionPartido } from '@shared/services/dataService';
 import { useGeminiStandings } from '../hooks/useGeminiStandings';
 import { useTeam } from '@context/TeamContext';
 import { getFederationTeamLogo } from '../data/teamLogos';
@@ -26,6 +27,7 @@ interface StandingTeam {
 interface LeagueTableProps {
   teams?: CompetitionTeam[];
   matches?: Match[];
+  calendarMatches?: CalendarioCompeticionPartido[];
   myTeamName?: string;
   leagueName?: string;
   /**
@@ -46,6 +48,7 @@ interface ScorerRow {
 }
 
 type CompetitionSection =
+  | 'calendario'
   | 'clasificacion'
   | 'resultados'
   | 'goleadores'
@@ -220,8 +223,16 @@ const OFFICIAL_SCORERS_BY_CLUB: Record<string, Omit<ScorerRow, 'pos'>[]> = {
  * por club. Cuando existe, se muestra un iframe con la clasificación en vivo en lugar de la
  * tabla calculada/hardcodeada.
  */
-const FEDERATION_STANDINGS_URL_BY_CLUB: Record<string, string> = {
-  'escuela-huesca': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisClasificacion?cod_primaria=1000120&codjornada=1&codcompeticion=23183382&codgrupo=23183383&codjornada=1',
+const FEDERATION_STANDINGS_URL_BY_TEAM: Record<string, string> = {
+  'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisClasificacion?cod_primaria=1000120&codjornada=1&codcompeticion=23183382&codgrupo=23183383&codjornada=1',
+};
+
+const FEDERATION_CALENDAR_URL_BY_TEAM: Record<string, string> = {
+  'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisCalendario_Vis?cod_primaria=1000120&codtemporada=22&codcompeticion=23183382&codgrupo=23183383&CodJornada=1',
+};
+
+const FEDERATION_COMPETITION_URL_BY_TEAM: Record<string, string> = {
+  'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_CmpJornada?cod_primaria=1000120&CodCompeticion=23183382&CodGrupo=23183383&CodTemporada=22&cod_agrupacion=&CodJornada=1&Sch_Tipo_Juego=1',
 };
 
 const normalizeTeam = (name: string) => name
@@ -238,9 +249,11 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
+const PRIMARY_TEAM_NAME = 'IPC LA ESCUELA';
+
 const buildOfficialStandings = (teams: CompetitionTeam[], clubId: string): StandingTeam[] => {
   let officialData = OFFICIAL_STANDINGS_BY_CLUB[clubId];
-  if (clubId === 'escuela-huesca' || clubId === 'escuela-huesca::Juvenil A') {
+  if (clubId === 'escuela-huesca' || clubId === 'escuela-huesca::juvenil a') {
     officialData = HUESCA_JUVENIL_2627_STANDINGS;
   } else if (clubId.startsWith('escuela-huesca::')) {
     officialData = [];
@@ -391,7 +404,7 @@ const isMyTeamName = (name: string, myTeam: string): boolean => {
 const TeamName: React.FC<{ name: string; myTeam: string; className?: string }> = ({ name, myTeam, className = '' }) => {
   const isMine = isMyTeamName(name, myTeam);
   return (
-    <span className={`${className} ${isMine ? '!text-[var(--accent)] !font-black' : ''}`}>
+    <span className={`${className} ${isMine ? '!text-[#c8102e] !font-black !tracking-wide' : ''}`}>
       {name}
     </span>
   );
@@ -412,10 +425,11 @@ const TeamCrest: React.FC<{ name: string; logoUrl?: string; size?: string }> = (
 
 const columnHelper = createColumnHelper<StandingTeam>();
 
-const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myTeamName = '', leagueName = '', clubId, clubName }) => {
+const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName }) => {
   const [useAI, setUseAI] = useState(true);
   const [activeSection, setActiveSection] = useState<CompetitionSection>('clasificacion');
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
+  const [selectedJornada, setSelectedJornada] = useState(1);
   const [selectedEquipo, setSelectedEquipo] = useState<string>('TODOS');
 
   // Obtener el club activo para aislar datos por club. `clubId` (club real de Supabase) tiene
@@ -441,19 +455,29 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
   }, [teams]);
   const hasMultipleEquipos = availableEquipos.length > 1;
 
+  // Cuando la cabecera ya ha filtrado a un único equipo, `selectedEquipo` sigue en TODOS.
+  // En ese caso usamos el único sub-equipo recibido para no mezclar sus fuentes de datos.
+  const effectiveSelectedEquipo = useMemo(() => {
+    const selectedIsAvailable = availableEquipos.some(
+      equipo => normalizeTeamLabel(equipo) === normalizeTeamLabel(selectedEquipo)
+    );
+    if (selectedEquipo !== 'TODOS' && selectedIsAvailable) return selectedEquipo;
+    return availableEquipos.length === 1 ? availableEquipos[0] : 'TODOS';
+  }, [availableEquipos, selectedEquipo]);
+
   // Equipos filtrados por sub-equipo seleccionado
   const filteredTeams = useMemo(() => {
-    if (selectedEquipo === 'TODOS' || !hasMultipleEquipos) return teams;
-    return teams.filter(t => normalizeTeamLabel(t.equipo || '') === normalizeTeamLabel(selectedEquipo));
-  }, [teams, selectedEquipo, hasMultipleEquipos]);
+    if (effectiveSelectedEquipo === 'TODOS' || !hasMultipleEquipos) return teams;
+    return teams.filter(t => normalizeTeamLabel(t.equipo || '') === normalizeTeamLabel(effectiveSelectedEquipo));
+  }, [teams, effectiveSelectedEquipo, hasMultipleEquipos]);
 
   // Clave de standings: para clubs con sub-equipos usar 'clubId::equipo'
   const standingsKey = useMemo(() => {
-    if (hasMultipleEquipos && selectedEquipo !== 'TODOS') {
-      return `${currentClubId}::${selectedEquipo}`;
+    if (effectiveSelectedEquipo !== 'TODOS') {
+      return `${currentClubId}::${normalizeTeamLabel(effectiveSelectedEquipo)}`;
     }
     return currentClubId;
-  }, [currentClubId, selectedEquipo, hasMultipleEquipos]);
+  }, [currentClubId, effectiveSelectedEquipo]);
 
   // Obtener nombre de mi equipo y liga desde config si no se pasan como prop
   const { resolvedMyTeam, resolvedLeagueName } = useMemo(() => {
@@ -516,16 +540,26 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
   const hasRealMatchData = matchStandings.some(row => row.played > 0);
 
   // Decidir qué datos mostrar: oficiales del club > partidos registrados > IA > (0 en todo si no hay nada)
-  const federationStandingsUrl = FEDERATION_STANDINGS_URL_BY_CLUB[currentClubId];
+  const federationStandingsUrl = FEDERATION_STANDINGS_URL_BY_TEAM[standingsKey];
+  const federationCalendarUrl = FEDERATION_CALENDAR_URL_BY_TEAM[standingsKey];
+  const federationCompetitionUrl = FEDERATION_COMPETITION_URL_BY_TEAM[standingsKey] || federationCalendarUrl;
+  const highlightedTeamName = federationStandingsUrl ? PRIMARY_TEAM_NAME : resolvedMyTeam;
 
   const officialStandings = useMemo(() => buildOfficialStandings(filteredTeams, standingsKey), [filteredTeams, standingsKey]);
   const hasOfficialData = officialStandings.length > 0;
   const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData && !hasRealMatchData;
   const standings = hasOfficialData ? officialStandings : (hasRealMatchData ? matchStandings : (hasAIData ? aiStandings : matchStandings));
   const isAISource = hasAIData && (geminiSource === 'gemini' || geminiSource === 'cache');
-  const isHuescaCurrentSeason = standingsKey === 'escuela-huesca' || standingsKey === 'escuela-huesca::Juvenil A';
+  const isHuescaCurrentSeason = standingsKey === 'escuela-huesca' || standingsKey === 'escuela-huesca::juvenil a';
   const hasStarted = standings.some(row => row.played > 0);
   const isPreseasonTable = hasOfficialData && !hasStarted;
+  const federationDisplayStandings = useMemo(() => {
+    if (!federationStandingsUrl) return standings;
+    return [...standings]
+      .sort((a, b) => a.team.localeCompare(b.team, 'es', { sensitivity: 'base' }))
+      .map((row, index) => ({ ...row, pos: index + 1 }));
+  }, [standings, federationStandingsUrl]);
+  const activeCompetitionStandings = federationStandingsUrl ? federationDisplayStandings : standings;
 
   const columns = useMemo(() => [
     columnHelper.accessor('pos', {
@@ -538,7 +572,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
       cell: info => (
         <div className="flex items-center gap-2 min-w-0">
           <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} />
-          <TeamName name={info.getValue()} myTeam={resolvedMyTeam} className="text-sm font-medium text-slate-700 truncate" />
+          <TeamName name={info.getValue()} myTeam={highlightedTeamName} className="text-sm font-medium text-slate-700 truncate" />
         </div>
       ),
     }),
@@ -599,7 +633,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
         return last ? <span className={`font-bold ${color}`}>{text}</span> : <span>-</span>;
       },
     }),
-  ], [resolvedMyTeam]);
+  ], [highlightedTeamName]);
 
   const extendedColumns = useMemo(() => [
     columnHelper.accessor('pos', {
@@ -612,7 +646,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
       cell: info => (
         <div className="flex items-center gap-2 min-w-0">
           <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} />
-          <TeamName name={info.getValue()} myTeam={resolvedMyTeam} className="text-sm font-medium text-slate-700 truncate" />
+          <TeamName name={info.getValue()} myTeam={highlightedTeamName} className="text-sm font-medium text-slate-700 truncate" />
         </div>
       ),
     }),
@@ -662,7 +696,73 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
     }),
   ], []);
 
+  const federationCalendarData = useMemo(() => {
+    if (!federationCalendarUrl) return [];
+    const competitionTeams = new Set(standings.map(team => normalizeTeam(team.team)));
+    const uniqueMatches = new Map<string, {
+      jornada: number;
+      fecha: string;
+      local: string;
+      visitante: string;
+      resultado: string;
+      hora?: string;
+      campo?: string;
+      status?: string;
+    }>();
+
+    const scheduleRows = calendarMatches.length > 0
+      ? calendarMatches.map(match => ({
+        jornada: match.jornada,
+        fecha: match.fecha,
+        local: match.equipo_local,
+        visitante: match.equipo_visitante,
+        resultado: match.resultado || 'vs',
+        hora: undefined,
+        campo: undefined,
+        status: match.resultado ? 'Finished' : 'Upcoming',
+      }))
+      : matches.map(match => ({
+        jornada: Number(match.jornada),
+        fecha: match.date,
+        local: match.localTeam,
+        visitante: match.visitorTeam,
+        resultado: match.score || 'vs',
+        hora: match.hora,
+        campo: match.location,
+        status: match.status,
+      }));
+
+    scheduleRows.forEach(match => {
+      if (!match.local || !match.visitante) return;
+      const jornada = Number(match.jornada);
+      if (!Number.isFinite(jornada)) return;
+      if (!competitionTeams.has(normalizeTeam(match.local)) || !competitionTeams.has(normalizeTeam(match.visitante))) return;
+      const key = `${jornada}|${match.fecha}|${normalizeTeam(match.local)}|${normalizeTeam(match.visitante)}`;
+      uniqueMatches.set(key, {
+        jornada,
+        fecha: match.fecha,
+        local: match.local,
+        visitante: match.visitante,
+        resultado: match.resultado,
+        hora: match.time,
+        campo: match.campo,
+        status: match.status,
+      });
+    });
+
+    return Array.from(uniqueMatches.values()).sort((a, b) => a.jornada - b.jornada || a.fecha.localeCompare(b.fecha));
+  }, [calendarMatches, matches, standings, federationCalendarUrl]);
+
+  const availableJornadas = useMemo(() => {
+    return Array.from(new Set(federationCalendarData.map(match => match.jornada))).sort((a, b) => a - b);
+  }, [federationCalendarData]);
+
+  const visibleJornada = availableJornadas.includes(selectedJornada) ? selectedJornada : (availableJornadas[0] || 1);
+
   const resultsData = useMemo(() => {
+    if (federationCalendarData.length > 0) {
+      return federationCalendarData.filter(match => match.jornada === visibleJornada);
+    }
     if (isHuescaCurrentSeason && isPreseasonTable) {
       return HUESCA_JUVENIL_2627_FIXTURES[resultsLeg];
     }
@@ -679,7 +779,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
         resultado: `${homeGoals}-${awayGoals}`,
       };
     });
-  }, [standings, resultsLeg, isHuescaCurrentSeason, isPreseasonTable]);
+  }, [federationCalendarData, visibleJornada, standings, resultsLeg, isHuescaCurrentSeason, isPreseasonTable]);
 
   const scorersData = useMemo<ScorerRow[]>(() => {
     if (isPreseasonTable) return [];
@@ -714,6 +814,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
   }, [standings, isPreseasonTable]);
 
   const sectionTabs: Array<{ id: CompetitionSection; label: string; icon: string }> = [
+    { id: 'calendario', label: 'Calendario', icon: 'fa-calendar-days' },
     { id: 'clasificacion', label: 'Ver clasificación', icon: 'fa-list-ol' },
     { id: 'resultados', label: 'Ver resultados', icon: 'fa-list-check' },
     { id: 'goleadores', label: 'Tabla goleadores', icon: 'fa-futbol' },
@@ -794,7 +895,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-2">
         {sectionTabs.map((tab) => (
           <button
             key={tab.id}
@@ -909,25 +1010,47 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
       )}
 
       {activeSection === 'clasificacion' && federationStandingsUrl && (
-        <a
-          href={federationStandingsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 hover:border-amber-200 hover:shadow-md transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shrink-0">
-              <i className="fa-solid fa-trophy text-white text-lg"></i>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-amber-400 to-amber-600 shadow-lg">
+                <i className="fa-solid fa-trophy text-white"></i>
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-800">Clasificación oficial · Federación Aragonesa de Fútbol</p>
+                <p className="mt-0.5 text-[11px] font-semibold text-slate-400">Orden alfabético como en el portal federativo</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-black text-slate-800">Clasificación oficial · Federación Aragonesa de Fútbol</p>
-              <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                El portal de la federación bloquea el acceso automático; se abre en una pestaña nueva.
-              </p>
-            </div>
+            <a
+              href={federationStandingsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 transition-colors hover:border-amber-300 hover:text-amber-600"
+            >
+              <i className="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+              Abrir en nueva pestaña
+            </a>
           </div>
-          <i className="fa-solid fa-arrow-up-right-from-square text-slate-300 group-hover:text-amber-500 transition-colors shrink-0"></i>
-        </a>
+
+          <div className="bg-white p-2 sm:p-3">
+            <DataTable<StandingTeam>
+              data={federationDisplayStandings}
+              columns={columns}
+              sortable
+              compact
+              emptyMessage="No hay datos de clasificación"
+              emptyIcon="fa-solid fa-trophy"
+              rowClassName={(row) =>
+                isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#c8102e]/10 hover:bg-[#c8102e]/15 border-l-4 border-[#c8102e]' : ''
+              }
+              hideToolbar
+            />
+          </div>
+
+          <p className="border-t border-slate-100 px-5 py-3 text-[11px] font-semibold text-slate-400">
+            Consulta oficial de la competición. Para abrir el portal federativo, utiliza «Abrir en nueva pestaña».
+          </p>
+        </section>
       )}
 
       {activeSection === 'clasificacion' && !federationStandingsUrl && (
@@ -939,49 +1062,104 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
           emptyMessage="No hay datos de clasificación"
           emptyIcon="fa-solid fa-trophy"
           rowClassName={(row) =>
-            resolvedMyTeam && row.team.toLowerCase().includes(resolvedMyTeam.toLowerCase()) ? 'bg-violet-50/50 hover:bg-violet-50' : ''
+            isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#c8102e]/10 hover:bg-[#c8102e]/15 border-l-4 border-[#c8102e]' : ''
           }
           hideToolbar
         />
       )}
 
-      {activeSection === 'resultados' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setResultsLeg('primera')}
-              className={`h-10 rounded-lg text-sm font-bold transition-all ${
-                resultsLeg === 'primera' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-              }`}
-            >
-              Primera Vuelta
-            </button>
-            <button
-              onClick={() => setResultsLeg('segunda')}
-              className={`h-10 rounded-lg text-sm font-bold transition-all ${
-                resultsLeg === 'segunda' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-              }`}
-            >
-              Segunda Vuelta
-            </button>
+      {activeSection === 'calendario' && federationCalendarUrl && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c8102e] text-white shadow-lg">
+              <i className="fa-solid fa-calendar-days"></i>
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-800">Calendario oficial · Federación Aragonesa de Fútbol</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-slate-400">Jornadas y partidos de la Liga Nacional Juvenil · Grupo 6</p>
+            </div>
           </div>
+          <a
+            href={federationCompetitionUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 transition-colors hover:border-[#c8102e]/50 hover:text-[#c8102e]"
+          >
+            <i className="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+            Ver competición oficial
+          </a>
+        </section>
+      )}
+
+      {(activeSection === 'resultados' || activeSection === 'calendario') && (
+        <div className="space-y-4">
+          {federationCalendarData.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+              <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500" htmlFor="competition-jornada">
+                Jornada
+                <select
+                  id="competition-jornada"
+                  value={visibleJornada}
+                  onChange={(event) => setSelectedJornada(Number(event.target.value))}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none focus:border-emerald-500"
+                >
+                  {availableJornadas.map(jornada => (
+                    <option key={jornada} value={jornada}>Jornada {jornada}</option>
+                  ))}
+                </select>
+              </label>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {resultsData.length} partidos · calendario oficial
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setResultsLeg('primera')}
+                className={`h-10 rounded-lg text-sm font-bold transition-all ${
+                  resultsLeg === 'primera' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                Primera Vuelta
+              </button>
+              <button
+                onClick={() => setResultsLeg('segunda')}
+                className={`h-10 rounded-lg text-sm font-bold transition-all ${
+                  resultsLeg === 'segunda' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                Segunda Vuelta
+              </button>
+            </div>
+          )}
           <div className="grid gap-2">
-            {resultsData.map((match) => (
-              <div key={`${match.jornada}-${match.local}`} className="grid grid-cols-[72px_1fr_auto_1fr] items-center gap-3 bg-white border border-slate-100 rounded-xl px-3 py-2.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  J{match.jornada}{'fecha' in match ? ` · ${match.fecha}` : ''}
-                </span>
-                <div className="flex items-center gap-2 min-w-0 justify-end text-right">
-                  <TeamName name={match.local} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate" />
-                  <TeamCrest name={match.local} size="w-6 h-6" />
+            {resultsData.map((match) => {
+              const matchTime = 'hora' in match ? match.hora : undefined;
+              const matchLocation = 'campo' in match ? match.campo : undefined;
+              const matchDate = 'fecha' in match ? match.fecha : '';
+              const isPrimaryMatch = isMyTeamName(match.local, highlightedTeamName) || isMyTeamName(match.visitante, highlightedTeamName);
+              return (
+                <div key={`${match.jornada}-${match.local}`} className={`grid gap-3 rounded-xl border bg-white px-3 py-3 md:grid-cols-[90px_minmax(0,1fr)_minmax(150px,210px)_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#c8102e]/50 bg-[#c8102e]/10 ring-1 ring-inset ring-[#c8102e]/40' : 'border-slate-100'}`}>
+                  <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
+                    <span>J{match.jornada}</span>
+                    <span>{matchDate}</span>
+                  </div>
+                  <div className="flex min-w-0 items-center justify-end gap-2 text-right">
+                    <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
+                    <TeamCrest name={match.local} size="w-7 h-7" />
+                  </div>
+                  <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-3 md:py-0">
+                    <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-black uppercase tabular-nums text-white">{match.resultado}</span>
+                    <span className="text-[10px] font-bold text-slate-500">{matchTime || 'Hora pendiente'}</span>
+                    <span className="max-w-full truncate text-[10px] font-semibold text-slate-400" title={matchLocation || 'Campo pendiente'}>{matchLocation || 'Campo pendiente'}</span>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <TeamCrest name={match.visitante} size="w-7 h-7" />
+                    <TeamName name={match.visitante} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
+                  </div>
                 </div>
-                <span className="px-2 py-1 rounded-md bg-slate-800 text-white text-xs font-black tabular-nums">{match.resultado}</span>
-                <div className="flex items-center gap-2 min-w-0">
-                  <TeamCrest name={match.visitante} size="w-6 h-6" />
-                  <TeamName name={match.visitante} myTeam={resolvedMyTeam} className="text-sm font-semibold text-slate-700 truncate" />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -994,13 +1172,13 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
             </div>
           )}
           {scorersData.map((row) => (
-            <div key={row.pos} className="grid grid-cols-[44px_1fr_auto_90px] items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-b-0">
+            <div key={row.pos} className={`grid grid-cols-[44px_1fr_auto_90px] items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-b-0 ${isMyTeamName(row.equipo, highlightedTeamName) ? 'border-l-4 border-[#c8102e] bg-[#c8102e]/10' : ''}`}>
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.jugador}</p>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <TeamCrest name={row.equipo} size="w-5 h-5" />
-                  <TeamName name={row.equipo} myTeam={resolvedMyTeam} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                  <TeamName name={row.equipo} myTeam={highlightedTeamName} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
                 </div>
               </div>
               <span className="text-[11px] font-bold text-slate-500 tabular-nums whitespace-nowrap">{row.partidos} PJ</span>
@@ -1018,13 +1196,13 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
             </div>
           )}
           {keepersData.map((row) => (
-            <div key={row.pos} className="grid grid-cols-[44px_1fr_auto] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0">
+            <div key={row.pos} className={`grid grid-cols-[44px_1fr_auto] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 ${isMyTeamName(row.equipo, highlightedTeamName) ? 'border-l-4 border-[#c8102e] bg-[#c8102e]/10' : ''}`}>
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.portero}</p>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <TeamCrest name={row.equipo} size="w-5 h-5" />
-                  <TeamName name={row.equipo} myTeam={resolvedMyTeam} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                  <TeamName name={row.equipo} myTeam={highlightedTeamName} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
                 </div>
               </div>
               <div className="text-right">
@@ -1042,16 +1220,16 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
             <thead>
               <tr className="bg-slate-50">
                 <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-2">Equipo</th>
-                {standings.map((team) => (
+                {activeCompetitionStandings.map((team) => (
                   <th key={`head-${team.pos}`} className="text-center text-[10px] font-black text-slate-400 px-2 py-2">{team.pos}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {standings.map((team, rowIndex) => (
-                <tr key={`row-${team.pos}`} className="border-t border-slate-50">
-                  <td className="px-3 py-2 whitespace-nowrap"><TeamName name={team.team} myTeam={resolvedMyTeam} className="text-[11px] font-semibold text-slate-700" /></td>
-                  {standings.map((rival, colIndex) => {
+              {activeCompetitionStandings.map((team, rowIndex) => (
+                <tr key={`row-${team.pos}`} className={`border-t border-slate-50 ${isMyTeamName(team.team, highlightedTeamName) ? 'bg-[#c8102e]/10' : ''}`}>
+                  <td className={`px-3 py-2 whitespace-nowrap ${isMyTeamName(team.team, highlightedTeamName) ? 'border-l-4 border-[#c8102e] bg-[#c8102e]/10' : ''}`}><TeamName name={team.team} myTeam={highlightedTeamName} className="text-[11px] font-semibold text-slate-700" /></td>
+                  {activeCompetitionStandings.map((rival, colIndex) => {
                     if (rowIndex === colIndex) {
                       return <td key={`cell-${team.pos}-${rival.pos}`} className="text-center text-[10px] text-slate-300">-</td>;
                     }
@@ -1067,10 +1245,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], myT
 
       {activeSection === 'extendida' && (
         <DataTable<StandingTeam>
-          data={standings}
+          data={activeCompetitionStandings}
           columns={extendedColumns}
           sortable
           compact
+          rowClassName={(row) => isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#c8102e]/10 hover:bg-[#c8102e]/15 border-l-4 border-[#c8102e]' : ''}
           emptyMessage="No hay datos de clasificación extendida"
           emptyIcon="fa-solid fa-table-list"
           hideToolbar

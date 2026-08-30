@@ -13,38 +13,20 @@ const CAMPO_NUMERO_10: React.FC<{
   onChange: (v: number | undefined) => void;
 }> = ({ label, value, onChange }) => {
   const clamp = (v: number) => Math.min(10, Math.max(0, v));
-  const paso = (delta: number) => onChange(clamp((value ?? 0) + delta));
 
   return (
     <div>
       <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{label} (0-10)</label>
-      <div className="flex items-stretch gap-1.5">
-        <button
-          type="button"
-          onClick={() => paso(-0.5)}
-          className="w-10 shrink-0 border border-slate-200 rounded-xl text-slate-500 font-black hover:bg-slate-50 active:bg-slate-100 focus:outline-none focus:border-[var(--accent)]"
-          aria-label={`Restar ${label}`}
-        >
-          <i className="fa-solid fa-minus text-xs"></i>
-        </button>
-        <input
-          type="number"
-          min={0}
-          max={10}
-          step={0.5}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value === '' ? undefined : clamp(Number(e.target.value)))}
-          className="w-full min-w-0 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-center focus:outline-none focus:border-[var(--accent)]"
-        />
-        <button
-          type="button"
-          onClick={() => paso(0.5)}
-          className="w-10 shrink-0 border border-slate-200 rounded-xl text-slate-500 font-black hover:bg-slate-50 active:bg-slate-100 focus:outline-none focus:border-[var(--accent)]"
-          aria-label={`Sumar ${label}`}
-        >
-          <i className="fa-solid fa-plus text-xs"></i>
-        </button>
-      </div>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={10}
+        step={0.5}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? undefined : clamp(Number(e.target.value)))}
+        className="w-full min-w-0 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-center focus:outline-none focus:border-[var(--accent)]"
+      />
     </div>
   );
 };
