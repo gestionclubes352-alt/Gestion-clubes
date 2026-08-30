@@ -162,14 +162,14 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onSectionChange, u
       <nav className="fixed bottom-0 left-0 right-0 z-[100] lg:hidden">
         {/* Safe area background para notch/home indicator */}
         <div className="bg-white/95 dark:bg-[var(--surface-0)]/95 backdrop-blur-xl border-t border-slate-200 dark:border-[var(--border-soft)] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-          <div className="flex items-stretch justify-around px-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
+          <div className="flex items-stretch justify-around px-1" style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
             {PRIMARY_ITEMS.filter(item => isVisible(item.id)).map((item) => {
               const isActive = activeSection === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-all duration-200 ${
+                  className={`flex-1 min-w-0 min-h-[56px] flex flex-col items-center justify-center gap-0.5 py-2.5 transition-all duration-200 ${
                     isActive ? 'text-[var(--accent)]' : 'text-slate-400 dark:text-slate-500'
                   }`}
                 >
@@ -178,7 +178,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onSectionChange, u
                   }`}>
                     <i className={`fa-solid ${item.icon} ${isActive ? 'text-base' : 'text-sm'} transition-all`}></i>
                   </div>
-                  <span className={`text-[10px] font-bold leading-none ${isActive ? 'font-black' : 'font-semibold'}`}>
+                  <span className={`text-[10px] font-bold leading-none truncate max-w-full px-0.5 ${isActive ? 'font-black' : 'font-semibold'}`}>
                     {t(item.labelKey)}
                   </span>
                 </button>
@@ -188,7 +188,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onSectionChange, u
             {/* Botón "Más" */}
             <button
               onClick={() => setIsMoreOpen(!isMoreOpen)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-all duration-200 ${
+              className={`flex-1 min-w-0 min-h-[56px] flex flex-col items-center justify-center gap-0.5 py-2.5 transition-all duration-200 ${
                 isMoreOpen || isSecondaryActive ? 'text-[var(--accent)]' : 'text-slate-400 dark:text-slate-500'
               }`}
             >
@@ -197,7 +197,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onSectionChange, u
               }`}>
                 <i className={`fa-solid ${isMoreOpen ? 'fa-xmark' : 'fa-ellipsis'} text-sm transition-all`}></i>
               </div>
-              <span className={`text-[10px] font-bold leading-none ${isMoreOpen || isSecondaryActive ? 'font-black' : 'font-semibold'}`}>
+              <span className={`text-[10px] font-bold leading-none truncate max-w-full px-0.5 ${isMoreOpen || isSecondaryActive ? 'font-black' : 'font-semibold'}`}>
                 {t('sidebar.more', 'Más')}
               </span>
             </button>
