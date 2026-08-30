@@ -104,15 +104,15 @@ const HomeSectionsView: React.FC = () => {
   const { isVisible, isSectionVisible } = useMenuVisibility();
 
   return (
-    <div className="min-h-full w-full px-4 pt-4 pb-24 md:px-6 md:pt-5 lg:px-8 lg:pt-6 2xl:px-10 2xl:pt-6 3xl:px-12 3xl:pt-6">
-      <div className="mb-5 md:mb-6 lg:mb-7">
-        <p className="mt-2 text-sm md:text-base lg:text-lg 2xl:text-lg 3xl:text-xl font-bold text-slate-400 uppercase tracking-[0.2em]">
+    <div className="min-h-full w-full px-3 pt-4 pb-28 sm:px-4 sm:pb-24 md:px-6 md:pt-5 lg:px-8 lg:pt-6 2xl:px-10 2xl:pt-6 3xl:px-12 3xl:pt-6">
+      <div className="mb-4 sm:mb-5 md:mb-6 lg:mb-7">
+        <p className="mt-2 text-xs sm:text-sm md:text-base lg:text-lg 2xl:text-lg 3xl:text-xl font-bold text-slate-400 uppercase tracking-[0.2em]">
           {t('sidebar.homeLabel', 'Inicio rápido')}
         </p>
       </div>
 
       {/* Grid responsivo adaptado a todos los tamaños */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-3.5 sm:gap-4 md:gap-4.5 lg:gap-5 2xl:gap-6 3xl:gap-7">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-3 sm:gap-4 md:gap-4.5 lg:gap-5 2xl:gap-6 3xl:gap-7">
         {HOME_SECTIONS.filter(section => isSectionVisible(section.key)).map(section => {
           const visibleItems = section.items.filter(item => isVisible(item.menuId));
           if (visibleItems.length === 0) return null;
@@ -120,26 +120,26 @@ const HomeSectionsView: React.FC = () => {
           return (
             <div
               key={section.key}
-              className={`rounded-2xl border ${section.borderColor} bg-slate-900/70 p-4 md:p-5 lg:p-5 2xl:p-6 3xl:p-7 shadow-sm hover:shadow-lg transition-all backdrop-blur-sm flex flex-col`}
+              className={`rounded-2xl border ${section.borderColor} bg-slate-900/70 p-4 sm:p-4 md:p-5 lg:p-5 2xl:p-6 3xl:p-7 shadow-sm hover:shadow-lg transition-all backdrop-blur-sm flex flex-col`}
             >
-              <div className="flex items-center gap-2.5 mb-3.5 md:mb-4">
-                <div className={`w-10 h-10 md:w-11 md:h-11 lg:w-10 lg:h-10 2xl:w-11 2xl:h-11 3xl:w-12 3xl:h-12 rounded-lg md:rounded-xl bg-gradient-to-br ${section.color} text-white flex items-center justify-center shadow-sm flex-shrink-0`}>
-                  <i className={`fa-solid ${section.icon} text-xs md:text-sm lg:text-xs 2xl:text-sm 3xl:text-base`}></i>
+              <div className="flex items-center gap-2.5 mb-3 sm:mb-3.5 md:mb-4">
+                <div className={`w-11 h-11 sm:w-10 sm:h-10 md:w-11 md:h-11 lg:w-10 lg:h-10 2xl:w-11 2xl:h-11 3xl:w-12 3xl:h-12 rounded-xl bg-gradient-to-br ${section.color} text-white flex items-center justify-center shadow-sm flex-shrink-0`}>
+                  <i className={`fa-solid ${section.icon} text-sm sm:text-xs md:text-sm lg:text-xs 2xl:text-sm 3xl:text-base`}></i>
                 </div>
-                <h3 className={`text-xs md:text-sm lg:text-sm 2xl:text-base 3xl:text-lg font-black uppercase tracking-widest ${section.textColor} line-clamp-2`}>
+                <h3 className={`text-sm sm:text-xs md:text-sm lg:text-sm 2xl:text-base 3xl:text-lg font-black uppercase tracking-widest ${section.textColor} line-clamp-2`}>
                   {t(section.titleKey)}
                 </h3>
               </div>
 
-              <div className="space-y-1.5 md:space-y-1.5 lg:space-y-2 2xl:space-y-2 3xl:space-y-2.5 flex-1">
+              <div className="space-y-2 sm:space-y-1.5 md:space-y-1.5 lg:space-y-2 2xl:space-y-2 3xl:space-y-2.5 flex-1">
                 {visibleItems.map(item => (
                   <button
                     key={item.menuId}
                     onClick={() => navigate(item.route)}
-                    className="w-full flex items-center gap-2.5 px-3 md:px-3.5 lg:px-4 2xl:px-4 py-2 md:py-2 lg:py-2.5 2xl:py-2.5 3xl:py-3 rounded-lg md:rounded-xl text-left bg-white/10 hover:bg-white/15 border border-white/10 hover:border-white/20 transition-all group"
+                    className="w-full flex items-center gap-3 sm:gap-2.5 px-3.5 sm:px-3 md:px-3.5 lg:px-4 2xl:px-4 py-3 sm:py-2 md:py-2 lg:py-2.5 2xl:py-2.5 3xl:py-3 rounded-xl text-left bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/10 hover:border-white/20 transition-all group min-h-[44px]"
                   >
-                    <i className={`fa-solid ${item.icon} text-xs md:text-xs lg:text-xs 2xl:text-sm 3xl:text-base ${section.textColor} opacity-90 group-hover:opacity-100 flex-shrink-0`}></i>
-                    <span className="text-xs md:text-sm lg:text-sm 2xl:text-base 3xl:text-lg font-semibold text-white/90 group-hover:text-white truncate">
+                    <i className={`fa-solid ${item.icon} text-sm sm:text-xs md:text-xs lg:text-xs 2xl:text-sm 3xl:text-base ${section.textColor} opacity-90 group-hover:opacity-100 flex-shrink-0`}></i>
+                    <span className="text-sm sm:text-xs md:text-sm lg:text-sm 2xl:text-base 3xl:text-lg font-semibold text-white/90 group-hover:text-white truncate">
                       {item.label || t(item.labelKey!)}
                     </span>
                   </button>

@@ -216,7 +216,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
           <div className="relative" ref={teamFilterRef}>
             <button
               onClick={() => setIsTeamFilterOpen(prev => !prev)}
-              className={`flex items-center gap-2 px-2.5 md:px-3 py-2 rounded-xl border transition-all duration-300 ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-2.5 md:px-3 py-2 rounded-xl border transition-all duration-300 ${
                 selectedTeams.length > 0
                   ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)]'
                   : 'bg-slate-50 dark:bg-[var(--surface-1)] border-slate-200 dark:border-[var(--border-soft)] text-slate-600 dark:text-slate-200 hover:border-[var(--accent)]/40'
@@ -237,7 +237,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
               }`}>
                 {selectedTeams.length}
               </span>
-              <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-200 ${isTeamFilterOpen ? 'rotate-180' : ''}`}></i>
+              <i className={`hidden sm:inline fa-solid fa-chevron-down text-[10px] transition-transform duration-200 ${isTeamFilterOpen ? 'rotate-180' : ''}`}></i>
             </button>
 
             {isTeamFilterOpen && (
