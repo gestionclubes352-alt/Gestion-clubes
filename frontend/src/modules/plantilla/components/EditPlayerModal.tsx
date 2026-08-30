@@ -32,6 +32,8 @@ interface EditPlayerModalProps {
   clubes?: Club[];
   onClose: () => void;
   onSave: (player: Player, originalId?: Player['id']) => Promise<void>;
+  /** Si es true, el modal se muestra en modo solo lectura: sin edición ni botón de guardar */
+  readOnly?: boolean;
 }
 
 const isPersistedImage = (value?: string | null): value is string =>
@@ -104,7 +106,7 @@ const createCompressedPhotoDataUrl = (file: File): Promise<string> =>
     image.src = objectUrl;
   });
 
-const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, events, matches, clubes, onClose, onSave }) => {
+const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equipos, events, matches, clubes, onClose, onSave, readOnly = false }) => {
   const { t } = useTranslation();
   const isHuesca = clubId === 'escuela-huesca' || player.club?.toUpperCase().includes('HUESCA'); // v2
   const initialPhotoUrl = isPersistedImage(player.fotoUrl) ? player.fotoUrl : '';
@@ -571,7 +573,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div
+      className="fixed inset-0 bg-black/50 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div ref={modalRef} className={`bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col transition-all duration-300 ${isFullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-5xl max-h-[95dvh] sm:max-h-[85dvh]'}`}>
         <div className="p-3 sm:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
@@ -583,6 +588,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           </button>
         </div>
 
+        <fieldset disabled={readOnly} className="contents">
         <div className="p-3 sm:p-4 overflow-y-auto flex-1" data-export-scroll ref={exportRef}>
           {/* === CABECERA: Foto + Datos básicos === */}
           <div className="flex flex-col sm:flex-row gap-4 mb-4">
@@ -597,8 +603,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   onChange={handleFileChange}
                 />
                 <div
-                  onClick={triggerFileInput}
-                  className="relative w-28 h-32 rounded-2xl border-2 border-dashed border-[var(--accent)]/20 flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all overflow-hidden group shadow-inner"
+                  onClick={readOnly ? undefined : triggerFileInput}
+                  className={`relative w-28 h-32 rounded-2xl border-2 border-dashed border-[var(--accent)]/20 flex flex-col items-center justify-center bg-slate-50 transition-all overflow-hidden group shadow-inner ${readOnly ? '' : 'cursor-pointer hover:bg-slate-100'}`}
                 >
                   {preview ? (
                     <img loading="lazy" decoding="async"
@@ -613,12 +619,14 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     </>
                   )}
                 </div>
+                {!readOnly && (
                 <div
                   onClick={triggerFileInput}
                   className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white shadow-lg cursor-pointer hover:bg-red-700 transition-colors border-2 border-white text-xs"
                 >
                   <i className="fa-solid fa-plus text-[10px]"></i>
                 </div>
+                )}
               </div>
             </div>
 
@@ -1137,6 +1145,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             </Suspense>
           )}
         </div>
+        </fieldset>
 
         <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-center gap-3 sticky bottom-0">
           <div className="grid grid-cols-3 sm:contents gap-3">
@@ -1163,6 +1172,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               {t('editPlayer.exportPdf')}
             </button>
           </div>
+          {!readOnly && (
           <button
             disabled={isSaving || !formData.nombre?.trim()}
             onClick={handleSave}
@@ -1180,6 +1190,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </>
             )}
           </button>
+          )}
         </div>
       </div>
     </div>

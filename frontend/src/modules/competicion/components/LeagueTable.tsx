@@ -37,6 +37,8 @@ interface LeagueTableProps {
   clubId?: string;
   /** Nombre del club real, para poder identificar clubs con datos hardcodeados (ej. Huesca) aunque su id de Supabase no coincida con el id demo. */
   clubName?: string;
+  /** Oculta el selector de sub-equipo (ej. para el rol Jugador, que solo puede ver su propio equipo). */
+  hideTeamFilter?: boolean;
 }
 
 interface ScorerRow {
@@ -53,8 +55,7 @@ type CompetitionSection =
   | 'resultados'
   | 'goleadores'
   | 'porteros'
-  | 'cruzada'
-  | 'extendida';
+  | 'cruzada';
 
 type OfficialStandingRow = {
   pos: number;
@@ -64,6 +65,17 @@ type OfficialStandingRow = {
   won: number;
   drawn: number;
   lost: number;
+};
+
+type CalendarDisplayMatch = {
+  jornada: number;
+  fecha: string;
+  local: string;
+  visitante: string;
+  resultado: string;
+  hora?: string;
+  campo?: string;
+  status?: string;
 };
 
 const HUESCA_JUVENIL_2627_TEAMS = [
@@ -225,14 +237,17 @@ const OFFICIAL_SCORERS_BY_CLUB: Record<string, Omit<ScorerRow, 'pos'>[]> = {
  */
 const FEDERATION_STANDINGS_URL_BY_TEAM: Record<string, string> = {
   'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisClasificacion?cod_primaria=1000120&codjornada=1&codcompeticion=23183382&codgrupo=23183383&codjornada=1',
+  'escuela-huesca::primer equipo': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisClasificacion?cod_primaria=1000120&codjornada=1&codcompeticion=23183382&codgrupo=23183383&codjornada=1',
 };
 
 const FEDERATION_CALENDAR_URL_BY_TEAM: Record<string, string> = {
   'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisCalendario_Vis?cod_primaria=1000120&codtemporada=22&codcompeticion=23183382&codgrupo=23183383&CodJornada=1',
+  'escuela-huesca::primer equipo': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_VisCalendario_Vis?cod_primaria=1000120&codtemporada=22&codcompeticion=23183382&codgrupo=23183383&CodJornada=1',
 };
 
 const FEDERATION_COMPETITION_URL_BY_TEAM: Record<string, string> = {
   'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_CmpJornada?cod_primaria=1000120&CodCompeticion=23183382&CodGrupo=23183383&CodTemporada=22&cod_agrupacion=&CodJornada=1&Sch_Tipo_Juego=1',
+  'escuela-huesca::primer equipo': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_CmpJornada?cod_primaria=1000120&CodCompeticion=23183382&CodGrupo=23183383&CodTemporada=22&cod_agrupacion=&CodJornada=1&Sch_Tipo_Juego=1',
 };
 
 const normalizeTeam = (name: string) => name
@@ -250,10 +265,11 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/\s+/g, ' ');
 
 const PRIMARY_TEAM_NAME = 'IPC LA ESCUELA';
+const PRIMARY_TEAM_ALIASES = new Set(['IPC LA ESCUELA', 'IPC ESCUELA'].map(normalizeTeam));
 
 const buildOfficialStandings = (teams: CompetitionTeam[], clubId: string): StandingTeam[] => {
   let officialData = OFFICIAL_STANDINGS_BY_CLUB[clubId];
-  if (clubId === 'escuela-huesca' || clubId === 'escuela-huesca::juvenil a') {
+  if (clubId === 'escuela-huesca' || clubId === 'escuela-huesca::juvenil a' || clubId === 'escuela-huesca::primer equipo') {
     officialData = HUESCA_JUVENIL_2627_STANDINGS;
   } else if (clubId.startsWith('escuela-huesca::')) {
     officialData = [];
@@ -398,7 +414,10 @@ const FormBadge: React.FC<{ result: 'W' | 'D' | 'L' }> = ({ result }) => {
 
 const isMyTeamName = (name: string, myTeam: string): boolean => {
   if (!myTeam) return false;
-  return normalizeTeam(name).includes(normalizeTeam(myTeam));
+  const normalizedName = normalizeTeam(name);
+  const normalizedMyTeam = normalizeTeam(myTeam);
+  if (PRIMARY_TEAM_ALIASES.has(normalizedName) && PRIMARY_TEAM_ALIASES.has(normalizedMyTeam)) return true;
+  return normalizedName.includes(normalizedMyTeam);
 };
 
 const TeamName: React.FC<{ name: string; myTeam: string; className?: string }> = ({ name, myTeam, className = '' }) => {
@@ -425,11 +444,10 @@ const TeamCrest: React.FC<{ name: string; logoUrl?: string; size?: string }> = (
 
 const columnHelper = createColumnHelper<StandingTeam>();
 
-const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName }) => {
+const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName, hideTeamFilter = false }) => {
   const [useAI, setUseAI] = useState(true);
   const [activeSection, setActiveSection] = useState<CompetitionSection>('clasificacion');
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
-  const [selectedJornada, setSelectedJornada] = useState(1);
   const [selectedEquipo, setSelectedEquipo] = useState<string>('TODOS');
 
   // Obtener el club activo para aislar datos por club. `clubId` (club real de Supabase) tiene
@@ -438,7 +456,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   // para poder reutilizar los datos hardcodeados de esa escuela.
   const { selectedTeam: currentTeam } = useTeam();
   const isRealHuescaClub = !!clubName && normalizeTeam(clubName).includes('huesca');
-  const currentClubId = isRealHuescaClub ? 'escuela-huesca' : (clubId || currentTeam?.id || '');
+  const isHuescaClub = isRealHuescaClub
+    || normalizeTeam(String(clubId || '')).includes('huesca')
+    || normalizeTeam(String(currentTeam?.id || '')).includes('huesca');
+  const currentClubId = isHuescaClub ? 'escuela-huesca' : (clubId || currentTeam?.id || '');
 
   // Extraer sub-equipos disponibles (ej: 'Juvenil A', 'Cadete A') para poder filtrar
   const availableEquipos = useMemo(() => {
@@ -458,12 +479,19 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   // Cuando la cabecera ya ha filtrado a un único equipo, `selectedEquipo` sigue en TODOS.
   // En ese caso usamos el único sub-equipo recibido para no mezclar sus fuentes de datos.
   const effectiveSelectedEquipo = useMemo(() => {
+    if (hideTeamFilter) {
+      const ownEquipo = availableEquipos.find(
+        equipo => normalizeTeamLabel(equipo) === normalizeTeamLabel(myTeamName || currentTeam?.name || '')
+      );
+      if (ownEquipo) return ownEquipo;
+      return availableEquipos.length === 1 ? availableEquipos[0] : 'TODOS';
+    }
     const selectedIsAvailable = availableEquipos.some(
       equipo => normalizeTeamLabel(equipo) === normalizeTeamLabel(selectedEquipo)
     );
     if (selectedEquipo !== 'TODOS' && selectedIsAvailable) return selectedEquipo;
     return availableEquipos.length === 1 ? availableEquipos[0] : 'TODOS';
-  }, [availableEquipos, selectedEquipo]);
+  }, [availableEquipos, selectedEquipo, hideTeamFilter, myTeamName, currentTeam?.name]);
 
   // Equipos filtrados por sub-equipo seleccionado
   const filteredTeams = useMemo(() => {
@@ -543,14 +571,15 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   const federationStandingsUrl = FEDERATION_STANDINGS_URL_BY_TEAM[standingsKey];
   const federationCalendarUrl = FEDERATION_CALENDAR_URL_BY_TEAM[standingsKey];
   const federationCompetitionUrl = FEDERATION_COMPETITION_URL_BY_TEAM[standingsKey] || federationCalendarUrl;
-  const highlightedTeamName = federationStandingsUrl ? PRIMARY_TEAM_NAME : resolvedMyTeam;
+  const isHuescaOfficialClub = currentClubId === 'escuela-huesca' || isHuescaClub;
+  const highlightedTeamName = isHuescaOfficialClub ? PRIMARY_TEAM_NAME : resolvedMyTeam;
 
   const officialStandings = useMemo(() => buildOfficialStandings(filteredTeams, standingsKey), [filteredTeams, standingsKey]);
   const hasOfficialData = officialStandings.length > 0;
   const hasAIData = useAI && aiStandings.length > 0 && !hasOfficialData && !hasRealMatchData;
   const standings = hasOfficialData ? officialStandings : (hasRealMatchData ? matchStandings : (hasAIData ? aiStandings : matchStandings));
   const isAISource = hasAIData && (geminiSource === 'gemini' || geminiSource === 'cache');
-  const isHuescaCurrentSeason = standingsKey === 'escuela-huesca' || standingsKey === 'escuela-huesca::juvenil a';
+  const isHuescaCurrentSeason = standingsKey === 'escuela-huesca' || standingsKey === 'escuela-huesca::juvenil a' || standingsKey === 'escuela-huesca::primer equipo';
   const hasStarted = standings.some(row => row.played > 0);
   const isPreseasonTable = hasOfficialData && !hasStarted;
   const federationDisplayStandings = useMemo(() => {
@@ -635,82 +664,20 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     }),
   ], [highlightedTeamName]);
 
-  const extendedColumns = useMemo(() => [
-    columnHelper.accessor('pos', {
-      header: '#',
-      size: 52,
-      cell: info => <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold mx-auto bg-slate-50 text-slate-400">{info.getValue()}</div>,
-    }),
-    columnHelper.accessor('team', {
-      header: 'Equipo',
-      cell: info => (
-        <div className="flex items-center gap-2 min-w-0">
-          <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} />
-          <TeamName name={info.getValue()} myTeam={highlightedTeamName} className="text-sm font-medium text-slate-700 truncate" />
-        </div>
-      ),
-    }),
-    columnHelper.accessor('played', {
-      header: 'PJ',
-      size: 54,
-      cell: info => <span className="text-sm text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('won', {
-      header: 'PG',
-      size: 54,
-      cell: info => <span className="text-sm text-emerald-600 font-semibold tabular-nums">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('drawn', {
-      header: 'PE',
-      size: 54,
-      cell: info => <span className="text-sm text-amber-500 font-semibold tabular-nums">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('lost', {
-      header: 'PP',
-      size: 54,
-      cell: info => <span className="text-sm text-red-400 font-semibold tabular-nums">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('goalsFor', {
-      header: 'GF',
-      size: 54,
-      cell: info => <span className="text-sm text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('goalsAgainst', {
-      header: 'GC',
-      size: 54,
-      cell: info => <span className="text-sm text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
-    }),
-    columnHelper.display({
-      id: 'gd',
-      header: 'DG',
-      size: 54,
-      cell: ({ row }) => {
-        const gd = row.original.goalsFor - row.original.goalsAgainst;
-        return <span className={`text-sm font-semibold tabular-nums ${gd >= 0 ? 'text-emerald-600' : 'text-red-400'}`}>{gd}</span>;
-      },
-    }),
-    columnHelper.accessor('points', {
-      header: 'Pts',
-      size: 58,
-      cell: info => <span className="text-sm font-bold tabular-nums text-slate-700">{info.getValue()}</span>,
-    }),
-  ], []);
-
   const federationCalendarData = useMemo(() => {
-    if (!federationCalendarUrl) return [];
+    // Si la clasificación solo contiene al equipo propio, mostramos sus partidos.
+    // Cuando contiene la competición completa, mostramos todos los enfrentamientos.
     const competitionTeams = new Set(standings.map(team => normalizeTeam(team.team)));
-    const uniqueMatches = new Map<string, {
-      jornada: number;
-      fecha: string;
-      local: string;
-      visitante: string;
-      resultado: string;
-      hora?: string;
-      campo?: string;
-      status?: string;
-    }>();
+    const ownTeamAliases = new Set(
+      filteredTeams
+        .flatMap(team => [team.nombre, team.nombreEnFed, team.equipo])
+        .filter((name): name is string => !!name)
+        .map(normalizeTeam)
+    );
+    const hasFullCompetition = standings.length > 1;
+    const uniqueMatches = new Map<string, CalendarDisplayMatch>();
 
-    const scheduleRows = calendarMatches.length > 0
+    const scheduleRows: CalendarDisplayMatch[] = calendarMatches.length > 0
       ? calendarMatches.map(match => ({
         jornada: match.jornada,
         fecha: match.fecha,
@@ -727,7 +694,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         local: match.localTeam,
         visitante: match.visitorTeam,
         resultado: match.score || 'vs',
-        hora: match.hora,
+        hora: match.time,
         campo: match.location,
         status: match.status,
       }));
@@ -736,7 +703,12 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       if (!match.local || !match.visitante) return;
       const jornada = Number(match.jornada);
       if (!Number.isFinite(jornada)) return;
-      if (!competitionTeams.has(normalizeTeam(match.local)) || !competitionTeams.has(normalizeTeam(match.visitante))) return;
+      const localName = normalizeTeam(match.local);
+      const visitorName = normalizeTeam(match.visitante);
+      const belongsToCompetition = hasFullCompetition
+        ? competitionTeams.has(localName) && competitionTeams.has(visitorName)
+        : ownTeamAliases.has(localName) || ownTeamAliases.has(visitorName);
+      if (!belongsToCompetition) return;
       const key = `${jornada}|${match.fecha}|${normalizeTeam(match.local)}|${normalizeTeam(match.visitante)}`;
       uniqueMatches.set(key, {
         jornada,
@@ -744,24 +716,22 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         local: match.local,
         visitante: match.visitante,
         resultado: match.resultado,
-        hora: match.time,
+        hora: match.hora,
         campo: match.campo,
         status: match.status,
       });
     });
 
     return Array.from(uniqueMatches.values()).sort((a, b) => a.jornada - b.jornada || a.fecha.localeCompare(b.fecha));
-  }, [calendarMatches, matches, standings, federationCalendarUrl]);
+  }, [calendarMatches, matches, standings, filteredTeams]);
 
   const availableJornadas = useMemo(() => {
     return Array.from(new Set(federationCalendarData.map(match => match.jornada))).sort((a, b) => a - b);
   }, [federationCalendarData]);
 
-  const visibleJornada = availableJornadas.includes(selectedJornada) ? selectedJornada : (availableJornadas[0] || 1);
-
-  const resultsData = useMemo(() => {
+  const resultsData = useMemo<CalendarDisplayMatch[]>(() => {
     if (federationCalendarData.length > 0) {
-      return federationCalendarData.filter(match => match.jornada === visibleJornada);
+      return federationCalendarData;
     }
     if (isHuescaCurrentSeason && isPreseasonTable) {
       return HUESCA_JUVENIL_2627_FIXTURES[resultsLeg];
@@ -774,12 +744,16 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       const awayGoals = (rival.points + i + 1) % 4;
       return {
         jornada: resultsLeg === 'primera' ? i + 1 : i + 12,
+        fecha: '',
         local: team.team,
         visitante: rival.team,
         resultado: `${homeGoals}-${awayGoals}`,
+        hora: undefined,
+        campo: undefined,
+        status: 'Finished',
       };
     });
-  }, [federationCalendarData, visibleJornada, standings, resultsLeg, isHuescaCurrentSeason, isPreseasonTable]);
+  }, [federationCalendarData, standings, resultsLeg, isHuescaCurrentSeason, isPreseasonTable]);
 
   const scorersData = useMemo<ScorerRow[]>(() => {
     if (isPreseasonTable) return [];
@@ -820,7 +794,6 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     { id: 'goleadores', label: 'Tabla goleadores', icon: 'fa-futbol' },
     { id: 'porteros', label: 'Tabla porteros', icon: 'fa-hand' },
     { id: 'cruzada', label: 'Tabla cruzada', icon: 'fa-table-cells-large' },
-    { id: 'extendida', label: 'Versión extendida', icon: 'fa-bars-staggered' },
   ];
 
   // Loading state mientras Gemini carga
@@ -864,7 +837,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   return (
     <div className="space-y-4">
       {/* Filtro por sub-equipo (solo si hay m\u00e1s de uno, ej: Cadete A, Juvenil A) */}
-      {availableEquipos.length > 0 && (
+      {!hideTeamFilter && availableEquipos.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Equipo:</span>
           {availableEquipos.length > 1 && (
@@ -895,7 +868,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
         {sectionTabs.map((tab) => (
           <button
             key={tab.id}
@@ -1095,21 +1068,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         <div className="space-y-4">
           {federationCalendarData.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-              <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500" htmlFor="competition-jornada">
-                Jornada
-                <select
-                  id="competition-jornada"
-                  value={visibleJornada}
-                  onChange={(event) => setSelectedJornada(Number(event.target.value))}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold normal-case tracking-normal text-slate-700 outline-none focus:border-emerald-500"
-                >
-                  {availableJornadas.map(jornada => (
-                    <option key={jornada} value={jornada}>Jornada {jornada}</option>
-                  ))}
-                </select>
-              </label>
+              <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                {activeSection === 'calendario' ? 'Calendario completo' : 'Resultados completos'}
+              </span>
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                {resultsData.length} partidos · calendario oficial
+                {availableJornadas.length} jornadas · {resultsData.length} enfrentamientos · calendario oficial
               </span>
             </div>
           ) : (
@@ -1133,31 +1096,41 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             </div>
           )}
           <div className="grid gap-2">
-            {resultsData.map((match) => {
-              const matchTime = 'hora' in match ? match.hora : undefined;
-              const matchLocation = 'campo' in match ? match.campo : undefined;
-              const matchDate = 'fecha' in match ? match.fecha : '';
+            {resultsData.map((match, index) => {
+              const matchTime = match.hora;
+              const matchLocation = match.campo;
+              const matchDate = match.fecha;
               const isPrimaryMatch = isMyTeamName(match.local, highlightedTeamName) || isMyTeamName(match.visitante, highlightedTeamName);
+              const previousMatch = index > 0 ? resultsData[index - 1] : undefined;
+              const showJornadaHeader = !previousMatch || previousMatch.jornada !== match.jornada;
               return (
-                <div key={`${match.jornada}-${match.local}`} className={`grid gap-3 rounded-xl border bg-white px-3 py-3 md:grid-cols-[90px_minmax(0,1fr)_minmax(150px,210px)_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#c8102e]/50 bg-[#c8102e]/10 ring-1 ring-inset ring-[#c8102e]/40' : 'border-slate-100'}`}>
-                  <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
-                    <span>J{match.jornada}</span>
-                    <span>{matchDate}</span>
+                <React.Fragment key={`${match.jornada}-${match.fecha}-${match.local}-${match.visitante}`}>
+                  {showJornadaHeader && (
+                    <div className="flex items-center gap-3 pt-3 first:pt-0">
+                      <span className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">Jornada {match.jornada}</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{matchDate}</span>
+                    </div>
+                  )}
+                  <div className={`grid gap-3 rounded-xl border bg-white px-3 py-3 md:grid-cols-[90px_minmax(0,1fr)_minmax(150px,210px)_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#c8102e]/50 bg-[#c8102e]/10 ring-1 ring-inset ring-[#c8102e]/40' : 'border-slate-100'}`}>
+                    <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
+                      <span>J{match.jornada}</span>
+                      <span>{matchDate}</span>
+                    </div>
+                    <div className="flex min-w-0 items-center justify-end gap-2 text-right">
+                      <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
+                      <TeamCrest name={match.local} size="w-7 h-7" />
+                    </div>
+                    <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-3 md:py-0">
+                      <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-black uppercase tabular-nums text-white">{match.resultado}</span>
+                      <span className="text-[10px] font-bold text-slate-500">{matchTime || 'Hora pendiente'}</span>
+                      <span className="max-w-full truncate text-[10px] font-semibold text-slate-400" title={matchLocation || 'Campo pendiente'}>{matchLocation || 'Campo pendiente'}</span>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <TeamCrest name={match.visitante} size="w-7 h-7" />
+                      <TeamName name={match.visitante} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
+                    </div>
                   </div>
-                  <div className="flex min-w-0 items-center justify-end gap-2 text-right">
-                    <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
-                    <TeamCrest name={match.local} size="w-7 h-7" />
-                  </div>
-                  <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-3 md:py-0">
-                    <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-black uppercase tabular-nums text-white">{match.resultado}</span>
-                    <span className="text-[10px] font-bold text-slate-500">{matchTime || 'Hora pendiente'}</span>
-                    <span className="max-w-full truncate text-[10px] font-semibold text-slate-400" title={matchLocation || 'Campo pendiente'}>{matchLocation || 'Campo pendiente'}</span>
-                  </div>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <TeamCrest name={match.visitante} size="w-7 h-7" />
-                    <TeamName name={match.visitante} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
-                  </div>
-                </div>
+                </React.Fragment>
               );
             })}
           </div>
@@ -1241,19 +1214,6 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             </tbody>
           </table>
         </div>
-      )}
-
-      {activeSection === 'extendida' && (
-        <DataTable<StandingTeam>
-          data={activeCompetitionStandings}
-          columns={extendedColumns}
-          sortable
-          compact
-          rowClassName={(row) => isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#c8102e]/10 hover:bg-[#c8102e]/15 border-l-4 border-[#c8102e]' : ''}
-          emptyMessage="No hay datos de clasificación extendida"
-          emptyIcon="fa-solid fa-table-list"
-          hideToolbar
-        />
       )}
 
       {/* Footer con info de fuente y grounding sources */}

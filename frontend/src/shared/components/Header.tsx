@@ -21,6 +21,9 @@ interface HeaderProps {
   onToggleAIMode?: () => void;
   onLogout?: () => void;
   teamOptions?: string[];
+  className?: string;
+  showTeamFilter?: boolean;
+  showBrand?: boolean;
 }
 
 const DATA_SOURCE_ICONS: Record<DataSourceType, string> = {
@@ -58,7 +61,7 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isAIMode = false, onToggleAIMode, onLogout, teamOptions = [] }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isAIMode = false, onToggleAIMode, onLogout, teamOptions = [], className = '', showTeamFilter = true, showBrand = true }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -132,7 +135,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
 
   return (
     <header
-      className="app-header-safe fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[var(--surface-0)]/95 backdrop-blur-xl border-b border-slate-200 dark:border-[var(--border-soft)] px-2 sm:px-3 md:px-4 lg:px-8 py-2 md:py-3 flex items-center justify-between gap-2 shadow-sm transition-colors duration-300"
+      className={`app-header-safe fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[var(--surface-0)]/95 backdrop-blur-xl border-b border-slate-200 dark:border-[var(--border-soft)] px-2 sm:px-3 md:px-4 lg:px-8 py-2 md:py-3 flex items-center justify-between gap-2 shadow-sm transition-colors duration-300 ${className}`}
     >
       {/* Lado izquierdo - Botón menú móvil */}
       <div className="flex items-center gap-1.5 md:gap-4 min-w-0">
@@ -159,25 +162,27 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
           </button>
         )}
 
-        {/* Marca separada de la navegación */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 md:gap-3 px-1.5 sm:px-2 md:px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[var(--surface-1)] border border-slate-200 dark:border-[var(--border-soft)] hover:bg-slate-100 dark:hover:bg-[var(--surface-2)] transition-all flex-shrink-0"
-          title="HOME"
-          aria-label="HOME"
-        >
-          <img
-            src={clubLogo}
-            alt={clubName}
-            width={36}
-            height={36}
-            decoding="async"
-            className="w-8 h-8 md:w-9 md:h-9 object-contain drop-shadow-sm"
-          />
-          <span className="hidden sm:inline text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-100 tracking-tight uppercase">
-            {clubName}
-          </span>
-        </button>
+        {/* Marca separada de la navegación (oculta cuando el sidebar ya la muestra) */}
+        {showBrand && (
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 md:gap-3 px-1.5 sm:px-2 md:px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[var(--surface-1)] border border-slate-200 dark:border-[var(--border-soft)] hover:bg-slate-100 dark:hover:bg-[var(--surface-2)] transition-all flex-shrink-0"
+            title="HOME"
+            aria-label="HOME"
+          >
+            <img
+              src={clubLogo}
+              alt={clubName}
+              width={36}
+              height={36}
+              decoding="async"
+              className="w-8 h-8 md:w-9 md:h-9 object-contain drop-shadow-sm"
+            />
+            <span className="hidden sm:inline text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-100 tracking-tight uppercase">
+              {clubName}
+            </span>
+          </button>
+        )}
 
         <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-1 sm:ml-2 md:ml-4">
           <button
@@ -212,7 +217,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
 
       {/* Lado derecho - AI Mode toggle + Toggle tema + Perfil */}
       <div className="flex items-center gap-1 sm:gap-1.5 md:gap-3">
-        {hasTeamOptions && (
+        {showTeamFilter && hasTeamOptions && (
           <div className="relative" ref={teamFilterRef}>
             <button
               onClick={() => setIsTeamFilterOpen(prev => !prev)}

@@ -179,7 +179,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeSection, onSectionChange, u
                     <i className={`fa-solid ${item.icon} ${isActive ? 'text-base' : 'text-sm'} transition-all`}></i>
                   </div>
                   <span className={`text-[10px] font-bold leading-none truncate max-w-full px-0.5 ${isActive ? 'font-black' : 'font-semibold'}`}>
-                    {t(item.labelKey)}
+                    {t(item.id === 'PLANTILLAS' && userRole === 'Jugador' ? 'sidebar.myDataLabel' : item.labelKey)}
                   </span>
                 </button>
               );

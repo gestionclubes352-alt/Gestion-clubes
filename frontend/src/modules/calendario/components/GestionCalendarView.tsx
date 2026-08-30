@@ -23,6 +23,7 @@ interface GestionCalendarViewProps {
   clubes?: Club[];
   players?: Player[];
   ownClubId?: string;
+  showFilters?: boolean;
 }
 
 const EVENT_BADGE_COLORS: Record<string, string> = {
@@ -126,11 +127,10 @@ const generateUUID = (): string => {
   });
 };
 
-const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], players = [], ownClubId }) => {
+const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], players = [], ownClubId, showFilters = true }) => {
   const { t, i18n } = useTranslation();
   const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
   const dayNames = t('calendarView.daysAbbr', { returnObjects: true }) as string[];
-  const orderedDayNames = useMemo(() => [...dayNames.slice(1), dayNames[0]], [dayNames]);
 
   const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
   const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
@@ -372,7 +372,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
     return playerMatchesEventTeam(event, player);
   };
-  const [activeView, setActiveView] = useState<'annual' | 'monthly' | 'weekly' | 'schedule'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
   });
@@ -599,37 +598,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return map;
   }, [filteredEvents]);
 
-  const getMonthMatrix = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const matrix: (Date | null)[][] = [];
-    let week: (Date | null)[] = [];
-    const day = new Date(firstDay);
-
-    const leadingBlanks = (firstDay.getDay() + 6) % 7;
-    for (let i = 0; i < leadingBlanks; i++) {
-      week.push(null);
-    }
-
-    while (day <= lastDay) {
-      week.push(new Date(day));
-      if (week.length === 7) {
-        matrix.push(week);
-        week = [];
-      }
-      day.setDate(day.getDate() + 1);
-    }
-
-    if (week.length > 0) {
-      while (week.length < 7) week.push(null);
-      matrix.push(week);
-    }
-
-    return matrix;
-  };
-
   const today = new Date();
   const isToday = (date: Date) =>
     date.getDate() === today.getDate() &&
@@ -643,23 +611,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     start.setHours(0, 0, 0, 0);
     return start;
   }, [currentMonth]);
-
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + index);
-    return d;
-  }), [weekStart]);
-
-  const eventsByMonth = useMemo(() => {
-    const map: Record<number, CalendarEvent[]> = {};
-    filteredEvents.forEach(ev => {
-      const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
-      const key = d.getMonth();
-      if (!map[key]) map[key] = [];
-      map[key].push(ev);
-    });
-    return map;
-  }, [filteredEvents]);
 
   const scheduleDays = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, index) => {
@@ -853,442 +804,11 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     );
   };
 
-  const renderMonthlyGrid = () => (
-    <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
-        {orderedDayNames.map(day => (
-          <div key={day} className="text-[9px] md:text-xs font-black text-slate-400 uppercase text-center py-1 md:py-2">{day.slice(0,3)}</div>
-        ))}
-      </div>
-
-      {getMonthMatrix(currentMonth).map((week, i) => (
-        <div key={i} className="grid grid-cols-7 gap-1 md:gap-2 mb-1.5 md:mb-2">
-          {week.map((date, j) => {
-            const inMonth = date && date.getMonth() === currentMonth.getMonth();
-            const dayKey = date ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` : '';
-            const dayEvents = dayKey ? (eventsByDay[dayKey] || []) : [];
-
-            return (
-              <div
-                key={j}
-                className={`min-h-12 md:min-h-16 rounded-xl border border-slate-100 bg-slate-50 p-1 flex flex-col relative transition-all ${
-                  !inMonth ? 'opacity-30' : ''
-                } ${dragOverDate && date && date.getTime() === dragOverDate.getTime() ? 'bg-blue-100 border-blue-400 shadow-lg' : ''}`}
-                onDragOver={(e) => {
-                  if (!date || draggedEvent?.type === 'Partido') return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'copy';
-                  setDragOverDate(date);
-                }}
-                onDragLeave={() => setDragOverDate(null)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (draggedEvent && draggedEvent.type !== 'Partido' && date) {
-                    const newEvent = { ...draggedEvent, id: generateUUID(), date };
-                    onSaveEvent?.(newEvent);
-                    setDraggedEvent(null);
-                    setDragOverDate(null);
-                  }
-                }}
-              >
-                {inMonth && onCreateEvent && (
-                  <button
-                    className="absolute top-1 left-1 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-[14px] shadow-md z-10"
-                    style={{ fontSize: '16px' }}
-                    onClick={(e) => { e.stopPropagation(); onCreateEvent(date ?? undefined); }}
-                    title={t('calendarView.newEvent')}
-                  >
-                    <i className="fa-solid fa-plus"></i>
-                  </button>
-                )}
-                <div className="text-[11px] font-black text-[var(--accent)] text-right pr-1">{date ? date.getDate() : ''}</div>
-                <div className="flex-1 flex flex-col gap-1">
-                  {dayEvents.map(ev => {
-                    const teamColor = getTeamColor(getEventTeamKey(ev));
-                    const deleteColors = teamColor
-                      ? { color: teamColor.delColor, hoverBg: teamColor.delHover }
-                      : (EVENT_DELETE_HOVER_COLORS[ev.type] || EVENT_DELETE_HOVER_COLORS.Otro);
-                    const isMatch = ev.type === 'Partido';
-                    const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
-                    const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
-                    const localDisplay = resolveMatchSideDisplay(ev, ev.localTeam, ev.localTeamClubId);
-                    const visitorDisplay = resolveMatchSideDisplay(ev, ev.visitorTeam, ev.visitorTeamClubId);
-                    const localLogo = resolveTeamLogo(ev.localTeamClubId, ev.localTeam, displayLocalTeam);
-                    const visitorLogo = resolveTeamLogo(ev.visitorTeamClubId, ev.visitorTeam, displayVisitorTeam);
-                    return (
-                      <div
-                        key={ev.id}
-                        draggable={!isMatch}
-                        className={`rounded-lg px-1.5 py-1.5 text-[11px] font-bold cursor-pointer group/ev transition-all opacity-100 hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : 'flex items-center gap-0.5'}`}
-                        title={isMatch
-                          ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
-                          : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                        onDragStart={(e) => {
-                          if (isMatch) {
-                            e.preventDefault();
-                            return;
-                          }
-                          e.dataTransfer!.effectAllowed = 'copy';
-                          e.dataTransfer!.setData('text/plain', JSON.stringify(ev));
-                          setDraggedEvent(ev);
-                        }}
-                        onDragEnd={() => {
-                          setDraggedEvent(null);
-                          setDragOverDate(null);
-                        }}
-                      >
-                        {isMatch ? (
-                          <div
-                            className="flex flex-col gap-1 w-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEvent(ev);
-                              onClickEvent?.(ev);
-                            }}
-                          >
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="flex items-center gap-1 min-w-0 bg-white/60 rounded px-1.5 py-1">
-                                <i className="fa-solid fa-clock text-[10px] opacity-70 flex-shrink-0"></i>
-                                <span className="text-xs font-black leading-none">{ev.time || '--:--'}</span>
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDeleteEvent?.(ev.id);
-                                }}
-                                className="hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
-                                style={{ color: deleteColors.color }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = deleteColors.hoverBg}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                title={t('common.delete')}
-                              >
-                                <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
-                              </button>
-                            </div>
-                            {(ev.localTeam && ev.visitorTeam) ? (
-                              <div className="flex items-center gap-1">
-                                <div className="flex-1 min-w-0 flex flex-col items-center text-center">
-                                  {localLogo ? (
-                                    <img loading="lazy" decoding="async" src={localLogo} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
-                                  ) : (
-                                    <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
-                                      <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
-                                    </div>
-                                  )}
-                                  <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{localDisplay.clubName}</span>
-                                  <span className="block truncate w-full text-xs leading-tight">{localDisplay.teamName}</span>
-                                </div>
-                                <span className="flex-shrink-0 bg-red-600 text-white text-[10px] font-black leading-none px-2 py-1.5 rounded-full shadow-sm">VS</span>
-                                <div className="flex-1 min-w-0 flex flex-col items-center text-center">
-                                  {visitorLogo ? (
-                                    <img loading="lazy" decoding="async" src={visitorLogo} alt="" className="h-7 w-7 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
-                                  ) : (
-                                    <div className="h-7 w-7 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
-                                      <i className="fa-solid fa-shield-halved text-[10px] opacity-40"></i>
-                                    </div>
-                                  )}
-                                  <span className="block text-[9px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{visitorDisplay.clubName}</span>
-                                  <span className="block truncate w-full text-xs leading-tight">{visitorDisplay.teamName}</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-[11px] font-semibold leading-tight truncate block">
-                                {ev.title || ev.opponent || 'Partido'}
-                              </span>
-                            )}
-                            {ev.score && (
-                              <div className="text-[11px] font-black text-white bg-red-700 rounded-md py-0.5 text-center">
-                                {ev.score}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100 flex-shrink-0"></i>
-                            <span
-                              className="truncate leading-tight flex-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedEvent(ev);
-                                onClickEvent?.(ev);
-                              }}
-                            >
-                              {formatEventLabel(ev.time, ev.team)} {ev.title}
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteEvent?.(ev.id);
-                              }}
-                              className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
-                              style={{ color: deleteColors.color }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = deleteColors.hoverBg}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              title={t('common.delete')}
-                            >
-                              <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-
-  const weeklyTeamRows = useMemo(() => {
-    const keys = new Set<string>();
-    filteredEvents.forEach(ev => {
-      const key = getEventTeamKey(ev);
-      keys.add(key || t('calendarView.noTeam', 'Sin equipo'));
-    });
-    return Array.from(keys).sort((a, b) => a.localeCompare(b));
-  }, [filteredEvents, t]);
-
-  const renderWeeklyGrid = () => {
-    const weekEvents = weekDays.map(date => {
-      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-      return { date, events: eventsByDay[key] || [] };
-    });
-    const noTeamLabel = t('calendarView.noTeam', 'Sin equipo');
-
-    return (
-      <div className="flex-1 p-3 md:p-6 overflow-auto">
-        <div className="min-w-[980px]">
-          <div
-            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
-            style={{ gridTemplateColumns: '160px repeat(7, minmax(0, 1fr))' }}
-          >
-            <div className="bg-slate-50/60 px-3 py-3 flex items-end">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                {t('calendarView.team', 'Equipo')}
-              </span>
-            </div>
-            {weekEvents.map(({ date }) => {
-              const isTodayDate = isToday(date);
-              return (
-                <div key={date.toISOString()} className="bg-slate-50/60 px-3 py-3 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    {dayNames[date.getDay()]}
-                  </p>
-                  <p className={`text-sm font-black ${isTodayDate ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                    {date.getDate()}
-                  </p>
-                </div>
-              );
-            })}
-
-            {weeklyTeamRows.length === 0 ? (
-              <div className="bg-white px-4 py-8 text-center text-sm font-medium text-slate-400" style={{ gridColumn: '1 / -1' }}>
-                {t('calendarView.noEvents', 'Sin eventos')}
-              </div>
-            ) : weeklyTeamRows.map(team => {
-              const teamColor = team !== noTeamLabel ? getTeamColor(team) : null;
-              return (
-                <React.Fragment key={team}>
-                  <div className="bg-white px-3 py-3 flex items-center gap-2 min-w-0">
-                    {teamColor && <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${teamColor.dot}`}></span>}
-                    <span className="text-xs font-black text-slate-700 truncate">{team}</span>
-                  </div>
-                  {weekEvents.map(({ date, events: dayEvents }) => {
-                    const cellEvents = dayEvents.filter(ev => (getEventTeamKey(ev) || noTeamLabel) === team);
-                    return (
-                      <div
-                        key={`${team}-${date.toISOString()}`}
-                        className={`min-h-14 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
-                      >
-                        <div className="space-y-1">
-                          {cellEvents.map(ev => {
-                            const evTeamColor = getTeamColor(getEventTeamKey(ev));
-                            const isMatch = ev.type === 'Partido';
-                            const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
-                            const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
-                            return (
-                              <div
-                                key={ev.id}
-                                onClick={() => {
-                                  setSelectedEvent(ev);
-                                  onClickEvent?.(ev);
-                                }}
-                                className={`rounded-lg px-2 py-1 text-[10px] font-bold border cursor-pointer ${evTeamColor?.badge || EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}
-                                title={isMatch
-                                  ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
-                                  : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                              >
-                                <span className="font-black">{ev.time || '--:--'}</span>
-                                {isMatch ? (
-                                  (displayLocalTeam && displayVisitorTeam) ? (
-                                    <div className="truncate leading-tight">
-                                      {displayLocalTeam} <span className="opacity-60">vs</span> {displayVisitorTeam}
-                                    </div>
-                                  ) : (
-                                    <span className="truncate"> {ev.title || ev.opponent || 'Partido'}</span>
-                                  )
-                                ) : (
-                                  <span className="truncate"> {ev.title}</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const annualEvents = useMemo(() => {
-    return filteredEvents
-      .filter(ev => {
-        const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
-        return d.getFullYear() === currentMonth.getFullYear();
-      })
-      .sort((a, b) => {
-        const da = a.date instanceof Date ? a.date : new Date(a.date);
-        const db = b.date instanceof Date ? b.date : new Date(b.date);
-        const diff = da.getTime() - db.getTime();
-        if (diff !== 0) return diff;
-        return (a.time || '').localeCompare(b.time || '');
-      });
-  }, [filteredEvents, currentMonth]);
-
-  const renderAnnualGrid = () => (
-    <div className="flex-1 p-3 md:p-6 overflow-y-auto">
-      <div className="overflow-x-auto rounded-2xl border border-slate-100">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50/60 border-b border-slate-100">
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('common.date', 'Día')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('common.time', 'Hora')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('calendarView.team', 'Equipo')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('calendarView.type', 'Tipo')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('calendarView.activity', 'Actividad')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('calendarView.installation', 'Instalación')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('calendarView.field', 'Campo')}
-              </th>
-              <th className="px-4 md:px-6 py-3 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                {t('common.location', 'Lugar')}
-              </th>
-              <th className="px-4 md:px-6 py-3 w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {annualEvents.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 md:px-6 py-8 text-center text-xs font-medium text-slate-400">
-                  {t('calendarView.noEvents', 'Sin eventos')}
-                </td>
-              </tr>
-            )}
-            {annualEvents.map(ev => {
-              const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
-              const isMatch = ev.type === 'Partido';
-              const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
-              const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
-              const teamKey = getEventTeamKey(ev);
-              const activityLabel = isMatch
-                ? (displayLocalTeam && displayVisitorTeam
-                    ? `${displayLocalTeam} vs ${displayVisitorTeam}`
-                    : (ev.title || ev.opponent || 'Partido'))
-                : ev.title;
-              const isCurrentMonth = d.getMonth() === currentMonth.getMonth();
-              const { instalacionNombre, campoNombre } = getInstalacionYCampo(ev);
-              return (
-                <tr
-                  key={ev.id}
-                  onClick={() => {
-                    setSelectedEvent(ev);
-                    onClickEvent?.(ev);
-                  }}
-                  className={`cursor-pointer border-b border-slate-50 last:border-b-0 transition-colors hover:bg-slate-50 ${
-                    isCurrentMonth ? 'bg-red-50/20' : ''
-                  }`}
-                >
-                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    <span className={`text-xs font-black ${isToday(d) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                      {d.toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    <span className="text-xs font-bold text-slate-500">{ev.time || '--:--'}</span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    {teamKey && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                        <span className={`w-2 h-2 rounded-full ${getTeamColor(teamKey)?.dot || EVENT_DOT_COLORS[ev.type] || EVENT_DOT_COLORS.Otro}`}></span>
-                        {teamKey}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5 whitespace-nowrap">
-                    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border ${EVENT_BADGE_COLORS[ev.type] || EVENT_BADGE_COLORS.Otro}`}>
-                      {ev.type}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5">
-                    <span className="text-xs font-bold text-slate-700">{activityLabel}</span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5">
-                    <span className="text-xs text-slate-500">{instalacionNombre || '-'}</span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5">
-                    <span className="text-xs text-slate-500">{campoNombre || '-'}</span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5">
-                    <span className="text-xs text-slate-500">{ev.location || '-'}</span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3.5 text-right">
-                    {onDeleteEvent && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteEvent(ev.id);
-                        }}
-                        className="w-6 h-6 inline-flex items-center justify-center rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                        title={t('common.delete')}
-                      >
-                        <i className="fa-solid fa-xmark text-xs"></i>
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
   return (
     <div className="animate-fade-in flex h-full min-h-[calc(100vh-110px)] flex-col gap-4 pb-6">
       {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
       <div className="sticky top-0 z-30 flex items-center gap-3 -mx-2 px-3 py-1 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
+        {showFilters && (
         <div className="flex items-center gap-2 flex-wrap flex-1">
           <MultiSelectFilter
             value={teamFilter}
@@ -1381,6 +901,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             )}
           </div>
         </div>
+        )}
         <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm ml-auto">
           <button
             type="button"

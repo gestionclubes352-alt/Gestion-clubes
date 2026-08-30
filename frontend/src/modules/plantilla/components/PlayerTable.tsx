@@ -17,6 +17,8 @@ interface PlayerTableProps {
   clubId?: string;
   onBulkPhotoUpload?: () => void;
   onRemoveBackgrounds?: () => void;
+  /** Vista simplificada para el rol Jugador: solo foto + nombre, sin filtros ni cambio de vista. */
+  simplified?: boolean;
 }
 
 const columnHelper = createColumnHelper<Player>();
@@ -62,7 +64,7 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload, onRemoveBackgrounds }) => {
+const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload, onRemoveBackgrounds, simplified }) => {
   const { t, i18n } = useTranslation();
   const { isMobile } = useIsMobile();
   const isHuesca = clubId === 'escuela-huesca';
@@ -311,6 +313,37 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     }
     return acts;
   }, [onEdit, onDelete]);
+
+  if (simplified) {
+    const ownSquad = squad.filter(isOwnPlayer).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return (
+      <div className="flex flex-col gap-3 animate-fade-in">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+          {ownSquad.map((player) => (
+            <button
+              key={player.id}
+              onClick={() => onEdit(player)}
+              className="group flex flex-col items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-2xl p-3 hover:shadow-lg hover:border-[var(--surface-3)] transition-all"
+            >
+              <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[var(--border-soft)] bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-sm">
+                {isImageUrl(player.fotoUrl) ? (
+                  <img loading="lazy" decoding="async" src={player.fotoUrl} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{getInitials(player.nombre)}</span>
+                )}
+              </div>
+              <span className="text-xs font-semibold text-[var(--text)] text-center leading-tight">{player.nombre}</span>
+            </button>
+          ))}
+          {ownSquad.length === 0 && (
+            <div className="col-span-full py-16 text-center text-sm text-[var(--text-muted)]">
+              {t('playerTable.noPlayersFoundShort')}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 animate-fade-in">

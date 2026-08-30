@@ -83,7 +83,7 @@ const CAMPO_NUMERO_10: React.FC<{
   onChange: (v: number | undefined) => void;
 }> = ({ label, value, onChange }) => (
   <div>
-    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{label} (0-10)</label>
+    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</label>
     <input
       type="number"
       min={0}
@@ -296,7 +296,7 @@ const FormularioPublicoView: React.FC = () => {
             </div>
 
             <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-4">
-              <h3 className="text-[var(--accent)] font-black text-sm uppercase tracking-tighter">Wellness diario</h3>
+              <h3 className="text-[var(--accent)] font-black text-sm uppercase tracking-tighter">Wellness diario (0-10)</h3>
               <div className="grid grid-cols-3 gap-3">
                 <CAMPO_NUMERO_10 label="Calidad de sueño" value={sueno} onChange={setSueno} />
                 <CAMPO_NUMERO_10 label="Cansancio muscular" value={musc} onChange={setMusc} />

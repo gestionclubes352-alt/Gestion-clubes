@@ -18,7 +18,7 @@ import PublicChannelView from '@modules/videoteca/components/PublicChannelView';
 // Shared
 import Sidebar from '@shared/components/Sidebar';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
-import { Header, BottomNav, HomeSectionsView, PlayerHomeView } from '@shared/components';
+import { Header, BottomNav, HomeSectionsView } from '@shared/components';
 import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService, competicionesService, calendarioCompeticionService } from '@shared/services/dataService';
 import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal, Competicion, CalendarioCompeticionPartido } from '@shared/services/dataService';
 import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
@@ -181,6 +181,23 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'USUARIOS': '/usuarios',
   'CONFIGURACIÓN': '/settings',
   'FUENTE DE DATOS': '/settings#datasources'
+};
+
+/** Vista de "Mis Datos" para el rol Jugador: abre directamente el detalle de su propia ficha. */
+const MisDatosView: React.FC<{ player?: Player; onOpen: (player: Player) => void }> = ({ player, onOpen }) => {
+  const { t } = useTranslation();
+  useEffect(() => {
+    if (player) onOpen(player);
+  }, [player, onOpen]);
+
+  if (!player) {
+    return (
+      <div className="py-16 text-center text-sm text-[var(--text-muted)]">
+        {t('playerTable.noPlayersFoundShort')}
+      </div>
+    );
+  }
+  return null;
 };
 
 const MatchReportLoadingScreen = () => {
@@ -654,7 +671,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   // Derivar la sección activa de la URL
   const activeSection = useMemo(() => {
     const path = location.pathname;
-    if (path === '/') return 'INICIO';
+    if (path === '/') return userRole === 'Jugador' ? 'CALENDARIO' : 'INICIO';
     // Buscar coincidencia exacta primero
     if (ROUTE_TO_SECTION[path]) return ROUTE_TO_SECTION[path];
     // Buscar por prefijo (para rutas como /partidos/:id)
@@ -665,7 +682,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   }, [location.pathname]);
 
   const handleSectionChange = (section: string) => {
-    if (section === 'INICIO') {
+    if (section === 'INICIO' || (section === 'CALENDARIO' && userRole === 'Jugador')) {
       navigate('/');
       return;
     }
@@ -1451,7 +1468,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const isSettingsView = location.pathname.startsWith('/settings');
   const isPizarraView = location.pathname === '/pizarra';
   const isPintadoAccionesView = location.pathname === '/pintado-acciones';
-  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView;
+  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView || userRole === 'Administrador';
   const hideShellHeader = isMatchReportView || isSettingsView;
 
   // Margen dinámico según estado del sidebar
@@ -1459,16 +1476,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     <div className={`flex min-h-screen w-full overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'}`}>
       {/* Menú lateral: solo como drawer en móvil/tablet (en escritorio se navega desde el header) */}
       {!hideShellSidebar && (
-        <div className="lg:hidden">
-          <Sidebar
-            activeSection={activeSection}
-            onSectionChange={handleSectionChange}
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-            isCollapsed={false}
-            userRole={userRole}
-          />
-        </div>
+        <Sidebar
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          isCollapsed={false}
+          userRole={userRole}
+        />
       )}
 
       {/* Botón pantalla completa: en móvil taparía la cabecera, y el header ya tiene el suyo */}
@@ -1483,7 +1498,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9V5h4m0 0v4m0-4h-4m-6 6v4H5m0 0v-4m0 4h4" /></svg>
         )}
       </button>
-      <main className={`flex-1 min-w-0 flex flex-col overflow-y-auto ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'} transition-all duration-300 ${!hideShellHeader ? 'app-header-offset' : ''}`}>
+      <main className={`flex-1 min-w-0 flex flex-col overflow-y-auto ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'} transition-all duration-300 ${!hideShellHeader ? 'app-header-offset' : ''} ${!hideShellSidebar ? 'lg:ml-70' : ''}`}>
         {!hideShellHeader && (
           <Header
             onMenuClick={() => setIsSidebarOpen(true)}
@@ -1492,6 +1507,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             onToggleAIMode={userRole === 'Jugador' ? undefined : () => setIsAIMode(!isAIMode)}
             onLogout={onLogout}
             teamOptions={teamFilterOptions}
+            className={!hideShellSidebar ? 'lg:left-70' : ''}
+            showTeamFilter={userRole !== 'Jugador'}
+            showBrand={hideShellSidebar}
           />
         )}
         {isAIMode && userRole !== 'Jugador' ? (
@@ -1519,20 +1537,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <React.Suspense fallback={<LoadingScreen />}>
             {userRole === 'Jugador' ? (
             <Routes>
-              <Route path="/" element={<PlayerHomeView />} />
+              <Route path="/" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={() => {}} onClickEvent={handleCalendarEventClick} onDeleteEvent={() => {}} onSaveEvent={async () => {}} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} showFilters={false} />
+              } />
               <Route path="/plantillas" element={
-                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={() => {}} onSave={async () => {}} />
+                <MisDatosView player={filteredSquadList[0]} onOpen={setEditingPlayer} />
               } />
               <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
+              <Route path="/mediciones/analisis" element={<AnalisisMedicionesView />} />
               <Route path="/videoteca" element={isLoadingExtra ? <LoadingScreen /> : <Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
               <Route path="/competicion" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} myTeamName={currentTeam?.name} hideTeamFilter />
               } />
-              <Route path="/calendario" element={
-                isLoadingExtra ? <LoadingScreen /> :
-                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={() => {}} onClickEvent={handleCalendarEventClick} onDeleteEvent={() => {}} onSaveEvent={async () => {}} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
-              } />
+              <Route path="/calendario" element={<Navigate to="/" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             ) : (
@@ -1819,6 +1838,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         events={filteredEventsList}
         matches={filteredMatchesList}
         clubes={clubesList}
+        readOnly={userRole === 'Jugador'}
         onClose={() => setEditingPlayer(null)}
         onSave={async (p, originalId) => {
           const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '', competicion: p.competicion || '' }, originalId);

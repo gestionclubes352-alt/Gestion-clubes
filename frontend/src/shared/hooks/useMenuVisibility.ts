@@ -9,8 +9,8 @@ import { DEFAULT_VISIBLE_MENU_SET, DEFAULT_VISIBLE_SECTIONS_SET } from '../../co
 import { useAuth } from '@context/AuthContext';
 
 /** Únicos ítems/secciones que puede ver el rol Jugador, sin importar la config de deploy. */
-const JUGADOR_ALLOWED_MENU_IDS = new Set(['INICIO', 'PLANTILLAS', 'MEDICIONES_REGISTRO', 'MEDICIONES_ANALISIS', 'VIDEOTECA']);
-const JUGADOR_ALLOWED_SECTIONS = new Set(['general', 'management', 'medical', 'planning']);
+const JUGADOR_ALLOWED_MENU_IDS = new Set(['CALENDARIO', 'PLANTILLAS', 'MEDICIONES_ANALISIS', 'VIDEOTECA', 'COMPETICIÓN', 'RESI_COMIDAS']);
+const JUGADOR_ALLOWED_SECTIONS = new Set(['general', 'management', 'medical', 'planning', 'residencia']);
 
 const STORAGE_KEY = 'menu-visibility';
 const VERSION_KEY = 'menu-visibility-version';
@@ -19,7 +19,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 22;
+const MENU_VERSION = 24;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {

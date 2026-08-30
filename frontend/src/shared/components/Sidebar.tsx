@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { APP_CONFIG } from '../../config';
 import { useTeam } from '@context/TeamContext';
 import { useMenuVisibility } from '@shared/hooks/useMenuVisibility';
+import escuelaHuescaLogo from '/logos/escuela-huesca.png';
 
 interface SidebarProps {
   activeSection: string;
@@ -266,40 +266,28 @@ const Sidebar: React.FC<SidebarProps> = ({
             ${isCollapsed ? 'p-4 justify-center h-18' : 'px-5 py-5 gap-3 h-20'}
           `}
         >
-          {/* Logo icon - Team logo if selected, otherwise project branding */}
-          {selectedTeam?.logoUrl ? (
-            <div className={`
-              shrink-0 rounded-xl flex items-center justify-center
-              overflow-hidden transition-all duration-300
-              group-hover:scale-105
-              ${isCollapsed ? 'w-11 h-11' : 'w-11 h-11'}
-            `}>
-              <img loading="lazy" decoding="async" 
-                src={selectedTeam.logoUrl} 
-                alt={`${selectedTeam.name} escudo`} 
-                className="max-w-full max-h-full object-contain"
-              />
-            </div>
-          ) : (
-            <div className={`
-              shrink-0 bg-[var(--accent)] rounded-xl
-              flex items-center justify-center shadow-lg shadow-[var(--accent)]/20
-              group-hover:shadow-xl group-hover:shadow-[var(--accent)]/30 transition-all duration-300
-              group-hover:scale-105
-              ${isCollapsed ? 'w-11 h-11' : 'w-11 h-11'}
-            `}>
-              <i className="fa-solid fa-futbol text-white text-lg"></i>
-            </div>
-          )}
-          
+          {/* Logo icon - Team logo if selected, otherwise club por defecto (Huesca) */}
+          <div className={`
+            shrink-0 rounded-xl flex items-center justify-center
+            overflow-hidden transition-all duration-300
+            group-hover:scale-105
+            ${isCollapsed ? 'w-11 h-11' : 'w-11 h-11'}
+          `}>
+            <img loading="lazy" decoding="async"
+              src={selectedTeam?.logoUrl || escuelaHuescaLogo}
+              alt={`${selectedTeam?.name || 'Huesca'} escudo`}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+
           {/* Logo text */}
           {!isCollapsed && (
             <div className="flex flex-col overflow-hidden">
               <span className="text-xl font-black text-white tracking-tight">
-                {selectedTeam ? selectedTeam.shortName : APP_CONFIG.organization.shortName}
+                {selectedTeam ? selectedTeam.shortName : 'HUESCA'}
               </span>
               <span className="text-xs font-medium text-[var(--sidebar-text-muted)] tracking-wider uppercase">
-                {selectedTeam ? selectedTeam.competition : (APP_CONFIG.organization.description ?? t('sidebar.sportsManagement'))}
+                {selectedTeam ? selectedTeam.competition : t('sidebar.sportsManagement')}
               </span>
             </div>
           )}
@@ -320,8 +308,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 
           {isSectionVisible('management') && (
-          <SidebarSection title={t('sidebar.management')} sectionKey="management" collapsed={isCollapsed} hasActiveChild={['PLANTILLAS', 'PERSONAL', 'CAMPOGRAMA'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
-            {isVisible('PLANTILLAS') && <SidebarItem icon="fa-users" label={t('sidebar.squadsLabel')} active={activeSection === 'PLANTILLAS'} onClick={() => handleItemClick('PLANTILLAS')} collapsed={isCollapsed} />}
+          <SidebarSection title={t('sidebar.management')} sectionKey="management" collapsed={isCollapsed} hasActiveChild={['CALENDARIO', 'PLANTILLAS', 'PERSONAL', 'CAMPOGRAMA'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+            {userRole === 'Jugador' && isVisible('CALENDARIO') && <SidebarItem icon="fa-calendar" label={t('sidebar.calendarLabel')} active={activeSection === 'CALENDARIO'} onClick={() => handleItemClick('CALENDARIO')} collapsed={isCollapsed} />}
+            {isVisible('PLANTILLAS') && <SidebarItem icon="fa-users" label={t(userRole === 'Jugador' ? 'sidebar.myDataLabel' : 'sidebar.squadsLabel')} active={activeSection === 'PLANTILLAS'} onClick={() => handleItemClick('PLANTILLAS')} collapsed={isCollapsed} />}
             {isVisible('CAMPOGRAMA') && <SidebarItem icon="fa-diagram-project" label={t('sidebar.fieldDiagramLabel')} active={activeSection === 'CAMPOGRAMA'} onClick={() => handleItemClick('CAMPOGRAMA')} collapsed={isCollapsed} />}
             {isVisible('PERSONAL') && <SidebarItem icon="fa-user-tie" label={t('sidebar.technicalStaffLabel')} active={activeSection === 'PERSONAL'} onClick={() => handleItemClick('PERSONAL')} collapsed={isCollapsed} />}
           </SidebarSection>

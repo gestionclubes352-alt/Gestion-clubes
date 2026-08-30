@@ -514,148 +514,35 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         </div>
       </div>
 
-      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-2">
+      {/* Filtros: Tipo, Equipo, Jugadores */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Equipo</label>
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Tipo</label>
           <MultiSelectFilter
+            options={EVENTO_TIPO_OPTIONS}
+            value={eventoTipoFilter}
+            onChange={setEventoTipoFilter}
+            allLabel="Todos los tipos"
+          />
+        </div>
+        <div>
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Equipo</label>
+          <MultiSelectFilter
+            options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
             value={equipoInternoFilter}
             onChange={setEquipoInternoFilter}
             allLabel="Todos los equipos"
-            options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           />
         </div>
         <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Tipo</label>
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Jugadores</label>
           <MultiSelectFilter
-            value={tipoFilter}
-            onChange={setTipoFilter}
-            allLabel="Todos los tipos"
-            options={tipoOptions.map((name) => ({ value: name, label: name }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Competición</label>
-          <MultiSelectFilter
-            value={competitionFilter}
-            onChange={setCompetitionFilter}
-            allLabel="Todas las competiciones"
-            options={competitionOptions.map((name) => ({ value: name, label: name }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Mes</label>
-          <MultiSelectFilter
-            value={monthFilter}
-            onChange={(next) => {
-              setMonthFilter(next);
-              setDateFromFilter('');
-              setDateToFilter('');
-            }}
-            allLabel="Todos los meses"
-            options={monthOptions}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Desde</label>
-          <input
-            type="date"
-            value={dateFromFilter}
-            onChange={(e) => {
-              setDateFromFilter(e.target.value);
-              setMonthFilter([]);
-            }}
-            disabled={monthFilter.length > 0}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Hasta</label>
-          <input
-            type="date"
-            value={dateToFilter}
-            onChange={(e) => {
-              setDateToFilter(e.target.value);
-              setMonthFilter([]);
-            }}
-            disabled={monthFilter.length > 0}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos</label>
-          <MultiSelectFilter
-            value={eventoTipoFilter}
-            onChange={setEventoTipoFilter}
-            options={EVENTO_TIPO_OPTIONS}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Eventos (lado)</label>
-          <MultiSelectFilter
-            value={ladoFilter}
-            onChange={setLadoFilter}
-            options={LADO_OPTIONS}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-[7px] font-black text-slate-400 uppercase tracking-wider mb-1">Jugador</label>
-          <MultiSelectFilter
+            options={playerOptions.map(([value, label]) => ({ value, label }))}
             value={playerFilter}
             onChange={setPlayerFilter}
-            options={playerOptions.map(([id, name]) => ({ value: id, label: name }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+            allLabel="Todos los jugadores"
           />
         </div>
-      </div>
-
-      {/* Clear Filters Button */}
-      <div className="flex gap-2 justify-start">
-        <button
-          onClick={() => {
-            setEquipoInternoFilter([]);
-            setTipoFilter([]);
-            setCompetitionFilter([]);
-            setMonthFilter([]);
-            setDateFromFilter('');
-            setDateToFilter('');
-            setEventoTipoFilter([]);
-            setLadoFilter([]);
-            setPlayerFilter([]);
-          }}
-          className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
-            equipoInternoFilter.length === 0 &&
-            tipoFilter.length === 0 &&
-            competitionFilter.length === 0 &&
-            monthFilter.length === 0 &&
-            dateFromFilter === '' &&
-            dateToFilter === '' &&
-            eventoTipoFilter.length === 0 &&
-            ladoFilter.length === 0 &&
-            playerFilter.length === 0
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 hover:border-red-300'
-          }`}
-          disabled={
-            equipoInternoFilter.length === 0 &&
-            tipoFilter.length === 0 &&
-            competitionFilter.length === 0 &&
-            monthFilter.length === 0 &&
-            dateFromFilter === '' &&
-            dateToFilter === '' &&
-            eventoTipoFilter.length === 0 &&
-            ladoFilter.length === 0 &&
-            playerFilter.length === 0
-          }
-        >
-          <i className="fa-solid fa-xmark text-xs"></i>
-          Limpiar Filtros
-        </button>
       </div>
 
       {/* View Mode Toggle */}

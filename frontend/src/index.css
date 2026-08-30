@@ -393,11 +393,6 @@ ul, ol {
   header {
     padding: 1.5rem 3rem;
   }
-
-  /* Sidebar más ancho */
-  aside {
-    width: 320px;
-  }
 }
 
 /* Monitores 32" (3840×2160) 4K */
@@ -435,11 +430,6 @@ ul, ol {
   header {
     padding: 2rem 4rem;
     min-height: 100px;
-  }
-
-  /* Sidebar con ancho generoso */
-  aside {
-    width: 360px;
   }
 
   /* Botones más grandes */
