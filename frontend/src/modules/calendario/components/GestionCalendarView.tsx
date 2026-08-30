@@ -902,60 +902,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           </div>
         </div>
         )}
-        <div className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm ml-auto">
-          <button
-            type="button"
-            onClick={() => setActiveView('monthly')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
-              activeView === 'monthly'
-                ? 'bg-[var(--accent)] text-white shadow-md'
-                : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
-            }`}
-            aria-label="Vista mensual"
-            title="Vista mensual"
-          >
-            <i className="fa-solid fa-calendar-days"></i>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('annual')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
-              activeView === 'annual'
-                ? 'bg-[var(--accent)] text-white shadow-md'
-                : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
-            }`}
-            aria-label="Vista anual"
-            title="Vista anual"
-          >
-            <i className="fa-solid fa-calendar"></i>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('weekly')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
-              activeView === 'weekly'
-                ? 'bg-[var(--accent)] text-white shadow-md'
-                : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
-            }`}
-            aria-label="Vista semanal"
-            title="Vista semanal"
-          >
-            <i className="fa-solid fa-calendar-week"></i>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('schedule')}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all ${
-              activeView === 'schedule'
-                ? 'bg-[var(--accent)] text-white shadow-md'
-                : 'text-slate-400 hover:text-[var(--accent)] hover:bg-slate-50'
-            }`}
-            aria-label="Vista horaria"
-            title="Vista horaria"
-          >
-            <i className="fa-solid fa-clock"></i>
-          </button>
-        </div>
       </div>
 
 
@@ -963,15 +909,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden">
           <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between gap-3">
             <button
-              onClick={() => {
-                if (activeView === 'annual') {
-                  setCurrentMonth(prev => new Date(prev.getFullYear() - 1, prev.getMonth(), 1));
-                } else if (activeView === 'schedule') {
-                  setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7));
-                } else {
-                  setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-                }
-              }}
+              onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7))}
               className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
               aria-label="Anterior"
             >
@@ -979,30 +917,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             </button>
             <div className="text-center">
               <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
-                {activeView === 'annual'
-                  ? String(currentMonth.getFullYear())
-                  : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+                {`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
               </h4>
               <p className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.25em] mt-0.5">
-                {activeView === 'annual'
-                  ? 'Vista anual'
-                  : activeView === 'weekly'
-                    ? 'Vista semanal'
-                    : activeView === 'schedule'
-                      ? 'Vista horaria'
-                    : 'Vista mensual'}
+                Vista horaria
               </p>
             </div>
             <button
-              onClick={() => {
-                if (activeView === 'annual') {
-                  setCurrentMonth(prev => new Date(prev.getFullYear() + 1, prev.getMonth(), 1));
-                } else if (activeView === 'schedule') {
-                  setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7));
-                } else {
-                  setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-                }
-              }}
+              onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7))}
               className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
               aria-label="Siguiente"
             >
@@ -1010,10 +932,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             </button>
           </div>
 
-          {activeView === 'annual' && renderAnnualGrid()}
-          {activeView === 'monthly' && renderMonthlyGrid()}
-          {activeView === 'weekly' && renderWeeklyGrid()}
-          {activeView === 'schedule' && renderScheduleGrid()}
+          {renderScheduleGrid()}
         </div>
       </div>
 
