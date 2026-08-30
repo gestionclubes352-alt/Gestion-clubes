@@ -632,22 +632,28 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
             {/* Datos básicos al lado de la foto */}
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Los 3 campos de nombre aparecen primero para todos */}
+              {/* Los 3 campos de nombre aparecen primero para todos, salvo en la vista del jugador */}
+              {!readOnly && (
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.firstName', 'Nombre')}</label>
                 <input type="text" value={formData.nombrePila || ''} onChange={(e) => handleChange('nombrePila' as keyof Player, e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-semibold text-slate-700" />
               </div>
+              )}
+              {!readOnly && (
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.firstSurname', 'Primer apellido')}</label>
                 <input type="text" value={formData.primerApellido || ''} onChange={(e) => handleChange('primerApellido' as keyof Player, e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-semibold text-slate-700" />
               </div>
+              )}
+              {!readOnly && (
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.secondSurname', 'Segundo apellido')}</label>
                 <input type="text" value={formData.segundoApellido || ''} onChange={(e) => handleChange('segundoApellido' as keyof Player, e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10 font-semibold text-slate-700" />
               </div>
+              )}
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.fullName', 'Nombre Completo')}</label>
                 <input
@@ -982,7 +988,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           {/* === OBSERVACIONES — solo visible para Escuela Huesca === */}
           {(clubId === 'escuela-huesca' || formData.club?.toUpperCase().includes('HUESCA')) && (
             <>
-              {/* === DATOS PERSONALES EXTENDIDOS === */}
+              {/* === DATOS PERSONALES EXTENDIDOS — ocultos en la vista del jugador === */}
+              {!readOnly && (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mt-4 mb-3">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
                   <i className="fa-solid fa-id-card mr-1"></i>
@@ -1006,7 +1013,10 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   </div>
                 </div>
               </div>
+              )}
 
+              {/* === OBSERVACIONES — ocultas en la vista del jugador === */}
+              {!readOnly && (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-3">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('editPlayer.observations')}</label>
                 <textarea
@@ -1017,6 +1027,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none text-slate-700"
                 />
               </div>
+              )}
 
               {/* === DATOS DEL TUTOR/A (ÚLTIMO) === */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
