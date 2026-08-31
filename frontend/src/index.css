@@ -649,16 +649,16 @@ ul, ol {
 .tool-panel {
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 18px;
-  padding: 10px;
+  border-radius: 14px;
+  padding: 6px;
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .tool-rail {
   width: 100%;
-  padding: 10px 8px 12px;
-  border-radius: 16px;
+  padding: 6px 6px 8px;
+  border-radius: 12px;
   background: #f5f5f5;
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
@@ -666,12 +666,12 @@ ul, ol {
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  gap: 4px;
 }
 
 .tool-grid-2col {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .tool-divider {
@@ -679,7 +679,7 @@ ul, ol {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 7px 4px;
+  padding: 3px 4px;
   border-top: 1px solid rgba(0, 0, 0, 0.12);
   border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   color: #333333;
@@ -698,11 +698,11 @@ ul, ol {
 .tool-button {
   position: relative;
   width: 100%;
-  min-height: 72px;
+  min-height: 48px;
   background: transparent;
   border: 1px solid transparent;
-  padding: 10px 4px 7px;
-  border-radius: 10px;
+  padding: 5px 4px 4px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -735,8 +735,8 @@ ul, ol {
 }
 
 .tool-button svg {
-  width: 28px;
-  height: 28px;
+  width: 18px;
+  height: 18px;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.7;

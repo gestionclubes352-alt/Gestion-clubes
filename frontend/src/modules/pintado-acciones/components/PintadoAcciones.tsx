@@ -681,6 +681,7 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
 
             <div id="stage" className="stage">
               <div id="connectorEscHint" className="connector-esc-hint hidden">Doble clic para terminar</div>
+              <div id="polygonEscHint" className="connector-esc-hint hidden">Doble clic, Enter o clic en el inicio para cerrar. Escape para cancelar.</div>
               <button
                 id="stageToolbarToggle"
                 className="stage-toolbar-toggle"
@@ -699,7 +700,13 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
               </button>
               <div id="youtubePlayer" className="media-layer is-visible"></div>
               <img id="backgroundImage" className="media-layer" alt="Fotograma congelado" />
+              <div id="youtubeClickShield" className="youtube-click-shield"></div>
               <canvas id="annotationCanvas"></canvas>
+              <button id="stagePlayToggle" type="button" className="stage-play-toggle" aria-label="Reproducir o pausar">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 3l14 9-14 9V3z"></path>
+                </svg>
+              </button>
             </div>
 
             <div className="playback-panel">
@@ -859,6 +866,17 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                       <circle className="solid" cx="19" cy="16" r="1.4"></circle>
                     </svg>
                     <span className="tool-label">Triangulo</span>
+                  </button>
+                  <button className="tool-button" data-tool="polygonZone" aria-label="Zona libre" title="Zona libre (clic para añadir vertices, doble clic, Enter o clic en el inicio para cerrar)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 15L9 6L18 9L20 17L11 20Z"></path>
+                      <circle className="solid" cx="4" cy="15" r="1.4"></circle>
+                      <circle className="solid" cx="9" cy="6" r="1.4"></circle>
+                      <circle className="solid" cx="18" cy="9" r="1.4"></circle>
+                      <circle className="solid" cx="20" cy="17" r="1.4"></circle>
+                      <circle className="solid" cx="11" cy="20" r="1.4"></circle>
+                    </svg>
+                    <span className="tool-label">Zona libre</span>
                   </button>
                 </div>
 

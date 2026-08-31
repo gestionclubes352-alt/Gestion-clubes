@@ -491,7 +491,21 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
     const shapeStroke = isSelected ? '#00ff00' : shape.stroke;
 
     let body: React.ReactNode;
-    if (style === 'cilindrico') {
+    if (style === 'base') {
+      const baseRx = Math.max(1.2, width * 0.38);
+      body = (
+        <>
+          <ellipse cx={cx} cy={bottomY} rx={baseRx} ry={baseRy} fill="#ffffff" />
+          <path
+            d={`M ${cx - baseRx * 0.92} ${bottomY - baseRy * 0.06} A ${baseRx * 0.92} ${baseRy * 0.52} 0 0 0 ${cx + baseRx * 0.92} ${bottomY - baseRy * 0.06}`}
+            fill="none"
+            stroke={shapeStroke}
+            strokeWidth={strokeW * 0.7}
+            opacity={0.5}
+          />
+        </>
+      );
+    } else if (style === 'cilindrico') {
       const hw = width * 0.35;
       const baseRx = Math.max(1.2, hw * 1.08);
       body = (

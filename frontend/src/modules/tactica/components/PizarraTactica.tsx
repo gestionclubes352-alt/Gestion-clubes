@@ -198,6 +198,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [rivalFormation, setRivalFormation] = useState('1-4-4-2');
   const [showMyTeam, setShowMyTeam] = useState(true);
   const [showRivalTeam, setShowRivalTeam] = useState(true);
+  const [myTeamPanelExpanded, setMyTeamPanelExpanded] = useState(false);
+  const [rivalTeamPanelExpanded, setRivalTeamPanelExpanded] = useState(false);
+  const [showPlayersAndFieldsPanel, setShowPlayersAndFieldsPanel] = useState(true);
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
   const [playerScale, setPlayerScale] = useState(1);
   const [frames, setFrames] = useState<PitchPlayer[][]>([[]]);
@@ -292,7 +295,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [showDrawingTools, setShowDrawingTools] = useState(false);
   const [showDrawingOptions, setShowDrawingOptions] = useState(false);
   const [draggingArrowId, setDraggingArrowId] = useState<string | null>(null);
-  const [isShapeMoving, setIsShapeMoving] = useState(false);
   const draggingArrowStart = useRef<{ x: number; y: number } | null>(null);
   const arrowStartPosition = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [showFieldLines, setShowFieldLines] = useState(true);
@@ -338,50 +340,51 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   // Wrapper para registrar cambios en las flechas del fotograma actual
   const updateArrows = (updater: TacticalArrow[] | ((prev: TacticalArrow[]) => TacticalArrow[])) => {
+    let next: TacticalArrow[][] = arrowFrames;
     setArrowFrames(prev => {
-      const next = [...prev];
+      next = [...prev];
       const current = next[currentFrameIndex] ?? [];
       next[currentFrameIndex] = typeof updater === 'function' ? (updater as (prev: TacticalArrow[]) => TacticalArrow[])(current) : updater;
-
-      // Registrar cambio en el historial
-      pushState({
-        squadList: squad,
-        usersList: [],
-        personalList: [],
-        competitionTeams: [],
-        clubesList: [],
-        campogramasList: [],
-        eventsList: [],
-        frames,
-        arrowFrames: next,
-        ballFrames,
-      });
-
       return next;
+    });
+
+    // Registrar cambio en el historial (fuera del updater para no actualizar
+    // otro componente -UndoRedoProvider- durante el render de este)
+    pushState({
+      squadList: squad,
+      usersList: [],
+      personalList: [],
+      competitionTeams: [],
+      clubesList: [],
+      campogramasList: [],
+      eventsList: [],
+      frames,
+      arrowFrames: next,
+      ballFrames,
     });
   };
 
   // Wrapper para registrar cambios en la posición del balón del fotograma actual
   const updateBall = (newBall: Ball) => {
+    let next: Ball[] = ballFrames;
     setBallFrames(prev => {
-      const next = [...prev];
+      next = [...prev];
       next[currentFrameIndex] = newBall;
-
-      // Registrar cambio en el historial
-      pushState({
-        squadList: squad,
-        usersList: [],
-        personalList: [],
-        competitionTeams: [],
-        clubesList: [],
-        campogramasList: [],
-        eventsList: [],
-        frames,
-        arrowFrames,
-        ballFrames: next,
-      });
-
       return next;
+    });
+
+    // Registrar cambio en el historial (fuera del updater)
+    pushState({
+      squadList: squad,
+      usersList: [],
+      personalList: [],
+      competitionTeams: [],
+      clubesList: [],
+      campogramasList: [],
+      eventsList: [],
+      frames,
+      arrowFrames,
+      ballFrames: next,
     });
   };
 
@@ -406,26 +409,26 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const pitchPlayers = frames[currentFrameIndex] ?? [];
   const ball = ballFrames[currentFrameIndex] ?? { x: 50, y: 75 };
   const updatePitchPlayers = (updater: PitchPlayer[] | ((prev: PitchPlayer[]) => PitchPlayer[])) => {
+    let next: PitchPlayer[][] = frames;
     setFrames(prev => {
-      const next = [...prev];
+      next = [...prev];
       const current = next[currentFrameIndex] ?? [];
       next[currentFrameIndex] = typeof updater === 'function' ? (updater as (prev: PitchPlayer[]) => PitchPlayer[])(current) : updater;
-
-      // Registrar cambio en el historial
-      pushState({
-        squadList: squad,
-        usersList: [],
-        personalList: [],
-        competitionTeams: [],
-        clubesList: [],
-        campogramasList: [],
-        eventsList: [],
-        frames: next,
-        arrowFrames,
-        ballFrames,
-      });
-
       return next;
+    });
+
+    // Registrar cambio en el historial (fuera del updater)
+    pushState({
+      squadList: squad,
+      usersList: [],
+      personalList: [],
+      competitionTeams: [],
+      clubesList: [],
+      campogramasList: [],
+      eventsList: [],
+      frames: next,
+      arrowFrames,
+      ballFrames,
     });
   };
 
@@ -691,16 +694,15 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, []);
 
   const handleSelectTool = useCallback((tool: DrawingToolType | null) => {
-    // Si se selecciona una herramienta diferente a null y está activo el modo "Mover"
-    if (tool !== null && isShapeMoving) {
-      setIsShapeMoving(false);
-      drawingTools.selectShape(null);
-    }
     drawingTools.setTool(tool);
-  }, [isShapeMoving, drawingTools]);
+  }, [drawingTools]);
 
   const handleShapePointerDown = useCallback((e: React.PointerEvent, shapeId: string) => {
-    if (!isShapeMoving || !pitchRef.current) return;
+    // El conector se maneja pulsando sobre los jugadores, no sobre formas;
+    // en cualquier otro caso, un clic directo sobre una forma existente
+    // siempre debe poder arrastrarla, tenga o no una herramienta activa.
+    if (drawingTools.state.tool === 'connector' || !pitchRef.current) return;
+    e.stopPropagation();
     const rect = pitchRef.current.getBoundingClientRect();
     shapeDraggingId.current = shapeId;
     shapeDraggingStart.current = {
@@ -709,7 +711,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     };
     document.body.style.cursor = 'grab';
     e.currentTarget.setPointerCapture(e.pointerId);
-  }, [isShapeMoving]);
+  }, [drawingTools.state.tool]);
 
   const clampPitchPlayerPosition = useCallback((player: PitchPlayer, x: number, y: number) => {
     const rect = pitchRef.current?.getBoundingClientRect();
@@ -780,6 +782,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     if (!player || !pitchRef.current) return;
     const rect = pitchRef.current.getBoundingClientRect();
 
+    event.preventDefault();
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
     draggingId.current = id;
     dragged.current = false;
@@ -859,7 +862,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
-      if (shapeDraggingId.current && pitchRef.current && isShapeMoving) {
+      if (shapeDraggingId.current && pitchRef.current) {
         const rect = pitchRef.current.getBoundingClientRect();
         const currentX = ((event.clientX - rect.left) / rect.width) * 100;
         const currentY = ((event.clientY - rect.top) / rect.height) * 100;
@@ -1010,7 +1013,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const onPointerUp = (event: MouseEvent | PointerEvent) => {
       cancelAnimationFrame(rafId.current);
 
-      if (shapeDraggingId.current && isShapeMoving) {
+      if (shapeDraggingId.current) {
         const shapeId = shapeDraggingId.current;
         if (!shapeDragged.current) {
           // Si no hubo drag, solo seleccionar la forma
@@ -1125,7 +1128,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('mouseup', onPointerUp);
     };
-  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball, drawingTools, isShapeMoving]);
+  }, [clampPitchPlayerPosition, clearPitchSelection, getPlayerBounds, pitchPlayers, rectIntersects, selectPitchIds, isDrawingArrow, drawStart, arrowColor, draggingArrowId, draggingBall, ball, drawingTools]);
 
   const groupedSquad = useMemo(() => {
     const buckets: Record<string, SquadPlayer[]> = {
@@ -1699,7 +1702,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white text-slate-800 dark:bg-[#121212] dark:text-slate-100">
+    <div className="flex h-[calc(100vh-90px)] md:h-[calc(100vh-100px)] overflow-hidden bg-white text-slate-800 dark:bg-[#121212] dark:text-slate-100">
       {linkedParams && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
           <i className="fa-solid fa-link"></i>
@@ -1738,7 +1741,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       <aside className={`${mobileTeamPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} md:flex md:static md:z-auto md:w-[290px] shrink-0 flex-col border-r border-slate-200 bg-[#f8f9fa] dark:border-white/10 dark:bg-[#121212]`}>
         <div className="flex h-[58px] items-center gap-3 border-b border-slate-200 px-5 text-[11px] font-black uppercase tracking-[0.15em] text-slate-500 dark:border-white/10 dark:text-slate-400">
           <i className="fa-solid fa-bars text-[18px]" />
-          <span>PLANTILLA</span>
           <button
             type="button"
             onClick={() => setMobileTeamPanelOpen(false)}
@@ -1750,73 +1752,64 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="border-l-2 border-[var(--accent)] pl-4">
-            <div className="flex items-center gap-2 text-[15px] font-black uppercase tracking-[0.04em] text-slate-800 dark:text-white">
-              <span className="inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />
-              PIZARRA TACTICA
-            </div>
-          </div>
-
-          <div className="mt-8 space-y-5">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShowPlayerNumbers(v => !v)}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  showPlayerNumbers
-                    ? 'border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-              >
-                {showPlayerNumbers ? 'NUM. ON' : 'NUM. OFF'}
-              </button>
-              <button
-                onClick={() => {
-                  const nextVisible = !(showMyTeam && showRivalTeam);
-                  setShowMyTeam(nextVisible);
-                  setShowRivalTeam(nextVisible);
-                  setSelectedPitchIds([]);
-                  setSelectedSquadPlayerId(null);
-                }}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.13em] transition-all ${
-                  showMyTeam && showRivalTeam
-                    ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                    : 'border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]'
-                }`}
-              >
-                <i className={`fa-solid ${showMyTeam && showRivalTeam ? 'fa-broom' : 'fa-eye'} mr-2 text-[11px]`} />
-                JUGADORES
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlayerScale(v => Math.max(0.85, +(v - 0.08).toFixed(2)))}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-                title="Reducir el tamaño de todos los jugadores"
-              >
-                <i className="fa-solid fa-magnifying-glass-minus mr-2 text-[11px]" />
-                Menos
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlayerScale(v => Math.min(1.45, +(v + 0.08).toFixed(2)))}
-                className="h-11 rounded-md border border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[12px] font-black uppercase tracking-[0.14em] text-[var(--accent)]"
-                title="Aumentar el tamaño de todos los jugadores"
-              >
-                <i className="fa-solid fa-magnifying-glass-plus mr-2 text-[11px]" />
-                Más
-              </button>
+          <div className="space-y-5">
+              {/* ACCIONES Section */}
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-2">ACCIONES</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={drawingTools.undo}
+                    disabled={drawingTools.historyLength === 0}
+                    className="h-8 rounded-md border border-slate-200 bg-white text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                  >
+                    <i className="fa-solid fa-undo mr-1.5 text-[10px]" />
+                    Deshacer
+                  </button>
+                  <button
+                    onClick={drawingTools.deleteAll}
+                    disabled={drawingTools.shapes.length === 0}
+                    className="h-8 rounded-md border border-red-200 bg-white text-[10px] font-black uppercase tracking-[0.1em] text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:bg-[#1a1a1a] dark:text-red-400 dark:hover:bg-red-500/10"
+                  >
+                    <i className="fa-solid fa-eraser mr-1.5 text-[10px]" />
+                    Limpiar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedArrowId) {
+                        updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
+                        setSelectedArrowId(null);
+                      } else if (drawingTools.state.selectedShapeId) {
+                        drawingTools.deleteShape(drawingTools.state.selectedShapeId);
+                      } else if (selectedPitchIds.length > 0) {
+                        updatePitchPlayers(prev => prev.filter(p => !selectedPitchIds.includes(p.id)));
+                        setSelectedPitchIds([]);
+                      }
+                    }}
+                    disabled={!selectedArrowId && !drawingTools.state.selectedShapeId && selectedPitchIds.length === 0}
+                    title="Elimina el elemento seleccionado en el campo"
+                    className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-[0.1em] transition-all ${
+                      !selectedArrowId && !drawingTools.state.selectedShapeId && selectedPitchIds.length === 0
+                        ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-white/10 dark:bg-white/5 dark:text-slate-500'
+                        : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-[#1a1a1a] dark:text-red-400 dark:hover:bg-red-500/10'
+                    }`}
+                  >
+                    <i className="fa-solid fa-trash-can mr-1.5 text-[10px]" />
+                    Borrar
+                  </button>
+                </div>
+              </div>
 
               {/* CAMPOS Section */}
-              <div className="col-span-2 mt-2 pt-3 border-t border-slate-200 dark:border-white/10">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 mb-2">CAMPOS</p>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-2">CAMPOS</p>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     id="loadAtaque"
-                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    className="h-8 rounded-md border border-slate-200 bg-white text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
                     type="button"
                     title="Cargar posición de ataque"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 inline mr-1">
                       <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
                       <path d="M12 3v14"></path>
                       <path d="M2 10h20"></path>
@@ -1827,11 +1820,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   </button>
                   <button
                     id="loadDefensa"
-                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    className="h-8 rounded-md border border-slate-200 bg-white text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
                     type="button"
                     title="Cargar posición de defensa"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 inline mr-1">
                       <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
                       <path d="M12 3v14"></path>
                       <path d="M2 10h20"></path>
@@ -1842,11 +1835,11 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   </button>
                   <button
                     id="loadCompleto"
-                    className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                    className="h-8 rounded-md border border-slate-200 bg-white text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
                     type="button"
                     title="Cargar campo entero"
                   >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 inline mr-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 inline mr-1">
                       <rect x="2" y="3" width="20" height="14" rx="1" ry="1"></rect>
                       <path d="M12 3v14"></path>
                       <path d="M2 10h20"></path>
@@ -2040,8 +2033,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       <label className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">
                         Estilo Foco
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {['abierto', 'estrecho', 'cilindrico'].map(style => (
+                      <div className="grid grid-cols-4 gap-2">
+                        {['abierto', 'estrecho', 'cilindrico', 'base'].map(style => (
                           <button
                             key={style}
                             onClick={() => drawingTools.setFocusStyle(style as any)}
@@ -2225,23 +2218,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   <div className="tool-grid">
                     <button
                       type="button"
-                      data-tool="move"
-                      onClick={() => {
-                        setIsShapeMoving(v => !v);
-                        if (!isShapeMoving) {
-                          drawingTools.setTool(null);
-                        }
-                      }}
-                      className={`tool-button ${isShapeMoving ? 'is-active' : ''}`}
-                      title="Mover elementos"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 3v18M3 12h18M9 6l3-3 3 3M15 18l-3 3-3-3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                      </svg>
-                      <span className="tool-label">Mover</span>
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => {
                         if (selectedArrowId) {
                           updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
@@ -2286,6 +2262,42 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                       <span className="tool-label">Duplicar</span>
                     </button>
                   </div>
+                  <div className="tool-grid">
+                    <button
+                      type="button"
+                      disabled={!drawingTools.state.selectedShapeId}
+                      onClick={() => {
+                        if (drawingTools.state.selectedShapeId) {
+                          drawingTools.bringToFront(drawingTools.state.selectedShapeId);
+                        }
+                      }}
+                      className="tool-button disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Traer al frente"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="4" y="4" width="10" height="10" rx="1.2" opacity="0.35"></rect>
+                        <rect x="10" y="10" width="10" height="10" rx="1.2"></rect>
+                      </svg>
+                      <span className="tool-label">Al frente</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!drawingTools.state.selectedShapeId}
+                      onClick={() => {
+                        if (drawingTools.state.selectedShapeId) {
+                          drawingTools.sendToBack(drawingTools.state.selectedShapeId);
+                        }
+                      }}
+                      className="tool-button disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Enviar atrás"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="10" y="10" width="10" height="10" rx="1.2" opacity="0.35"></rect>
+                        <rect x="4" y="4" width="10" height="10" rx="1.2"></rect>
+                      </svg>
+                      <span className="tool-label">Atrás</span>
+                    </button>
+                  </div>
                   <div className="tool-grid tool-grid-2col">
                     <button
                       type="button"
@@ -2322,7 +2334,39 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 )}
               </div>
 
-            </div>
+              {/* EXPORTAR Section */}
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-2">EXPORTAR</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={downloadImage}
+                    disabled={isExportingImage}
+                    className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-[0.1em] transition-all ${
+                      isExportingImage
+                        ? 'border-amber-500/30 bg-amber-500/15 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/15 dark:text-amber-400'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                    }`}
+                    title={isExportingImage ? "Descargando PNG..." : "Descargar captura de la pizarra"}
+                  >
+                    <i className={`fa-solid ${isExportingImage ? 'fa-spinner' : 'fa-image'} mr-1.5 text-[10px] ${isExportingImage ? 'animate-spin' : ''}`} />
+                    {isExportingImage ? 'DESCARGANDO...' : 'Imagen'}
+                  </button>
+                  <button
+                    onClick={downloadVideoAsMP4}
+                    disabled={isExportingVideo}
+                    className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-[0.1em] transition-all ${
+                      isExportingVideo
+                        ? 'border-blue-500/30 bg-blue-500/15 text-blue-600 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-400'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                    }`}
+                    title={isExportingVideo ? "Generando video MP4..." : "Descargar pizarra como video en MP4"}
+                  >
+                    <i className={`fa-solid ${isExportingVideo ? 'fa-spinner' : 'fa-video'} mr-1.5 text-[10px] ${isExportingVideo ? 'animate-spin' : ''}`} />
+                    {isExportingVideo ? 'EXPORTANDO...' : 'Video'}
+                  </button>
+                </div>
+              </div>
+
           </div>
         </div>
       </aside>
@@ -2376,7 +2420,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               <select
                 value={playbackSpeed}
                 onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-                className="flex h-8 w-[110px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-700 md:w-[170px] dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                className="flex h-8 w-[52px] shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 px-2 text-[13px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
                 title="Velocidad de reproducción"
               >
                 <option value={1}>x1</option>
@@ -2634,77 +2678,6 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         </div>
 
         <div className="min-h-0 flex-1 px-4 py-3 md:px-5 flex flex-col">
-          <div className="flex gap-3 mb-3 justify-center items-center relative">
-            <div className="flex gap-3 absolute left-1/2 transform -translate-x-96">
-              <button
-                onClick={drawingTools.undo}
-                disabled={drawingTools.shapes.length === 0}
-                className="h-11 rounded-md border border-slate-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
-              >
-                <i className="fa-solid fa-undo mr-2 text-[11px]" />
-                Deshacer
-              </button>
-              <button
-                onClick={drawingTools.deleteAll}
-                disabled={drawingTools.shapes.length === 0}
-                className="h-11 rounded-md border border-red-200 bg-white text-[12px] font-black uppercase tracking-[0.14em] text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-[#1a1a1a] dark:text-red-400 dark:hover:bg-red-500/10"
-              >
-                <i className="fa-solid fa-eraser mr-2 text-[11px]" />
-                Limpiar
-              </button>
-              <button
-                onClick={() => {
-                  if (selectedArrowId) {
-                    updateArrows(prev => prev.filter(arrow => arrow.id !== selectedArrowId));
-                    setSelectedArrowId(null);
-                  } else if (drawingTools.state.selectedShapeId) {
-                    drawingTools.deleteShape(drawingTools.state.selectedShapeId);
-                  } else if (selectedPitchIds.length > 0) {
-                    updatePitchPlayers(prev => prev.filter(p => !selectedPitchIds.includes(p.id)));
-                    setSelectedPitchIds([]);
-                  }
-                }}
-                disabled={!selectedArrowId && !drawingTools.state.selectedShapeId && selectedPitchIds.length === 0}
-                title="Elimina el elemento seleccionado en el campo"
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  !selectedArrowId && !drawingTools.state.selectedShapeId && selectedPitchIds.length === 0
-                    ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-white/10 dark:bg-white/5 dark:text-slate-500'
-                    : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-[#1a1a1a] dark:text-red-400 dark:hover:bg-red-500/10'
-                }`}
-              >
-                <i className="fa-solid fa-trash-can mr-2 text-[11px]" />
-                Borrar
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={downloadImage}
-                disabled={isExportingImage}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  isExportingImage
-                    ? 'border-amber-500/30 bg-amber-500/15 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/15 dark:text-amber-400'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-                title={isExportingImage ? "Descargando PNG..." : "Descargar captura de la pizarra"}
-              >
-                <i className={`fa-solid ${isExportingImage ? 'fa-spinner' : 'fa-image'} mr-2 text-[11px] ${isExportingImage ? 'animate-spin' : ''}`} />
-                {isExportingImage ? 'DESCARGANDO...' : 'IMAGEN'}
-              </button>
-              <button
-                onClick={downloadVideoAsMP4}
-                disabled={isExportingVideo}
-                className={`h-11 rounded-md border text-[12px] font-black uppercase tracking-[0.14em] transition-all ${
-                  isExportingVideo
-                    ? 'border-blue-500/30 bg-blue-500/15 text-blue-600 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-400'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
-                }`}
-                title={isExportingVideo ? "Generando video MP4..." : "Descargar pizarra como video en MP4"}
-              >
-                <i className={`fa-solid ${isExportingVideo ? 'fa-spinner' : 'fa-video'} mr-2 text-[11px] ${isExportingVideo ? 'animate-spin' : ''}`} />
-                {isExportingVideo ? 'EXPORTANDO...' : 'VIDEO'}
-              </button>
-            </div>
-          </div>
           <div className="grid h-full min-h-0 grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section
               ref={pitchStageRef}
@@ -2793,7 +2766,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 )}
 
                 <svg
-                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  className="pointer-events-none absolute inset-0 h-full w-full z-[10]"
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
                   aria-hidden="true"
@@ -2968,6 +2941,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     <div
                       key={player.id}
                       className="absolute select-none"
+                      draggable={false}
                       style={{
                         left: `${player.x}%`,
                         top: `${player.y}%`,
@@ -2989,6 +2963,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         e.stopPropagation();
                         handlePointerDown(e, player.id);
                       }}
+                      onDragStart={e => e.preventDefault()}
                       onClick={e => {
                         e.stopPropagation();
                         if (isPlaying) return;
@@ -3034,7 +3009,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         }}
                       >
                         {showPlayerPhotos && player.playerFotoUrl ? (
-                          <img src={player.playerFotoUrl} alt={player.playerName || ''} className="h-full w-full object-cover" />
+                          <img src={player.playerFotoUrl} alt={player.playerName || ''} className="h-full w-full object-cover" draggable={false} />
                         ) : (
                           showPlayerNumbers && (
                             <span className="text-[15px] leading-none">{player.playerDorsal !== undefined ? player.playerDorsal : player.playerInitials ? player.playerInitials : player.number}</span>
@@ -3113,6 +3088,66 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-6">
                 <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowPlayersAndFieldsPanel(v => !v)}
+                    className="flex w-full items-center justify-between text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                    aria-expanded={showPlayersAndFieldsPanel}
+                  >
+                    <span>Jugadores</span>
+                    <i className={`fa-solid ${showPlayersAndFieldsPanel ? 'fa-chevron-up' : 'fa-chevron-down'} text-[10px]`} />
+                  </button>
+                  {showPlayersAndFieldsPanel && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPlayerNumbers(v => !v)}
+                      className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-[0.1em] transition-all ${
+                        showPlayerNumbers
+                          ? 'border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      {showPlayerNumbers ? 'NUM. ON' : 'NUM. OFF'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const nextVisible = !(showMyTeam && showRivalTeam);
+                        setShowMyTeam(nextVisible);
+                        setShowRivalTeam(nextVisible);
+                        setSelectedPitchIds([]);
+                        setSelectedSquadPlayerId(null);
+                      }}
+                      className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-[0.09em] transition-all ${
+                        showMyTeam && showRivalTeam
+                          ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+                          : 'border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent)]'
+                      }`}
+                    >
+                      <i className={`fa-solid ${showMyTeam && showRivalTeam ? 'fa-broom' : 'fa-eye'} mr-1.5 text-[10px]`} />
+                      JUGADORES
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlayerScale(v => Math.max(0.85, +(v - 0.08).toFixed(2)))}
+                      className="h-8 rounded-md border border-slate-200 bg-white text-[10px] font-black uppercase tracking-[0.1em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5"
+                      title="Reducir el tamaño de todos los jugadores"
+                    >
+                      <i className="fa-solid fa-magnifying-glass-minus mr-1.5 text-[10px]" />
+                      Menos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlayerScale(v => Math.min(1.45, +(v + 0.08).toFixed(2)))}
+                      className="h-8 rounded-md border border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[10px] font-black uppercase tracking-[0.1em] text-[var(--accent)]"
+                      title="Aumentar el tamaño de todos los jugadores"
+                    >
+                      <i className="fa-solid fa-magnifying-glass-plus mr-1.5 text-[10px]" />
+                      Más
+                    </button>
+                  </div>
+                  )}
+
                   <div className="rounded-md border border-blue-200/50 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
                     <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">
                       RIVAL
@@ -3121,18 +3156,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     <div className="space-y-3 mb-3">
                       <button
                         type="button"
-                        onClick={() => setShowRivalTeam(v => !v)}
+                        onClick={() => setRivalTeamPanelExpanded(v => !v)}
                         className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 ${
-                          showRivalTeam
+                          rivalTeamPanelExpanded
                             ? 'border-blue-300/50 bg-blue-100 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/20 dark:text-blue-200'
                             : 'border-blue-200 bg-white text-blue-600 hover:bg-blue-50 dark:border-blue-500/20 dark:bg-[#1a1a1a] dark:text-blue-300 dark:hover:bg-blue-500/10'
                         }`}
                       >
-                        <i className={`fa-solid ${showRivalTeam ? 'fa-chevron-up' : 'fa-chevron-down'} text-[11px]`} />
-                        {showRivalTeam ? 'OCULTAR' : 'MOSTRAR'}
+                        <i className={`fa-solid ${rivalTeamPanelExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[11px]`} />
+                        {rivalTeamPanelExpanded ? 'OCULTAR' : 'MOSTRAR'}
                       </button>
 
-                      {showRivalTeam && (
+                      {rivalTeamPanelExpanded && (
                         <>
                           <div>
                             <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
@@ -3168,70 +3203,69 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                               ))}
                             </SearchableSelect>
                           </div>
+                          <div>
+                            <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                              Sistema
+                            </label>
+                            <select
+                              value={rivalFormation}
+                              onChange={e => setRivalFormation(e.target.value)}
+                              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
+                            >
+                              <option value="1-3-4-3">1-3-4-3</option>
+                              <option value="1-4-4-2">1-4-4-2</option>
+                              <option value="1-4-3-3">1-4-3-3</option>
+                              <option value="1-4-2-3-1">1-4-2-3-1</option>
+                              <option value="1-5-3-2">1-5-3-2</option>
+                            </select>
+                          </div>
+
+                          {selectedRivalTeamId && rivalPlayers.length > 0 && (
+                            <div className="rounded-md bg-blue-100 border border-blue-300 px-3 py-2 dark:bg-blue-500/20 dark:border-blue-500/40">
+                              <p className="text-[11px] font-black text-blue-700 dark:text-blue-200">
+                                ✓ {rivalPlayers.length} jugadores cargados
+                              </p>
+                            </div>
+                          )}
+
+                          {selectedRivalTeamId && rivalPlayers.length > 0 && (
+                            <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                              {rivalPlayers.map(player => {
+                                const isSelected = selectedRivalPlayerId === player.id;
+                                const isAssigned = assignedPlayerIds.has(player.id);
+                                return (
+                                  <button
+                                    key={player.id}
+                                    type="button"
+                                    onClick={() => {
+                                      if (selectedPitchId) {
+                                        const pitchPlayer = pitchPlayers.find(p => p.id === selectedPitchId);
+                                        if (pitchPlayer && pitchPlayer.team === 'rival') {
+                                          assignPlayer(player, selectedPitchId);
+                                          return;
+                                        }
+                                      }
+                                      setSelectedRivalPlayerId(prev => (prev === player.id ? null : player.id));
+                                    }}
+                                    className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
+                                      isSelected
+                                        ? 'border-blue-400 bg-blue-200 text-blue-800 dark:border-blue-400/60 dark:bg-blue-500/30 dark:text-blue-100'
+                                        : isAssigned
+                                          ? 'border-blue-200/60 bg-white/60 text-blue-400 dark:border-blue-500/20 dark:bg-[#1a1a1a]/60 dark:text-blue-300/50'
+                                          : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-500/20 dark:bg-[#1a1a1a] dark:text-blue-200 dark:hover:bg-blue-500/10'
+                                    }`}
+                                  >
+                                    <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-blue-600/10 text-[11px] font-black text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">
+                                      {player.dorsal ?? '-'}
+                                    </span>
+                                    <span className="truncate">{player.nombre}</span>
+                                    {isAssigned && <i className="fa-solid fa-check ml-auto text-[10px]" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </>
-                      )}
-
-                      <div>
-                        <label className="block mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                          Sistema
-                        </label>
-                        <select
-                          value={rivalFormation}
-                          onChange={e => setRivalFormation(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 outline-none dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-200"
-                        >
-                          <option value="1-3-4-3">1-3-4-3</option>
-                          <option value="1-4-4-2">1-4-4-2</option>
-                          <option value="1-4-3-3">1-4-3-3</option>
-                          <option value="1-4-2-3-1">1-4-2-3-1</option>
-                          <option value="1-5-3-2">1-5-3-2</option>
-                        </select>
-                      </div>
-
-                      {selectedRivalTeamId && rivalPlayers.length > 0 && (
-                        <div className="rounded-md bg-blue-100 border border-blue-300 px-3 py-2 dark:bg-blue-500/20 dark:border-blue-500/40">
-                          <p className="text-[11px] font-black text-blue-700 dark:text-blue-200">
-                            ✓ {rivalPlayers.length} jugadores cargados
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedRivalTeamId && rivalPlayers.length > 0 && (
-                        <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
-                          {rivalPlayers.map(player => {
-                            const isSelected = selectedRivalPlayerId === player.id;
-                            const isAssigned = assignedPlayerIds.has(player.id);
-                            return (
-                              <button
-                                key={player.id}
-                                type="button"
-                                onClick={() => {
-                                  if (selectedPitchId) {
-                                    const pitchPlayer = pitchPlayers.find(p => p.id === selectedPitchId);
-                                    if (pitchPlayer && pitchPlayer.team === 'rival') {
-                                      assignPlayer(player, selectedPitchId);
-                                      return;
-                                    }
-                                  }
-                                  setSelectedRivalPlayerId(prev => (prev === player.id ? null : player.id));
-                                }}
-                                className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[12px] font-semibold transition-all ${
-                                  isSelected
-                                    ? 'border-blue-400 bg-blue-200 text-blue-800 dark:border-blue-400/60 dark:bg-blue-500/30 dark:text-blue-100'
-                                    : isAssigned
-                                      ? 'border-blue-200/60 bg-white/60 text-blue-400 dark:border-blue-500/20 dark:bg-[#1a1a1a]/60 dark:text-blue-300/50'
-                                      : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-500/20 dark:bg-[#1a1a1a] dark:text-blue-200 dark:hover:bg-blue-500/10'
-                                }`}
-                              >
-                                <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-blue-600/10 text-[11px] font-black text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">
-                                  {player.dorsal ?? '-'}
-                                </span>
-                                <span className="truncate">{player.nombre}</span>
-                                {isAssigned && <i className="fa-solid fa-check ml-auto text-[10px]" />}
-                              </button>
-                            );
-                          })}
-                        </div>
                       )}
                     </div>
                   </div>
@@ -3243,18 +3277,18 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
                     <button
                       type="button"
-                      onClick={() => setShowMyTeam(v => !v)}
+                      onClick={() => setMyTeamPanelExpanded(v => !v)}
                       className={`w-full h-10 rounded-md border text-[12px] font-black uppercase tracking-[0.12em] transition-all flex items-center justify-center gap-2 mb-3 ${
-                        showMyTeam
+                        myTeamPanelExpanded
                           ? 'border-red-300/50 bg-red-100 text-red-700 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-200'
                           : 'border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-500/20 dark:bg-[#1a1a1a] dark:text-red-300 dark:hover:bg-red-500/10'
                       }`}
                     >
-                      <i className={`fa-solid ${showMyTeam ? 'fa-chevron-up' : 'fa-chevron-down'} text-[11px]`} />
-                      {showMyTeam ? 'OCULTAR' : 'MOSTRAR'}
+                      <i className={`fa-solid ${myTeamPanelExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[11px]`} />
+                      {myTeamPanelExpanded ? 'OCULTAR' : 'MOSTRAR'}
                     </button>
 
-                    {showMyTeam && <div className="space-y-3 mb-3">
+                    {myTeamPanelExpanded && <div className="space-y-3 mb-3">
 
                       <SearchableSelect
                         value={selectedMyTeamId}

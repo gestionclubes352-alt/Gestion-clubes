@@ -4,6 +4,7 @@ const youtubeUrlInput = document.getElementById("youtubeUrl");
 const urlInputGroup = youtubeUrlInput?.closest(".input-group");
 const loadYoutubeButton = document.getElementById("loadYoutube");
 const togglePlaybackButton = document.getElementById("togglePlayback");
+const stagePlayToggleButton = document.getElementById("stagePlayToggle");
 const seekBackwardButton = document.getElementById("seekBackward");
 const seekForwardButton = document.getElementById("seekForward");
 const toggleDrawModeButton = document.getElementById("toggleDrawMode");
@@ -12,11 +13,13 @@ const imageUploadInput = document.getElementById("imageUpload");
 const sourceLabel = document.getElementById("sourceLabel");
 const statusText = document.getElementById("statusText");
 const connectorEscHint = document.getElementById("connectorEscHint");
+const polygonEscHint = document.getElementById("polygonEscHint");
 const timelineSeekInput = document.getElementById("timelineSeek");
 const timeDisplay = document.getElementById("timeDisplay");
 const keyboardHint = document.getElementById("keyboardHint");
 const canvas = document.getElementById("annotationCanvas");
 const stage = document.getElementById("stage");
+const youtubeClickShield = document.getElementById("youtubeClickShield");
 const backgroundImage = document.getElementById("backgroundImage");
 const youtubeContainer = document.getElementById("youtubePlayer");
 const stagePanel = document.querySelector(".stage-panel");
@@ -42,7 +45,7 @@ const spotlightStyleButtons = document.querySelectorAll("[data-spotlight-style]"
 const undoActionButton = document.getElementById("undoAction");
 const clearActionButton = document.getElementById("clearAction");
 const exportOverlayButton = document.getElementById("exportOverlay");
-const quickInsertChips = document.querySelectorAll(".quick-insert-chip");
+const numberPalette = document.querySelector(".number-palette");
 const collapsiblePanels = document.querySelectorAll("[data-collapsible]");
 
 if (!canvas) {
@@ -113,6 +116,15 @@ function setConnectorHint(visible) {
     connectorEscHint.classList.remove("hidden");
   } else {
     connectorEscHint.classList.add("hidden");
+  }
+}
+
+function setPolygonHint(visible) {
+  if (!polygonEscHint) return;
+  if (visible) {
+    polygonEscHint.classList.remove("hidden");
+  } else {
+    polygonEscHint.classList.add("hidden");
   }
 }
 
@@ -358,7 +370,7 @@ function getCanvasPoint(event) {
 }
 
 function refreshQuickInsertChips() {
-  quickInsertChips.forEach((chip) => {
+  numberPalette?.querySelectorAll(".quick-insert-chip").forEach((chip) => {
     chip.classList.toggle("is-active", chip.dataset.insertText === state.selectedQuickInsert);
   });
 }
@@ -376,6 +388,11 @@ function setTool(nextTool) {
   if (state.tool === "connector" && state.drawing) {
     state.drawing = null;
     setConnectorHint(false);
+    redraw();
+  }
+  if (state.tool === "polygonZone" && state.drawing) {
+    state.drawing = null;
+    setPolygonHint(false);
     redraw();
   }
   state.tool = nextTool;
@@ -780,7 +797,7 @@ function cloneShape(shape) {
 }
 
 function getShapeBounds(shape) {
-  if (shape.type === "pen" || shape.type === "connector") {
+  if (shape.type === "pen" || shape.type === "connector" || shape.type === "polygonZone") {
     const xs = shape.points.map((point) => point.x);
     const ys = shape.points.map((point) => point.y);
     return {
@@ -899,7 +916,7 @@ function findAnnotationAtPoint(point) {
 }
 
 function translateShape(shape, dx, dy) {
-  if (shape.type === "pen" || shape.type === "connector") {
+  if (shape.type === "pen" || shape.type === "connector" || shape.type === "polygonZone") {
     shape.points = shape.points.map((point) => ({
       x: point.x + dx,
       y: point.y + dy,
@@ -934,7 +951,7 @@ function scaleShapeFromBaseline(shape, factor) {
     y: (bounds.top + bounds.bottom) / 2,
   };
 
-  if (scaledShape.type === "pen" || scaledShape.type === "connector") {
+  if (scaledShape.type === "pen" || scaledShape.type === "connector" || scaledShape.type === "polygonZone") {
     scaledShape.points = scaledShape.points.map((point) => scalePoint(point, center, factor));
     scaledShape.lineWidth = Math.max(1, shape.lineWidth * factor);
     return scaledShape;
@@ -1032,7 +1049,7 @@ function resizeShapeWithHandle(shape, handleIndex, newPoint, anchor) {
 
   if (newRight - newLeft < 8 && newBottom - newTop < 8) return;
 
-  if (shape.type === "pen" || shape.type === "connector") {
+  if (shape.type === "pen" || shape.type === "connector" || shape.type === "polygonZone") {
     const b = getShapeBounds(shape);
     const oldW = (b.right - b.left) || 1;
     const oldH = (b.bottom - b.top) || 1;
@@ -1820,6 +1837,46 @@ function drawSpotlightBeams(shape) {
   ctx.restore();
 }
 
+function drawPolygonZone(shape) {
+  const points = shape.previewEnd ? [...shape.points, shape.previewEnd] : shape.points;
+  if (!points || points.length < 2) {
+    return;
+  }
+
+  const isClosed = !shape.previewEnd && points.length >= 3;
+
+  ctx.save();
+  ctx.lineWidth = Math.max(2, shape.lineWidth * 0.55);
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+
+  if (isClosed) {
+    ctx.closePath();
+    ctx.fillStyle = hexToRgba(shape.fill, 0.4);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = hexToRgba(shape.stroke, 0.9);
+  ctx.setLineDash(shape.lineStyle === "dashed" ? [shape.lineWidth * 2.5, shape.lineWidth * 1.8] : []);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const nodeRadius = Math.max(5, shape.lineWidth * 1.3);
+  shape.points.forEach((vertex, index) => {
+    ctx.beginPath();
+    ctx.arc(vertex.x, vertex.y, nodeRadius, 0, Math.PI * 2);
+    ctx.fillStyle = index === 0 && !isClosed ? "#f3e97c" : shape.stroke;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.5, shape.lineWidth * 0.35);
+    ctx.strokeStyle = hexToRgba("#ffffff", 0.65);
+    ctx.stroke();
+  });
+
+  ctx.restore();
+}
+
 function drawSpotlight(shape) {
   const style = shape.spotlightStyle || "filled";
   if (style === "outline") { drawSpotlightOutline(shape); return; }
@@ -1869,6 +1926,9 @@ function drawShape(shape, currentTime = 0) {
   }
   if (shape.type === "triangleZone") {
     drawTriangleZone(shape);
+  }
+  if (shape.type === "polygonZone") {
+    drawPolygonZone(shape);
   }
   if (shape.type === "text") {
     drawText(shape);
@@ -1929,6 +1989,10 @@ function beginDrawing(event) {
   }
 
   if (state.tool === "connector") {
+    return;
+  }
+
+  if (state.tool === "polygonZone") {
     return;
   }
 
@@ -2053,6 +2117,12 @@ function updateDrawing(event) {
     return;
   }
 
+  if (state.tool === "polygonZone" && state.drawing) {
+    state.drawing.previewEnd = getCanvasPoint(event);
+    redraw();
+    return;
+  }
+
   if (state.tool === "move" && state.resizingHandleIndex >= 0 && state.resizeAnchor) {
     const point = getCanvasPoint(event);
     const idx = state.selectedAnnotationIndex;
@@ -2104,6 +2174,10 @@ function finishDrawing(event) {
   }
 
   if (state.tool === "connector") {
+    return;
+  }
+
+  if (state.tool === "polygonZone") {
     return;
   }
 
@@ -2430,6 +2504,16 @@ function parseYouTubeInput(url) {
   return null;
 }
 
+const PLAY_ICON_PATH = '<path d="M5 3l14 9-14 9V3z"></path>';
+const PAUSE_ICON_PATH = '<path d="M6 4h4v16H6z"></path><path d="M14 4h4v16h-4z"></path>';
+
+function syncStagePlayToggle(isPlaying) {
+  stage?.classList.toggle("is-paused-source", !isPlaying);
+  if (!stagePlayToggleButton) return;
+  stagePlayToggleButton.classList.toggle("is-playing", isPlaying);
+  stagePlayToggleButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${isPlaying ? PAUSE_ICON_PATH : PLAY_ICON_PATH}</svg>`;
+}
+
 function resetPlayerState() {
   state.playerReady = false;
   state.playerState = "paused";
@@ -2438,6 +2522,7 @@ function resetPlayerState() {
   if (togglePlaybackButton) {
     togglePlaybackButton.textContent = "Reproducir";
   }
+  syncStagePlayToggle(false);
 }
 
 async function ensurePlayer(videoId, options = {}) {
@@ -2528,6 +2613,7 @@ async function ensurePlayer(videoId, options = {}) {
           if (event.data === YT.PlayerState.PLAYING) {
             state.playerState = "playing";
             if (togglePlaybackButton) togglePlaybackButton.textContent = "Pausar";
+            syncStagePlayToggle(true);
             setDrawEnabled(false);
             setStatus("Reproduciendo. Pausa cuando quieras fijar la accion.");
             ensureFollowLoop();
@@ -2536,6 +2622,7 @@ async function ensurePlayer(videoId, options = {}) {
           if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
             state.playerState = "paused";
             if (togglePlaybackButton) togglePlaybackButton.textContent = "Reproducir";
+            syncStagePlayToggle(false);
             syncTimeline(true);
             setDrawEnabled(true);
             setStatus("Video pausado. Ya puedes pintar encima.");
@@ -2581,7 +2668,7 @@ seekForwardButton?.addEventListener("click", () => {
   seekBy(5);
 });
 
-togglePlaybackButton?.addEventListener("click", () => {
+function togglePlayback() {
   if (!state.player || !state.playerReady) {
     if (state.sourceMode === "youtube" && youtubeContainer.querySelector("iframe")) {
       window.alert("Este video esta cargado en modo compatible. Usa los controles del reproductor de YouTube.");
@@ -2595,6 +2682,14 @@ togglePlaybackButton?.addEventListener("click", () => {
     state.player.pauseVideo();
   } else {
     state.player.playVideo();
+  }
+}
+
+togglePlaybackButton?.addEventListener("click", togglePlayback);
+stagePlayToggleButton?.addEventListener("click", togglePlayback);
+youtubeClickShield?.addEventListener("click", () => {
+  if (!state.drawEnabled) {
+    togglePlayback();
   }
 });
 
@@ -2694,21 +2789,22 @@ toolButtons.forEach((button) => {
   button.addEventListener("click", () => setTool(button.dataset.tool));
 });
 
-quickInsertChips.forEach((chip) => {
-  chip.addEventListener("click", () => {
-    const value = chip.dataset.playerNumber
-      ? resolvePlayerShortcutValue(chip.dataset.playerNumber)
-      : chip.dataset.insertText || "";
+numberPalette?.addEventListener("click", (event) => {
+  const chip = event.target.closest(".quick-insert-chip");
+  if (!chip || !numberPalette.contains(chip)) return;
 
-    chip.dataset.insertText = value;
-    setSelectedQuickInsert(state.selectedQuickInsert === value ? "" : value);
-    setTool("text");
-    if (state.selectedQuickInsert) {
-      setStatus(`${state.selectedQuickInsert} listo. Haz clic en el campo para colocarlo.`);
-      return;
-    }
-    setStatus("Selector rapido desactivado. La herramienta Texto vuelve a pedir contenido.");
-  });
+  const value = chip.dataset.playerNumber
+    ? resolvePlayerShortcutValue(chip.dataset.playerNumber)
+    : chip.dataset.insertText || "";
+
+  chip.dataset.insertText = value;
+  setSelectedQuickInsert(state.selectedQuickInsert === value ? "" : value);
+  setTool("text");
+  if (state.selectedQuickInsert) {
+    setStatus(`${state.selectedQuickInsert} listo. Haz clic en el campo para colocarlo.`);
+    return;
+  }
+  setStatus("Selector rapido desactivado. La herramienta Texto vuelve a pedir contenido.");
 });
 
 duplicateAnnotationButton?.addEventListener("click", duplicateSelectedAnnotation);
@@ -2941,6 +3037,65 @@ canvas.addEventListener("dblclick", (event) => {
   redraw();
 });
 
+const POLYGON_CLOSE_RADIUS = 14;
+
+function finishPolygonZone(statusMessage) {
+  if (!state.drawing) return;
+  if (state.drawing.points.length >= 3) {
+    pushHistory();
+    delete state.drawing.previewEnd;
+    state.annotations.push(state.drawing);
+    state.selectedAnnotationIndex = state.annotations.length - 1;
+    syncSizeControl();
+    setStatus(statusMessage || "Zona libre guardada.");
+  } else {
+    setStatus("Zona libre cancelada: necesitas al menos 3 puntos.");
+  }
+  state.drawing = null;
+  setPolygonHint(false);
+  redraw();
+}
+
+canvas.addEventListener("click", (event) => {
+  if (state.tool !== "polygonZone" || !state.drawEnabled) return;
+  const point = getCanvasPoint(event);
+
+  if (!state.drawing) {
+    state.drawing = {
+      type: "polygonZone",
+      points: [point],
+      previewEnd: point,
+      stroke: state.stroke,
+      fill: state.fill,
+      lineWidth: state.lineWidth,
+      lineStyle: state.lineStyle,
+      opacity: state.opacity,
+    };
+    setPolygonHint(true);
+    redraw();
+    return;
+  }
+
+  const first = state.drawing.points[0];
+  const dx = point.x - first.x;
+  const dy = point.y - first.y;
+  if (state.drawing.points.length >= 3 && Math.hypot(dx, dy) <= POLYGON_CLOSE_RADIUS) {
+    finishPolygonZone("Zona libre cerrada.");
+    return;
+  }
+
+  state.drawing.points.push(point);
+  redraw();
+});
+
+canvas.addEventListener("dblclick", (event) => {
+  if (state.tool !== "polygonZone" || !state.drawEnabled || !state.drawing) return;
+  if (state.drawing.points.length > 1) {
+    state.drawing.points.pop();
+  }
+  finishPolygonZone("Zona libre guardada. Doble clic para crear la siguiente.");
+});
+
 const handleKeydown = (event) => {
   const activeTag = document.activeElement?.tagName;
   const isTypingField =
@@ -2969,6 +3124,19 @@ const handleKeydown = (event) => {
     }
     state.drawing = null;
     setConnectorHint(false);
+    redraw();
+    return;
+  }
+
+  if (event.key === "Enter" && state.tool === "polygonZone" && state.drawing) {
+    finishPolygonZone("Zona libre guardada.");
+    return;
+  }
+
+  if (event.key === "Escape" && state.tool === "polygonZone" && state.drawing) {
+    setStatus("Zona libre cancelada.");
+    state.drawing = null;
+    setPolygonHint(false);
     redraw();
     return;
   }

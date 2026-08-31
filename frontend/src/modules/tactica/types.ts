@@ -120,7 +120,7 @@ export type DrawingToolType =
   | 'connector' | 'focus' | 'spotlight' | 'line' | 'tshape'
   | 'move' | 'select';
 
-export type FocusStyle = 'abierto' | 'estrecho' | 'cilindrico';
+export type FocusStyle = 'abierto' | 'estrecho' | 'cilindrico' | 'base';
 export type SpotlightStyle = 'filled' | 'outline' | 'beams';
 
 export interface Point {

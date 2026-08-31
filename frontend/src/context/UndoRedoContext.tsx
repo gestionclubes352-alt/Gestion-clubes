@@ -14,6 +14,9 @@ export interface AppState {
   editingEvent: any | null;
   activeCampograma: any | null;
   timestamp: number;
+  frames?: any[];
+  arrowFrames?: any[];
+  ballFrames?: any[];
 }
 
 interface UndoRedoContextType {

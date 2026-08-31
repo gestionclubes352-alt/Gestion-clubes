@@ -23,6 +23,7 @@ export function useDrawingTools(
   setShapes: Dispatch<SetStateAction<DrawingShape[]>>
 ) {
   const [state, setState] = useState<DrawingState>(INITIAL_STATE);
+  const [historyLength, setHistoryLength] = useState(0);
   const historyRef = useRef<DrawingShape[][]>([]);
   const connectorSelectedPlayersRef = useRef<{ id: string; x: number; y: number }[]>([]);
   const activeConnectorShapeIdRef = useRef<string | null>(null);
@@ -74,11 +75,13 @@ export function useDrawingTools(
   const pushHistory = useCallback(() => {
     historyRef.current.push(shapes.map(cloneShape));
     if (historyRef.current.length > 60) historyRef.current.shift();
+    setHistoryLength(historyRef.current.length);
   }, [shapes]);
 
   const undo = useCallback(() => {
     if (historyRef.current.length === 0) return;
     const previous = historyRef.current.pop();
+    setHistoryLength(historyRef.current.length);
     if (previous) setShapes(previous);
   }, []);
 
@@ -107,6 +110,24 @@ export function useDrawingTools(
   const selectShape = useCallback((id: string | null) => {
     setState(prev => ({ ...prev, selectedShapeId: id }));
   }, []);
+
+  const bringToFront = useCallback((id: string) => {
+    pushHistory();
+    setShapes(prev => {
+      const shape = prev.find(s => s.id === id);
+      if (!shape) return prev;
+      return [...prev.filter(s => s.id !== id), shape];
+    });
+  }, [pushHistory]);
+
+  const sendToBack = useCallback((id: string) => {
+    pushHistory();
+    setShapes(prev => {
+      const shape = prev.find(s => s.id === id);
+      if (!shape) return prev;
+      return [shape, ...prev.filter(s => s.id !== id)];
+    });
+  }, [pushHistory]);
 
   // Manejo de dibujo
   const startDrawing = useCallback((point: Point) => {
@@ -339,6 +360,7 @@ export function useDrawingTools(
     // Estado
     state,
     shapes,
+    historyLength,
 
     // Setters
     setTool,
@@ -362,6 +384,8 @@ export function useDrawingTools(
     deleteAll,
     duplicateShape,
     selectShape,
+    bringToFront,
+    sendToBack,
     updateShapeText,
     updateShapeFontSize,
     updateShapeStroke,

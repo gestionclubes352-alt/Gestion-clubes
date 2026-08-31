@@ -1661,7 +1661,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       : m.id === 'ball'
                       ? <SoccerBallIcon size={14} />
                       : m.id === 'goal'
-                      ? <GoalStyleIcon style={goalStyleDraft} className={`h-5 w-7 ${selectedTool === m.id || isGoalStylePickerOpen ? 'text-white' : 'text-[var(--accent)]'}`} />
+                      ? <GoalStyleIcon style={goalStyleDraft} thumbnail className={`h-5 w-7 ${selectedTool === m.id || isGoalStylePickerOpen ? 'text-white' : 'text-[var(--accent)]'}`} />
                       : <i className={`fa-solid ${m.icon} text-lg ${selectedTool === m.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
                     }
                     <span className="text-[7px] font-black uppercase tracking-tight">{m.label}</span>
@@ -1681,7 +1681,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       }}
                       className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition-all ${goalStyleDraft === value ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
                     >
-                      <GoalStyleIcon style={value} className="h-9 w-14 text-[var(--accent)]" />
+                      <GoalStyleIcon style={value} thumbnail className="h-9 w-14 text-[var(--accent)]" />
                       <span className="text-[7px] font-black uppercase tracking-tight text-slate-600">{label}</span>
                     </button>
                   ))}

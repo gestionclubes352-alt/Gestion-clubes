@@ -380,13 +380,13 @@
   height: 100%;
 }
 .pintado-acciones-app .left-panel {
-  grid-area: left;
+  grid-area: tools;
 }
 .pintado-acciones-app .stage-panel {
   grid-area: stage;
 }
 .pintado-acciones-app .tool-panel {
-  grid-area: tools;
+  grid-area: left;
 }
 .pintado-acciones-app .left-panel,
 .pintado-acciones-app .tool-panel {
@@ -575,6 +575,61 @@
   pointer-events: none;
 }
 /* Hide YouTube play icon in bottom-right corner (solo cuando la fuente es un video de YouTube) */
+.pintado-acciones-app .stage-play-toggle {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.pintado-acciones-app .stage-play-toggle:hover {
+  background: rgba(0, 0, 0, 0.72);
+  transform: scale(1.06);
+}
+.pintado-acciones-app .stage-play-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+.pintado-acciones-app .stage-play-toggle.is-playing svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.pintado-acciones-app .youtube-click-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: transparent;
+  cursor: pointer;
+}
+.pintado-acciones-app .youtube-click-shield::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100px;
+  height: 100px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--stage);
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+.pintado-acciones-app .stage.is-paused-source .youtube-click-shield::before {
+  opacity: 1;
+}
 .pintado-acciones-app .stage.is-youtube-source::before {
   content: "";
   position: absolute;
