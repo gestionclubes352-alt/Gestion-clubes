@@ -4,6 +4,8 @@ import type { TacticalPosition } from '@modules/tactica';
 
 export type DesignerItemAnimation = 'none' | 'pulse' | 'bounce';
 
+export type GoalStyle = 'clasica' | 'biselada' | 'red3d';
+
 export interface Campograma {
   id: number | string;
   nombre: string;
@@ -45,7 +47,15 @@ export interface DesignerItem {
   arrowEnd?: { x: number; y: number };
   /** Grosor del trazo de la flecha */
   strokeWidth?: number;
+  /** Estilo visual de la portería (solo aplica a type === 'goal'). Sin definir = 'clasica' (tareas guardadas antes de esta opción). */
+  goalStyle?: GoalStyle;
 }
+
+export const GOAL_STYLES: Array<{ value: GoalStyle; label: string }> = [
+  { value: 'clasica', label: 'Clásica' },
+  { value: 'biselada', label: 'Biselada' },
+  { value: 'red3d', label: 'Red 3D' },
+];
 
 export const DESIGNER_ITEM_ANIMATIONS: Array<{
   value: DesignerItemAnimation;

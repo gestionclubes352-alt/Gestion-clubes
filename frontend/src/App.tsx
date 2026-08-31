@@ -1479,7 +1479,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const isSettingsView = location.pathname.startsWith('/settings');
   const isPizarraView = location.pathname === '/pizarra';
   const isPintadoAccionesView = location.pathname === '/pintado-acciones';
-  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView || userRole === 'Administrador';
+  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView || userRole !== 'Jugador';
   const hideShellHeader = isMatchReportView || isSettingsView;
 
   // Margen dinámico según estado del sidebar

@@ -30,6 +30,7 @@ const deleteAnnotationButton = document.getElementById("deleteAnnotation");
 const strokeColorInput = document.getElementById("strokeColor");
 const fillColorInput = document.getElementById("fillColor");
 const lineWidthInput = document.getElementById("lineWidth");
+const lineStyleButtons = document.querySelectorAll("[data-line-style]");
 const sizeControlInput = document.getElementById("sizeControl");
 const sizeValue = document.getElementById("sizeValue");
 const opacityControlInput = document.getElementById("opacityControl");
@@ -57,6 +58,7 @@ const state = {
   stroke: strokeColorInput?.value || "#dd145f",
   fill: fillColorInput?.value || "#17307a",
   lineWidth: Number(lineWidthInput?.value || 4),
+  lineStyle: "solid",
   annotations: [],
   drawing: null,
   sourceMode: "youtube",
@@ -64,6 +66,8 @@ const state = {
   player: null,
   playerReady: false,
   playerState: "paused",
+  cachedCurrentTime: 0,
+  cachedCurrentTimeAt: 0,
   drawEnabled: false,
   seekDragging: false,
   playerDuration: 0,
@@ -697,27 +701,15 @@ function deleteSelectedAnnotation() {
   if (!hasSelection) return;
 
   pushHistory();
-  const shape = state.annotations[targetIndex];
-  const currentTime = Number(state.player?.getCurrentTime?.() || 0);
-
-  // Si el elemento no tiene disappearTime aún, establecerlo
-  if (typeof shape.disappearTime !== "number") {
-    shape.disappearTime = currentTime;
-    syncSizeControl();
-    redraw();
-    setStatus(`Elemento desaparecerá en ${formatTime(currentTime)}.`);
+  state.annotations.splice(targetIndex, 1);
+  if (state.selectedAnnotationIndex >= state.annotations.length) {
+    state.selectedAnnotationIndex = state.annotations.length - 1;
   } else {
-    // Si ya tiene disappearTime, eliminarlo completamente
-    state.annotations.splice(targetIndex, 1);
-    if (state.selectedAnnotationIndex >= state.annotations.length) {
-      state.selectedAnnotationIndex = state.annotations.length - 1;
-    } else {
-      state.selectedAnnotationIndex = -1;
-    }
-    syncSizeControl();
-    redraw();
-    setStatus("Anotacion borrada.");
+    state.selectedAnnotationIndex = -1;
   }
+  syncSizeControl();
+  redraw();
+  setStatus("Anotacion borrada.");
 }
 
 function measureTextShape(text, lineWidth) {
@@ -975,13 +967,30 @@ function syncSizeControl() {
     sizeControlInput.value = "100";
     sizeValue.textContent = "100%";
     syncOpacityControl();
+    syncLineStyleButtons();
     return;
   }
 
-  state.resizeBaseline = cloneShape(state.annotations[state.selectedAnnotationIndex]);
+  const selected = state.annotations[state.selectedAnnotationIndex];
+  state.resizeBaseline = cloneShape(selected);
   sizeControlInput.value = "100";
   sizeValue.textContent = "100%";
+  if (typeof selected.lineWidth === "number" && lineWidthInput) {
+    lineWidthInput.value = String(selected.lineWidth);
+  }
+  if (selected.lineStyle) {
+    state.lineStyle = selected.lineStyle;
+  }
+  if (selected.stroke && strokeColorInput) {
+    state.stroke = selected.stroke;
+    strokeColorInput.value = selected.stroke;
+  }
+  if (selected.fill && fillColorInput) {
+    state.fill = selected.fill;
+    fillColorInput.value = selected.fill;
+  }
   syncOpacityControl();
+  syncLineStyleButtons();
 }
 
 function syncOpacityControl() {
@@ -1830,6 +1839,7 @@ function drawShape(shape, currentTime = 0) {
   ctx.lineWidth = shape.lineWidth;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+  ctx.setLineDash(shape.lineStyle === "dashed" ? [shape.lineWidth * 2.5, shape.lineWidth * 1.8] : []);
 
   const drawProgress = getStrokeDrawProgress(shape, currentTime);
 
@@ -1879,9 +1889,18 @@ function drawShape(shape, currentTime = 0) {
   ctx.restore();
 }
 
+function getThrottledCurrentTime() {
+  const now = Date.now();
+  if (state.playerState === "playing" || now - state.cachedCurrentTimeAt > 150) {
+    state.cachedCurrentTime = Number(state.player?.getCurrentTime?.() || 0);
+    state.cachedCurrentTimeAt = now;
+  }
+  return state.cachedCurrentTime;
+}
+
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const currentTime = Number(state.player?.getCurrentTime?.() || 0);
+  const currentTime = getThrottledCurrentTime();
   state.annotations.forEach((shape, index) => {
     if (isShapeHiddenAt(shape, currentTime)) {
       return;
@@ -1979,6 +1998,7 @@ function beginDrawing(event) {
       stroke: state.stroke,
       fill: state.fill,
       lineWidth: state.lineWidth,
+      lineStyle: state.lineStyle,
       opacity: state.opacity,
     });
     state.selectedAnnotationIndex = state.annotations.length - 1;
@@ -1993,6 +2013,7 @@ function beginDrawing(event) {
       points: [point],
       stroke: state.stroke,
       lineWidth: state.lineWidth,
+      lineStyle: state.lineStyle,
       opacity: state.opacity,
     };
     redraw();
@@ -2008,6 +2029,7 @@ function beginDrawing(event) {
     stroke: state.stroke,
     fill: state.fill,
     lineWidth: state.lineWidth,
+    lineStyle: state.lineStyle,
     focusStyle: state.focusStyle,
     spotlightStyle: state.spotlightStyle,
     opacity: state.opacity,
@@ -2694,14 +2716,48 @@ deleteAnnotationButton?.addEventListener("click", deleteSelectedAnnotation);
 
 strokeColorInput?.addEventListener("input", (event) => {
   state.stroke = event.target.value;
+  const sel = state.annotations[state.selectedAnnotationIndex];
+  if (sel) {
+    sel.stroke = state.stroke;
+    redraw();
+  }
 });
 
 fillColorInput?.addEventListener("input", (event) => {
   state.fill = event.target.value;
+  const sel = state.annotations[state.selectedAnnotationIndex];
+  if (sel && "fill" in sel) {
+    sel.fill = state.fill;
+    redraw();
+  }
 });
 
 lineWidthInput?.addEventListener("input", (event) => {
   state.lineWidth = Number(event.target.value);
+  const sel = state.annotations[state.selectedAnnotationIndex];
+  if (sel) {
+    sel.lineWidth = state.lineWidth;
+    redraw();
+  }
+});
+
+function syncLineStyleButtons() {
+  lineStyleButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.lineStyle === state.lineStyle);
+    button.setAttribute("aria-pressed", String(button.dataset.lineStyle === state.lineStyle));
+  });
+}
+
+lineStyleButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.lineStyle = button.dataset.lineStyle || "solid";
+    syncLineStyleButtons();
+    const sel = state.annotations[state.selectedAnnotationIndex];
+    if (sel) {
+      sel.lineStyle = state.lineStyle;
+      redraw();
+    }
+  });
 });
 
 focusStyleButtons.forEach((button) => {
@@ -2857,6 +2913,7 @@ canvas.addEventListener("click", (event) => {
       previewEnd: point,
       stroke: state.stroke,
       lineWidth: state.lineWidth,
+      lineStyle: state.lineStyle,
       opacity: state.opacity,
     };
     setConnectorHint(true);

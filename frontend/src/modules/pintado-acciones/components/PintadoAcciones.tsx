@@ -42,6 +42,11 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
   const [selectedEquipoId, setSelectedEquipoId] = useState<string>('');
   const [selectedPlayerForInsertion, setSelectedPlayerForInsertion] = useState<Player | null>(null);
   const [showPlayers, setShowPlayers] = useState(false);
+  const [showStylePanel, setShowStylePanel] = useState(false);
+  const [showNumbersPanel, setShowNumbersPanel] = useState(false);
+  const [showTramosPanel, setShowTramosPanel] = useState(false);
+  const [showFocusFollowHint, setShowFocusFollowHint] = useState(false);
+  const [showSourcePanel, setShowSourcePanel] = useState(false);
   const [tramos, setTramos] = useState<PintadoAccionesTramo[]>([]);
   const [selectedTramoId, setSelectedTramoId] = useState<string>('');
   const [isSavingTramo, setIsSavingTramo] = useState(false);
@@ -356,18 +361,21 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
     <div className="pintado-acciones-app" ref={rootRef}>
       <div className="app-shell">
         <header className="topbar">
-          <div className="source-panel" data-collapsible>
-            <button
-              className="mobile-collapse-toggle"
-              type="button"
-              data-collapse-toggle
-              aria-expanded="false"
-              aria-controls="sourcePanelBody"
-            >
-              <span className="mobile-collapse-title">Cargar imagen o video</span>
-              <span className="mobile-collapse-summary">Toca para abrir</span>
-            </button>
-            <div id="sourcePanelBody" className="mobile-collapse-body">
+          <div className="source-panel">
+            <div className="source-panel-header">
+              <span className="source-panel-title">Cargar imagen o video</span>
+              <button
+                type="button"
+                className="toggle-players-button"
+                onClick={() => setShowSourcePanel((prev) => !prev)}
+                aria-expanded={showSourcePanel}
+                aria-controls="sourcePanelBody"
+                title={showSourcePanel ? 'Ocultar' : 'Mostrar'}
+              >
+                {showSourcePanel ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+            <div id="sourcePanelBody" className="mobile-collapse-body" hidden={!showSourcePanel}>
               <label className="input-group">
                 <span>URL de YouTube</span>
                 <input id="youtubeUrl" type="text" placeholder="Añade URL de YouTube" />
@@ -397,39 +405,80 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
             </button>
             <div id="leftPanelBody" className="mobile-collapse-body">
               <section className="panel-block">
-                <h2>Estilo</h2>
-                <label className="field">
-                  <span>Color principal</span>
-                  <input id="strokeColor" type="color" defaultValue="#dd145f" />
-                </label>
-                <label className="field">
-                  <span>Relleno</span>
-                  <input id="fillColor" type="color" defaultValue="#17307a" />
-                </label>
-                <label className="field">
-                  <span>Grosor</span>
-                  <input id="lineWidth" type="range" min="1" max="14" defaultValue="4" />
-                </label>
-                <label className="field">
-                  <span>Tamaño <strong id="sizeValue">100%</strong></span>
-                  <input id="sizeControl" type="range" min="50" max="200" defaultValue="100" />
-                </label>
-                <label className="field">
-                  <span>Transparencia <strong id="opacityValue">100%</strong></span>
-                  <input id="opacityControl" type="range" min="0" max="100" defaultValue="100" />
-                </label>
+                <div className="panel-block-header">
+                  <h2>Estilo</h2>
+                  <button
+                    type="button"
+                    className="toggle-players-button"
+                    onClick={() => setShowStylePanel((prev) => !prev)}
+                    aria-expanded={showStylePanel}
+                    title={showStylePanel ? 'Ocultar estilo' : 'Mostrar estilo'}
+                  >
+                    {showStylePanel ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                </div>
+                <div hidden={!showStylePanel}>
+                  <label className="field">
+                    <span>Color principal</span>
+                    <input id="strokeColor" type="color" defaultValue="#dd145f" />
+                  </label>
+                  <label className="field">
+                    <span>Relleno</span>
+                    <input id="fillColor" type="color" defaultValue="#17307a" />
+                  </label>
+                  <label className="field">
+                    <span>Grosor</span>
+                    <input id="lineWidth" type="range" min="1" max="14" defaultValue="4" />
+                  </label>
+                  <div className="field">
+                    <span>Tipo de línea</span>
+                    <div className="line-style-picker" role="group" aria-label="Tipo de línea">
+                      <button id="lineStyleSolid" type="button" className="line-style-button is-active" data-line-style="solid" aria-pressed="true" title="Línea continua">
+                        <svg viewBox="0 0 40 8" aria-hidden="true">
+                          <line x1="2" y1="4" x2="38" y2="4" strokeWidth="3" strokeLinecap="round"></line>
+                        </svg>
+                      </button>
+                      <button id="lineStyleDashed" type="button" className="line-style-button" data-line-style="dashed" aria-pressed="false" title="Línea discontinua">
+                        <svg viewBox="0 0 40 8" aria-hidden="true">
+                          <line x1="2" y1="4" x2="38" y2="4" strokeWidth="3" strokeLinecap="round" strokeDasharray="7 5"></line>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <label className="field">
+                    <span>Tamaño <strong id="sizeValue">100%</strong></span>
+                    <input id="sizeControl" type="range" min="50" max="200" defaultValue="100" />
+                  </label>
+                  <label className="field">
+                    <span>Transparencia <strong id="opacityValue">100%</strong></span>
+                    <input id="opacityControl" type="range" min="0" max="100" defaultValue="100" />
+                  </label>
+                </div>
               </section>
 
               <section className="panel-block">
                 <div className="number-palette" aria-label="Numeros del 1 al 11">
-                  <div className="number-palette-header"><span>Números</span></div>
-                  <div className="number-grid">
-                    {Array.from({ length: 11 }, (_, i) => i + 1).map((n) => (
-                      <button key={n} className="number-chip quick-insert-chip" type="button" data-insert-text={n}>
-                        {n}
-                      </button>
-                    ))}
+                  <div className="number-palette-header">
+                    <span>Números</span>
+                    <button
+                      type="button"
+                      className="toggle-players-button"
+                      onClick={() => setShowNumbersPanel((prev) => !prev)}
+                      aria-expanded={showNumbersPanel}
+                      title={showNumbersPanel ? 'Ocultar números' : 'Mostrar números'}
+                    >
+                      {showNumbersPanel ? 'Ocultar' : 'Mostrar'}
+                    </button>
                   </div>
+                  {showNumbersPanel && (
+                    <div className="number-grid">
+                      {Array.from({ length: 11 }, (_, i) => i + 1).map((n) => (
+                        <button key={n} className="number-chip quick-insert-chip" type="button" data-insert-text={n}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -492,64 +541,79 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
 
               {/* Sección de Tramos guardados */}
               <section className="panel-block">
-                <h2>Tramos guardados</h2>
-                <label className="field">
-                  <span>Selecciona un tramo</span>
-                  <select
-                    value={selectedTramoId}
-                    onChange={(e) => handleLoadTramo(e.target.value)}
-                    disabled={isLoadingTramo || isRecordingTramo || tramos.length === 0}
-                  >
-                    <option value="">
-                      {tramos.length === 0 ? 'No hay tramos guardados' : 'Elegir tramo...'}
-                    </option>
-                    {tramos.map((tramo) => (
-                      <option key={tramo.id} value={tramo.id}>
-                        {tramo.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="tramo-actions">
-                  {!isRecordingTramo ? (
-                    <button
-                      type="button"
-                      className="primary record-tramo-button"
-                      onClick={handleStartRecording}
-                      disabled={isSavingTramo}
-                    >
-                      <span className="record-tramo-icon record-tramo-icon-play" aria-hidden="true" />
-                      GRABAR TRAMO
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="record-tramo-button is-recording"
-                      onClick={handleStopRecording}
-                      disabled={isSavingTramo}
-                    >
-                      <span className="record-tramo-icon record-tramo-icon-stop" aria-hidden="true" />
-                      {isSavingTramo ? 'Guardando...' : 'STOP'}
-                    </button>
-                  )}
+                <div className="panel-block-header">
+                  <h2>Tramos guardados</h2>
                   <button
                     type="button"
-                    onClick={handleDeleteTramo}
-                    disabled={!selectedTramoId || isRecordingTramo}
+                    className="toggle-players-button"
+                    onClick={() => setShowTramosPanel((prev) => !prev)}
+                    aria-expanded={showTramosPanel}
+                    title={showTramosPanel ? 'Ocultar tramos' : 'Mostrar tramos'}
                   >
-                    Eliminar tramo
+                    {showTramosPanel ? 'Ocultar' : 'Mostrar'}
                   </button>
                 </div>
-                <div className="tramo-actions">
-                  <button
-                    type="button"
-                    onClick={handleDownloadTramo}
-                    disabled={!selectedTramoId || isRecordingTramo || isDownloadingTramo}
-                    title="Descarga el tramo como video MP4 con las anotaciones incrustadas"
-                  >
-                    {isDownloadingTramo ? 'Generando MP4...' : 'Descargar tramo (MP4)'}
-                  </button>
-                </div>
+                {showTramosPanel && (
+                  <>
+                    <label className="field">
+                      <span>Selecciona un tramo</span>
+                      <select
+                        value={selectedTramoId}
+                        onChange={(e) => handleLoadTramo(e.target.value)}
+                        disabled={isLoadingTramo || isRecordingTramo || tramos.length === 0}
+                      >
+                        <option value="">
+                          {tramos.length === 0 ? 'No hay tramos guardados' : 'Elegir tramo...'}
+                        </option>
+                        {tramos.map((tramo) => (
+                          <option key={tramo.id} value={tramo.id}>
+                            {tramo.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="tramo-actions">
+                      {!isRecordingTramo ? (
+                        <button
+                          type="button"
+                          className="primary record-tramo-button"
+                          onClick={handleStartRecording}
+                          disabled={isSavingTramo}
+                        >
+                          <span className="record-tramo-icon record-tramo-icon-play" aria-hidden="true" />
+                          GRABAR TRAMO
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="record-tramo-button is-recording"
+                          onClick={handleStopRecording}
+                          disabled={isSavingTramo}
+                        >
+                          <span className="record-tramo-icon record-tramo-icon-stop" aria-hidden="true" />
+                          {isSavingTramo ? 'Guardando...' : 'STOP'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleDeleteTramo}
+                        disabled={!selectedTramoId || isRecordingTramo}
+                      >
+                        Eliminar tramo
+                      </button>
+                    </div>
+                    <div className="tramo-actions">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTramo}
+                        disabled={!selectedTramoId || isRecordingTramo || isDownloadingTramo}
+                        title="Descarga el tramo como video MP4 con las anotaciones incrustadas"
+                      >
+                        {isDownloadingTramo ? 'Generando MP4...' : 'Descargar tramo (MP4)'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </section>
 
             </div>
@@ -680,6 +744,42 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
             <section className="panel-block">
               <h2>Herramientas</h2>
               <div className="tool-rail">
+                {/* ACCIONES RAPIDAS */}
+                <div className="tool-grid">
+                  <button className="tool-button" data-tool="move" aria-label="Mover" title="Mover">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 4v16"></path>
+                      <path d="M4 12h16"></path>
+                      <path d="M12 4l-2.3 2.3"></path>
+                      <path d="M12 4l2.3 2.3"></path>
+                      <path d="M12 20l-2.3-2.3"></path>
+                      <path d="M12 20l2.3-2.3"></path>
+                      <path d="M4 12l2.3-2.3"></path>
+                      <path d="M4 12l2.3 2.3"></path>
+                      <path d="M20 12l-2.3-2.3"></path>
+                      <path d="M20 12l-2.3 2.3"></path>
+                    </svg>
+                    <span className="tool-label">Mover</span>
+                  </button>
+                  <button id="deleteAnnotation" className="tool-button" type="button" aria-label="Papelera" title="Eliminar seleccion">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 7h14"></path>
+                      <path d="M10 11v6"></path>
+                      <path d="M14 11v6"></path>
+                      <path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-13"></path>
+                      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path>
+                    </svg>
+                    <span className="tool-label">Papelera</span>
+                  </button>
+                  <button id="duplicateAnnotation" className="tool-button" type="button" aria-label="Duplicar" title="Duplicar seleccion">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="4" y="4" width="12" height="12" rx="1.5"></rect>
+                      <path d="M9 20h9a2 2 0 0 0 2-2v-9" fill="none"></path>
+                    </svg>
+                    <span className="tool-label">Duplicar</span>
+                  </button>
+                </div>
+
                 {/* FLECHAS */}
                 <div className="tool-divider"><span className="tool-divider-dot"></span>FLECHAS</div>
                 <div className="tool-grid">
@@ -701,6 +801,11 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                       <path d="M3 10 C5 4, 8 4, 11 10 C14 16, 17 16, 21 10" opacity="0.4" strokeWidth="1.2" strokeLinecap="round"></path>
                     </svg>
                   </button>
+                </div>
+
+                {/* TEXTOS */}
+                <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
+                <div className="tool-grid tool-grid-2col">
                   <button className="tool-button" data-tool="text" aria-label="Texto" title="Texto">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M5 8h6"></path>
@@ -710,11 +815,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     </svg>
                     <span className="tool-label">Texto</span>
                   </button>
-                </div>
-
-                {/* TEXTOS */}
-                <div className="tool-divider"><span className="tool-divider-dot"></span>TEXTOS</div>
-                <div className="tool-grid tool-grid-2col">
                   <button className="tool-button" data-tool="callout" aria-label="Etiqueta" title="Etiqueta">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M7 7h8l2 2v7l-6 1.5-4-4V7z"></path>
@@ -748,6 +848,17 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                       <path d="M13 16.8c2.1-.2 3.9-.7 5.5-1.6"></path>
                     </svg>
                     <span className="tool-label">Zona</span>
+                  </button>
+                  <button className="tool-button" data-tool="triangleZone" aria-label="Triangulo tactico" title="Triangulo tactico">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 17L11 7l8 9z"></path>
+                      <path d="M8 15l5-6"></path>
+                      <path d="M11 17l6-7"></path>
+                      <circle className="solid" cx="5" cy="17" r="1.4"></circle>
+                      <circle className="solid" cx="11" cy="7" r="1.4"></circle>
+                      <circle className="solid" cx="19" cy="16" r="1.4"></circle>
+                    </svg>
+                    <span className="tool-label">Triangulo</span>
                   </button>
                 </div>
 
@@ -805,31 +916,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                 {/* VARIOS */}
                 <div className="tool-divider"><span className="tool-divider-dot"></span>VARIOS</div>
                 <div className="tool-grid">
-                  <button className="tool-button" data-tool="move" aria-label="Mover" title="Mover">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 4v16"></path>
-                      <path d="M4 12h16"></path>
-                      <path d="M12 4l-2.3 2.3"></path>
-                      <path d="M12 4l2.3 2.3"></path>
-                      <path d="M12 20l-2.3-2.3"></path>
-                      <path d="M12 20l2.3-2.3"></path>
-                      <path d="M4 12l2.3-2.3"></path>
-                      <path d="M4 12l2.3 2.3"></path>
-                      <path d="M20 12l-2.3-2.3"></path>
-                      <path d="M20 12l-2.3 2.3"></path>
-                    </svg>
-                    <span className="tool-label">Mover</span>
-                  </button>
-                  <button id="deleteAnnotation" className="tool-button" type="button" aria-label="Papelera" title="Eliminar seleccion">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 7h14"></path>
-                      <path d="M10 11v6"></path>
-                      <path d="M14 11v6"></path>
-                      <path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-13"></path>
-                      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path>
-                    </svg>
-                    <span className="tool-label">Papelera</span>
-                  </button>
                   <button
                     className="tool-button"
                     data-tool="connector"
@@ -854,21 +940,23 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                     </svg>
                     <span className="tool-label">Foco</span>
                   </button>
-                  <button className="tool-button" data-tool="triangleZone" aria-label="Triangulo tactico" title="Triangulo tactico">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 17L11 7l8 9z"></path>
-                      <path d="M8 15l5-6"></path>
-                      <path d="M11 17l6-7"></path>
-                      <circle className="solid" cx="5" cy="17" r="1.4"></circle>
-                      <circle className="solid" cx="11" cy="7" r="1.4"></circle>
-                      <circle className="solid" cx="19" cy="16" r="1.4"></circle>
-                    </svg>
-                    <span className="tool-label">Triangulo</span>
-                  </button>
                 </div>
 
                 {/* SEGUIMIENTO DEL FOCO */}
-                <div className="tool-divider"><span className="tool-divider-dot"></span>SEGUIMIENTO DEL FOCO</div>
+                <div className="tool-divider focus-follow-divider">
+                  <span className="tool-divider-dot"></span>
+                  <span className="focus-follow-divider-label">SEGUIMIENTO DEL FOCO</span>
+                  <button
+                    type="button"
+                    className="focus-follow-info-button"
+                    onClick={() => setShowFocusFollowHint((prev) => !prev)}
+                    aria-expanded={showFocusFollowHint}
+                    aria-label="Informacion sobre seguimiento del foco"
+                    title="Informacion"
+                  >
+                    i
+                  </button>
+                </div>
                 <div className="focus-follow-controls">
                   <button id="focusFollowKeyframe" type="button" className="stage-action-button" title="Fija la posicion actual del foco seleccionado en este instante del video">
                     Fijar posicion aqui
@@ -876,12 +964,14 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
                   <button id="focusFollowEnd" type="button" className="stage-action-button" title="El foco desaparecera a partir de este instante del video">
                     Terminar seguimiento aqui
                   </button>
-                  <p className="focus-follow-hint">
-                    Selecciona un foco, pausa el video en distintos momentos, coloca el foco sobre el jugador y pulsa
-                    &quot;Fijar posicion aqui&quot; en cada uno. El foco solo aparecera a partir del primer instante fijado, y
-                    seguira esa trayectoria al reproducir. Cuando quieras que deje de seguir al jugador, pausa en ese
-                    momento y pulsa &quot;Terminar seguimiento aqui&quot; para que desaparezca a partir de ahi.
-                  </p>
+                  {showFocusFollowHint && (
+                    <p className="focus-follow-hint">
+                      Selecciona un foco, pausa el video en distintos momentos, coloca el foco sobre el jugador y pulsa
+                      &quot;Fijar posicion aqui&quot; en cada uno. El foco solo aparecera a partir del primer instante fijado, y
+                      seguira esa trayectoria al reproducir. Cuando quieras que deje de seguir al jugador, pausa en ese
+                      momento y pulsa &quot;Terminar seguimiento aqui&quot; para que desaparezca a partir de ahi.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>

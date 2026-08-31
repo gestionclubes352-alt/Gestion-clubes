@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { DesignerItem, Exercise } from '../types';
-import { getDesignerItemAnimationClass } from '../types';
+import type { DesignerItem, Exercise, GoalStyle } from '../types';
+import { getDesignerItemAnimationClass, GOAL_STYLES } from '../types';
 import { renderThumbnail } from '../utils/renderThumbnail';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { db } from '@shared/services/dataService';
@@ -9,6 +9,7 @@ import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import type { Player } from '@modules/plantilla';
 import GoalFrame3D from './GoalFrame3D';
+import GoalStyleIcon from './GoalStyleIcon';
 
 const RESIZABLE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   zone: { width: 15, height: 15 },
@@ -59,6 +60,7 @@ const TEXT_SIZES: Record<SizePreset, number> = { S: 16, M: 22, L: 30, XL: 42 };
 const ELEMENT_SCALES: Record<SizePreset, number> = { S: 0.75, M: 1, L: 1.3, XL: 1.6 };
 const PITCH_3D_ROTATION_DEG = 40;
 const PLAYER_3D_BILLBOARD_TRANSFORM = `rotateX(-${PITCH_3D_ROTATION_DEG}deg)`;
+const PLAYER_3D_BILLBOARD_ORIGIN = 'center bottom';
 
 /** Color de las fichas colocadas a partir de un jugador real de la plantilla (distinto de la paleta genérica). */
 const SQUAD_PLAYER_COLOR = '#1d4ed8';
@@ -264,6 +266,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [playerSize, setPlayerSize] = useState<SizePreset>('M');
   const [coneSize, setConeSize] = useState<SizePreset>('M');
   const [materialSize, setMaterialSize] = useState<SizePreset>('M');
+  const [isGoalStylePickerOpen, setIsGoalStylePickerOpen] = useState(false);
+  const [goalStyleDraft, setGoalStyleDraft] = useState<GoalStyle>('clasica');
   const [textDraft, setTextDraft] = useState('Texto');
   const [textSize, setTextSize] = useState<SizePreset>('M');
   const [textColor, setTextColor] = useState('#ffffff');
@@ -690,12 +694,47 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       playerName: squadPlayer ? (squadPlayer.apodo || squadPlayer.nombre) : undefined,
       playerDorsal: squadPlayer?.dorsal,
       playerPhoto: squadPlayer?.fotoUrl,
+      goalStyle: isGoal ? goalStyleDraft : undefined,
     };
     pushHistoryNow();
     updateFrames([...items, newItem]);
     selectItemOnly(newItem.id);
     if (isText) setShowText(false);
     if (isGoal) setSelectedTool(null);
+  };
+
+  /** Coloca los 11 jugadores genéricos (1-11) en una formación 4-3-3 estándar sobre el campo. */
+  const handlePlaceAllPlayers = () => {
+    const formation: Array<{ x: number; y: number }> = [
+      { x: 50, y: 92 },
+      { x: 18, y: 72 }, { x: 38, y: 78 }, { x: 62, y: 78 }, { x: 82, y: 72 },
+      { x: 25, y: 50 }, { x: 50, y: 55 }, { x: 75, y: 50 },
+      { x: 20, y: 25 }, { x: 50, y: 18 }, { x: 80, y: 25 },
+    ];
+
+    const existingPlayerNumbers = new Set(
+      items.filter(i => i.type.startsWith('player-')).map(i => i.type)
+    );
+    const playerItems = items.filter(i => i.type.startsWith('player-'));
+    const baseZ = playerItems.length > 0 ? Math.max(...playerItems.map(i => i.zIndex)) + 1 : 1000;
+
+    const newItems: DesignerItem[] = tools.jugadores
+      .filter(p => !existingPlayerNumbers.has(p.id))
+      .map((p, index) => ({
+        id: Math.random().toString(),
+        type: p.id,
+        x: formation[index]?.x ?? 50,
+        y: formation[index]?.y ?? 50,
+        rotation: 0,
+        scale: ELEMENT_SCALES[playerSize],
+        locked: false,
+        zIndex: baseZ + index,
+        color: p.color,
+      }));
+
+    if (newItems.length === 0) return;
+    pushHistoryNow();
+    updateFrames([...items, ...newItems]);
   };
 
   const handlePitchBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1467,28 +1506,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
               </button>
             </div>
           )}
-          {showPlayers && (playerSource === 'generico' || squadForPicker.length === 0) && (
-            <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
-              {tools.jugadores.map(p => (
-                <div key={p.id} className={`relative transition-all ${selectedTool === p.id ? 'scale-125' : ''}`}>
-                  <button
-                    onClick={() => setSelectedTool(selectedTool === p.id ? null : p.id)}
-                    style={{ backgroundColor: p.color }}
-                    className={`w-9 h-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white transition-all shadow-xl font-black text-xs sm:text-sm ${selectedTool === p.id ? 'ring-4 ring-offset-3 ring-slate-800 scale-100 shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-105 opacity-90'}`}
-                    aria-label={`Jugador ${p.number}`}
-                    title={`Jugador ${p.number} (clic para deseleccionar)`}
-                  >
-                    <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">{p.number}</span>
-                  </button>
-                  {selectedTool === p.id && (
-                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-[var(--accent)] rounded-full flex items-center justify-center border-2 border-white shadow-lg">
-                      <i className="fa-solid fa-check text-white text-[10px] font-black"></i>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
           {showPlayers && playerSource === 'plantilla' && squadForPicker.length > 0 && (
             <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-1">
               {squadByTeam.map(([teamName, players]) => {
@@ -1550,6 +1567,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
           )}
         </div>
 
+        {showPlayers && (playerSource === 'generico' || squadForPicker.length === 0) && (
         <div className="flex flex-col gap-2 px-2">
           <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
             {tools.jugadores.map(p => (
@@ -1587,7 +1605,16 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
               )}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handlePlaceAllPlayers}
+            className="rounded-lg py-1.5 text-[9px] font-black uppercase tracking-widest bg-white text-[var(--accent)] border border-[var(--accent)]/40 hover:bg-[var(--accent)]/10 transition-all"
+            title="Coloca los 11 jugadores en el campo con una formación estándar"
+          >
+            Todos
+          </button>
         </div>
+        )}
 
         <div className="flex flex-col gap-3 pb-8">
           <button type="button" onClick={() => setShowMaterial(v => !v)} className="flex justify-between items-center px-2 w-full">
@@ -1618,17 +1645,48 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {tools.material.map((m) => (
-                  <button key={m.id} onClick={() => setSelectedTool(selectedTool === m.id ? null : m.id)} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all border ${selectedTool === m.id ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      if (m.id === 'goal') {
+                        setIsGoalStylePickerOpen(v => !v);
+                        return;
+                      }
+                      setSelectedTool(selectedTool === m.id ? null : m.id);
+                    }}
+                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all border ${selectedTool === m.id || (m.id === 'goal' && isGoalStylePickerOpen) ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}
+                  >
                     {m.id === 'slalom'
                       ? <SlalomPoleIcon size={28} />
                       : m.id === 'ball'
                       ? <SoccerBallIcon size={14} />
+                      : m.id === 'goal'
+                      ? <GoalStyleIcon style={goalStyleDraft} className={`h-5 w-7 ${selectedTool === m.id || isGoalStylePickerOpen ? 'text-white' : 'text-[var(--accent)]'}`} />
                       : <i className={`fa-solid ${m.icon} text-lg ${selectedTool === m.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
                     }
                     <span className="text-[7px] font-black uppercase tracking-tight">{m.label}</span>
                   </button>
                 ))}
               </div>
+              {isGoalStylePickerOpen && (
+                <div className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-white p-2">
+                  {GOAL_STYLES.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setGoalStyleDraft(value);
+                        setSelectedTool('goal');
+                        setIsGoalStylePickerOpen(false);
+                      }}
+                      className={`flex flex-col items-center gap-1 rounded-lg border p-2 transition-all ${goalStyleDraft === value ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                    >
+                      <GoalStyleIcon style={value} className="h-9 w-14 text-[var(--accent)]" />
+                      <span className="text-[7px] font-black uppercase tracking-tight text-slate-600">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-4 gap-1.5">
                 {tools.conos.map((cone) => (
                   <button key={cone.id} onClick={() => setSelectedTool(selectedTool === cone.id ? null : cone.id)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all border bg-white ${selectedTool === cone.id ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-white scale-105' : 'border-transparent opacity-80 hover:opacity-100'}`}>
@@ -2215,7 +2273,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       left: `${item.x}%`,
                       top: `${item.y}%`,
                       zIndex: item.zIndex,
-                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${item.scale})`.trim(),
+                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView && !item.type?.startsWith('player-') && item.type !== 'coach' ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${item.scale})`.trim(),
                       transformStyle: 'preserve-3d',
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
                       height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
@@ -2396,7 +2454,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         />
                       ) : (
                         <div className={`relative h-full w-full flex items-center justify-center ${animationClass}`}>
-                          <div className={`absolute border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors h-full w-full pointer-events-none`} />
+                          <GoalStyleIcon
+                            style={item.goalStyle ?? 'clasica'}
+                            isFlipped={item.rotation === 180}
+                            className="absolute h-full w-full pointer-events-none"
+                          />
                           {showResizeHandles && (
                             <>
                               {resizeHandles.map(handle => (
@@ -2470,6 +2532,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         style={{
                           backgroundColor: item.color || SQUAD_PLAYER_COLOR,
                           transform: is3DView ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
+                          transformOrigin: is3DView ? PLAYER_3D_BILLBOARD_ORIGIN : undefined,
                           transformStyle: 'preserve-3d',
                         }}
                         className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
@@ -2495,6 +2558,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         style={{
                           backgroundColor: item.color || '#9ca3af',
                           transform: is3DView ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
+                          transformOrigin: is3DView ? PLAYER_3D_BILLBOARD_ORIGIN : undefined,
                           transformStyle: 'preserve-3d',
                         }}
                         className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center font-black text-white text-[13px] leading-none ${animationClass}`}
