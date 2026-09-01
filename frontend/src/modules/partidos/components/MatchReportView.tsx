@@ -556,6 +556,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [videotecaPlayerFilter, setVideotecaPlayerFilter] = useState<string>('ALL');
   const [videotecaSideFilter, setVideotecaSideFilter] = useState<'ALL' | 'FAVOR' | 'CONTRA'>('ALL');
   const [videotecaPlaySeconds, setVideotecaPlaySeconds] = useState<number | null>(null);
+  const videotecaPlayerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (videotecaPlaySeconds !== null) {
+      videotecaPlayerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [videotecaPlaySeconds]);
   const ytActiveTaskIdRef = useRef<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
@@ -5986,7 +5992,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const renderVideoteca = () => (
     <div className="animate-fade-in space-y-8 max-w-[1600px] mx-auto pb-32 p-4 lg:p-12">
       {videotecaPlaySeconds !== null && (
-        <div className="bg-[var(--surface-0)] rounded-[40px] border border-[var(--border-soft)] shadow-2xl overflow-hidden">
+        <div ref={videotecaPlayerRef} className="bg-[var(--surface-0)] rounded-[40px] border border-[var(--border-soft)] shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-8 py-4 border-b border-[var(--border-soft)]">
             <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
               <i className="fa-solid fa-play text-red-500"></i> {t('matchReport.events.playClip')}
