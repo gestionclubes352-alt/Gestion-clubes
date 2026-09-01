@@ -158,6 +158,7 @@ const ComedorAccesosView: React.FC = () => {
           {residentes.map(r => {
             const acceso = getAcceso(r.id);
             const hora = acceso ? new Date(acceso.registrado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : null;
+            const diaAcceso = acceso ? new Date(acceso.registrado_en).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
             return (
               <div
                 key={r.id}
@@ -172,7 +173,7 @@ const ComedorAccesosView: React.FC = () => {
                 {acceso ? (
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-green-700">
-                      {hora} {acceso.origen === 'manual' && <span className="text-[9px] uppercase text-green-500">(manual)</span>}
+                      {diaAcceso} · {hora} {acceso.origen === 'manual' && <span className="text-[9px] uppercase text-green-500">(manual)</span>}
                     </span>
                     <button
                       onClick={() => borrarAcceso(acceso.id)}

@@ -537,6 +537,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
   const [urlModalField, setUrlModalField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl'>('videoUrl');
   const [urlModalValue, setUrlModalValue] = useState('');
+  const [isVideoUrlVisible, setIsVideoUrlVisible] = useState(false);
+  const [isEventButtonsVisible, setIsEventButtonsVisible] = useState(false);
   const ytActiveTaskIdRef = useRef<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
@@ -3038,67 +3040,88 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
       <div className="w-full lg:w-[420px] flex flex-col bg-white dark:bg-[#0f0f0f] overflow-y-auto lg:overflow-hidden shrink-0 order-2 lg:order-1 border-r border-slate-200 dark:border-white/5 shadow-2xl">
          <div className="p-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0b0b0b]">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3"><i className="fa-brands fa-youtube mr-2"></i>{t('matchReport.video.matchUrl')}</label>
-
-            {report.videoUrl && (
-              <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <i className="fa-solid fa-link text-red-500 shrink-0"></i>
-                  <span className="text-[9px] text-red-700 dark:text-red-300 font-bold truncate">{report.videoUrl.substring(0, 40)}...</span>
-                </div>
-                <button
-                  onClick={() => { setReport({...report, videoUrl: ''}); persistReport({...report, videoUrl: ''}); }}
-                  title={t('common.delete') || 'Delete'}
-                  className="px-2 py-1 bg-red-200 dark:bg-red-900/40 hover:bg-red-300 dark:hover:bg-red-900/60 border border-red-300 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 transition-colors shrink-0"
-                >
-                  <i className="fa-solid fa-trash text-xs"></i>
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-2">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-[9px] font-black text-slate-400 dark:text-white/30 uppercase tracking-widest"><i className="fa-brands fa-youtube mr-2"></i>{t('matchReport.video.matchUrl')}</label>
               <button
-                onClick={() => ytFileInputRef.current?.click()}
-                disabled={ytUploadProgress?.stage !== undefined && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error'}
-                className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
+                onClick={() => setIsVideoUrlVisible(v => !v)}
+                title={isVideoUrlVisible ? (t('common.hide') || 'Ocultar') : (t('common.show') || 'Mostrar')}
+                className="px-2 py-1 text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60 transition-colors"
               >
-                <i className="fa-solid fa-video text-base"></i>
-                <span>Subir Video</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setUrlModalField('videoUrl');
-                  setUrlModalValue(report.videoUrl);
-                  setIsUrlModalOpen(true);
-                }}
-                className="w-full flex items-center justify-center gap-3 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white/70 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
-              >
-                <i className="fa-solid fa-link text-base"></i>
-                <span>Pegar URL</span>
+                <i className={`fa-solid ${isVideoUrlVisible ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
               </button>
             </div>
-            {/* Mini progress bar in sidebar */}
-            {ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
-              <div className="mt-2 space-y-1">
-                <div className="w-full bg-slate-100 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
-                  <div className="h-full bg-red-500 rounded-full transition-all duration-300" style={{ width: `${ytUploadProgress.percent}%` }}></div>
+
+            {isVideoUrlVisible && (
+              <>
+                {report.videoUrl && (
+                  <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <i className="fa-solid fa-link text-red-500 shrink-0"></i>
+                      <span className="text-[9px] text-red-700 dark:text-red-300 font-bold truncate">{report.videoUrl.substring(0, 40)}...</span>
+                    </div>
+                    <button
+                      onClick={() => { setReport({...report, videoUrl: ''}); persistReport({...report, videoUrl: ''}); }}
+                      title={t('common.delete') || 'Delete'}
+                      className="px-2 py-1 bg-red-200 dark:bg-red-900/40 hover:bg-red-300 dark:hover:bg-red-900/60 border border-red-300 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 transition-colors shrink-0"
+                    >
+                      <i className="fa-solid fa-trash text-xs"></i>
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => ytFileInputRef.current?.click()}
+                    disabled={ytUploadProgress?.stage !== undefined && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error'}
+                    className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    <i className="fa-solid fa-video text-base"></i>
+                    <span>Subir Video</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setUrlModalField('videoUrl');
+                      setUrlModalValue(report.videoUrl);
+                      setIsUrlModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-3 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white/70 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    <i className="fa-solid fa-link text-base"></i>
+                    <span>Pegar URL</span>
+                  </button>
                 </div>
-                <p className="text-[8px] text-slate-400 dark:text-white/30 font-bold">{ytUploadProgress.message}</p>
-              </div>
+                {/* Mini progress bar in sidebar */}
+                {ytUploadProgress && ytUploadProgress.stage !== 'done' && ytUploadProgress.stage !== 'error' && (
+                  <div className="mt-2 space-y-1">
+                    <div className="w-full bg-slate-100 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
+                      <div className="h-full bg-red-500 rounded-full transition-all duration-300" style={{ width: `${ytUploadProgress.percent}%` }}></div>
+                    </div>
+                    <p className="text-[8px] text-slate-400 dark:text-white/30 font-bold">{ytUploadProgress.message}</p>
+                  </div>
+                )}
+                <button
+                  onClick={() => window.open('https://studio.youtube.com/channel/UCFZFzmx3KNm9ZkCRrFZDC_Q/content', '_blank', 'noopener,noreferrer')}
+                  className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
+                  title="Abrir el canal de YouTube (sin login)"
+                >
+                  <i className="fa-solid fa-link text-base"></i>
+                  {t('matchReport.video.myChannel') || 'Mi Canal'}
+                </button>
+              </>
             )}
-            <button
-              onClick={() => window.open('https://studio.youtube.com/channel/UCFZFzmx3KNm9ZkCRrFZDC_Q/content', '_blank', 'noopener,noreferrer')}
-              className="w-full mt-4 flex items-center justify-center gap-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 transition-colors font-black text-[10px] uppercase tracking-widest"
-              title="Abrir el canal de YouTube (sin login)"
-            >
-              <i className="fa-solid fa-link text-base"></i>
-              {t('matchReport.video.myChannel') || 'Mi Canal'}
-            </button>
          </div>
          <div className="p-5 border-b border-slate-200 dark:border-white/10 space-y-6">
             <div className="space-y-4">
-                
+                <button
+                  onClick={() => setIsEventButtonsVisible(v => !v)}
+                  className="w-full flex items-center justify-center gap-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-slate-500 dark:text-white/50 transition-colors font-black text-[10px] uppercase tracking-widest"
+                >
+                  <i className={`fa-solid ${isEventButtonsVisible ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
+                  BOTONERA
+                </button>
+
+                {isEventButtonsVisible && (
                 <div className="grid grid-cols-2 gap-3">
                     {eventButtons.map((btn) => (
                         <button
@@ -3134,6 +3157,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         </button>
                     ))}
                 </div>
+                )}
                 {eventToast && (
                   <div className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest animate-pulse">
                     <i className="fa-solid fa-check"></i>
@@ -3755,17 +3779,17 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             </div>
          </div>
 
-         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-[#0a0a0a] min-h-[400px] scrollbar-hide pb-20">
+         <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50 dark:bg-[#0a0a0a] min-h-[400px] scrollbar-hide pb-20">
             {filteredEvents.length === 0 ? (
                 <div className="py-20 text-center opacity-5"><i className="fa-solid fa-timeline text-6xl mb-4"></i><p className="text-[var(--text-strong)] text-[10px] uppercase font-black tracking-widest">{t('matchReport.events.noEvents')}</p></div>
             ) : (
                 filteredEvents.map((ev) => {
                     const isEditing = editingEventId === ev.id;
                     return (
-                        <div key={ev.id} className={`p-3 sm:p-4 rounded-3xl bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/5 transition-all group relative z-10 ${isEditing ? 'ring-2 ring-red-500/50 bg-slate-100 dark:bg-[#1a1a1a]' : 'hover:bg-slate-100 dark:hover:bg-[#1a1a1a]'}`}>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                        <div key={ev.id} className={`p-2 sm:p-2.5 rounded-2xl bg-white dark:bg-[#141414] border border-slate-200 dark:border-white/5 transition-all group relative z-10 ${isEditing ? 'ring-2 ring-red-500/50 bg-slate-100 dark:bg-[#1a1a1a]' : 'hover:bg-slate-100 dark:hover:bg-[#1a1a1a]'}`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 mb-1">
                                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
-                                    <span className="text-lg sm:text-xl font-black text-red-500 font-mono tracking-tighter">{ev.minute}</span>
+                                    <span className="text-[11px] font-black text-red-500 font-mono tracking-tighter">{ev.minute}</span>
                                     <span className="text-[var(--text-strong)] text-[10px] font-black uppercase tracking-widest">{eventTypeLabels[ev.type] || ev.type}</span>
                                     {ev.playerId && (
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">
@@ -3793,41 +3817,41 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex gap-1.5 sm:gap-2 shrink-0">
+                                <div className="flex gap-1 sm:gap-1.5 shrink-0">
                                     {!isEditing && (
                                         <>
                                             <button
                                               type="button"
                                               onClick={(e) => { e.stopPropagation(); playVideoAt(timeToSeconds(ev.minute)); }}
-                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-600 text-white shadow-lg active:scale-90 transition-all flex items-center justify-center cursor-pointer hover:bg-red-500 z-20 shrink-0"
+                                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-600 text-white shadow-lg active:scale-90 transition-all flex items-center justify-center cursor-pointer hover:bg-red-500 z-20 shrink-0"
                                               title={t('matchReport.events.playClip')}
                                             >
-                                              <i className="fa-solid fa-play text-[11px]"></i>
+                                              <i className="fa-solid fa-play text-[10px]"></i>
                                             </button>
                                             <button
                                               type="button"
                                               onClick={(e) => { e.stopPropagation(); handleShareEvent(ev); }}
-                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0"
+                                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.copyEventLink')}
                                             >
-                                              <i className="fa-solid fa-share-nodes text-[11px]"></i>
+                                              <i className="fa-solid fa-share-nodes text-[10px]"></i>
                                             </button>
                                             <button
                                               type="button"
                                               disabled={downloadingEventId === ev.id}
                                               onClick={(e) => { e.stopPropagation(); handleDownloadEvent(ev); }}
-                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0 disabled:opacity-60 disabled:cursor-wait"
+                                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 dark:bg-white/5 text-red-400 hover:bg-red-600 hover:text-white shadow-lg flex items-center justify-center transition-all cursor-pointer z-20 shrink-0 disabled:opacity-60 disabled:cursor-wait"
                                               title={t('matchReport.events.downloadClip')}
                                             >
-                                              <i className={`fa-solid ${downloadingEventId === ev.id ? 'fa-spinner fa-spin' : 'fa-download'} text-[11px]`}></i>
+                                              <i className={`fa-solid ${downloadingEventId === ev.id ? 'fa-spinner fa-spin' : 'fa-download'} text-[10px]`}></i>
                                             </button>
                                             <button
                                               type="button"
                                               onClick={(e) => { e.stopPropagation(); startEditing(ev); }}
-                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-[var(--text-strong)] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
+                                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:text-[var(--text-strong)] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.editTimeNote')}
                                             >
-                                              <i className="fa-solid fa-pencil text-[11px]"></i>
+                                              <i className="fa-solid fa-pencil text-[10px]"></i>
                                             </button>
                                             <button
                                               type="button"
@@ -3838,10 +3862,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                                 setReport(next);
                                                 persistReport(next);
                                               }}
-                                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-white/5 text-red-500 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
+                                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 dark:bg-white/5 text-red-500 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center cursor-pointer z-20 shrink-0"
                                               title={t('matchReport.events.deleteRecord')}
                                             >
-                                              <i className="fa-solid fa-trash text-[11px]"></i>
+                                              <i className="fa-solid fa-trash text-[10px]"></i>
                                             </button>
                                         </>
                                     )}
@@ -3905,7 +3929,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-slate-400 dark:text-white/40 text-[11px] font-medium italic pl-1 truncate">{ev.note || t('matchReport.events.noDescription')}</p>
+                                <p className="text-slate-400 dark:text-white/40 text-[10px] font-medium italic pl-1 truncate">{ev.note || t('matchReport.events.noDescription')}</p>
                             )}
                         </div>
                     );
