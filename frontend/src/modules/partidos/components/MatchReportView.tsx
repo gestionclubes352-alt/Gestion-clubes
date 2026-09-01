@@ -485,6 +485,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [momentDialogType, setMomentDialogType] = useState<'MCB' | 'MSB' | null>(null);
   const [momentSideSelection, setMomentSideSelection] = useState<'FAVOR' | 'CONTRA' | ''>('');
   const [momentZoneSelection, setMomentZoneSelection] = useState<1 | 2 | 3 | ''>('');
+  const [momentConceptoSelection, setMomentConceptoSelection] = useState<VideoEvent['concepto'] | ''>('');
+  const [momentPlayerIds, setMomentPlayerIds] = useState<(string | number)[]>([]);
+  const [momentShowDescription, setMomentShowDescription] = useState(false);
+  const [momentNote, setMomentNote] = useState('');
+
+  const MCB_CONCEPTOS: { id: NonNullable<VideoEvent['concepto']>; label: string }[] = [
+    { id: 'JUEGO_DIRECTO', label: 'Juego directo' },
+    { id: 'VERTICALES', label: 'Verticales' },
+    { id: 'MICRO', label: 'Micro' },
+    { id: 'PROGRESION_JUEGO', label: 'Progresión en el juego' },
+    { id: 'JUEGO_INTERIOR', label: 'Juego interior' },
+    { id: 'JUEGO_POR_FUERA', label: 'Juego por fuera' },
+  ];
   const [eventToast, setEventToast] = useState<string | null>(null);
   const eventToastTimeoutRef = useRef<any>(null);
   const [abpPreviewImage, setAbpPreviewImage] = useState<string | null>(null);
@@ -538,7 +551,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [urlModalField, setUrlModalField] = useState<'videoUrl' | 'planVideoUrl' | 'rivalVideoUrl'>('videoUrl');
   const [urlModalValue, setUrlModalValue] = useState('');
   const [isVideoUrlVisible, setIsVideoUrlVisible] = useState(false);
-  const [isEventButtonsVisible, setIsEventButtonsVisible] = useState(false);
+  const [isEventButtonsVisible, setIsEventButtonsVisible] = useState(true);
+  const [videotecaTypeFilter, setVideotecaTypeFilter] = useState<VideoEvent['type'] | 'ALL'>('ALL');
+  const [videotecaPlayerFilter, setVideotecaPlayerFilter] = useState<string>('ALL');
+  const [videotecaSideFilter, setVideotecaSideFilter] = useState<'ALL' | 'FAVOR' | 'CONTRA'>('ALL');
+  const [videotecaPlaySeconds, setVideotecaPlaySeconds] = useState<number | null>(null);
   const ytActiveTaskIdRef = useRef<string | null>(null);
   const ytFileInputRef = useRef<HTMLInputElement>(null);
   const ytPlanFileInputRef = useRef<HTMLInputElement>(null);
@@ -1446,7 +1463,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
   };
 
-  const handleAddEvent = (type: VideoEvent['type'], options?: { goalSide?: 'FAVOR' | 'CONTRA'; playerId?: string | number; duelOutcome?: 'GANADO' | 'PERDIDO'; note?: string; zone?: 1 | 2 | 3 }) => {
+  const handleAddEvent = (type: VideoEvent['type'], options?: { goalSide?: 'FAVOR' | 'CONTRA'; playerId?: string | number; playerIds?: (string | number)[]; duelOutcome?: 'GANADO' | 'PERDIDO'; note?: string; zone?: 1 | 2 | 3; concepto?: VideoEvent['concepto'] }) => {
     const eventTime = Math.max(0, currentTimeSec - 5);
     const resolvedPlayerId = options?.playerId ?? (selectedPlayerId === '' ? undefined : selectedPlayerId);
     const newEvent: VideoEvent = {
@@ -1455,9 +1472,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       type: type,
       note: options?.note ?? currentNote,
       playerId: resolvedPlayerId,
+      playerIds: options?.playerIds,
       goalSide: options?.goalSide,
       duelOutcome: options?.duelOutcome,
       zone: options?.zone,
+      concepto: options?.concepto,
       timestamp: Date.now(),
       videoTimestamp: eventTime
     };
@@ -3142,6 +3161,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             if (btn.id === 'MCB' || btn.id === 'MSB') {
                               setMomentSideSelection('');
                               setMomentZoneSelection('');
+                              setMomentConceptoSelection('');
+                              setMomentPlayerIds([]);
+                              setMomentShowDescription(false);
+                              setMomentNote('');
                               setMomentDialogType(btn.id);
                               return;
                             }
@@ -3667,10 +3690,30 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     <div className="text-center space-y-2">
                         <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">{momentDialogType}</div>
                         <h3 className="text-lg font-black text-[var(--text-strong)]">
-                          {momentSideSelection === '' ? t('matchReport.goalDialog.favorOrAgainst') : 'Selecciona la zona'}
+                          {momentDialogType === 'MCB' && momentConceptoSelection === ''
+                            ? 'Selecciona el concepto'
+                            : momentSideSelection === ''
+                              ? t('matchReport.goalDialog.favorOrAgainst')
+                              : momentZoneSelection === ''
+                                ? 'Selecciona la zona'
+                                : momentShowDescription
+                                  ? 'Descripción'
+                                  : 'Selecciona jugador/es'}
                         </h3>
                     </div>
-                    {momentSideSelection === '' ? (
+                    {momentDialogType === 'MCB' && momentConceptoSelection === '' ? (
+                      <div className="mt-6 space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {MCB_CONCEPTOS.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => setMomentConceptoSelection(c.id)}
+                            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-blue-600/90 hover:text-white text-slate-900 dark:text-white/80 font-black text-[10px] uppercase tracking-widest text-left transition-colors"
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : momentSideSelection === '' ? (
                       <div className="mt-6 grid grid-cols-2 gap-3">
                           <button
                             onClick={() => setMomentSideSelection('FAVOR')}
@@ -3685,53 +3728,159 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             {t('matchReport.goalDialog.against')}
                           </button>
                       </div>
-                    ) : (
+                    ) : momentZoneSelection === '' ? (
                       <div className="mt-6 space-y-4">
-                        <svg viewBox="0 0 100 60" className="w-full rounded-xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: '#2d7a34' }}>
+                        <svg viewBox="0 0 60 75" className="w-full rounded-xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: '#2d7a34' }}>
                           <g fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="0.4">
-                            <rect x="1" y="1" width="98" height="58" rx="1" />
-                            <rect x="1" y="17" width="12" height="26" />
-                            <rect x="87" y="17" width="12" height="26" />
-                            <circle cx="50" cy="30" r="8" />
-                            <line x1="33.3" y1="1" x2="33.3" y2="59" strokeDasharray="1.5,1.5" />
-                            <line x1="66.6" y1="1" x2="66.6" y2="59" strokeDasharray="1.5,1.5" />
+                            <rect x="1" y="1" width="58" height="73" rx="1" />
+                            <rect x="17" y="1" width="26" height="9" />
+                            <rect x="17" y="65" width="26" height="9" />
+                            <circle cx="30" cy="37.5" r="6" />
+                            <line x1="1" y1="25" x2="59" y2="25" strokeDasharray="1.5,1.5" />
+                            <line x1="1" y1="50" x2="59" y2="50" strokeDasharray="1.5,1.5" />
                           </g>
                           {[1, 2, 3].map((zone) => (
                             <rect
                               key={zone}
-                              x={(zone - 1) * 33.3}
-                              y="0"
-                              width="33.3"
-                              height="60"
-                              fill={momentZoneSelection === zone ? 'rgba(37,99,235,0.45)' : 'transparent'}
+                              x="0"
+                              y={(3 - zone) * 25}
+                              width="60"
+                              height="25"
+                              fill="transparent"
                               stroke="transparent"
                               className="cursor-pointer"
                               onClick={() => setMomentZoneSelection(zone as 1 | 2 | 3)}
                             />
                           ))}
-                          <text x="16.6" y="33" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 1</text>
-                          <text x="50" y="33" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 2</text>
-                          <text x="83.3" y="33" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 3</text>
+                          <text x="30" y="13.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 3</text>
+                          <text x="30" y="38.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 2</text>
+                          <text x="30" y="63.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 1</text>
                         </svg>
                         <p className="text-center text-[9px] text-slate-400 dark:text-white/40">Zona 1: cerca de mi portero</p>
+                      </div>
+                    ) : !momentShowDescription ? (
+                      <div className="mt-6 space-y-3">
+                        {(report.lineupPositions || []).length === 0 ? (
+                          <div className="text-center text-[10px] text-slate-400 dark:text-white/40">
+                            No hay 11 asignado en la alineación.
+                          </div>
+                        ) : (
+                          <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2">
+                            <div>
+                              <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Titulares</div>
+                              <div className="space-y-1.5">
+                                {(report.lineupPositions || []).map((pos) => {
+                                  const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
+                                  const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
+                                  if (!player) return null;
+                                  const isSelected = momentPlayerIds.some(id => samePlayerId(id, player.id));
+                                  return (
+                                    <button
+                                      key={pos.id}
+                                      onClick={() => setMomentPlayerIds(prev =>
+                                        prev.some(id => samePlayerId(id, player.id))
+                                          ? prev.filter(id => !samePlayerId(id, player.id))
+                                          : [...prev, player.id]
+                                      )}
+                                      className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                        isSelected
+                                          ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                                          : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                      }`}
+                                    >
+                                      <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                        {player.dorsal}
+                                      </span>
+                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {(() => {
+                              const starterIds = new Set((report.lineupPositions || []).flatMap(pos => pos.playerIds || []));
+                              const suplentes = squad.filter(p =>
+                                !starterIds.has(String(p.id)) &&
+                                !starterIds.has(p.id as any) &&
+                                !(report.notConvocadoIds || []).some(id => samePlayerId(id, p.id))
+                              );
+                              return suplentes.length > 0 && (
+                                <div>
+                                  <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Suplentes</div>
+                                  <div className="space-y-1.5">
+                                    {suplentes.map((player) => {
+                                      const isSelected = momentPlayerIds.some(id => samePlayerId(id, player.id));
+                                      return (
+                                        <button
+                                          key={player.id}
+                                          onClick={() => setMomentPlayerIds(prev =>
+                                            prev.some(id => samePlayerId(id, player.id))
+                                              ? prev.filter(id => !samePlayerId(id, player.id))
+                                              : [...prev, player.id]
+                                          )}
+                                          className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
+                                            isSelected
+                                              ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                                              : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
+                                          }`}
+                                        >
+                                          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
+                                            {player.dorsal}
+                                          </span>
+                                          <span className="truncate">{player.apodo || player.nombre}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => setMomentShowDescription(true)}
+                          className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-blue-600/90 hover:bg-blue-600 text-white"
+                        >
+                          {t('common.confirm')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-6 space-y-4">
+                        <textarea
+                          value={momentNote}
+                          onChange={(e) => setMomentNote(e.target.value)}
+                          placeholder="Descripción (opcional)"
+                          rows={4}
+                          className="w-full rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-2 text-[11px] text-slate-900 dark:text-white/80 placeholder:text-slate-400 dark:placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        />
                         <button
                           onClick={() => {
-                            if (momentZoneSelection === '') return;
                             const type = momentDialogType;
                             setMomentDialogType(null);
-                            handleAddEvent(type, { goalSide: momentSideSelection, zone: momentZoneSelection });
+                            handleAddEvent(type, {
+                              goalSide: momentSideSelection,
+                              zone: momentZoneSelection,
+                              concepto: momentConceptoSelection || undefined,
+                              playerIds: momentPlayerIds.length > 0 ? momentPlayerIds : undefined,
+                              note: momentNote,
+                            });
                             flashEventToast(type);
                             setMomentSideSelection('');
                             setMomentZoneSelection('');
+                            setMomentConceptoSelection('');
+                            setMomentPlayerIds([]);
+                            setMomentShowDescription(false);
+                            setMomentNote('');
                           }}
-                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${momentZoneSelection === '' ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30' : 'bg-blue-600/90 hover:bg-blue-600 text-white'}`}
+                          className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-blue-600/90 hover:bg-blue-600 text-white"
                         >
                           {t('common.confirm')}
                         </button>
                       </div>
                     )}
                     <button
-                      onClick={() => { setMomentDialogType(null); setMomentSideSelection(''); setMomentZoneSelection(''); }}
+                      onClick={() => { setMomentDialogType(null); setMomentSideSelection(''); setMomentZoneSelection(''); setMomentConceptoSelection(''); setMomentPlayerIds([]); setMomentShowDescription(false); setMomentNote(''); }}
                       className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
                     >
                       {t('common.cancel')}
@@ -3806,6 +3955,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                             {duelOutcomeLabels[ev.duelOutcome || ''] || ev.duelOutcome}
                                         </span>
                                     )}
+                                    {ev.type === 'MCB' && ev.concepto && (
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
+                                            {MCB_CONCEPTOS.find(c => c.id === ev.concepto)?.label || ev.concepto}
+                                        </span>
+                                    )}
                                     {(ev.type === 'MCB' || ev.type === 'MSB') && ev.goalSide && (
                                         <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
                                             {goalSideLabels[ev.goalSide || ''] || ev.goalSide}
@@ -3814,6 +3968,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                     {(ev.type === 'MCB' || ev.type === 'MSB') && ev.zone && (
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">
                                             ZONA {ev.zone}
+                                        </span>
+                                    )}
+                                    {(ev.type === 'MCB' || ev.type === 'MSB') && ev.playerIds && ev.playerIds.length > 0 && (
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/40">
+                                            {ev.playerIds.map(id => getPlayerLabel(id)).join(', ')}
                                         </span>
                                     )}
                                 </div>
@@ -5747,7 +5906,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   };
 
   const renderTablaEventos = () => (
-    <div className="animate-fade-in space-y-8 max-w-6xl mx-auto pb-32 p-4 lg:p-12">
+    <div className="animate-fade-in space-y-8 max-w-[1600px] mx-auto pb-32 p-4 lg:p-12">
       {tablaEventosPlaySeconds !== null && (
         <div className="bg-[var(--surface-0)] rounded-[40px] border border-[var(--border-soft)] shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-8 py-4 border-b border-[var(--border-soft)]">
@@ -5798,6 +5957,127 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           teamName={dgForm.nombreInterno}
           onPlay={(event) => {
             setTablaEventosPlaySeconds(timeToSeconds(event.minute));
+          }}
+          onEdit={(event) => {
+            startEditing(event);
+            setActiveTab('EVENTOS');
+          }}
+          onDelete={(eventId) => {
+            const nextEvents = (report.videoEvents || []).filter(x => x.id !== eventId);
+            const next = { ...report, videoEvents: nextEvents };
+            setReport(next);
+          }}
+        />
+      </div>
+    </div>
+  );
+
+  const videotecaFilteredEvents = (report.videoEvents || []).filter(ev => {
+    if (videotecaTypeFilter !== 'ALL' && ev.type !== videotecaTypeFilter) return false;
+    if (videotecaSideFilter !== 'ALL' && ev.goalSide !== videotecaSideFilter) return false;
+    if (videotecaPlayerFilter !== 'ALL') {
+      const matchesPrimary = ev.playerId !== undefined && samePlayerId(ev.playerId, videotecaPlayerFilter);
+      const matchesMultiple = (ev.playerIds || []).some(id => samePlayerId(id, videotecaPlayerFilter));
+      if (!matchesPrimary && !matchesMultiple) return false;
+    }
+    return true;
+  });
+
+  const renderVideoteca = () => (
+    <div className="animate-fade-in space-y-8 max-w-[1600px] mx-auto pb-32 p-4 lg:p-12">
+      {videotecaPlaySeconds !== null && (
+        <div className="bg-[var(--surface-0)] rounded-[40px] border border-[var(--border-soft)] shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-8 py-4 border-b border-[var(--border-soft)]">
+            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+              <i className="fa-solid fa-play text-red-500"></i> {t('matchReport.events.playClip')}
+            </div>
+            <button
+              type="button"
+              onClick={() => setVideotecaPlaySeconds(null)}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/40 hover:text-[var(--text-strong)] flex items-center justify-center transition-all"
+            >
+              <i className="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <div className="w-full aspect-video bg-black relative">
+            {!report.videoUrl ? (
+              <div className="w-full h-full flex items-center justify-center text-slate-500 dark:text-white/60 text-xs font-black uppercase tracking-widest">
+                {t('matchReport.video.noVideo')}
+              </div>
+            ) : isBlockedEmbed(report.videoUrl) ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-500 dark:text-white/60">
+                <i className="fa-solid fa-ban text-4xl"></i>
+                <p className="text-xs font-black uppercase tracking-widest">{t('matchReport.video.providerBlocked')}</p>
+                <a href={report.videoUrl} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest">{t('matchReport.video.openNewTab')}</a>
+              </div>
+            ) : (
+              <iframe
+                key={`${report.videoUrl}-${videotecaPlaySeconds}`}
+                title="reproductor-videoteca"
+                src={getEmbedUrl(report.videoUrl, videotecaPlaySeconds)}
+                className="w-full h-full"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              ></iframe>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6 mb-8">
+          <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+            <i className="fa-solid fa-film text-red-500"></i> Videoteca
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Tipo</label>
+            <select
+              value={videotecaTypeFilter}
+              onChange={(e) => setVideotecaTypeFilter(e.target.value as VideoEvent['type'] | 'ALL')}
+              className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-900 dark:text-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="ALL">Todos</option>
+              <option value="GOL">Gol</option>
+              <option value="OCASION">Ocasión</option>
+              <option value="DUELO">Duelo</option>
+              <option value="NOTA">Nota</option>
+              <option value="MCB">MCB</option>
+              <option value="MSB">MSB</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Jugador</label>
+            <select
+              value={videotecaPlayerFilter}
+              onChange={(e) => setVideotecaPlayerFilter(e.target.value)}
+              className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-900 dark:text-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="ALL">Todos</option>
+              {squad.map(p => (
+                <option key={p.id} value={String(p.id)}>{p.apodo || p.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">A favor / En contra</label>
+            <select
+              value={videotecaSideFilter}
+              onChange={(e) => setVideotecaSideFilter(e.target.value as 'ALL' | 'FAVOR' | 'CONTRA')}
+              className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-[11px] font-bold text-slate-900 dark:text-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="ALL">Todos</option>
+              <option value="FAVOR">A favor</option>
+              <option value="CONTRA">En contra</option>
+            </select>
+          </div>
+        </div>
+        <EventsTableView
+          events={videotecaFilteredEvents}
+          squad={squad}
+          teamName={dgForm.nombreInterno}
+          onPlay={(event) => {
+            setVideotecaPlaySeconds(timeToSeconds(event.minute));
           }}
           onEdit={(event) => {
             startEditing(event);
@@ -6034,7 +6314,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const tabs = [
     { id: 'DATOS GENERALES', label: t('matchReport.tabs.generalData'), icon: 'fa-circle-info' },
     { id: 'INFORME RIVAL', label: t('matchReport.tabs.opponentReport'), icon: 'fa-shield-heart' },
-    { id: 'ÁRBITRO', label: t('matchReport.tabs.referee'), icon: 'fa-gavel' },
     { id: 'ALINEACIÓN', label: t('matchReport.tabs.lineup'), icon: 'fa-border-all' },
     { id: 'PLAN DE PARTIDO', label: t('matchReport.tabs.matchPlan'), icon: 'fa-clipboard-list' },
     { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
@@ -6042,7 +6321,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
     { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
     { id: 'TABLA EVENTOS', label: 'Tabla Eventos', icon: 'fa-th' },
-    { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' }
+    { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' },
+    { id: 'VIDEOTECA', label: 'Videoteca', icon: 'fa-film' }
   ];
 
   const handleChange = (field: keyof MatchReport, value: any) => { setReport(prev => ({ ...prev, [field]: value })); };
@@ -6075,7 +6355,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'ÁRBITRO' ? renderArbitro() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'VIDEOTECA' ? renderVideoteca() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
 
       {selectedPlayerForModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>

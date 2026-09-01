@@ -150,7 +150,7 @@ const BodyDiagram: React.FC<BodyDiagramProps> = ({ bodyPart, side }) => {
     <div className="flex flex-col items-center py-2">
       <div className="relative w-full max-w-md">
         <img src={anatomiaFrontal} alt="Diagrama anatómico del cuerpo humano" className="w-full h-auto select-none mix-blend-multiply dark:mix-blend-normal" draggable={false} />
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
           <defs>
             <radialGradient id="injuryGlow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#ff5252" stopOpacity="0.95" />

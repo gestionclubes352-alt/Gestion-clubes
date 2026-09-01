@@ -12,6 +12,15 @@ interface EventsTableViewProps {
   onDelete?: (eventId: string) => void;
 }
 
+const MCB_CONCEPTO_LABELS: Record<string, string> = {
+  JUEGO_DIRECTO: 'Juego directo',
+  VERTICALES: 'Verticales',
+  MICRO: 'Micro',
+  PROGRESION_JUEGO: 'Progresión en el juego',
+  JUEGO_INTERIOR: 'Juego interior',
+  JUEGO_POR_FUERA: 'Juego por fuera',
+};
+
 const getPlayerName = (playerId: string | number | undefined, squad: Player[]): string => {
   if (!playerId) return '-';
   const player = squad.find(p => String(p.id) === String(playerId) || p.nombre === playerId);
@@ -109,6 +118,12 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamNa
             <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
               Notas
             </th>
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              MCB
+            </th>
+            <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
+              MSB
+            </th>
             <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">
               Acciones
             </th>
@@ -122,6 +137,18 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamNa
             const isDuelWon = event.type === 'DUELO' && event.duelOutcome === 'GANADO';
             const isDuelLost = event.type === 'DUELO' && event.duelOutcome === 'PERDIDO';
             const isNote = event.type === 'NOTA';
+            const isMcb = event.type === 'MCB';
+            const isMsb = event.type === 'MSB';
+            const momentPlayers = [event.playerId, ...(event.playerIds || [])]
+              .filter((id, i, arr) => id !== undefined && arr.findIndex(x => String(x) === String(id)) === i)
+              .map(id => getPlayerName(id, squad))
+              .join(', ');
+            const momentDetail = [
+              event.concepto ? MCB_CONCEPTO_LABELS[event.concepto] || event.concepto : null,
+              event.goalSide === 'FAVOR' ? 'A favor' : event.goalSide === 'CONTRA' ? 'En contra' : null,
+              event.zone ? `Zona ${event.zone}` : null,
+              momentPlayers || null,
+            ].filter(Boolean).join(' · ');
 
             return (
               <tr
@@ -199,8 +226,37 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamNa
                     <span className="text-slate-400">-</span>
                   )}
                 </td>
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isMcb ? (
+                    <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-xs font-semibold max-w-xs">
+                      <i className="fa-solid fa-futbol flex-shrink-0"></i>
+                      <span className="truncate">{momentDetail || '-'}</span>
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
+                <td className="px-2 py-2 text-slate-800 dark:text-slate-200">
+                  {isMsb ? (
+                    <span className="inline-flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-1.5 py-0.5 rounded text-xs font-semibold max-w-xs">
+                      <i className="fa-solid fa-shield flex-shrink-0"></i>
+                      <span className="truncate">{momentDetail || '-'}</span>
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
                 <td className="px-2 py-2 text-right">
                   <div className="flex gap-2 justify-end">
+                    {onPlay && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onPlay(event); }}
+                        className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
+                        title="Ver vídeo"
+                      >
+                        <i className="fa fa-play" />
+                      </button>
+                    )}
                     {onEdit && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onEdit(event); }}

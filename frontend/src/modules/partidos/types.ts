@@ -31,9 +31,11 @@ export interface VideoEvent {
   type: 'GOL' | 'OCASION' | 'DUELO' | 'NOTA' | 'MCB' | 'MSB';
   note: string;
   playerId?: string | number;
+  playerIds?: (string | number)[];
   goalSide?: 'FAVOR' | 'CONTRA';
   duelOutcome?: 'GANADO' | 'PERDIDO';
   zone?: 1 | 2 | 3;
+  concepto?: 'JUEGO_DIRECTO' | 'VERTICALES' | 'MICRO' | 'PROGRESION_JUEGO' | 'JUEGO_INTERIOR' | 'JUEGO_POR_FUERA';
   timestamp: number;
   videoTimestamp?: number;
 }
