@@ -271,6 +271,7 @@ export function useDrawingTools(
         id: newShapeId,
         type: 'connector',
         points: [{ x: prevPoint.x, y: prevPoint.y }, { x, y }],
+        playerIds: [prevPoint.id, playerId],
         stroke: state.stroke,
         fill: state.fill,
         lineWidth: state.lineWidth,
@@ -283,7 +284,11 @@ export function useDrawingTools(
       if (shapeId) {
         setShapes(prev => prev.map(shape =>
           shape.id === shapeId && shape.points
-            ? { ...shape, points: [...shape.points, { x, y }] }
+            ? {
+                ...shape,
+                points: [...shape.points, { x, y }],
+                playerIds: [...(shape.playerIds ?? shape.points.map(() => null)), playerId],
+              }
             : shape
         ));
       }
@@ -296,6 +301,23 @@ export function useDrawingTools(
     connectorSelectedPlayersRef.current = [];
     activeConnectorShapeIdRef.current = null;
     setState(prev => ({ ...prev, pendingConnectorPlayerId: null }));
+  }, []);
+
+  // Realinea los puntos de los conectores anclados a jugadores con sus posiciones actuales.
+  const syncConnectorsToPlayers = useCallback((players: { id: string; x: number; y: number }[]) => {
+    setShapes(prev => prev.map(shape => {
+      if (shape.type !== 'connector' || !shape.points || !shape.playerIds) return shape;
+      let changed = false;
+      const nextPoints = shape.points.map((point, index) => {
+        const playerId = shape.playerIds![index];
+        if (!playerId) return point;
+        const player = players.find(p => p.id === playerId);
+        if (!player || (player.x === point.x && player.y === point.y)) return point;
+        changed = true;
+        return { x: player.x, y: player.y };
+      });
+      return changed ? { ...shape, points: nextPoints } : shape;
+    }));
   }, []);
 
   const moveShape = useCallback((id: string, dx: number, dy: number) => {
@@ -394,6 +416,7 @@ export function useDrawingTools(
     moveShape,
     rotateShape,
     scaleShape,
+    syncConnectorsToPlayers,
   };
 }
 

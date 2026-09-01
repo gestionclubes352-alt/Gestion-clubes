@@ -143,6 +143,8 @@ export interface DrawingShape {
   x2?: number;
   y2?: number;
   points?: Point[];
+  /** Para conectores: id del jugador (o null) anclado a cada punto de `points`, en el mismo orden. */
+  playerIds?: (string | null)[];
   text?: string;
   focusStyle?: FocusStyle;
   spotlightStyle?: SpotlightStyle;

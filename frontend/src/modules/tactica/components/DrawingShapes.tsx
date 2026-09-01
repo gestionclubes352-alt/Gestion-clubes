@@ -332,11 +332,12 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
   const renderCallout = (shape: DrawingShape) => {
     if (shape.x === undefined || shape.y === undefined) return null;
 
-    const fontSize = shape.fontSize ?? 16;
-    const padding = 8;
+    const fontSize = shape.fontSize ?? 9;
+    const padding = fontSize * 0.35;
     const boxWidth = (shape.text?.length || 0) * fontSize * 0.5 + padding * 2;
     const boxHeight = fontSize + padding * 2;
     const isSelected = selectedShapeId === shape.id;
+    const calloutStroke = Math.min(strokeWidthOf(shape), 0.3);
 
     return (
       <g key={shape.id} onClick={() => onShapeClick?.(shape.id)} onPointerDown={(e) => onShapePointerDown?.(e as any, shape.id)} onDoubleClick={(e) => { e.stopPropagation(); onShapeDoubleClick?.(shape.id); }} style={{ cursor: isSelected ? 'move' : 'pointer', pointerEvents: 'auto' }}>
@@ -347,9 +348,9 @@ export const DrawingShapes: React.FC<DrawingShapesProps> = ({
           height={boxHeight}
           fill={shape.fill || '#17307a'}
           stroke={isSelected ? '#00ff00' : shape.stroke}
-          strokeWidth={isSelected ? strokeWidthOf(shape) * 1.5 : strokeWidthOf(shape)}
+          strokeWidth={isSelected ? calloutStroke * 1.5 : calloutStroke}
           opacity={shape.opacity}
-          rx="4"
+          rx="1.5"
         />
         <text
           x={shape.x + boxWidth / 2}

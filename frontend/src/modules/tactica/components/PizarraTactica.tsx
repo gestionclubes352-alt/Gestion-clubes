@@ -990,16 +990,21 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         const deltaX = currentPercent.x - draggingStartPercent.current.x;
         const deltaY = currentPercent.y - draggingStartPercent.current.y;
         const idsToMove = draggingIds.current.length > 0 ? draggingIds.current : [draggingId.current];
+        const movedPlayers: { id: string; x: number; y: number }[] = [];
         updatePitchPlayers(prev => prev.map(player => {
           if (!idsToMove.includes(player.id)) return player;
           const start = dragStartPositions.current[player.id];
           if (!start) return player;
           const nextPosition = clampPitchPlayerPosition(player, start.x + deltaX, start.y + deltaY);
+          movedPlayers.push({ id: player.id, ...nextPosition });
           return {
             ...player,
             ...nextPosition,
           };
         }));
+        if (movedPlayers.length > 0) {
+          drawingTools.syncConnectorsToPlayers(movedPlayers);
+        }
 
         const isOutside =
           event.clientX < rect.left - DROP_OUTSIDE_MARGIN_PX ||
