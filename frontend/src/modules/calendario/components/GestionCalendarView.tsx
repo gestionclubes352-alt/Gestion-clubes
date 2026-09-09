@@ -362,6 +362,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
   });
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('month');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [playerFilter, setPlayerFilter] = useState<string[]>([]);
@@ -375,6 +376,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [instalacionId, setInstalacionId] = useState<string[]>([]);
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalaciones, setInstalaciones] = useState<InstalacionCampo[]>([]);
+  const [filtersVisible, setFiltersVisible] = useState(true);
 
   const instalacionesPrincipales = useMemo(
     () => instalaciones.filter(i => !i.parent_instalacion_id && (localidadId.length === 0 || (!!i.localidad_id && localidadId.includes(i.localidad_id)))),
@@ -605,18 +607,36 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [currentMonth]);
 
   const scheduleDays = useMemo(() => {
+    if (viewMode === 'day') {
+      const d = new Date(currentMonth);
+      d.setHours(0, 0, 0, 0);
+      return [d];
+    }
     const days = Array.from({ length: 7 }, (_, index) => {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + index);
       return d;
     });
     return days;
-  }, [weekStart]);
+  }, [weekStart, viewMode, currentMonth]);
 
   const scheduleHours = useMemo(
     () => Array.from({ length: 14 }, (_, index) => 9 + index),
     []
   );
+
+  const monthGridDays = useMemo(() => {
+    const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const gridStart = new Date(firstOfMonth);
+    gridStart.setDate(firstOfMonth.getDate() - ((firstOfMonth.getDay() + 6) % 7));
+    gridStart.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const d = new Date(gridStart);
+      d.setDate(gridStart.getDate() + index);
+      return d;
+    });
+  }, [currentMonth]);
 
   const parseEventTime = (time?: string) => {
     if (!time) return null;
@@ -628,18 +648,173 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return { hour, minute };
   };
 
+  const teamsGridRows = useMemo(() => {
+    const names = availableTeams.length > 0 ? availableTeams : Array.from(teamColorLegend.map(t => t.key));
+    return names.length > 0 ? names : ['Sin equipo'];
+  }, [availableTeams, teamColorLegend]);
+
+  const renderTeamsGrid = () => {
+    const weekDays = Array.from({ length: 7 }, (_, index) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + index);
+      return d;
+    });
+
+    return (
+      <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="min-w-[1080px]">
+          <div
+            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
+            style={{ gridTemplateColumns: `160px repeat(7, minmax(0, 1fr))` }}
+          >
+            <div className="bg-white px-3 py-3"></div>
+            {weekDays.map((date) => (
+              <div key={date.toISOString()} className="bg-white px-3 py-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {dayNames[date.getDay()]}
+                </p>
+                <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  {date.getDate()}
+                </p>
+              </div>
+            ))}
+
+            {teamsGridRows.map((teamName) => {
+              const teamColor = getTeamColor(teamName);
+              return (
+                <React.Fragment key={teamName}>
+                  <div className="bg-white px-3 py-3 flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${teamColor?.dot || 'bg-slate-400'}`}></span>
+                    <span className="text-xs font-black text-slate-700 truncate" title={teamName}>{teamName}</span>
+                  </div>
+                  {weekDays.map((date) => {
+                    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                    const dayEvents = (eventsByDay[key] || []).filter(ev => getEventTeamKey(ev) === teamName);
+
+                    return (
+                      <div
+                        key={`${teamName}-${date.toISOString()}`}
+                        className={`min-h-16 bg-white p-1.5 flex flex-col gap-1 ${isToday(date) ? 'bg-red-50' : ''}`}
+                      >
+                        {dayEvents.map(ev => (
+                          <button
+                            key={ev.id}
+                            onClick={() => {
+                              setSelectedEvent(ev);
+                              onClickEvent?.(ev);
+                            }}
+                            title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                            className={`w-full text-left truncate rounded-lg px-1.5 py-1 text-[10px] font-bold border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
+                          >
+                            {formatEventLabel(ev.time, ev.title)}
+                          </button>
+                        ))}
+                        {dayEvents.length === 0 && onCreateEvent && (
+                          <button
+                            onClick={() => onCreateEvent(date)}
+                            className="w-full rounded-lg border border-dashed border-slate-200 text-[9px] font-bold text-slate-400 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                          >
+                            +
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMonthGrid = () => {
+    const monthIndex = currentMonth.getMonth();
+
+    return (
+      <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="min-w-[900px]">
+          <div
+            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
+            style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+          >
+            {dayNames.slice(1).concat(dayNames[0]).map((name) => (
+              <div key={name} className="bg-white px-3 py-2 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{name}</p>
+              </div>
+            ))}
+
+            {monthGridDays.map(date => {
+              const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+              const dayEvents = eventsByDay[key] || [];
+              const isCurrentMonth = date.getMonth() === monthIndex;
+              const visibleEvents = dayEvents.slice(0, 3);
+              const extraCount = dayEvents.length - visibleEvents.length;
+
+              return (
+                <div
+                  key={date.toISOString()}
+                  className={`min-h-24 bg-white p-1.5 flex flex-col gap-1 ${!isCurrentMonth ? 'bg-slate-50/60' : ''} ${isToday(date) ? 'bg-red-50' : ''}`}
+                >
+                  <span className={`text-[11px] font-black self-end px-1 ${isToday(date) ? 'text-white bg-[var(--accent)] rounded-full w-5 h-5 flex items-center justify-center' : isCurrentMonth ? 'text-slate-700' : 'text-slate-300'}`}>
+                    {date.getDate()}
+                  </span>
+                  <div className="flex flex-col gap-0.5 overflow-hidden">
+                    {visibleEvents.map(ev => {
+                      const teamColor = getTeamColor(getEventTeamKey(ev));
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={() => {
+                            setSelectedEvent(ev);
+                            onClickEvent?.(ev);
+                          }}
+                          title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                          className={`w-full text-left truncate rounded px-1 py-0.5 text-[9px] font-bold border ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
+                        >
+                          {formatEventLabel(ev.time, ev.team || ev.title)}
+                          {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
+                        </button>
+                      );
+                    })}
+                    {extraCount > 0 && (
+                      <span className="text-[9px] font-bold text-slate-400 px-1">
+                        {t('calendarView.moreEvents', { count: extraCount })}
+                      </span>
+                    )}
+                    {dayEvents.length === 0 && onCreateEvent && isCurrentMonth && (
+                      <button
+                        onClick={() => onCreateEvent(date)}
+                        className="w-full rounded border border-dashed border-slate-200 text-[9px] font-bold text-slate-400 py-1 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderScheduleGrid = () => {
     const scheduleEvents = scheduleDays.map(date => {
       const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       return { date, events: eventsByDay[key] || [] };
     });
 
+    const dayCount = scheduleDays.length;
+
     return (
       <div className="flex-1 overflow-auto p-3 md:p-6">
-        <div className="min-w-[980px]">
+        <div className={dayCount === 1 ? 'min-w-[420px]' : 'min-w-[980px]'}>
           <div
             className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
-            style={{ gridTemplateColumns: '72px repeat(7, minmax(0, 1fr))' }}
+            style={{ gridTemplateColumns: `72px repeat(${dayCount}, minmax(0, 1fr))` }}
           >
             <div className="bg-white px-3 py-3"></div>
             {scheduleEvents.map(({ date }) => (
@@ -781,7 +956,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                             onClick={() => onCreateEvent(date)}
                             className="w-full rounded-lg border border-dashed border-slate-300 text-[10px] font-bold text-slate-500 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
                           >
-                            + {t('calendarView.newEventButton')}
+                            +
                           </button>
                         )}
                       </div>
@@ -801,6 +976,17 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
       <div className="sticky top-0 z-30 flex items-center gap-3 -mx-2 px-3 py-1 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
         {showFilters && (
+        <button
+          type="button"
+          onClick={() => setFiltersVisible((prev) => !prev)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all flex-shrink-0"
+          aria-expanded={filtersVisible}
+        >
+          <i className={`fa-solid ${filtersVisible ? 'fa-eye-slash' : 'fa-eye'} text-[11px]`}></i>
+          {filtersVisible ? t('calendarView.hideFilters', 'Ocultar filtros') : t('calendarView.showFilters', 'Mostrar filtros')}
+        </button>
+        )}
+        {showFilters && filtersVisible && (
         <div className="flex items-center gap-2 flex-wrap flex-1">
           <MultiSelectFilter
             value={teamFilter}
@@ -901,7 +1087,10 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden">
           <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between gap-3">
             <button
-              onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7))}
+              onClick={() => setCurrentMonth(prev => {
+                if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+                return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - (viewMode === 'day' ? 1 : 7));
+              })}
               className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
               aria-label="Anterior"
             >
@@ -909,14 +1098,58 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             </button>
             <div className="text-center">
               <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
-                {`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+                {viewMode === 'day'
+                  ? `${dayNames[currentMonth.getDay()]} ${currentMonth.getDate()} ${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
+                  : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
               </h4>
-              <p className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.25em] mt-0.5">
-                Vista horaria
-              </p>
+              <div className="mt-1 flex items-center justify-center gap-1">
+                <button
+                  onClick={() => setViewMode('month')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'month'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Mes
+                </button>
+                <button
+                  onClick={() => setViewMode('week')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'week'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Semana
+                </button>
+                <button
+                  onClick={() => setViewMode('day')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'day'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Día
+                </button>
+                <button
+                  onClick={() => setViewMode('teams')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'teams'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Equipos
+                </button>
+              </div>
             </div>
             <button
-              onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7))}
+              onClick={() => setCurrentMonth(prev => {
+                if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
+                return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + (viewMode === 'day' ? 1 : 7));
+              })}
               className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
               aria-label="Siguiente"
             >
@@ -924,7 +1157,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             </button>
           </div>
 
-          {renderScheduleGrid()}
+          {viewMode === 'month' ? renderMonthGrid() : viewMode === 'teams' ? renderTeamsGrid() : renderScheduleGrid()}
         </div>
       </div>
 
