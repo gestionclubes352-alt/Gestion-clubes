@@ -81,7 +81,7 @@ import { InstalacionesView } from '@modules/instalaciones';
 
 // Modules - Residencia
 import {
-  HabitacionesView, EstadoHabitacionesView, JugadoresResiView, ComidasView,
+  HabitacionesView, JugadoresResiView, ComidasView,
   ComedorFichajeView, ComedorLandingView, ComedorAccesosView, ComedorQrImprimirView,
 } from '@modules/residencia';
 
@@ -1803,7 +1803,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/instalaciones" element={<InstalacionesView />} />
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
               <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
-              <Route path="/residencia/estado-habitaciones" element={<EstadoHabitacionesView />} />
+              <Route path="/residencia/estado-habitaciones" element={<HabitacionesView />} />
               <Route path="/residencia/comidas" element={<ComidasView />} />
               <Route path="/residencia/comedor" element={<ComedorAccesosView />} />
               <Route path="/residencia/comedor/qr" element={<ComedorQrImprimirView />} />

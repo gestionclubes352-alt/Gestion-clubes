@@ -21,11 +21,13 @@ const EditJugadorResiModal: React.FC<{
   registro?: ResidenciaJugadorFormData | null;
   isOpen: boolean;
   habitaciones: ResidenciaHabitacion[];
+  registros: ResidenciaJugador[];
+  jugadores: Jugador[];
   equipoNombre?: string;
   onClose: () => void;
   onSave: (data: ResidenciaJugadorFormData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
-}> = ({ jugador, registro, isOpen, habitaciones, equipoNombre, onClose, onSave, onDelete }) => {
+}> = ({ jugador, registro, isOpen, habitaciones, registros, jugadores, equipoNombre, onClose, onSave, onDelete }) => {
   const [formData, setFormData] = useState<ResidenciaJugadorFormData>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,23 @@ const EditJugadorResiModal: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (formData.habitacion_id && formData.numero_habitacion) {
+      const ocupante = registros.find(r =>
+        r.habitacion_id === formData.habitacion_id &&
+        r.numero_habitacion === formData.numero_habitacion &&
+        !r.fecha_salida &&
+        r.id !== formData.id &&
+        String(r.jugador_id) !== String(formData.jugador_id)
+      );
+      if (ocupante) {
+        const nombreOcupante = jugadores.find(j => String(j.id) === String(ocupante.jugador_id))?.nombre || 'otro jugador';
+        const nombreHabitacion = habitaciones.find(h => h.id === formData.habitacion_id)?.nombre || '';
+        setError(`Esa plaza (${nombreHabitacion} · Habitación ${formData.numero_habitacion}) ya está ocupada por ${nombreOcupante}. Quítalo primero antes de asignarla.`);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       await onSave(formData);
@@ -489,6 +508,8 @@ const JugadoresResiView: React.FC = () => {
         registro={editingJugador ? (getRegistro(editingJugador.id) as ResidenciaJugadorFormData | null) : null}
         isOpen={editingJugador !== null}
         habitaciones={habitaciones}
+        registros={registros}
+        jugadores={jugadores}
         equipoNombre={editingJugador ? getEquipoNombre(editingJugador.equipo_id) : undefined}
         onClose={() => setEditingJugador(null)}
         onSave={handleSave}

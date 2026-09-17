@@ -76,7 +76,6 @@ const HOME_SECTIONS: HomeSection[] = [
     items: [
       { labelKey: 'sidebar.residenciaPlayersLabel', icon: 'fa-people-roof', route: '/residencia/jugadores', menuId: 'RESI_JUGADORES' },
       { labelKey: 'sidebar.residenciaRoomsLabel', icon: 'fa-bed', route: '/residencia/habitaciones', menuId: 'RESI_HABITACIONES' },
-      { labelKey: 'sidebar.residenciaRoomsStatusLabel', icon: 'fa-clipboard-check', route: '/residencia/estado-habitaciones', menuId: 'RESI_ESTADO_HABITACIONES' },
       { labelKey: 'sidebar.residenciaMealsLabel', icon: 'fa-utensils', route: '/residencia/comidas', menuId: 'RESI_COMIDAS' },
       { labelKey: 'sidebar.residenciaDiningLabel', icon: 'fa-qrcode', route: '/residencia/comedor', menuId: 'RESI_COMEDOR' },
     ],
