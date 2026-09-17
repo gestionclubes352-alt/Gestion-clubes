@@ -522,13 +522,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       const sameDay = draggedEvent.date instanceof Date
         ? draggedEvent.date.toDateString() === date.toDateString()
         : new Date(draggedEvent.date).toDateString() === date.toDateString();
-      if (!sameDay) {
-        if (e.ctrlKey || e.metaKey) {
-          const newEvent = duplicateEvent(draggedEvent, date);
-          onSaveEvent(newEvent);
-        } else {
-          onSaveEvent({ ...draggedEvent, date });
-        }
+      if (e.ctrlKey || e.metaKey) {
+        const newEvent = duplicateEvent(draggedEvent, date);
+        onSaveEvent(newEvent);
+      } else if (!sameDay) {
+        onSaveEvent({ ...draggedEvent, date });
       }
       setDraggedEvent(null);
       setDragOverDate(null);

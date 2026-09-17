@@ -1333,7 +1333,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     { id: 'se', shape: 'corner' as const, className: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize' },
   ];
   const resizeHandleHitClass = (shape: 'corner' | 'edge-h' | 'edge-v') =>
-    shape === 'corner' ? 'w-7 h-7' : shape === 'edge-h' ? 'w-9 h-6' : 'w-6 h-9';
+    `z-30 ${shape === 'corner' ? 'w-7 h-7' : shape === 'edge-h' ? 'w-9 h-6' : 'w-6 h-9'}`;
   const resizeHandleDotClass = (shape: 'corner' | 'edge-h' | 'edge-v') =>
     shape === 'corner'
       ? 'w-3.5 h-3.5 rounded-full border-2 border-white'
@@ -2633,8 +2633,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         onClick={(e) => {
                           e.stopPropagation();
                         }}
-                        className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
-                        style={{ transform: 'translate(60%, 60%)' }}
+                        className="absolute bottom-0 left-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
+                        style={{ transform: 'translate(-50%, 60%)' }}
                         title={item.type === 'goal' ? 'Arrastra para girar la portería' : 'Arrastra para girar la escalera'}
                         aria-label={item.type === 'goal' ? 'Girar portería manualmente' : 'Girar escalera manualmente'}
                       >
