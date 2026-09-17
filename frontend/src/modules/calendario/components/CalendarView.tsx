@@ -496,9 +496,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   };
 
   const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
-    e.preventDefault?.();
     setDraggedEvent(event);
-    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('text/plain', JSON.stringify(event));
   };
 
@@ -509,7 +508,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
 
   const handleDragOver = (e: React.DragEvent, date: Date) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
     setDragOverDate(date);
   };
 
@@ -520,8 +519,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const handleDropEvent = (e: React.DragEvent, date: Date) => {
     e.preventDefault();
     if (draggedEvent) {
-      const newEvent = duplicateEvent(draggedEvent, date);
-      onSaveEvent(newEvent);
+      const sameDay = draggedEvent.date instanceof Date
+        ? draggedEvent.date.toDateString() === date.toDateString()
+        : new Date(draggedEvent.date).toDateString() === date.toDateString();
+      if (!sameDay) {
+        if (e.ctrlKey || e.metaKey) {
+          const newEvent = duplicateEvent(draggedEvent, date);
+          onSaveEvent(newEvent);
+        } else {
+          onSaveEvent({ ...draggedEvent, date });
+        }
+      }
       setDraggedEvent(null);
       setDragOverDate(null);
     }
@@ -1327,12 +1335,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       {date && eventsByDay[`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`]?.map(ev => (
                         <div
                           key={ev.id}
-                          className={`rounded px-1 py-1 text-[11px] font-bold cursor-pointer flex flex-col gap-0.5 group/ev transition-all opacity-100 hover:shadow-md border-2 ${
+                          draggable="true"
+                          onDragStart={(e) => handleDragStart(e, ev)}
+                          onDragEnd={handleDragEnd}
+                          title={t('calendarView.dragToMove')}
+                          className={`rounded px-1 py-1 text-[11px] font-bold cursor-grab active:cursor-grabbing flex flex-col gap-0.5 group/ev transition-all opacity-100 hover:shadow-md border-2 ${
                             ev.type === 'Partido' ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-400' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-400'
                           }`}
                         >
                           {ev.type === 'Partido' ? (
-                            <div className="flex flex-col gap-0.5 p-0.5 w-full" onClick={() => handleEventClick(ev)}>
+                            <div
+                              className="flex flex-col gap-0.5 p-0.5 w-full cursor-pointer"
+                              onClick={() => handleEventClick(ev)}
+                            >
                               <div className="text-[9px] font-bold leading-tight">{ev.time}</div>
                               {(ev.localTeam && ev.visitorTeam) ? (
                                 <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-[8px] font-semibold leading-tight">
@@ -1353,23 +1368,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5">
-                              <div
-                                draggable="true"
-                                onDragStart={(e) => {
-                                  e.dataTransfer.effectAllowed = 'copy';
-                                  e.dataTransfer.setData('text/plain', JSON.stringify(ev));
-                                  setDraggedEvent(ev);
-                                }}
-                                onDragEnd={() => {
-                                  setDraggedEvent(null);
-                                  setDragOverDate(null);
-                                }}
-                                className="cursor-grab active:cursor-grabbing flex-shrink-0"
-                                title={t('calendarView.dragToDuplicate')}
-                              >
-                                <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 hover:opacity-100"></i>
-                              </div>
-                              <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
+                              <i className="fa-solid fa-grip-vertical text-[10px] opacity-70 flex-shrink-0"></i>
+                              <span className="truncate leading-tight flex-1 cursor-pointer" onClick={() => handleEventClick(ev)}>
                                 {`${ev.time}${ev.team ? ` - ${ev.team}` : ''}`}
                               </span>
                               <button

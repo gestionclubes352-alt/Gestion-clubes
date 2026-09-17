@@ -641,9 +641,11 @@
   },
   "playerStatsSummary": {
     "title": "Match Data",
+    "filterInternalTeam": "Internal Team",
     "filterTeam": "Team",
     "filterCompetition": "Competition",
     "filterMatch": "Match",
+    "allInternalTeams": "All internal teams",
     "allTeams": "All teams",
     "allCompetitions": "All competitions",
     "allMatches": "All matches",
@@ -798,7 +800,8 @@
     "viewFullscreen": "View fullscreen",
     "editDrawing": "Edit drawing",
     "closeFullscreen": "Close",
-    "dragToDuplicate": "Drag to duplicate"
+    "dragToDuplicate": "Drag to duplicate",
+    "dragToMove": "Drag to move to another day (Ctrl to duplicate)"
   },
   "userTable": {
     "user": "User",

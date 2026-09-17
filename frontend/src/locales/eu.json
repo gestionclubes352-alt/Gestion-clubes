@@ -641,9 +641,11 @@
   },
   "playerStatsSummary": {
     "title": "Partiduen Datuak",
+    "filterInternalTeam": "Barne Taldea",
     "filterTeam": "Taldea",
     "filterCompetition": "Lehiaketa",
     "filterMatch": "Partidua",
+    "allInternalTeams": "Barne talde guztiak",
     "allTeams": "Talde guztiak",
     "allCompetitions": "Lehiaketa guztiak",
     "allMatches": "Partida guztiak",
@@ -798,7 +800,8 @@
     "viewFullscreen": "Ikusi pantaila handian",
     "editDrawing": "Editatu marrazkia",
     "closeFullscreen": "Itxi",
-    "dragToDuplicate": "Arrastratu bikoitza egiteko"
+    "dragToDuplicate": "Arrastratu bikoitza egiteko",
+    "dragToMove": "Arrastratu beste egun batera mugitzeko (Ctrl bikoizteko)"
   },
   "userTable": {
     "user": "Erabiltzailea",

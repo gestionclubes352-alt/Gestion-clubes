@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import type { Match, MatchReport } from '../types';
 import { db, plantillasService, getTeamConfig } from '@shared/services/dataService';
 import type { Jugador } from '@shared/services/dataService';
+import type { CompetitionTeam } from '@modules/competicion';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemsDataSummary from './SystemsDataSummary';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import { buildInternalNameByFedName, resolveEquipoInterno as resolveEquipoInternoUtil } from '../utils/teamResolution';
 
 const getMyTeamName = (): string => {
   try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -141,18 +143,51 @@ interface PlayerAggregate {
 interface PlayerStatsSummaryProps {
   matches: Match[];
   onSelectPlayer?: (playerId: string) => void;
+  competitionTeams?: CompetitionTeam[];
+  ownClubId?: string | number;
 }
 
-const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSelectPlayer }) => {
+const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSelectPlayer, competitionTeams = [], ownClubId }) => {
   const { t } = useTranslation();
   const [reports, setReports] = useState<MatchReport[]>([]);
   const [squad, setSquad] = useState<Jugador[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [equipoInternoFilter, setEquipoInternoFilter] = useState<string[]>([]);
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
   const [matchFilter, setMatchFilter] = useState<string[]>([]);
   const [view, setView] = useState<'TABLE' | 'CHARTS' | 'SYSTEMS'>('TABLE');
+
+  // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
+  const ownCompetitionTeams = useMemo(
+    () => (ownClubId ? competitionTeams.filter((team) => String(team.clubId) === String(ownClubId)) : []),
+    [competitionTeams, ownClubId]
+  );
+
+  const internalNameByFedName = useMemo(
+    () => buildInternalNameByFedName(ownCompetitionTeams),
+    [ownCompetitionTeams]
+  );
+
+  const resolveEquipoInterno = (match: Match): string => resolveEquipoInternoUtil(match, ownCompetitionTeams, internalNameByFedName);
+
+  const equipoInternoOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    matches.forEach((m) => {
+      const name = resolveEquipoInterno(m)?.trim();
+      const key = name?.toLowerCase();
+      if (name && key && !names.has(key)) names.set(key, name);
+    });
+    return Array.from(names.values()).sort((a, b) => a.localeCompare(b, 'es'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, ownCompetitionTeams, internalNameByFedName]);
+
+  const matchesByEquipoInterno = useMemo(
+    () => (equipoInternoFilter.length === 0 ? matches : matches.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [matches, equipoInternoFilter, ownCompetitionTeams, internalNameByFedName]
+  );
 
   useEffect(() => {
     (async () => {
@@ -177,16 +212,16 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
 
   const teamOptions = useMemo(() => {
     const names = new Set<string>();
-    matches.forEach(m => {
+    matchesByEquipoInterno.forEach(m => {
       const name = ownTeamNameOf(m);
       if (name) names.add(name);
     });
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matches]);
+  }, [matchesByEquipoInterno]);
 
   const matchesByTeam = useMemo(
-    () => (teamFilter.length === 0 ? matches : matches.filter(m => teamFilter.includes(ownTeamNameOf(m)))),
-    [matches, teamFilter]
+    () => (teamFilter.length === 0 ? matchesByEquipoInterno : matchesByEquipoInterno.filter(m => teamFilter.includes(ownTeamNameOf(m)))),
+    [matchesByEquipoInterno, teamFilter]
   );
 
   const competitionOptions = useMemo(() => {
@@ -209,6 +244,14 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
     () => (matchFilter.length === 0 ? matchesByTeamAndCompetition : matchesByTeamAndCompetition.filter(m => matchFilter.includes(String(m.id)))),
     [matchesByTeamAndCompetition, matchFilter]
   );
+
+  // Si cambia el equipo interno seleccionado, el equipo elegido puede dejar de ser válido.
+  useEffect(() => {
+    setTeamFilter((prev) => {
+      const next = prev.filter((name) => teamOptions.includes(name));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [teamOptions]);
 
   // Si cambia el equipo/competición seleccionados, el partido elegido puede dejar de ser válido.
   useEffect(() => {
@@ -248,7 +291,19 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
 
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            {t('playerStatsSummary.filterInternalTeam')}
+          </label>
+          <MultiSelectFilter
+            value={equipoInternoFilter}
+            onChange={setEquipoInternoFilter}
+            allLabel={t('playerStatsSummary.allInternalTeams')}
+            options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          />
+        </div>
         <div>
           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
             {t('playerStatsSummary.filterTeam')}

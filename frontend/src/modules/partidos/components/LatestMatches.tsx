@@ -676,7 +676,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       </div>
 
       {activeTab === 'STATS' ? (
-        <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} />
+        <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} competitionTeams={competitionTeams} ownClubId={ownClubId} />
       ) : (
       <>
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-2">

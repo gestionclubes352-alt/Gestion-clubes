@@ -641,9 +641,11 @@
   },
   "playerStatsSummary": {
     "title": "Datos Partidos",
+    "filterInternalTeam": "Equipo Interno",
     "filterTeam": "Equipo",
     "filterCompetition": "Competición",
     "filterMatch": "Partido",
+    "allInternalTeams": "Todos los equipos internos",
     "allTeams": "Todos los equipos",
     "allCompetitions": "Todas las competiciones",
     "allMatches": "Todos los partidos",
@@ -798,7 +800,8 @@
     "viewFullscreen": "Ver en pantalla grande",
     "editDrawing": "Editar dibujo",
     "closeFullscreen": "Cerrar",
-    "dragToDuplicate": "Arrastra para duplicar"
+    "dragToDuplicate": "Arrastra para duplicar",
+    "dragToMove": "Arrastra para mover a otro día (Ctrl para duplicar)"
   },
   "userTable": {
     "user": "Usuario",

@@ -809,6 +809,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
+    setSelectedArrowId(null);
+    drawingTools.selectShape(null);
     setSelectedPitchIds(nextSelectedIds);
   }, [clearPitchSelection, drawingMode, drawingTools, getPitchPercentPoint, isPlaying, is3DView, pitchPlayers, selectedPitchIds]);
 
@@ -1028,6 +1030,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
         const shapeId = shapeDraggingId.current;
         if (!shapeDragged.current) {
           // Si no hubo drag, solo seleccionar la forma
+          setSelectedArrowId(null);
+          clearPitchSelection();
           drawingTools.selectShape(shapeId);
         }
         shapeDraggingId.current = null;
@@ -2839,6 +2843,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                             x: ((e.clientX - rect.left) / rect.width) * 100,
                             y: ((e.clientY - rect.top) / rect.height) * 100,
                           };
+                          clearPitchSelection();
+                          drawingTools.selectShape(null);
                           setSelectedArrowId(arrow.id);
                           setDraggingArrowId(arrow.id);
                           draggingArrowStart.current = start;

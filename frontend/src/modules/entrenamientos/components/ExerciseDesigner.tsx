@@ -13,7 +13,8 @@ import GoalStyleIcon from './GoalStyleIcon';
 
 const RESIZABLE_DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   zone: { width: 15, height: 15 },
-  goal: { width: 16, height: 8 },
+  goal: { width: 11, height: 5.5 },
+  fence: { width: 6, height: 3.75 },
 };
 
 const FIELD_BACKGROUND = {
@@ -58,6 +59,12 @@ type SizePreset = 'S' | 'M' | 'L' | 'XL';
 const SIZE_PRESETS: SizePreset[] = ['S', 'M', 'L', 'XL'];
 const TEXT_SIZES: Record<SizePreset, number> = { S: 16, M: 22, L: 30, XL: 42 };
 const ELEMENT_SCALES: Record<SizePreset, number> = { S: 0.75, M: 1, L: 1.3, XL: 1.6 };
+/** Factor de amortiguación de escala para la valla: reduce la variación de tamaño entre tallas respecto al resto de materiales. */
+const FENCE_SCALE_DAMPING = 0.15;
+const getEffectiveItemScale = (item: { type?: string; scale?: number }) => {
+  const scale = item.scale ?? 1;
+  return item.type === 'fence' ? 1 + (scale - 1) * FENCE_SCALE_DAMPING : scale;
+};
 const PITCH_3D_ROTATION_DEG = 40;
 const PLAYER_3D_BILLBOARD_TRANSFORM = `rotateX(-${PITCH_3D_ROTATION_DEG}deg)`;
 const PLAYER_3D_BILLBOARD_ORIGIN = 'center bottom';
@@ -228,7 +235,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   }, []);
 
   const getItemBounds = useCallback((item: DesignerItem) => {
-    const scale = item.scale || 1;
+    const scale = getEffectiveItemScale(item);
     const isBigItem = item.type === 'zone' || item.type === 'goal';
     const width = isBigItem ? (item.width || RESIZABLE_DEFAULT_SIZES[item.type]?.width || 12) : 7.5;
     const height = isBigItem ? (item.height || RESIZABLE_DEFAULT_SIZES[item.type]?.height || 12) : 7.5;
@@ -261,7 +268,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [isSelectedPanelOpen, setIsSelectedPanelOpen] = useState(false);
   const [activeStructure, setActiveStructure] = useState('libre');
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
-  const [orientationModeEnabled, setOrientationModeEnabled] = useState(false);
+  const [orientationModeEnabled, setOrientationModeEnabled] = useState(true);
   const [playerSource, setPlayerSource] = useState<'generico' | 'plantilla'>('generico');
   const [playerSize, setPlayerSize] = useState<SizePreset>('M');
   const [coneSize, setConeSize] = useState<SizePreset>('M');
@@ -380,6 +387,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       if (target.closest('[data-resize-handle="true"]')) return;
       if (target.closest('[data-edit-button="true"]')) return;
       if (target.closest('[data-selected-panel="true"]')) return;
+      if (target.closest('[data-item-toolbar="true"]')) return;
       clearSelection();
     };
     document.addEventListener('pointerdown', handlePointerDownOutside);
@@ -686,8 +694,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       zIndex: nextZ,
       color: coneColor || tools.jugadores.find(p => p.id === selectedTool)?.color || (squadPlayer ? SQUAD_PLAYER_COLOR : undefined) || (isText ? textColor : undefined),
       icon: [...tools.anotacion, ...tools.material].find(t => t.id === selectedTool)?.icon,
-      width: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 11 : undefined,
-      height: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 6 : undefined,
+      width: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 11 : selectedTool === 'fence' ? RESIZABLE_DEFAULT_SIZES.fence.width : undefined,
+      height: selectedTool === 'zone' ? 15 : selectedTool === 'ladder' ? 6 : selectedTool === 'fence' ? RESIZABLE_DEFAULT_SIZES.fence.height : undefined,
       text: isText ? (textDraft.trim() || 'Texto') : undefined,
       fontSize: isText ? TEXT_SIZES[textSize] : undefined,
       playerId: squadPlayer?.id,
@@ -1266,7 +1274,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     };
   };
   const canResizeItem = (item: DesignerItem) => item.type === 'zone' || item.type === 'goal';
-  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'coach' || item.type === 'goal' || item.type === 'fence';
+  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'coach' || item.type === 'goal';
   const getPitchMeters = () =>
     (activeStructure === 'ataque' || activeStructure === 'defensa')
       ? { width: 68, height: 52.5 }
@@ -1396,6 +1404,19 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     updateFrames(items.filter(i => !idsToDelete.includes(i.id)));
     clearSelection();
   };
+
+  useEffect(() => {
+    const handleDeleteKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const activeTag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || (document.activeElement as HTMLElement | null)?.isContentEditable) return;
+      if (selectedIds.length === 0 && !selectedId) return;
+      e.preventDefault();
+      deleteSelectedItem();
+    };
+    window.addEventListener('keydown', handleDeleteKeyDown);
+    return () => window.removeEventListener('keydown', handleDeleteKeyDown);
+  }, [selectedIds, selectedId, items]);
 
   const handleFullscreen = async () => {
     if (!canvasRef.current) return;
@@ -1649,10 +1670,16 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     key={m.id}
                     onClick={() => {
                       if (m.id === 'goal') {
-                        setIsGoalStylePickerOpen(v => !v);
+                        if (selectedTool === 'goal') {
+                          setIsGoalStylePickerOpen(v => !v);
+                        } else {
+                          setSelectedTool('goal');
+                          setIsGoalStylePickerOpen(false);
+                        }
                         return;
                       }
                       setSelectedTool(selectedTool === m.id ? null : m.id);
+                      setIsGoalStylePickerOpen(false);
                     }}
                     className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all border ${selectedTool === m.id || (m.id === 'goal' && isGoalStylePickerOpen) ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-lg scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}
                   >
@@ -1943,7 +1970,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
           >
             <i className="fa-solid fa-trash-can text-[12px]" />
           </button>
-          <div className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-2">
+          <div data-item-toolbar="true" className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-2">
             <button
               type="button"
               onClick={() => {
@@ -2273,7 +2300,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       left: `${item.x}%`,
                       top: `${item.y}%`,
                       zIndex: item.zIndex,
-                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView && !item.type?.startsWith('player-') && item.type !== 'coach' ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${item.scale})`.trim(),
+                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView && !item.type?.startsWith('player-') && item.type !== 'coach' ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${getEffectiveItemScale(item)})`.trim(),
                       transformStyle: 'preserve-3d',
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
                       height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
@@ -2539,7 +2566,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       >
                         {item.playerId !== undefined ? (
                           item.playerPhoto && item.playerPhoto.length > 1 ? (
-                            <img src={item.playerPhoto} className="w-full h-full object-cover" />
+                            <img
+                              src={item.playerPhoto}
+                              className="w-full h-full object-cover"
+                              draggable={false}
+                              onDragStart={(e) => e.preventDefault()}
+                            />
                           ) : showPlayerNumbers ? (
                             <span className="text-[13px] leading-none">{item.playerDorsal ?? ''}</span>
                           ) : (
@@ -2591,7 +2623,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         )}
                       </svg>
                     )}
-                    {!is3DView && (item.type === 'goal' || item.type === 'fence' || item.type === 'ladder') && isItemSelected && !item.locked && (
+                    {!is3DView && (item.type === 'goal' || item.type === 'ladder') && isItemSelected && !item.locked && (
                       <button
                         type="button"
                         data-orientation-handle="true"
@@ -2603,8 +2635,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         }}
                         className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
                         style={{ transform: 'translate(60%, 60%)' }}
-                        title={item.type === 'goal' ? 'Arrastra para girar la portería' : item.type === 'fence' ? 'Arrastra para girar la valla' : 'Arrastra para girar la escalera'}
-                        aria-label={item.type === 'goal' ? 'Girar portería manualmente' : item.type === 'fence' ? 'Girar valla manualmente' : 'Girar escalera manualmente'}
+                        title={item.type === 'goal' ? 'Arrastra para girar la portería' : 'Arrastra para girar la escalera'}
+                        aria-label={item.type === 'goal' ? 'Girar portería manualmente' : 'Girar escalera manualmente'}
                       >
                         <i className="fa-solid fa-rotate-right text-sm"></i>
                       </button>
