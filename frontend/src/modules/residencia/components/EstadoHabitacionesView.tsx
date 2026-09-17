@@ -39,17 +39,6 @@ const Semaforo: React.FC<{
   </div>
 );
 
-const LeyendaSemaforo: React.FC<{ opciones: { value: string; label: string; color: string }[] }> = ({ opciones }) => (
-  <div className="flex items-center gap-3 flex-wrap">
-    {opciones.map(({ value, label, color }) => (
-      <span key={value} className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-        {label}
-      </span>
-    ))}
-  </div>
-);
-
 const EstadoHabitacionesView: React.FC = () => {
   const [habitaciones, setHabitaciones] = useState<ResidenciaHabitacion[]>([]);
   const [registros, setRegistros] = useState<ResidenciaJugador[]>([]);
@@ -57,6 +46,7 @@ const EstadoHabitacionesView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [seleccionNueva, setSeleccionNueva] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadData();
@@ -91,10 +81,16 @@ const EstadoHabitacionesView: React.FC = () => {
       .filter((x): x is { registro: ResidenciaJugador; jugador: Jugador } => !!x);
   };
 
-  const getResidentePorNumero = (habitacionId: string, numero: 1 | 2 | 3) => {
-    const residentes = getResidentes(habitacionId);
-    return residentes.find(r => r.registro.numero_habitacion === numero) ?? null;
+  const getResidentesPorNumero = (habitacionId: string, numero: 1 | 2 | 3) => {
+    return getResidentes(habitacionId).filter(r => r.registro.numero_habitacion === numero);
   };
+
+  const jugadoresResidentes = useMemo(() => jugadores.filter(j => j.residencia === true), [jugadores]);
+
+  const jugadoresSinApartamento = useMemo(() => {
+    const idsAsignados = new Set(registros.filter(r => r.habitacion_id && !r.fecha_salida).map(r => String(r.jugador_id)));
+    return jugadoresResidentes.filter(j => !idsAsignados.has(String(j.id)));
+  }, [jugadoresResidentes, registros]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -115,6 +111,33 @@ const EstadoHabitacionesView: React.FC = () => {
   const handleResidenteEstadoChange = async (registroId: string, estado: EstadoHabitacion) => {
     setRegistros(prev => prev.map(r => (r.id === registroId ? { ...r, estado } : r)));
     await residenciaJugadoresService.update(registroId, { estado } as any);
+  };
+
+  const handleResidenteCondicionChange = async (registroId: string, condicion: EstadoZona) => {
+    setRegistros(prev => prev.map(r => (r.id === registroId ? { ...r, condicion } : r)));
+    await residenciaJugadoresService.update(registroId, { condicion } as any);
+  };
+
+  const handleAsignarResidente = async (jugadorId: string, habitacionId: string, numeroHabitacion: 1 | 2 | 3) => {
+    const registroExistente = registros.find(r => String(r.jugador_id) === String(jugadorId));
+    if (registroExistente) {
+      await residenciaJugadoresService.update(registroExistente.id, {
+        habitacion_id: habitacionId,
+        numero_habitacion: numeroHabitacion,
+      } as any);
+    } else {
+      await residenciaJugadoresService.create({
+        jugador_id: jugadorId,
+        habitacion_id: habitacionId,
+        numero_habitacion: numeroHabitacion,
+      } as any);
+    }
+    await loadData();
+  };
+
+  const handleQuitarResidente = async (registroId: string) => {
+    await residenciaJugadoresService.update(registroId, { habitacion_id: null, numero_habitacion: null } as any);
+    await loadData();
   };
 
   if (loading) {
@@ -162,24 +185,22 @@ const EstadoHabitacionesView: React.FC = () => {
           <p className="font-semibold">No hay habitaciones registradas</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filtered.map(h => {
-            const residentes = getResidentes(h.id);
-            return (
-              <div key={h.id} className="p-5 bg-white rounded-2xl border border-slate-200 space-y-5">
-                <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter text-lg">{h.nombre}</h3>
+        <div className="flex flex-col gap-4">
+          {filtered.map(h => (
+            <div key={h.id} className="p-5 bg-white rounded-2xl border border-slate-200">
+              <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter text-lg mb-4">{h.nombre}</h3>
 
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <i className="fa-solid fa-bed text-[var(--accent)]"></i>
-                    Estado habitación
+                    Estado apartamento
                   </h4>
                   <Semaforo
                     value="estado"
                     opciones={ESTADOS_HABITACION}
                     activeValue={h.estado ?? 'verde'}
                   />
-                  <LeyendaSemaforo opciones={ESTADOS_HABITACION} />
                   <select
                     value={h.estado ?? 'verde'}
                     onChange={e => handleHabitacionEstadoChange(h, e.target.value as EstadoHabitacion)}
@@ -201,7 +222,6 @@ const EstadoHabitacionesView: React.FC = () => {
                     opciones={ESTADOS_ZONA_COMUN}
                     activeValue={h.zona_comun_estado ?? 'buenas_condiciones'}
                   />
-                  <LeyendaSemaforo opciones={ESTADOS_ZONA_COMUN} />
                   <select
                     value={h.zona_comun_estado ?? 'buenas_condiciones'}
                     onChange={e => handleZonaComunEstadoChange(h, e.target.value as EstadoZona)}
@@ -213,55 +233,105 @@ const EstadoHabitacionesView: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <i className="fa-solid fa-user text-[var(--accent)]"></i>
-                    Habitaciones de residentes
-                  </h4>
-                  <LeyendaSemaforo opciones={ESTADOS_HABITACION} />
-                  {([1, 2, 3] as const).map(numero => {
-                    const item = getResidentePorNumero(h.id, numero);
-                    return (
-                      <div key={numero} className="p-3 rounded-xl border border-slate-200 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Habitación {numero}</span>
-                          {item ? (
-                            <div className="flex items-center gap-2">
-                              {item.jugador.foto_url ? (
-                                <img src={item.jugador.foto_url} alt={item.jugador.nombre} className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0" />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-                                  <i className="fa-solid fa-user text-slate-400 text-[9px]"></i>
-                                </div>
-                              )}
-                              <span className="text-sm font-semibold text-slate-600">{item.jugador.nombre}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">Sin residente</span>
-                          )}
+                {([1, 2, 3] as const).map(numero => {
+                  const ocupantes = getResidentesPorNumero(h.id, numero);
+                  const disponibles = jugadoresSinApartamento;
+                  const claveSeleccion = `${h.id}-${numero}`;
+                  return (
+                    <div key={numero} className="space-y-2">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <i className="fa-solid fa-user text-[var(--accent)]"></i>
+                        Habitación {numero}
+                      </h4>
+
+                      {ocupantes.length === 0 && (
+                        <span className="text-xs text-slate-400 italic block">Sin residente</span>
+                      )}
+
+                      {ocupantes.map(item => (
+                        <div key={item.jugador.id} className="space-y-1.5 pb-2 border-b border-slate-100 last:border-b-0">
+                          <div className="flex items-center gap-2">
+                            {item.jugador.foto_url ? (
+                              <img src={item.jugador.foto_url} alt={item.jugador.nombre} className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                                <i className="fa-solid fa-user text-slate-400 text-[9px]"></i>
+                              </div>
+                            )}
+                            <span className="text-sm font-semibold text-slate-600 truncate flex-1">{item.jugador.nombre}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuitarResidente(item.registro.id)}
+                              title="Quitar de la habitación"
+                              className="text-slate-300 hover:text-red-500 transition-colors"
+                            >
+                              <i className="fa-solid fa-xmark"></i>
+                            </button>
+                          </div>
+                          <Semaforo
+                            value="estado"
+                            opciones={ESTADOS_HABITACION}
+                            activeValue={item.registro.estado ?? 'verde'}
+                          />
+                          <select
+                            value={item.registro.estado ?? 'verde'}
+                            onChange={e => handleResidenteEstadoChange(item.registro.id, e.target.value as EstadoHabitacion)}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+                          >
+                            {ESTADOS_HABITACION.map(({ value, label }) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </select>
+                          <Semaforo
+                            value="condicion"
+                            opciones={ESTADOS_ZONA_COMUN}
+                            activeValue={item.registro.condicion ?? 'buenas_condiciones'}
+                          />
+                          <select
+                            value={item.registro.condicion ?? 'buenas_condiciones'}
+                            onChange={e => handleResidenteCondicionChange(item.registro.id, e.target.value as EstadoZona)}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+                          >
+                            {ESTADOS_ZONA_COMUN.map(({ value, label }) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </select>
                         </div>
-                        <Semaforo
-                          value="estado"
-                          opciones={ESTADOS_HABITACION}
-                          activeValue={item?.registro.estado ?? 'verde'}
-                        />
-                        <select
-                          value={item?.registro.estado ?? 'verde'}
-                          onChange={e => item && handleResidenteEstadoChange(item.registro.id, e.target.value as EstadoHabitacion)}
-                          disabled={!item}
-                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
-                        >
-                          {ESTADOS_HABITACION.map(({ value, label }) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
+                      ))}
+
+                      {ocupantes.length < 3 && disponibles.length > 0 && (
+                        <div className="flex gap-1.5">
+                          <select
+                            value={seleccionNueva[claveSeleccion] ?? ''}
+                            onChange={e => setSeleccionNueva(prev => ({ ...prev, [claveSeleccion]: e.target.value }))}
+                            className="flex-1 border border-slate-200 rounded-xl px-2 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+                          >
+                            <option value="">Añadir jugador...</option>
+                            {disponibles.map(j => (
+                              <option key={j.id} value={String(j.id)}>{j.nombre}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            disabled={!seleccionNueva[claveSeleccion]}
+                            onClick={async () => {
+                              const jugadorId = seleccionNueva[claveSeleccion];
+                              if (!jugadorId) return;
+                              await handleAsignarResidente(jugadorId, h.id, numero);
+                              setSeleccionNueva(prev => ({ ...prev, [claveSeleccion]: '' }));
+                            }}
+                            className="px-2.5 py-2 rounded-xl bg-[var(--accent)] text-white font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all disabled:opacity-40"
+                          >
+                            <i className="fa-solid fa-plus"></i>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

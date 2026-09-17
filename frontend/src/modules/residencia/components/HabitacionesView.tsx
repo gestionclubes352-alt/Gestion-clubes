@@ -25,14 +25,18 @@ const EditHabitacionModal: React.FC<{
   onSave: (data: ResidenciaHabitacionFormData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   residentes?: { registro: ResidenciaJugador; jugador: Jugador }[];
+  jugadoresDisponibles?: Jugador[];
   onUpdateResidente?: (registroId: string, cambios: Partial<Pick<ResidenciaJugador, 'estado' | 'condicion'>>) => Promise<void>;
-}> = ({ habitacion, isOpen, onClose, onSave, onDelete, residentes = [], onUpdateResidente }) => {
+  onAsignarResidente?: (jugadorId: string, numeroHabitacion: 1 | 2 | 3) => Promise<void>;
+  onQuitarResidente?: (registroId: string) => Promise<void>;
+}> = ({ habitacion, isOpen, onClose, onSave, onDelete, residentes = [], jugadoresDisponibles = [], onUpdateResidente, onAsignarResidente, onQuitarResidente }) => {
   const [formData, setFormData] = useState<ResidenciaHabitacionFormData>({ nombre: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [incidenciasOpciones, setIncidenciasOpciones] = useState<string[]>(INCIDENCIAS_BASE);
   const [addingIncidencia, setAddingIncidencia] = useState(false);
   const [nuevaIncidencia, setNuevaIncidencia] = useState('');
+  const [seleccionNueva, setSeleccionNueva] = useState<Record<1 | 2 | 3, string>>({ 1: '', 2: '', 3: '' });
 
   useEffect(() => {
     setFormData(habitacion ? { ...habitacion } : { nombre: '', estado: 'verde' });
@@ -116,8 +120,8 @@ const EditHabitacionModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0">
           <h3 className="text-[var(--accent)] font-black text-lg uppercase tracking-tighter flex items-center gap-2">
             <i className="fa-solid fa-bed"></i>
             {habitacion?.id ? 'EDITAR HABITACIÓN' : 'NUEVA HABITACIÓN'}
@@ -127,199 +131,250 @@ const EditHabitacionModal: React.FC<{
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre *</label>
-            <input
-              type="text"
-              name="nombre"
-              value={formData.nombre}
-              onChange={handleChange}
-              placeholder="Ej: Habitación 101"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-            />
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Capacidad</label>
-            <input
-              type="number"
-              min={1}
-              name="capacidad"
-              value={formData.capacidad ?? ''}
-              onChange={handleChange}
-              placeholder="Ej: 2"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-            />
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Planta</label>
-            <input
-              type="text"
-              name="planta"
-              value={formData.planta ?? ''}
-              onChange={handleChange}
-              placeholder="Ej: Planta 1"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-            />
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Notas</label>
-            <textarea
-              name="notas"
-              value={formData.notas ?? ''}
-              onChange={handleChange}
-              rows={3}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-            />
-          </div>
-
-          {habitacion?.id && (
+        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre *</label>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleChange}
+                  placeholder="Ej: Habitación 101"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Capacidad</label>
+                <input
+                  type="number"
+                  min={1}
+                  name="capacidad"
+                  value={formData.capacidad ?? ''}
+                  onChange={handleChange}
+                  placeholder="Ej: 2"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+            </div>
             <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Residentes</label>
-              {residentes.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {residentes.map(({ registro, jugador: j }) => (
-                    <div key={j.id} className="p-3 rounded-xl border border-slate-200 space-y-3">
-                      <div className="flex items-center gap-2">
-                        {j.foto_url ? (
-                          <img
-                            src={j.foto_url}
-                            alt={j.nombre}
-                            className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-                            <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Planta</label>
+              <input
+                type="text"
+                name="planta"
+                value={formData.planta ?? ''}
+                onChange={handleChange}
+                placeholder="Ej: Planta 1"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Notas</label>
+              <textarea
+                name="notas"
+                value={formData.notas ?? ''}
+                onChange={handleChange}
+                rows={2}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+
+            {habitacion?.id && (
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Residentes</label>
+                <div className="flex flex-col gap-3">
+                  {([1, 2, 3] as const).map(numero => {
+                    const ocupantes = residentes.filter(r => r.registro.numero_habitacion === numero);
+                    const disponibles = jugadoresDisponibles.filter(
+                      j => !residentes.some(r => String(r.jugador.id) === String(j.id))
+                    );
+                    return (
+                      <div key={numero} className="p-3 rounded-xl border border-slate-200 space-y-2">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Habitación {numero}</p>
+
+                        {ocupantes.map(({ registro, jugador: j }) => (
+                          <div key={j.id} className="p-2 rounded-lg bg-slate-50 space-y-2">
+                            <div className="flex items-center gap-2">
+                              {j.foto_url ? (
+                                <img
+                                  src={j.foto_url}
+                                  alt={j.nombre}
+                                  className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                                  <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
+                                </div>
+                              )}
+                              <span className="text-sm font-semibold text-slate-600 flex-1">{j.nombre}</span>
+                              {onQuitarResidente && (
+                                <button
+                                  type="button"
+                                  onClick={() => onQuitarResidente(registro.id)}
+                                  title="Quitar de la habitación"
+                                  className="text-slate-300 hover:text-red-500 transition-colors"
+                                >
+                                  <i className="fa-solid fa-xmark"></i>
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-3 pl-1">
+                              {ESTADOS_HABITACION.map(({ value, label, color }) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => onUpdateResidente?.(registro.id, { estado: value })}
+                                  title={label}
+                                  className="group"
+                                >
+                                  <span
+                                    className="w-6 h-6 rounded-full border-2 transition-all block"
+                                    style={{
+                                      backgroundColor: color,
+                                      borderColor: (registro.estado ?? 'verde') === value ? '#1e293b' : 'transparent',
+                                      boxShadow: (registro.estado ?? 'verde') === value ? `0 0 0 2px ${color}33` : 'none',
+                                      opacity: (registro.estado ?? 'verde') === value ? 1 : 0.45,
+                                    }}
+                                  />
+                                </button>
+                              ))}
+                            </div>
+
+                            <select
+                              value={registro.condicion ?? 'buenas_condiciones'}
+                              onChange={e => onUpdateResidente?.(registro.id, { condicion: e.target.value as 'buenas_condiciones' | 'desordenado' | 'sucio' })}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+                            >
+                              {ESTADOS_ZONA_COMUN.map(({ value, label }) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+
+                        {ocupantes.length === 0 && (
+                          <p className="text-xs text-slate-400 italic">Sin residente</p>
+                        )}
+
+                        {ocupantes.length < 3 && disponibles.length > 0 && onAsignarResidente && (
+                          <div className="flex gap-2">
+                            <select
+                              value={seleccionNueva[numero]}
+                              onChange={e => setSeleccionNueva(prev => ({ ...prev, [numero]: e.target.value }))}
+                              className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+                            >
+                              <option value="">Añadir jugador...</option>
+                              {disponibles.map(j => (
+                                <option key={j.id} value={String(j.id)}>{j.nombre}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={!seleccionNueva[numero]}
+                              onClick={async () => {
+                                const jugadorId = seleccionNueva[numero];
+                                if (!jugadorId) return;
+                                await onAsignarResidente(jugadorId, numero);
+                                setSeleccionNueva(prev => ({ ...prev, [numero]: '' }));
+                              }}
+                              className="px-3 py-2 rounded-xl bg-[var(--accent)] text-white font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all disabled:opacity-40"
+                            >
+                              <i className="fa-solid fa-plus"></i>
+                            </button>
                           </div>
                         )}
-                        <span className="text-sm font-semibold text-slate-600">{j.nombre}</span>
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
-                      <div className="flex items-center gap-3 pl-1">
-                        {ESTADOS_HABITACION.map(({ value, label, color }) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => onUpdateResidente?.(registro.id, { estado: value })}
-                            title={label}
-                            className="group"
-                          >
-                            <span
-                              className="w-6 h-6 rounded-full border-2 transition-all block"
-                              style={{
-                                backgroundColor: color,
-                                borderColor: (registro.estado ?? 'verde') === value ? '#1e293b' : 'transparent',
-                                boxShadow: (registro.estado ?? 'verde') === value ? `0 0 0 2px ${color}33` : 'none',
-                                opacity: (registro.estado ?? 'verde') === value ? 1 : 0.45,
-                              }}
-                            />
-                          </button>
-                        ))}
-                      </div>
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 space-y-3">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <i className="fa-solid fa-triangle-exclamation text-[var(--accent)]"></i>
+                Estado apartamento
+              </h4>
 
-                      <select
-                        value={registro.estado ?? 'verde'}
-                        onChange={e => onUpdateResidente?.(registro.id, { estado: e.target.value as 'verde' | 'naranja' | 'rojo' })}
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
-                      >
-                        {ESTADOS_HABITACION.map(({ value, label }) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </div>
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
+                <div className="flex items-center gap-4">
+                  {ESTADOS_HABITACION.map(({ value, label, color }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => handleEstadoChange(value)}
+                      title={label}
+                      className="group"
+                    >
+                      <span
+                        className="w-9 h-9 rounded-full border-2 transition-all block"
+                        style={{
+                          backgroundColor: color,
+                          borderColor: (formData.estado ?? 'verde') === value ? '#1e293b' : 'transparent',
+                          boxShadow: (formData.estado ?? 'verde') === value ? `0 0 0 3px ${color}33` : 'none',
+                          opacity: (formData.estado ?? 'verde') === value ? 1 : 0.45,
+                        }}
+                      />
+                    </button>
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-slate-400 italic">
-                  <i className="fa-solid fa-user mr-2 text-slate-300"></i>
-                  Sin residentes
-                </p>
-              )}
-            </div>
-          )}
+              </div>
 
-          <div className="pt-2 border-t border-slate-100 space-y-4">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <i className="fa-solid fa-triangle-exclamation text-[var(--accent)]"></i>
-              Estado apartamento
-            </h4>
-
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
-              <div className="flex items-center gap-4">
-                {ESTADOS_HABITACION.map(({ value, label, color }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => handleEstadoChange(value)}
-                    title={label}
-                    className="group"
-                  >
-                    <span
-                      className="w-9 h-9 rounded-full border-2 transition-all block"
-                      style={{
-                        backgroundColor: color,
-                        borderColor: (formData.estado ?? 'verde') === value ? '#1e293b' : 'transparent',
-                        boxShadow: (formData.estado ?? 'verde') === value ? `0 0 0 3px ${color}33` : 'none',
-                        opacity: (formData.estado ?? 'verde') === value ? 1 : 0.45,
-                      }}
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de incidencia</label>
+                {addingIncidencia ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={nuevaIncidencia}
+                      onChange={e => setNuevaIncidencia(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddIncidencia(); } }}
+                      placeholder="Ej: Cortina rota"
+                      autoFocus
+                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
                     />
-                  </button>
-                ))}
+                    <button
+                      type="button"
+                      onClick={handleAddIncidencia}
+                      className="px-3 py-2 rounded-xl bg-[var(--accent)] text-white font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all"
+                    >
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddingIncidencia(false); setNuevaIncidencia(''); }}
+                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.incidencia ?? ''}
+                    onChange={handleIncidenciaSelect}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="">Sin incidencia</option>
+                    {incidenciasOpciones.map(op => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                    <option value="__nueva__">+ Añadir incidencia...</option>
+                  </select>
+                )}
               </div>
             </div>
 
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de incidencia</label>
-              {addingIncidencia ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={nuevaIncidencia}
-                    onChange={e => setNuevaIncidencia(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddIncidencia(); } }}
-                    placeholder="Ej: Cortina rota"
-                    autoFocus
-                    className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddIncidencia}
-                    className="px-4 py-2 rounded-xl bg-[var(--accent)] text-white font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all"
-                  >
-                    <i className="fa-solid fa-check"></i>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setAddingIncidencia(false); setNuevaIncidencia(''); }}
-                    className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                  >
-                    <i className="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={formData.incidencia ?? ''}
-                  onChange={handleIncidenciaSelect}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-                >
-                  <option value="">Sin incidencia</option>
-                  {incidenciasOpciones.map(op => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                  <option value="__nueva__">+ Añadir incidencia...</option>
-                </select>
-              )}
-            </div>
-          </div>
+            <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 space-y-2">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <i className="fa-solid fa-couch text-[var(--accent)]"></i>
+                Zona común
+              </h4>
 
-          <div className="pt-2 border-t border-slate-100 space-y-4">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <i className="fa-solid fa-couch text-[var(--accent)]"></i>
-              Zona común
-            </h4>
-
-            <div className="space-y-2">
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
               <div className="flex items-center gap-4">
                 {ESTADOS_ZONA_COMUN.map(({ value, label, color }) => (
@@ -345,24 +400,24 @@ const EditHabitacionModal: React.FC<{
               <select
                 value={formData.zona_comun_estado ?? 'buenas_condiciones'}
                 onChange={e => handleZonaComunEstadoChange(e.target.value as 'buenas_condiciones' | 'desordenado' | 'sucio')}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
               >
                 {ESTADOS_ZONA_COMUN.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
-          </div>
 
-          {error && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-              <i className="fa-solid fa-circle-exclamation mr-2"></i>
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+                <i className="fa-solid fa-circle-exclamation mr-2"></i>
+                {error}
+              </div>
+            )}
+          </div>
         </form>
 
-        <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3 justify-between">
+        <div className="p-5 border-t border-slate-100 bg-slate-50 flex gap-3 justify-between flex-shrink-0">
           {habitacion?.id && onDelete && (
             <button
               onClick={handleDelete}
@@ -451,6 +506,36 @@ const HabitacionesView: React.FC = () => {
 
   const handleUpdateResidente = async (registroId: string, cambios: Partial<Pick<ResidenciaJugador, 'estado' | 'condicion'>>) => {
     await residenciaJugadoresService.update(registroId, cambios as any);
+    await loadData();
+  };
+
+  const jugadoresResidentes = useMemo(() => jugadores.filter(j => j.residencia === true), [jugadores]);
+
+  const jugadoresSinApartamento = useMemo(() => {
+    const idsAsignados = new Set(registros.filter(r => r.habitacion_id && !r.fecha_salida).map(r => String(r.jugador_id)));
+    return jugadoresResidentes.filter(j => !idsAsignados.has(String(j.id)));
+  }, [jugadoresResidentes, registros]);
+
+  const handleAsignarResidente = async (jugadorId: string, numeroHabitacion: 1 | 2 | 3, habitacionId: string) => {
+    const registroExistente = registros.find(r => String(r.jugador_id) === String(jugadorId));
+    if (registroExistente) {
+      await residenciaJugadoresService.update(registroExistente.id, {
+        habitacion_id: habitacionId,
+        numero_habitacion: numeroHabitacion,
+      } as any);
+    } else {
+      await residenciaJugadoresService.create({
+        club_id: perfil?.club_id,
+        jugador_id: jugadorId,
+        habitacion_id: habitacionId,
+        numero_habitacion: numeroHabitacion,
+      } as any);
+    }
+    await loadData();
+  };
+
+  const handleQuitarResidente = async (registroId: string) => {
+    await residenciaJugadoresService.update(registroId, { habitacion_id: null, numero_habitacion: null } as any);
     await loadData();
   };
 
@@ -588,7 +673,7 @@ const HabitacionesView: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {filtered.length === 0 ? (
           <div className="col-span-full text-center py-12 text-slate-500">
             <i className="fa-solid fa-bed text-4xl text-slate-300 mb-4 block"></i>
@@ -598,83 +683,73 @@ const HabitacionesView: React.FC = () => {
         ) : (
           filtered.map(h => {
             const residentes = getResidentes(h.id);
+            const estadoInfo = ESTADOS_HABITACION.find(e => e.value === (h.estado ?? 'verde')) ?? ESTADOS_HABITACION[0];
+            const zonaInfo = ESTADOS_ZONA_COMUN.find(e => e.value === (h.zona_comun_estado ?? 'buenas_condiciones')) ?? ESTADOS_ZONA_COMUN[0];
             return (
               <div
                 key={h.id}
                 onClick={() => setEditing(h as ResidenciaHabitacionFormData)}
-                className="p-4 bg-white rounded-xl border border-slate-200 hover:border-[var(--accent)] hover:shadow-md transition-all cursor-pointer"
+                className="p-4 bg-white rounded-xl border border-slate-200 hover:border-[var(--accent)] hover:shadow-md transition-all cursor-pointer flex items-center gap-4"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter">{h.nombre}</h3>
-                      {(() => {
-                        const estadoInfo = ESTADOS_HABITACION.find(e => e.value === (h.estado ?? 'verde')) ?? ESTADOS_HABITACION[0];
-                        return (
-                          <span
-                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest"
-                            style={{ backgroundColor: `${estadoInfo.color}22`, color: estadoInfo.color }}
-                          >
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: estadoInfo.color }} />
-                            {estadoInfo.label}
-                          </span>
-                        );
-                      })()}
-                      {(() => {
-                        const zonaInfo = ESTADOS_ZONA_COMUN.find(e => e.value === (h.zona_comun_estado ?? 'buenas_condiciones')) ?? ESTADOS_ZONA_COMUN[0];
-                        return (
-                          <span
-                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest"
-                            style={{ backgroundColor: `${zonaInfo.color}22`, color: zonaInfo.color }}
-                          >
-                            <i className="fa-solid fa-couch text-[8px]"></i>
-                            {zonaInfo.label}
-                          </span>
-                        );
-                      })()}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter">{h.nombre}</h3>
+                  {h.incidencia && (
+                    <p
+                      className="text-xs mt-1 font-semibold"
+                      style={{ color: estadoInfo.color }}
+                    >
+                      <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+                      {h.incidencia}
+                    </p>
+                  )}
+                  {residentes.length > 0 ? (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+                      {residentes.map(({ jugador: j }) => (
+                        <div key={j.id} className="flex items-center gap-2">
+                          {j.foto_url ? (
+                            <img
+                              src={j.foto_url}
+                              alt={j.nombre}
+                              className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                              <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
+                            </div>
+                          )}
+                          <span className="text-sm text-slate-600">{j.nombre}</span>
+                        </div>
+                      ))}
                     </div>
-                    {h.incidencia && (
-                      <p
-                        className="text-xs mt-1 font-semibold"
-                        style={{ color: ESTADOS_HABITACION.find(e => e.value === (h.estado ?? 'verde'))?.color ?? '#f97316' }}
-                      >
-                        <i className="fa-solid fa-triangle-exclamation mr-1"></i>
-                        {h.incidencia}
-                      </p>
-                    )}
-                    {residentes.length > 0 ? (
-                      <div className="flex flex-col gap-1.5 mt-1.5">
-                        {residentes.map(({ jugador: j }) => (
-                          <div key={j.id} className="flex items-center gap-2">
-                            {j.foto_url ? (
-                              <img
-                                src={j.foto_url}
-                                alt={j.nombre}
-                                className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
-                              />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-                                <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
-                              </div>
-                            )}
-                            <span className="text-sm text-slate-600">{j.nombre}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-400 mt-1 italic">
-                        <i className="fa-solid fa-user mr-2 text-slate-300"></i>
-                        Sin residentes
-                      </p>
-                    )}
-                    {h.capacidad != null && (
-                      <p className="text-xs text-slate-400 mt-2">
-                        <i className="fa-solid fa-users mr-1"></i>
-                        Capacidad: {h.capacidad}
-                      </p>
-                    )}
-                  </div>
-                  <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                  ) : (
+                    <p className="text-sm text-slate-400 mt-1 italic">
+                      <i className="fa-solid fa-user mr-2 text-slate-300"></i>
+                      Sin residentes
+                    </p>
+                  )}
+                  {h.capacidad != null && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      <i className="fa-solid fa-users mr-1"></i>
+                      Capacidad: {h.capacidad}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  <span
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap"
+                    style={{ backgroundColor: `${estadoInfo.color}22`, color: estadoInfo.color }}
+                  >
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: estadoInfo.color }} />
+                    {estadoInfo.label}
+                  </span>
+                  <span
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap"
+                    style={{ backgroundColor: `${zonaInfo.color}22`, color: zonaInfo.color }}
+                  >
+                    <i className="fa-solid fa-couch text-[8px]"></i>
+                    {zonaInfo.label}
+                  </span>
+                  <i className="fa-solid fa-chevron-right text-slate-300 mt-1"></i>
                 </div>
               </div>
             );
@@ -689,7 +764,10 @@ const HabitacionesView: React.FC = () => {
         onSave={handleSave}
         onDelete={handleDelete}
         residentes={editing?.id ? getResidentes(editing.id) : []}
+        jugadoresDisponibles={jugadoresSinApartamento}
         onUpdateResidente={handleUpdateResidente}
+        onAsignarResidente={editing?.id ? (jugadorId, numero) => handleAsignarResidente(jugadorId, numero, editing.id!) : undefined}
+        onQuitarResidente={handleQuitarResidente}
       />
     </div>
   );
