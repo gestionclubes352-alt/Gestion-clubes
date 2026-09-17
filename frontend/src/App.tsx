@@ -81,7 +81,7 @@ import { InstalacionesView } from '@modules/instalaciones';
 
 // Modules - Residencia
 import {
-  HabitacionesView, JugadoresResiView, ComidasView,
+  HabitacionesView, EstadoHabitacionesView, JugadoresResiView, ComidasView,
   ComedorFichajeView, ComedorLandingView, ComedorAccesosView, ComedorQrImprimirView,
 } from '@modules/residencia';
 
@@ -138,6 +138,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/instalaciones': 'INSTALACIONES',
   '/residencia/jugadores': 'RESI_JUGADORES',
   '/residencia/habitaciones': 'RESI_HABITACIONES',
+  '/residencia/estado-habitaciones': 'RESI_ESTADO_HABITACIONES',
   '/residencia/comidas': 'RESI_COMIDAS',
   '/residencia/comedor': 'RESI_COMEDOR',
   '/mediciones/registro': 'MEDICIONES_REGISTRO',
@@ -172,6 +173,7 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'INSTALACIONES': '/instalaciones',
   'RESI_JUGADORES': '/residencia/jugadores',
   'RESI_HABITACIONES': '/residencia/habitaciones',
+  'RESI_ESTADO_HABITACIONES': '/residencia/estado-habitaciones',
   'RESI_COMIDAS': '/residencia/comidas',
   'RESI_COMEDOR': '/residencia/comedor',
   'MEDICIONES_REGISTRO': '/mediciones/registro',
@@ -1157,7 +1159,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const handleCalendarEventClick = (event: CalendarEvent) => {
     if (perfil?.rol === 'Jugador') return;
     if (event.type === 'Entrenamiento' || event.type === 'Sesión') {
-      navigate('/sesiones', { state: { openEventId: event.id } });
+      navigate('/sesiones', { state: { openEventId: event.id, from: location.pathname } });
     } else if (event.type === 'Partido') {
       navigate(`/partidos/${event.id}`, { state: { from: '/calendario' } });
     } else {
@@ -1801,6 +1803,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/instalaciones" element={<InstalacionesView />} />
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
               <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
+              <Route path="/residencia/estado-habitaciones" element={<EstadoHabitacionesView />} />
               <Route path="/residencia/comidas" element={<ComidasView />} />
               <Route path="/residencia/comedor" element={<ComedorAccesosView />} />
               <Route path="/residencia/comedor/qr" element={<ComedorQrImprimirView />} />

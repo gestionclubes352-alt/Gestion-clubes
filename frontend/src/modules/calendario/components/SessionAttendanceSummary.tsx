@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Player } from '@modules/plantilla';
 import type { AttendanceStatus, CalendarEvent } from '../types';
 import { getPlayerSessionAttendance, hasRecordedAttendance } from '../utils/attendance';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface SessionAttendanceSummaryProps {
   events: CalendarEvent[];
@@ -267,7 +268,7 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
                 <div className="px-6 py-3 bg-gradient-to-r from-[var(--accent)]/10 to-transparent border-l-4 border-[var(--accent)] mb-3">
                   <h5 className="text-sm font-black text-slate-700 uppercase tracking-widest">{position}</h5>
                 </div>
-                <div className="overflow-x-auto">
+                <TableScrollContainer>
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50/60 border-b border-slate-100">
@@ -313,7 +314,7 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </TableScrollContainer>
               </div>
             ))}
           </div>

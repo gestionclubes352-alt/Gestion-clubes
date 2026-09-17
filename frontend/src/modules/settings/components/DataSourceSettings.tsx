@@ -8,6 +8,7 @@ import { googleSheetsService, extractSpreadsheetId, db } from '@shared/services'
 import type { SheetPreview, ImportableTable, SheetImportResult } from '@shared/services';
 import { migrateLocalStorageToFirestore, countFirestoreDocs, type MigrationResult } from '@shared/services/migrateToFirestore';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 type ImportMode = 'add' | 'replace' | 'sync';
 
@@ -281,7 +282,7 @@ const DataSourceSettings: React.FC = () => {
                 </div>
 
                 {/* Tabla de preview */}
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <TableScrollContainer className="rounded-xl border border-slate-200">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-100">
                       <tr>
@@ -304,7 +305,7 @@ const DataSourceSettings: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </TableScrollContainer>
 
                 {/* Selector de tipo */}
                 <div className="flex flex-wrap items-center gap-4">

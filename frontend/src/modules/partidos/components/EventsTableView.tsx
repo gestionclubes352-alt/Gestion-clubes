@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { VideoEvent } from '../types';
 import type { Player } from '@modules/plantilla';
 import { useTranslation } from 'react-i18next';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface EventsTableViewProps {
   events: VideoEvent[];
@@ -67,6 +68,47 @@ const getEventTypeInfo = (type: VideoEvent['type']): { label: string; icon: stri
   }
 };
 
+interface StatBarRow {
+  label: string;
+  value: number;
+  color: string;
+}
+
+const StatBarChart: React.FC<{ title: string; rows: StatBarRow[] }> = ({ title, rows }) => {
+  const max = Math.max(1, ...rows.map(r => r.value));
+  return (
+    <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">{title}</p>
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center gap-2">
+            <span className="w-28 shrink-0 text-xs text-slate-600 dark:text-slate-400 truncate" title={row.label}>{row.label}</span>
+            <div className="flex-1 h-4 bg-slate-100 dark:bg-slate-800 rounded overflow-hidden">
+              <div
+                className={`h-full rounded ${row.color}`}
+                style={{ width: `${(row.value / max) * 100}%` }}
+              />
+            </div>
+            <span className="w-8 shrink-0 text-right text-xs font-semibold text-slate-800 dark:text-slate-200">{row.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const StatCard: React.FC<{ label: string; value: number | string; icon: string; color: string }> = ({ label, value, icon, color }) => (
+  <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex items-center gap-3">
+    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${color}`}>
+      <i className={`${icon} text-sm`}></i>
+    </div>
+    <div>
+      <p className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">{value}</p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{label}</p>
+    </div>
+  </div>
+);
+
 const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamName, onPlay, onEdit, onDelete }) => {
   const { t } = useTranslation();
 
@@ -78,6 +120,56 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamNa
     });
   }, [events]);
 
+  const stats = useMemo(() => {
+    const goalsFavor = events.filter(e => e.type === 'GOL' && e.goalSide === 'FAVOR').length;
+    const goalsAgainst = events.filter(e => e.type === 'GOL' && e.goalSide === 'CONTRA').length;
+    const occasionsFavor = events.filter(e => e.type === 'OCASION' && e.goalSide === 'FAVOR').length;
+    const occasionsAgainst = events.filter(e => e.type === 'OCASION' && e.goalSide === 'CONTRA').length;
+    const duelsWon = events.filter(e => e.type === 'DUELO' && e.duelOutcome === 'GANADO').length;
+    const duelsLost = events.filter(e => e.type === 'DUELO' && e.duelOutcome === 'PERDIDO').length;
+    const mcbCount = events.filter(e => e.type === 'MCB').length;
+    const msbCount = events.filter(e => e.type === 'MSB').length;
+
+    const zoneCounts: Record<string, number> = {};
+    events.forEach(e => {
+      if (!e.zone) return;
+      const key = `Zona ${e.zone}`;
+      zoneCounts[key] = (zoneCounts[key] || 0) + 1;
+    });
+
+    const playerCounts: Record<string, number> = {};
+    events.forEach(e => {
+      if (e.type === 'NOTA') return;
+      const ids = [e.playerId, ...(e.playerIds || [])].filter((id): id is string | number => id !== undefined);
+      ids.forEach(id => {
+        const name = getPlayerName(id, squad);
+        playerCounts[name] = (playerCounts[name] || 0) + 1;
+      });
+    });
+    const topPlayers = Object.entries(playerCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([label, value]) => ({ label, value, color: 'bg-sport-primary' }));
+
+    const zoneRows: StatBarRow[] = ['Zona 1', 'Zona 2', 'Zona 3']
+      .map(label => ({ label, value: zoneCounts[label] || 0, color: 'bg-indigo-500' }))
+      .filter(r => r.value > 0);
+
+    return {
+      goalsFavor,
+      goalsAgainst,
+      occasionsFavor,
+      occasionsAgainst,
+      duelsWon,
+      duelsLost,
+      mcbCount,
+      msbCount,
+      topPlayers,
+      zoneRows,
+      total: events.length,
+    };
+  }, [events, squad]);
+
   if (sortedEvents.length === 0) {
     return (
       <div className="p-12 text-center text-slate-500 dark:text-slate-400">
@@ -88,7 +180,33 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamNa
   }
 
   return (
-    <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+    <div className="space-y-6">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">Estadísticas</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          <StatCard label="Goles a favor" value={stats.goalsFavor} icon="fa-solid fa-futbol" color="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" />
+          <StatCard label="Goles en contra" value={stats.goalsAgainst} icon="fa-solid fa-futbol" color="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" />
+          <StatCard label="Ocasiones a favor" value={stats.occasionsFavor} icon="fa-solid fa-bullseye" color="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" />
+          <StatCard label="Ocasiones en contra" value={stats.occasionsAgainst} icon="fa-solid fa-bullseye" color="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400" />
+          <StatCard label="Duelos ganados" value={stats.duelsWon} icon="fa-solid fa-check-circle" color="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" />
+          <StatCard label="Duelos perdidos" value={stats.duelsLost} icon="fa-solid fa-times-circle" color="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" />
+          <StatCard label="MCB" value={stats.mcbCount} icon="fa-solid fa-futbol" color="bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400" />
+          <StatCard label="MSB" value={stats.msbCount} icon="fa-solid fa-shield-halved" color="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400" />
+        </div>
+      </div>
+
+      {(stats.topPlayers.length > 0 || stats.zoneRows.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {stats.topPlayers.length > 0 && (
+            <StatBarChart title="Jugadores con más eventos" rows={stats.topPlayers} />
+          )}
+          {stats.zoneRows.length > 0 && (
+            <StatBarChart title="Eventos por zona" rows={stats.zoneRows} />
+          )}
+        </div>
+      )}
+
+    <TableScrollContainer className="border border-slate-200 dark:border-slate-700 rounded-lg">
       <table className="w-full text-xs">
         <thead className="bg-slate-100 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
           <tr>
@@ -282,6 +400,7 @@ const EventsTableView: React.FC<EventsTableViewProps> = ({ events, squad, teamNa
           })}
         </tbody>
       </table>
+      </TableScrollContainer>
     </div>
   );
 };

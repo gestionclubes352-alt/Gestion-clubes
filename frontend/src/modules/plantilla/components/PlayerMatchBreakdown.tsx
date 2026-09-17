@@ -5,6 +5,7 @@ import type { CompetitionTeam } from '@modules/competicion/types';
 import type { Club } from '@modules/clubes/types';
 import { computeMatchStats, MATCH_DURATION_MINUTES } from '../../partidos/components/PlayerStatsSummary';
 import { db } from '@shared/services/dataService';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface PlayerMatchBreakdownProps {
   playerId: string;
@@ -197,7 +198,7 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                   {group.matchesPlayed} {t('playerStatsSummary.matchesPlayed').toLowerCase()} · {group.minutes}' · {group.goals} {t('players.goals').toLowerCase()}
                 </span>
               </div>
-              <div className="overflow-x-auto">
+              <TableScrollContainer>
                 <table className="w-full text-[9px]">
                   <thead>
                     <tr className="text-slate-400 uppercase text-[8px] font-black tracking-widest">
@@ -244,7 +245,7 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                     })}
                   </tbody>
                 </table>
-              </div>
+              </TableScrollContainer>
             </div>
           ))}
         </div>

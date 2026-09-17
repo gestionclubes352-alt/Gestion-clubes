@@ -15,6 +15,7 @@ import SessionAttendanceSummary from './SessionAttendanceSummary';
 import { getAttendanceSessionScope, isSelectiveAttendanceSession, normalizeAttendanceForEvent } from '../utils/attendance';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
 // Carga diferida: el informe de partido es la vista más pesada de la app y solo
 // se abre al pinchar un partido, así que no debe viajar en el bundle inicial.
@@ -70,6 +71,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   // Evita que el tab vuelva a "Datos" cuando reabrimos la sesión tras crear una tarea en el diseñador
   const skipDatosResetRef = useRef(false);
+  const openedFromRef = useRef<string | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
@@ -313,11 +315,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo, localidadId, instalacionId]);
 
   useEffect(() => {
-    const state = location.state as { openEventId?: string; newTaskId?: string; editSessionTaskId?: string } | null;
+    const state = location.state as { openEventId?: string; newTaskId?: string; editSessionTaskId?: string; from?: string } | null;
     const openEventId = state?.openEventId;
     const newTaskId = state?.newTaskId;
     const editSessionTaskId = state?.editSessionTaskId;
     if (!openEventId && !newTaskId) return;
+    if (state?.from) {
+      openedFromRef.current = state.from;
+    }
 
     const applyIncomingState = async () => {
       let target = openEventId ? events.find(e => String(e.id) === String(openEventId)) : activeTraining;
@@ -642,7 +647,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             </button>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <button onClick={() => setActiveTraining(null)} className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2 text-xs">
+            <button
+              onClick={() => {
+                const from = openedFromRef.current;
+                openedFromRef.current = null;
+                setActiveTraining(null);
+                if (from) {
+                  navigate(from);
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2 text-xs"
+            >
               <i className="fa-solid fa-arrow-left"></i> {t('calendarView.back')}
             </button>
             <div>
@@ -1172,7 +1187,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             {filteredEvents.length === 0 ? (
               <div className="py-16 text-center text-slate-400 font-bold text-sm">{t('calendarView.noSessionsFound')}</div>
             ) : (
-              <div className="overflow-x-auto">
+              <TableScrollContainer>
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/60 border-b border-slate-100">
@@ -1256,7 +1271,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                     })}
                   </tbody>
                 </table>
-              </div>
+              </TableScrollContainer>
             )}
           </div>
         </div>

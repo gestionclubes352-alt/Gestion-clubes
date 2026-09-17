@@ -62,6 +62,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   // Residencia
   { id: 'RESI_JUGADORES', labelKey: 'sidebar.residenciaPlayersLabel', icon: 'fa-people-roof', section: 'residencia' },
   { id: 'RESI_HABITACIONES', labelKey: 'sidebar.residenciaRoomsLabel', icon: 'fa-bed', section: 'residencia' },
+  { id: 'RESI_ESTADO_HABITACIONES', labelKey: 'sidebar.residenciaRoomsStatusLabel', icon: 'fa-clipboard-check', section: 'residencia' },
   { id: 'RESI_COMIDAS', labelKey: 'sidebar.residenciaMealsLabel', icon: 'fa-utensils', section: 'residencia' },
   { id: 'RESI_COMEDOR', labelKey: 'sidebar.residenciaDiningLabel', icon: 'fa-qrcode', section: 'residencia' },
   // Admin

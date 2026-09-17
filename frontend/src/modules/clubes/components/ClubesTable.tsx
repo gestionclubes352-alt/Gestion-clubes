@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Club } from '../types';
 import EditClubModal from './EditClubModal';
 import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface ClubesTableProps {
   clubes: Club[];
@@ -175,7 +176,7 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
 
       {/* TABLA DE CLUBES */}
       {viewMode === 'table' && filteredClubes.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <TableScrollContainer className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
@@ -249,7 +250,7 @@ const ClubesTable: React.FC<ClubesTableProps> = ({ clubes, clubId, onEdit, onDel
               })}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
       )}
 
       {/* Modales */}

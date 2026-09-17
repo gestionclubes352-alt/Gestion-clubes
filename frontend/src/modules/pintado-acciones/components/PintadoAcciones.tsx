@@ -11,6 +11,7 @@ declare global {
   interface Window {
     PintadoAcciones?: {
       mount?: () => (() => void) | undefined;
+      __destroy?: () => void;
       addPlayerAnnotation?: (x: number, y: number, dorsal: number, nombre: string) => void;
       getSnapshot?: (range?: { startTime?: number; endTime?: number | null }) => Record<string, unknown> | null;
       loadSnapshot?: (snapshot: Record<string, unknown>) => Promise<void>;
@@ -301,12 +302,23 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
     let destroy: (() => void) | undefined;
     let cancelled = false;
 
+    // React.StrictMode ejecuta este efecto dos veces en desarrollo. Como el
+    // motor legado registra sus listeners de reproducción sobre elementos del
+    // DOM global (no los limpia todos en destroy()), un doble montaje deja
+    // dos reproductores de YouTube compitiendo y el botón de play/pausa deja
+    // de responder. Forzamos a destruir cualquier montaje previo antes de
+    // crear uno nuevo para que solo quede una instancia viva.
+    window.PintadoAcciones?.__destroy?.();
+
     const script = document.createElement('script');
     script.src = engineScriptUrl;
     script.async = true;
     script.onload = () => {
       if (cancelled) return;
       destroy = window.PintadoAcciones?.mount?.();
+      if (window.PintadoAcciones) {
+        window.PintadoAcciones.__destroy = destroy;
+      }
 
       // Si venimos desde otra vista con un video ya seleccionado (p.ej. el
       // Plan de Partido), lo precargamos automáticamente en el motor.
@@ -353,6 +365,9 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
     return () => {
       cancelled = true;
       destroy?.();
+      if (window.PintadoAcciones && window.PintadoAcciones.__destroy === destroy) {
+        delete window.PintadoAcciones.__destroy;
+      }
       script.remove();
     };
   }, []);
@@ -702,11 +717,6 @@ export default function PintadoAcciones({ ownClubId, ownEquipoId: propsOwnEquipo
               <img id="backgroundImage" className="media-layer" alt="Fotograma congelado" />
               <div id="youtubeClickShield" className="youtube-click-shield"></div>
               <canvas id="annotationCanvas"></canvas>
-              <button id="stagePlayToggle" type="button" className="stage-play-toggle" aria-label="Reproducir o pausar">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 3l14 9-14 9V3z"></path>
-                </svg>
-              </button>
             </div>
 
             <div className="playback-panel">

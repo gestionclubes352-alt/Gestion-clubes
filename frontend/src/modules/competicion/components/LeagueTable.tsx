@@ -8,6 +8,7 @@ import type { CalendarioCompeticionPartido } from '@shared/services/dataService'
 import { useGeminiStandings } from '../hooks/useGeminiStandings';
 import { useTeam } from '@context/TeamContext';
 import { getFederationTeamLogo } from '../data/teamLogos';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface StandingTeam {
   pos: number;
@@ -1188,7 +1189,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'cruzada' && (
-        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white">
+        <TableScrollContainer className="rounded-2xl border border-slate-100 bg-white">
           <table className="min-w-[1600px] w-full">
             <thead>
               <tr className="bg-slate-50">
@@ -1213,7 +1214,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
       )}
 
       {/* Footer con info de fuente y grounding sources */}

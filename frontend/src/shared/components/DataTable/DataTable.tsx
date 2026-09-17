@@ -13,7 +13,7 @@ import {
   type Row,
   type Table,
 } from '@tanstack/react-table';
-import SearchableSelect from '@shared/components/SearchableSelect';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 // ============================================================================
 // TYPES
@@ -221,87 +221,13 @@ function EmptyState({ message, icon }: { message: string; icon: string }) {
   );
 }
 
-function Pagination<T>({ table, pageSizeOptions }: { table: Table<T>; pageSizeOptions: number[] }) {
-  const pageIndex = table.getState().pagination.pageIndex;
-  const pageCount = table.getPageCount();
+function RowsSummary<T>({ table }: { table: Table<T> }) {
   const totalRows = table.getFilteredRowModel().rows.length;
-  const pageSize = table.getState().pagination.pageSize;
-  const start = pageIndex * pageSize + 1;
-  const end = Math.min((pageIndex + 1) * pageSize, totalRows);
-
   if (totalRows === 0) return null;
 
-  const getPageNumbers = () => {
-    const pages: (number | 'ellipsis')[] = [];
-    if (pageCount <= 7) {
-      for (let i = 0; i < pageCount; i++) pages.push(i);
-    } else {
-      pages.push(0);
-      if (pageIndex > 2) pages.push('ellipsis');
-      for (let i = Math.max(1, pageIndex - 1); i <= Math.min(pageCount - 2, pageIndex + 1); i++) {
-        pages.push(i);
-      }
-      if (pageIndex < pageCount - 3) pages.push('ellipsis');
-      pages.push(pageCount - 1);
-    }
-    return pages;
-  };
-
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-[var(--border-soft)] bg-[var(--surface-1)]">
-      <div className="flex items-center gap-2 text-xs text-slate-500">
-        <span className="font-medium">Mostrar</span>
-        <SearchableSelect
-          value={pageSize}
-          onChange={e => table.setPageSize(Number(e.target.value))}
-          className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer hover:border-[var(--surface-3)] transition-colors"
-        >
-          {pageSizeOptions.map(size => (
-            <option key={size} value={size}>{size}</option>
-          ))}
-        </SearchableSelect>
-        <span className="text-slate-400">
-          · <span className="font-semibold text-slate-600">{start}–{end}</span> de <span className="font-semibold text-slate-600">{totalRows}</span>
-        </span>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-25 disabled:cursor-not-allowed dt-page-btn"
-          aria-label="Página anterior"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-
-        {getPageNumbers().map((page, i) =>
-          page === 'ellipsis' ? (
-            <span key={`e${i}`} className="w-8 h-8 flex items-center justify-center text-slate-300 text-xs select-none">···</span>
-          ) : (
-            <button
-              key={page}
-              onClick={() => table.setPageIndex(page as number)}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold dt-page-btn ${
-                pageIndex === page
-                  ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/20'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {(page as number) + 1}
-            </button>
-          )
-        )}
-
-        <button
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-25 disabled:cursor-not-allowed dt-page-btn"
-          aria-label="Página siguiente"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      </div>
+    <div className="flex items-center justify-end gap-2 px-5 py-2 border-t border-[var(--border-soft)] bg-[var(--surface-1)] text-xs text-slate-400">
+      <span className="font-semibold text-slate-600">{totalRows}</span> registro{totalRows !== 1 ? 's' : ''}
     </div>
   );
 }
@@ -477,7 +403,7 @@ function DataTable<T extends Record<string, any>>({
       globalFilter: isAdvanced ? globalFilter : '',
       columnFilters,
       rowSelection,
-      ...(paginated && !isAdvanced ? { pagination: { pageIndex: 0, pageSize: data.length || 100 } } : {}),
+      pagination: { pageIndex: 0, pageSize: data.length || 1 },
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
@@ -486,12 +412,9 @@ function DataTable<T extends Record<string, any>>({
     getCoreRowModel: getCoreRowModel(),
     ...(sortable ? { getSortedRowModel: getSortedRowModel() } : {}),
     ...(searchable ? { getFilteredRowModel: getFilteredRowModel() } : {}),
-    ...(paginated ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+    getPaginationRowModel: getPaginationRowModel(),
     enableSorting: sortable,
     enableGlobalFilter: searchable,
-    initialState: {
-      pagination: { pageSize },
-    },
   });
 
   // Notify parent of selection changes
@@ -598,7 +521,10 @@ function DataTable<T extends Record<string, any>>({
       )}
 
       {/* TABLE */}
-      <div className={`overflow-x-auto -webkit-overflow-scrolling-touch ${maxHeight ? 'overflow-y-auto' : ''}`} style={maxHeight ? { maxHeight } : undefined}>
+      <TableScrollContainer
+        bodyClassName="overflow-y-auto"
+        bodyStyle={{ maxHeight: maxHeight ?? '640px' }}
+      >
         <table className="w-full" role="table">
           <thead className={`${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
             {table.getHeaderGroups().map(headerGroup => (
@@ -663,10 +589,10 @@ function DataTable<T extends Record<string, any>>({
             )}
           </tbody>
         </table>
-      </div>
+      </TableScrollContainer>
 
-      {/* PAGINATION */}
-      {paginated && isAdvanced && !loading && <Pagination table={table} pageSizeOptions={pageSizeOptions} />}
+      {/* ROWS SUMMARY */}
+      {!loading && <RowsSummary table={table} />}
 
       {/* FOOTER */}
       {footer}

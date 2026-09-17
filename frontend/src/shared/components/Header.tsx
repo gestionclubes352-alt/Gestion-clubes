@@ -185,6 +185,18 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
         )}
 
         <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-1 sm:ml-2 md:ml-4">
+          {!isHomeActive && (
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-2 rounded-xl border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all"
+              title="Volver"
+              aria-label="Volver"
+            >
+              <i className="fa-solid fa-arrow-left text-sm"></i>
+              <span className="hidden sm:inline text-sm font-black tracking-tight uppercase">Volver</span>
+            </button>
+          )}
+
           <button
             onClick={() => navigate('/')}
             className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-2 rounded-xl border transition-all ${

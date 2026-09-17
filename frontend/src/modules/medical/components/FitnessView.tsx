@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { db } from '../../../shared/services/dataService';
 import type { FitnessProfile } from '../data';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 const FitnessView: React.FC = () => {
   const { t } = useTranslation();
@@ -85,7 +86,7 @@ const FitnessView: React.FC = () => {
                 {t('medical.testResults', 'Resultados de Tests')} — {profile.playerName}
               </p>
             </div>
-            <div className="overflow-x-auto">
+            <TableScrollContainer>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-white/5">
@@ -109,7 +110,7 @@ const FitnessView: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScrollContainer>
           </div>
         );
       })()}

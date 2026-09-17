@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MatchGoal, MatchCard, VideoEvent } from '../types';
 import type { Jugador } from '@shared/services/dataService';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface MatchEventsRegistryProps {
   matchGoals?: MatchGoal[];
@@ -46,7 +47,7 @@ export const MatchEventsRegistry: React.FC<MatchEventsRegistryProps> = ({
         <h3 className="text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-red-500/20 text-red-600 dark:text-red-400">
           {title} ({items.length})
         </h3>
-        <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+        <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
           <table className="w-full text-[9px]">
             <thead>
               <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
@@ -69,7 +70,7 @@ export const MatchEventsRegistry: React.FC<MatchEventsRegistryProps> = ({
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
       </div>
     );
   };

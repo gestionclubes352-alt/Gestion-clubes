@@ -764,18 +764,33 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     {visibleEvents.map(ev => {
                       const teamColor = getTeamColor(getEventTeamKey(ev));
                       return (
-                        <button
+                        <div
                           key={ev.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             setSelectedEvent(ev);
                             onClickEvent?.(ev);
                           }}
                           title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                          className={`w-full text-left truncate rounded px-1 py-0.5 text-[9px] font-bold border ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
+                          className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
                         >
                           {formatEventLabel(ev.time, ev.team || ev.title)}
                           {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
-                        </button>
+                          {onDeleteEvent && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEvent(ev.id);
+                              }}
+                              className="absolute top-0 right-0 z-10 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-black/10 text-current opacity-0 group-hover/ev:opacity-100 hover:bg-black/25 transition-all"
+                              title={t('common.delete')}
+                            >
+                              <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                     {extraCount > 0 && (
@@ -863,11 +878,24 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                 setSelectedEvent(ev);
                                 onClickEvent?.(ev);
                               }}
-                              className={`flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''}`}
+                              className={`relative group/ev flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''}`}
                               title={isMatch
                                 ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
                                 : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                             >
+                              {onDeleteEvent && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteEvent(ev.id);
+                                  }}
+                                  className="absolute top-0.5 right-0.5 z-10 w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-current opacity-0 group-hover/ev:opacity-100 hover:bg-black/25 transition-all"
+                                  title={t('common.delete')}
+                                >
+                                  <i className="fa-solid fa-xmark" style={{ fontSize: '9px' }}></i>
+                                </button>
+                              )}
                               {isMatch ? (
                                 compact ? (
                                   <div className="flex flex-col items-center gap-0.5 w-full text-center">

@@ -4,7 +4,6 @@ const youtubeUrlInput = document.getElementById("youtubeUrl");
 const urlInputGroup = youtubeUrlInput?.closest(".input-group");
 const loadYoutubeButton = document.getElementById("loadYoutube");
 const togglePlaybackButton = document.getElementById("togglePlayback");
-const stagePlayToggleButton = document.getElementById("stagePlayToggle");
 const seekBackwardButton = document.getElementById("seekBackward");
 const seekForwardButton = document.getElementById("seekForward");
 const toggleDrawModeButton = document.getElementById("toggleDrawMode");
@@ -274,6 +273,9 @@ function syncTimeline() {
 function setDrawEnabled(enabled) {
   state.drawEnabled = enabled;
   youtubeContainer.style.pointerEvents = "none";
+  if (youtubeClickShield) {
+    youtubeClickShield.style.pointerEvents = enabled ? "none" : "auto";
+  }
   updatePlaybackUi();
 }
 
@@ -2504,14 +2506,8 @@ function parseYouTubeInput(url) {
   return null;
 }
 
-const PLAY_ICON_PATH = '<path d="M5 3l14 9-14 9V3z"></path>';
-const PAUSE_ICON_PATH = '<path d="M6 4h4v16H6z"></path><path d="M14 4h4v16h-4z"></path>';
-
 function syncStagePlayToggle(isPlaying) {
   stage?.classList.toggle("is-paused-source", !isPlaying);
-  if (!stagePlayToggleButton) return;
-  stagePlayToggleButton.classList.toggle("is-playing", isPlaying);
-  stagePlayToggleButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${isPlaying ? PAUSE_ICON_PATH : PLAY_ICON_PATH}</svg>`;
 }
 
 function resetPlayerState() {
@@ -2571,7 +2567,7 @@ async function ensurePlayer(videoId, options = {}) {
       createYouTubeFallbackIframe(videoId, { playlistId, start });
       setStatus("La API de YouTube tardo demasiado. He cargado un reproductor compatible.");
       settle("fallback");
-    }, 5000);
+    }, 8000);
 
     state.player = new YT.Player(playerHost, {
       videoId,
@@ -2588,6 +2584,9 @@ async function ensurePlayer(videoId, options = {}) {
         fs: 1,
         disablekb: 1,
         iv_load_policy: 3,
+        ...(window.location.protocol !== "file:" && window.location.origin
+          ? { origin: window.location.origin }
+          : {}),
       },
       events: {
         onReady: (event) => {
@@ -2686,7 +2685,6 @@ function togglePlayback() {
 }
 
 togglePlaybackButton?.addEventListener("click", togglePlayback);
-stagePlayToggleButton?.addEventListener("click", togglePlayback);
 youtubeClickShield?.addEventListener("click", () => {
   if (!state.drawEnabled) {
     togglePlayback();
@@ -2786,7 +2784,13 @@ const handlePaste = (event) => {
 document.addEventListener("paste", handlePaste);
 
 toolButtons.forEach((button) => {
-  button.addEventListener("click", () => setTool(button.dataset.tool));
+  button.addEventListener("click", () => {
+    setTool(button.dataset.tool);
+    if (!state.drawEnabled) {
+      setDrawEnabled(true);
+      setStatus("Modo dibujo activado automaticamente al elegir una herramienta.");
+    }
+  });
 });
 
 numberPalette?.addEventListener("click", (event) => {

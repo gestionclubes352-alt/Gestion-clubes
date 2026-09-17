@@ -299,6 +299,9 @@ export interface ResidenciaHabitacion {
   capacidad?: number | null;
   planta?: string | null;
   notas?: string | null;
+  incidencia?: string | null;
+  estado?: 'verde' | 'naranja' | 'rojo' | null;
+  zona_comun_estado?: 'buenas_condiciones' | 'desordenado' | 'sucio' | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -311,6 +314,9 @@ export interface ResidenciaJugador {
   fecha_entrada?: string | null;
   fecha_salida?: string | null;
   notas?: string | null;
+  estado?: 'verde' | 'naranja' | 'rojo' | null;
+  condicion?: 'buenas_condiciones' | 'desordenado' | 'sucio' | null;
+  numero_habitacion?: 1 | 2 | 3 | null;
   created_at?: string;
   updated_at?: string;
 }

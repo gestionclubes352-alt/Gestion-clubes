@@ -74,6 +74,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   const [filterClub, setFilterClub] = useState('TODOS');
   const [filterTeam, setFilterTeam] = useState('TODOS');
   const [filterStatus, setFilterStatus] = useState('TODOS');
+  const [filterResidencia, setFilterResidencia] = useState('TODOS');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -114,15 +115,19 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     return Array.from(clubMap.values()).sort((a, b) => a.localeCompare(b, 'es'));
   }, [baseSquad]);
 
+  // El filtro de residencia solo tiene sentido si hay algún jugador con ese dato informado
+  const hasResidenciaData = useMemo(() => baseSquad.some(p => p.residencia !== undefined), [baseSquad]);
+
   const filteredSquad = useMemo(() => {
     return baseSquad.filter(p => {
       const posMatch = filterPosition === 'TODOS' || p.posicion === filterPosition;
       const clubMatch = filterClub === 'TODOS' || normalizeTeamLabel(p.club || '') === normalizeTeamLabel(filterClub);
       const teamMatch = filterTeam === 'TODOS' || normalizeTeamLabel(p.equipo || '') === normalizeTeamLabel(filterTeam);
       const statusMatch = filterStatus === 'TODOS' || (filterStatus === 'APTO' ? p.estado === 'APTO' : p.estado !== 'APTO');
-      return posMatch && clubMatch && teamMatch && statusMatch;
+      const residenciaMatch = filterResidencia === 'TODOS' || (filterResidencia === 'SI' ? !!p.residencia : !p.residencia);
+      return posMatch && clubMatch && teamMatch && statusMatch && residenciaMatch;
     }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [baseSquad, filterPosition, filterClub, filterTeam, filterStatus]);
+  }, [baseSquad, filterPosition, filterClub, filterTeam, filterStatus, filterResidencia]);
 
   const groupedPlayers = useMemo(() => {
     const groups = positionOrder.reduce((acc, pos) => {
@@ -153,6 +158,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     setFilterClub('TODOS');
     if (tab === 'rivales') setFilterTeam('TODOS');
     setFilterStatus('TODOS');
+    setFilterResidencia('TODOS');
   };
 
   const isLoading = baseSquad.length === 0 && filterPosition === 'TODOS';
@@ -434,6 +440,34 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             )}
 
             {/* Separador */}
+            {hasResidenciaData && (
+              <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
+            )}
+
+            {/* Filtro de residencia (SI/NO) */}
+            {hasResidenciaData && ['TODOS', 'SI', 'NO'].map((res) => (
+              <button
+                key={`residencia-${res}`}
+                onClick={() => setFilterResidencia(res)}
+                className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
+                  filterResidencia === res
+                    ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
+                    : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
+                }`}
+              >
+                {res === 'TODOS' ? t('playerTable.all') : res === 'SI' ? t('playerTable.residenciaYes', 'Residencia') : t('playerTable.residenciaNo', 'No residencia')}
+              </button>
+            ))}
+            {hasResidenciaData && filterResidencia !== 'TODOS' && (
+              <button
+                onClick={() => setFilterResidencia('TODOS')}
+                className="px-3 py-2 rounded-xl text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {t('playerTable.clear')}
+              </button>
+            )}
+
+            {/* Separador */}
             {availableClubs.length > 1 && (
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
             )}
@@ -666,7 +700,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             <i className="fa-solid fa-database text-sm text-[var(--text-muted)]"></i>
           </div>
           <p className="text-xs text-[var(--text-muted)] font-medium">
-            {filteredSquad.length} {t('playerTable.playersCount')}{filterPosition !== 'TODOS' ? ` · ${filterPosition}` : ''}{filterClub !== 'TODOS' ? ` · ${filterClub}` : ''}{filterTeam !== 'TODOS' ? ` · ${filterTeam}` : ''}{filterStatus !== 'TODOS' ? ` · ${filterStatus}` : ''}
+            {filteredSquad.length} {t('playerTable.playersCount')}{filterPosition !== 'TODOS' ? ` · ${filterPosition}` : ''}{filterClub !== 'TODOS' ? ` · ${filterClub}` : ''}{filterTeam !== 'TODOS' ? ` · ${filterTeam}` : ''}{filterStatus !== 'TODOS' ? ` · ${filterStatus}` : ''}{filterResidencia !== 'TODOS' ? ` · ${filterResidencia === 'SI' ? 'Residencia' : 'No residencia'}` : ''}
           </p>
         </div>
         <button

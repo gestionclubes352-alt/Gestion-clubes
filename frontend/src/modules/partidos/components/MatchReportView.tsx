@@ -30,6 +30,7 @@ import { getFFmpeg } from '@shared/utils/ffmpegClient';
 import EventsTableView from './EventsTableView';
 import MatchEventsRegistry from './MatchEventsRegistry';
 import VideoPlayer from '@shared/components/VideoPlayer';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -3692,90 +3693,201 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
          {momentDialogType && (
             <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                <div className="w-full max-w-sm mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl">
-                    <div className="text-center space-y-2">
-                        <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">{momentDialogType}</div>
-                        <h3 className="text-lg font-black text-[var(--text-strong)]">
-                          {momentDialogType === 'MCB' && momentConceptoSelection === ''
-                            ? 'Selecciona el concepto'
-                            : momentSideSelection === ''
-                              ? t('matchReport.goalDialog.favorOrAgainst')
-                              : momentZoneSelection === ''
-                                ? 'Selecciona la zona'
-                                : momentShowDescription
-                                  ? 'Descripción'
-                                  : 'Selecciona jugador/es'}
-                        </h3>
+                <div className="w-full max-w-3xl mx-4 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="text-center flex items-center justify-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.3em]">{momentDialogType}</span>
+                        <h3 className="text-sm font-black text-[var(--text-strong)]">{t('common.confirm')}</h3>
                     </div>
-                    {momentDialogType === 'MCB' && momentConceptoSelection === '' ? (
-                      <div className="mt-6 space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                        {MCB_CONCEPTOS.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => setMomentConceptoSelection(c.id)}
-                            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-blue-600/90 hover:text-white text-slate-900 dark:text-white/80 font-black text-[10px] uppercase tracking-widest text-left transition-colors"
-                          >
-                            {c.label}
-                          </button>
-                        ))}
+
+                    <button
+                      disabled={momentSideSelection === '' || momentZoneSelection === ''}
+                      onClick={() => {
+                        if (momentSideSelection === '' || momentZoneSelection === '') return;
+                        const type = momentDialogType;
+                        setMomentDialogType(null);
+                        handleAddEvent(type, {
+                          goalSide: momentSideSelection,
+                          zone: momentZoneSelection,
+                          concepto: momentConceptoSelection || undefined,
+                          playerIds: momentPlayerIds.length > 0 ? momentPlayerIds : undefined,
+                          note: momentNote,
+                        });
+                        flashEventToast(type);
+                        setMomentSideSelection('');
+                        setMomentZoneSelection('');
+                        setMomentConceptoSelection('');
+                        setMomentPlayerIds([]);
+                        setMomentShowDescription(false);
+                        setMomentNote('');
+                      }}
+                      className={`mt-3 w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${
+                        momentSideSelection === '' || momentZoneSelection === ''
+                          ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 cursor-not-allowed'
+                          : 'bg-blue-600/90 hover:bg-blue-600 text-white'
+                      }`}
+                    >
+                      {t('common.confirm')}
+                    </button>
+
+                    {(() => {
+                      const hasConcepto = momentDialogType === 'MCB';
+                      const stepConcepto = 1;
+                      const stepSide = hasConcepto ? 2 : 1;
+                      const stepZone = stepSide + 1;
+                      const stepPlayers = stepZone + 1;
+                      const stepDescription = stepPlayers + 1;
+                      const activeStep = hasConcepto && momentConceptoSelection === ''
+                        ? stepConcepto
+                        : momentSideSelection === ''
+                          ? stepSide
+                          : momentZoneSelection === ''
+                            ? stepZone
+                            : momentPlayerIds.length === 0
+                              ? stepPlayers
+                              : 0;
+                      const badgeClass = (step: number) =>
+                        `w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 transition-colors ${
+                          activeStep === step
+                            ? 'bg-blue-600 text-white animate-pulse ring-2 ring-blue-400'
+                            : 'bg-slate-700 dark:bg-white/20 text-white'
+                        }`;
+                      return (
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        {hasConcepto && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={badgeClass(stepConcepto)}>{stepConcepto}</span>
+                              <span className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest">Concepto</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {MCB_CONCEPTOS.map((c) => (
+                                <button
+                                  key={c.id}
+                                  onClick={() => setMomentConceptoSelection(c.id)}
+                                  className={`py-2.5 px-2 rounded-xl font-black text-[9px] uppercase tracking-widest text-center transition-colors ${
+                                    momentConceptoSelection === c.id
+                                      ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                                      : 'bg-slate-100 dark:bg-white/5 hover:bg-blue-600/90 hover:text-white text-slate-900 dark:text-white/80'
+                                  }`}
+                                >
+                                  {c.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={badgeClass(stepSide)}>{stepSide}</span>
+                            <span className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest">{t('matchReport.goalDialog.favorOrAgainst')}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button
+                                onClick={() => setMomentSideSelection('FAVOR')}
+                                className={`py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                                  momentSideSelection === 'FAVOR'
+                                    ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                                    : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-blue-600/90 hover:text-white'
+                                }`}
+                              >
+                                {t('matchReport.goalDialog.inFavor')}
+                              </button>
+                              <button
+                                onClick={() => setMomentSideSelection('CONTRA')}
+                                className={`py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                                  momentSideSelection === 'CONTRA'
+                                    ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                                    : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-blue-600/90 hover:text-white'
+                                }`}
+                              >
+                                {t('matchReport.goalDialog.against')}
+                              </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={badgeClass(stepZone)}>{stepZone}</span>
+                            <span className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest">Zona</span>
+                          </div>
+                          <div className="space-y-2">
+                            <svg viewBox="0 0 60 75" className="w-full max-w-[220px] mx-auto rounded-xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: '#2d7a34' }}>
+                              <g fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="0.4">
+                                <rect x="1" y="1" width="58" height="73" rx="1" />
+                                <rect x="17" y="1" width="26" height="9" />
+                                <rect x="17" y="65" width="26" height="9" />
+                                <circle cx="30" cy="37.5" r="6" />
+                                <line x1="1" y1="25" x2="59" y2="25" strokeDasharray="1.5,1.5" />
+                                <line x1="1" y1="50" x2="59" y2="50" strokeDasharray="1.5,1.5" />
+                              </g>
+                              {[1, 2, 3].map((zone) => (
+                                <rect
+                                  key={zone}
+                                  x="0"
+                                  y={(3 - zone) * 25}
+                                  width="60"
+                                  height="25"
+                                  fill={momentZoneSelection === zone ? '#2563eb' : 'transparent'}
+                                  fillOpacity={momentZoneSelection === zone ? 0.35 : 1}
+                                  stroke="transparent"
+                                  className="cursor-pointer"
+                                  onClick={() => setMomentZoneSelection(zone as 1 | 2 | 3)}
+                                />
+                              ))}
+                              <text x="30" y="13.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 3</text>
+                              <text x="30" y="38.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 2</text>
+                              <text x="30" y="63.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 1</text>
+                            </svg>
+                            <p className="text-center text-[9px] text-slate-400 dark:text-white/40">Zona 1: cerca de mi portero</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={badgeClass(stepDescription)}>{stepDescription}</span>
+                            <span className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest">Descripción</span>
+                          </div>
+                          <textarea
+                            value={momentNote}
+                            onChange={(e) => setMomentNote(e.target.value)}
+                            placeholder="Descripción (opcional)"
+                            rows={3}
+                            className="w-full rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-2 text-[11px] text-slate-900 dark:text-white/80 placeholder:text-slate-400 dark:placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          />
+                        </div>
                       </div>
-                    ) : momentSideSelection === '' ? (
-                      <div className="mt-6 grid grid-cols-2 gap-3">
-                          <button
-                            onClick={() => setMomentSideSelection('FAVOR')}
-                            className="py-4 rounded-2xl bg-blue-600/90 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest"
-                          >
-                            {t('matchReport.goalDialog.inFavor')}
-                          </button>
-                          <button
-                            onClick={() => setMomentSideSelection('CONTRA')}
-                            className="py-4 rounded-2xl bg-blue-600/90 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest"
-                          >
-                            {t('matchReport.goalDialog.against')}
-                          </button>
-                      </div>
-                    ) : momentZoneSelection === '' ? (
-                      <div className="mt-6 space-y-4">
-                        <svg viewBox="0 0 60 75" className="w-full rounded-xl border border-slate-200 dark:border-white/10" style={{ backgroundColor: '#2d7a34' }}>
-                          <g fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="0.4">
-                            <rect x="1" y="1" width="58" height="73" rx="1" />
-                            <rect x="17" y="1" width="26" height="9" />
-                            <rect x="17" y="65" width="26" height="9" />
-                            <circle cx="30" cy="37.5" r="6" />
-                            <line x1="1" y1="25" x2="59" y2="25" strokeDasharray="1.5,1.5" />
-                            <line x1="1" y1="50" x2="59" y2="50" strokeDasharray="1.5,1.5" />
-                          </g>
-                          {[1, 2, 3].map((zone) => (
-                            <rect
-                              key={zone}
-                              x="0"
-                              y={(3 - zone) * 25}
-                              width="60"
-                              height="25"
-                              fill="transparent"
-                              stroke="transparent"
-                              className="cursor-pointer"
-                              onClick={() => setMomentZoneSelection(zone as 1 | 2 | 3)}
-                            />
-                          ))}
-                          <text x="30" y="13.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 3</text>
-                          <text x="30" y="38.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 2</text>
-                          <text x="30" y="63.75" textAnchor="middle" fontSize="4" fill="#ffffff" fontWeight="bold" className="pointer-events-none">ZONA 1</text>
-                        </svg>
-                        <p className="text-center text-[9px] text-slate-400 dark:text-white/40">Zona 1: cerca de mi portero</p>
-                      </div>
-                    ) : !momentShowDescription ? (
-                      <div className="mt-6 space-y-3">
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={badgeClass(stepPlayers)}>{stepPlayers}</span>
+                          <span className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest">Jugador/es</span>
+                        </div>
                         {(report.lineupPositions || []).length === 0 ? (
                           <div className="text-center text-[10px] text-slate-400 dark:text-white/40">
                             No hay 11 asignado en la alineación.
                           </div>
                         ) : (
-                          <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2">
+                          <div className="space-y-4 pr-2">
                             <div>
-                              <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Titulares</div>
-                              <div className="space-y-1.5">
-                                {(report.lineupPositions || []).map((pos) => {
+                              <div className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Titulares</div>
+                              <div className="relative rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg mx-auto" style={{ backgroundColor: '#1e8449', width: '224px', height: '336px' }}>
+                                <div className="absolute inset-0 pointer-events-none opacity-70">
+                                  <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    <g fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.5">
+                                      <rect x="3" y="3" width="94" height="94" />
+                                      <line x1="3" y1="50" x2="97" y2="50" />
+                                      <circle cx="50" cy="50" r="10" />
+                                    </g>
+                                  </svg>
+                                </div>
+                                {resolveFieldCollisions(
+                                  (report.lineupPositions || [])
+                                    .filter(pos => (pos.playerIds || []).length > 0)
+                                    .map(pos => ({ pos, x: pos.x, y: pos.y })),
+                                  224 / 336,
+                                ).map(({ pos, x, y }) => {
                                   const assignedId = pos.playerIds && pos.playerIds.length > 0 ? pos.playerIds[pos.playerIds.length - 1] : undefined;
                                   const player = assignedId ? squad.find(p => samePlayerId(p.id, assignedId)) : undefined;
                                   if (!player) return null;
@@ -3788,16 +3900,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                                           ? prev.filter(id => !samePlayerId(id, player.id))
                                           : [...prev, player.id]
                                       )}
-                                      className={`w-full px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-left text-[10px] font-bold ${
-                                        isSelected
-                                          ? 'bg-blue-600 text-white ring-2 ring-blue-400'
-                                          : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white/80 hover:bg-slate-200 dark:hover:bg-white/10'
-                                      }`}
+                                      className="absolute flex flex-col items-center gap-0"
+                                      style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
                                     >
-                                      <span className="w-6 h-6 rounded-full flex items-center justify-center bg-[var(--accent)] text-white text-[9px] font-black shrink-0">
-                                        {player.dorsal}
+                                      <span className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[8px] shadow shrink-0 ${isSelected ? 'bg-blue-600 text-white ring-2 ring-blue-300' : 'bg-white text-[#1e8449]'}`}>
+                                        {player.dorsal ?? '-'}
                                       </span>
-                                      <span className="truncate">{player.apodo || player.nombre}</span>
+                                      <span className={`text-[6px] font-bold leading-none text-center whitespace-nowrap drop-shadow-sm ${isSelected ? 'text-blue-300' : 'text-white'}`}>
+                                        {player.apodo || player.nombre}
+                                      </span>
                                     </button>
                                   );
                                 })}
@@ -3813,7 +3924,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                               );
                               return suplentes.length > 0 && (
                                 <div>
-                                  <div className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Suplentes</div>
+                                  <div className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2">Suplentes</div>
                                   <div className="space-y-1.5">
                                     {suplentes.map((player) => {
                                       const isSelected = momentPlayerIds.some(id => samePlayerId(id, player.id));
@@ -3844,47 +3955,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                             })()}
                           </div>
                         )}
-                        <button
-                          onClick={() => setMomentShowDescription(true)}
-                          className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-blue-600/90 hover:bg-blue-600 text-white"
-                        >
-                          {t('common.confirm')}
-                        </button>
                       </div>
-                    ) : (
-                      <div className="mt-6 space-y-4">
-                        <textarea
-                          value={momentNote}
-                          onChange={(e) => setMomentNote(e.target.value)}
-                          placeholder="Descripción (opcional)"
-                          rows={4}
-                          className="w-full rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-2 text-[11px] text-slate-900 dark:text-white/80 placeholder:text-slate-400 dark:placeholder:text-white/30 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                        />
-                        <button
-                          onClick={() => {
-                            const type = momentDialogType;
-                            setMomentDialogType(null);
-                            handleAddEvent(type, {
-                              goalSide: momentSideSelection,
-                              zone: momentZoneSelection,
-                              concepto: momentConceptoSelection || undefined,
-                              playerIds: momentPlayerIds.length > 0 ? momentPlayerIds : undefined,
-                              note: momentNote,
-                            });
-                            flashEventToast(type);
-                            setMomentSideSelection('');
-                            setMomentZoneSelection('');
-                            setMomentConceptoSelection('');
-                            setMomentPlayerIds([]);
-                            setMomentShowDescription(false);
-                            setMomentNote('');
-                          }}
-                          className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-blue-600/90 hover:bg-blue-600 text-white"
-                        >
-                          {t('common.confirm')}
-                        </button>
-                      </div>
-                    )}
+                    </div>
+                      );
+                    })()}
+
                     <button
                       onClick={() => { setMomentDialogType(null); setMomentSideSelection(''); setMomentZoneSelection(''); setMomentConceptoSelection(''); setMomentPlayerIds([]); setMomentShowDescription(false); setMomentNote(''); }}
                       className="mt-4 w-full py-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 font-black text-[9px] uppercase tracking-widest"
@@ -5645,7 +5720,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         {rows.length === 0 ? (
           <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+          <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
             <table className="w-full text-[9px]">
               <thead>
                 <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
@@ -5670,7 +5745,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScrollContainer>
         )}
       </div>
     );
@@ -5708,7 +5783,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   <h3 className="text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400">
                     {formation} — {minutes}' {t('matchReport.playerStats.totalMinutes')}
                   </h3>
-                  <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+                  <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
                     <table className="w-full text-[9px]">
                       <thead>
                         <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
@@ -5727,7 +5802,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </TableScrollContainer>
                 </div>
               ))}
             </div>
@@ -5746,7 +5821,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 {match.localTeam}
               </h3>
               {systemRows.length > 0 ? (
-                <div className="overflow-x-auto rounded-2xl border border-[var(--border-soft)]">
+                <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
                   <table className="w-full text-[9px]">
                     <thead>
                       <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
@@ -5779,7 +5854,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       })}
                     </tbody>
                   </table>
-                </div>
+                </TableScrollContainer>
               ) : (
                 <p className="text-xs font-bold text-[var(--text-muted)] px-3">No hay sistemas registrados</p>
               )}

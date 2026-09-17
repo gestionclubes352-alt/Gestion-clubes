@@ -6,6 +6,7 @@ import type { Jugador } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemsDataSummary from './SystemsDataSummary';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 const getMyTeamName = (): string => {
   try { return getTeamConfig()?.teamName || ''; } catch { return ''; }
@@ -330,7 +331,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
         ) : rows.length === 0 ? (
           <p className="text-xs font-bold text-slate-400">{t('playerStatsSummary.noData')}</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+          <TableScrollContainer className="rounded-2xl border border-slate-100">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 text-slate-400 uppercase text-xs font-black tracking-widest">
@@ -374,7 +375,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScrollContainer>
         )}
       </div>
     </div>

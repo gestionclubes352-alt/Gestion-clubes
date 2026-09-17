@@ -4,6 +4,7 @@ import { db, plantillasService, equiposService, clubesService } from '../../../s
 import { useTranslation } from 'react-i18next';
 import type { Injury, InjurySeverity, InjuryStatus, BodyPart } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 import BodyDiagram from './BodyDiagram';
 
 const severityColor: Record<InjurySeverity, string> = {
@@ -608,7 +609,7 @@ const InjuriesView: React.FC = () => {
 
         {/* Table */}
         <div className="bg-white dark:bg-white/2 border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
+          <TableScrollContainer>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-white/5">
@@ -669,7 +670,7 @@ const InjuriesView: React.FC = () => {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScrollContainer>
         </div>
         {showModal && (
           <InjuryModal

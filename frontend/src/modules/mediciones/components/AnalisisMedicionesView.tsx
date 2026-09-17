@@ -6,6 +6,7 @@ import { plantillasService, equiposService, rpeRespuestasService, wellnessRespue
 import { conZScoresPorTendencia, colorHeat } from '../zscore';
 import { nombreMostrable, type FilaMediciones } from '../types';
 import TendenciaChart, { type SerieTendencia } from './TendenciaChart';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface ColumnaTabla {
   key: keyof FilaMediciones;
@@ -424,7 +425,7 @@ const AnalisisMedicionesView: React.FC = () => {
         <h3 className="text-sm font-black text-[var(--text-strong)] mb-3">
           Respuestas del {fecha ? formatearFecha(fecha) : '—'}
         </h3>
-        <div className="overflow-x-auto">
+        <TableScrollContainer>
           <table className="w-full text-xs border-collapse min-w-[820px]">
             <thead>
               <tr className="border-b border-slate-200">
@@ -489,7 +490,7 @@ const AnalisisMedicionesView: React.FC = () => {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
         <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
           El color compara a cada jugador con <strong>su tendencia reciente</strong> (sus últimas ~10 respuestas), no con el equipo ni con todo su histórico.
           En RPE y cansancio, más bajo de lo habitual en él es mejor (verde). En ánimo, sueño, motivación y wellness, más alto de lo habitual en él es mejor (verde).

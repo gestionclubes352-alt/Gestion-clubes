@@ -15,6 +15,7 @@ import { EnrichedAIService, aiConversationService } from '@shared/services';
 import type { DataSourceOrigin, ConversationMeta, StoredMessage } from '@shared/services';
 import { useDataSource, useAuth, useTeam } from '@context/index';
 import type { AIChatMessage } from '../types';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 // ============================================================================
 // TIPOS LOCALES
@@ -149,9 +150,9 @@ const markdownComponents: Record<string, React.FC<any>> = {
     </blockquote>
   ),
   table: ({ children }: any) => (
-    <div className="overflow-x-auto my-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <TableScrollContainer className="my-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
       <table className="w-full text-sm">{children}</table>
-    </div>
+    </TableScrollContainer>
   ),
   thead: ({ children }: any) => (
     <thead className="bg-slate-50 dark:bg-slate-800/80">{children}</thead>

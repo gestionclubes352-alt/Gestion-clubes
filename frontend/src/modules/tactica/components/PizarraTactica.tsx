@@ -16,37 +16,38 @@ import completoImage from '@modules/pintado-acciones/assets/campos/ataque/campo.
 import { useDrawingTools } from '../hooks/useDrawingTools';
 import { DrawingShapes } from './DrawingShapes';
 
+// Campo horizontal: x = eje portería-portería (8 = portería propia), y = banda a banda.
 const FORMATIONS: Record<string, { x: number; y: number }[]> = {
   '1-3-4-3': [
-    { x: 50, y: 92 },
-    { x: 75, y: 80 }, { x: 50, y: 80 }, { x: 25, y: 80 },
-    { x: 82, y: 68 }, { x: 62, y: 66 }, { x: 38, y: 66 }, { x: 18, y: 68 },
-    { x: 78, y: 48 }, { x: 50, y: 45 }, { x: 22, y: 48 },
+    { x: 8, y: 50 },
+    { x: 20, y: 75 }, { x: 20, y: 50 }, { x: 20, y: 25 },
+    { x: 32, y: 82 }, { x: 34, y: 62 }, { x: 34, y: 38 }, { x: 32, y: 18 },
+    { x: 52, y: 78 }, { x: 55, y: 50 }, { x: 52, y: 22 },
   ],
   '1-4-4-2': [
-    { x: 50, y: 92 },
-    { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
-    { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 }, { x: 18, y: 68 },
-    { x: 38, y: 52 }, { x: 62, y: 52 },
+    { x: 8, y: 50 },
+    { x: 20, y: 82 }, { x: 20, y: 18 }, { x: 18, y: 38 }, { x: 18, y: 62 },
+    { x: 34, y: 50 }, { x: 32, y: 82 }, { x: 32, y: 30 }, { x: 32, y: 18 },
+    { x: 48, y: 38 }, { x: 48, y: 62 },
   ],
   '1-4-3-3': [
-    { x: 50, y: 92 },
-    { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
-    { x: 50, y: 66 }, { x: 82, y: 68 }, { x: 30, y: 68 },
-    { x: 38, y: 48 }, { x: 62, y: 48 }, { x: 18, y: 68 },
+    { x: 8, y: 50 },
+    { x: 20, y: 82 }, { x: 20, y: 18 }, { x: 18, y: 38 }, { x: 18, y: 62 },
+    { x: 34, y: 50 }, { x: 32, y: 82 }, { x: 32, y: 30 },
+    { x: 52, y: 38 }, { x: 52, y: 62 }, { x: 32, y: 18 },
   ],
   '1-4-2-3-1': [
-    { x: 50, y: 92 },
-    { x: 82, y: 80 }, { x: 18, y: 80 }, { x: 38, y: 82 }, { x: 62, y: 82 },
-    { x: 38, y: 73 }, { x: 62, y: 73 },
-    { x: 82, y: 60 }, { x: 50, y: 58 }, { x: 20, y: 60 },
-    { x: 50, y: 42 },
+    { x: 8, y: 50 },
+    { x: 20, y: 82 }, { x: 20, y: 18 }, { x: 18, y: 38 }, { x: 18, y: 62 },
+    { x: 27, y: 38 }, { x: 27, y: 62 },
+    { x: 40, y: 82 }, { x: 42, y: 50 }, { x: 40, y: 20 },
+    { x: 58, y: 50 },
   ],
   '1-5-3-2': [
-    { x: 50, y: 92 },
-    { x: 88, y: 80 }, { x: 12, y: 80 }, { x: 30, y: 84 }, { x: 70, y: 84 }, { x: 50, y: 86 },
-    { x: 50, y: 66 }, { x: 72, y: 66 }, { x: 28, y: 66 },
-    { x: 38, y: 48 }, { x: 62, y: 48 },
+    { x: 8, y: 50 },
+    { x: 20, y: 88 }, { x: 20, y: 12 }, { x: 16, y: 30 }, { x: 16, y: 70 }, { x: 14, y: 50 },
+    { x: 34, y: 50 }, { x: 34, y: 72 }, { x: 34, y: 28 },
+    { x: 52, y: 38 }, { x: 52, y: 62 },
   ],
 };
 
@@ -207,7 +208,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [is3DView, setIs3DView] = useState(false);
-  const [ballFrames, setBallFrames] = useState<Ball[]>([{ x: 50, y: 75 }]);
+  const [ballFrames, setBallFrames] = useState<Ball[]>([{ x: 50, y: 50 }]);
   const [draggingBall, setDraggingBall] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const frameDurationMs = FRAME_DURATION_MS / playbackSpeed;
@@ -407,7 +408,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   }, [selectedArrowId, drawingTools.state.selectedShapeId, drawingTools]);
 
   const pitchPlayers = frames[currentFrameIndex] ?? [];
-  const ball = ballFrames[currentFrameIndex] ?? { x: 50, y: 75 };
+  const ball = ballFrames[currentFrameIndex] ?? { x: 50, y: 50 };
   const updatePitchPlayers = (updater: PitchPlayer[] | ((prev: PitchPlayer[]) => PitchPlayer[])) => {
     let next: PitchPlayer[][] = frames;
     setFrames(prev => {
@@ -564,8 +565,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       id: `${team}-${index}`,
       number: index + 1,
       team,
-      x: pos.x,
-      y: team === 'rival' ? 100 - pos.y : pos.y,
+      x: team === 'rival' ? 100 - pos.x : pos.x,
+      y: pos.y,
       color: index === 0 ? keeperColor : baseColor,
     }));
   }, [myTeamColor, rivalTeamColor]);
@@ -578,7 +579,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const myTeam = buildTeamPlayers(myFormation, 'my');
     const rivalTeam = buildTeamPlayers(rivalFormation, 'rival');
     setFrames([[...myTeam, ...rivalTeam]]);
-    setBallFrames([{ x: 50, y: 75 }]);
+    setBallFrames([{ x: 50, y: 50 }]);
     setArrowFrames([[]]);
     setShapeFrames([[]]);
     setCurrentFrameIndex(0);
@@ -620,8 +621,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const pitchFrameSize = useMemo(() => {
     if (!pitchStageSize.width || !pitchStageSize.height) return null;
 
-    const horizontalPadding = is3DView ? 34 : 18;
-    const verticalPadding = is3DView ? 28 : 18;
+    const horizontalPadding = is3DView ? 34 : 8;
+    const verticalPadding = is3DView ? 28 : 8;
     const availableWidth = Math.max(260, pitchStageSize.width - horizontalPadding);
     const availableHeight = Math.max(220, pitchStageSize.height - verticalPadding);
 
@@ -1358,7 +1359,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
     const { nombre, carpetaId } = newBoardModal;
 
     const newFrames = [[...buildTeamPlayers(myFormation, 'my'), ...buildTeamPlayers(rivalFormation, 'rival')]];
-    const newBallFrames = [{ x: 50, y: 75 }];
+    const newBallFrames = [{ x: 50, y: 50 }];
     const newArrowFrames = [[]];
     const newShapeFrames = [[]];
     const datos = {
@@ -1505,7 +1506,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       setBallFrames(datos.ballFrames);
     } else {
       const frameCount = Array.isArray(datos.frames) && datos.frames.length ? datos.frames.length : 1;
-      const fallbackBall = datos.ball ?? { x: 50, y: 75 };
+      const fallbackBall = datos.ball ?? { x: 50, y: 50 };
       setBallFrames(Array.from({ length: frameCount }, () => ({ ...fallbackBall })));
     }
     if ((datos.myFormation && datos.myFormation !== myFormation) || (datos.rivalFormation && datos.rivalFormation !== rivalFormation)) {
@@ -2412,7 +2413,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             onClick={() => {
               const newIndex = frames.length;
               setFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(p => ({ ...p }))]);
-              setBallFrames(prev => [...prev, { ...(prev[currentFrameIndex] ?? { x: 50, y: 75 }) }]);
+              setBallFrames(prev => [...prev, { ...(prev[currentFrameIndex] ?? { x: 50, y: 50 }) }]);
               setArrowFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(a => ({ ...a }))]);
               setShapeFrames(prev => [...prev, (prev[currentFrameIndex] ?? []).map(s => JSON.parse(JSON.stringify(s)))]);
               setCurrentFrameIndex(newIndex);
@@ -2682,14 +2683,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 px-4 py-3 md:px-5 flex flex-col">
+        <div className="min-h-0 flex-1 px-2 py-2 md:px-3 flex flex-col">
           <div className="grid h-full min-h-0 grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section
               ref={pitchStageRef}
-              className={`min-h-0 transition-colors duration-500 ${
-                is3DView
-                  ? 'flex items-center justify-center overflow-hidden bg-[#07140d] px-0 py-2'
-                  : 'flex items-center justify-center overflow-hidden p-2'
+              className={`min-h-0 transition-colors duration-500 flex items-center justify-center ${
+                is3DView ? 'overflow-hidden bg-[#07140d] px-0 py-1' : 'overflow-hidden p-1'
               }`}
               style={is3DView ? { perspective: '1400px', perspectiveOrigin: '50% 28%' } : undefined}
             >
@@ -2702,8 +2701,8 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                 }`}
                 style={{
                   ...FIELD_BACKGROUND,
-                  width: pitchFrameSize?.width ?? (is3DView ? '100%' : '100%'),
-                  height: pitchFrameSize?.height ?? '100%',
+                  width: pitchFrameSize?.width ?? '100%',
+                  height: pitchFrameSize ? pitchFrameSize.height : 'auto',
                   maxWidth: is3DView ? 'none' : '100%',
                   maxHeight: is3DView ? 'none' : '100%',
                   aspectRatio: '105 / 68',
@@ -2738,22 +2737,22 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   style={is3DView ? { transform: 'translateZ(5px)' } : undefined}
                 >
                   <g fill="none" stroke="#ffffff" strokeOpacity="0.95" strokeWidth="0.16">
-                    <rect x="2.73" y="1.77" width="99.54" height="64.46" rx="1" />
-                    <line x1="2.73" y1="34" x2="102.27" y2="34" />
+                    <rect x="1.77" y="2.73" width="101.46" height="62.54" rx="1" />
+                    <line x1="52.5" y1="2.73" x2="52.5" y2="65.27" />
                     <circle cx="52.5" cy="34" r="7.82" />
                     <circle cx="52.5" cy="34" r="0.26" fill="#ffffff" stroke="none" />
-                    <circle cx="52.5" cy="8.16" r="0.26" fill="#ffffff" stroke="none" />
-                    <circle cx="52.5" cy="59.84" r="0.26" fill="#ffffff" stroke="none" />
+                    <circle cx="12.77" cy="34" r="0.26" fill="#ffffff" stroke="none" />
+                    <circle cx="92.23" cy="34" r="0.26" fill="#ffffff" stroke="none" />
                     {campoTipo !== 'defensa' && (
                       <>
-                        <rect x="38.85" y="1.77" width="27.3" height="7.82" />
-                        <rect x="28.35" y="1.77" width="48.3" height="13.94" />
+                        <rect x="1.77" y="24.84" width="5.5" height="18.32" />
+                        <rect x="1.77" y="13.84" width="16.5" height="40.32" />
                       </>
                     )}
                     {campoTipo !== 'ataque' && (
                       <>
-                        <rect x="38.85" y="58.41" width="27.3" height="7.82" />
-                        <rect x="28.35" y="52.29" width="48.3" height="13.94" />
+                        <rect x="97.73" y="24.84" width="5.5" height="18.32" />
+                        <rect x="86.73" y="13.84" width="16.5" height="40.32" />
                       </>
                     )}
                   </g>
@@ -3079,7 +3078,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
               </div>
             </section>
 
-            <aside className={`${mobileAssignPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden'} min-h-0 xl:flex xl:static xl:z-auto xl:flex-col xl:border-l xl:border-slate-200 bg-[#f8f9fa] dark:xl:border-white/10 dark:bg-[#121212]`}>
+            <aside className={`${mobileAssignPanelOpen ? 'flex fixed inset-0 z-60 w-full' : 'hidden xl:flex'} min-h-0 xl:static xl:z-auto xl:flex-col xl:border-l xl:border-slate-200 bg-[#f8f9fa] dark:xl:border-white/10 dark:bg-[#121212]`}>
               <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10 xl:hidden">
                 <button
                   type="button"

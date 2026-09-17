@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import type { MatchReport, VideoEvent, Match } from '@modules/partidos';
 import { containsTeamWords } from '@modules/partidos/utils/teamResolution';
 import type { Jugador } from '@shared/services/dataService';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { useTranslation } from 'react-i18next';
 
 interface VideotecaEventsTableProps {
@@ -195,7 +196,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+      <TableScrollContainer className="border border-slate-200 dark:border-slate-700 rounded-lg">
         <table className="w-full text-[9px]">
           <thead className="bg-slate-100 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
             <tr>
@@ -315,7 +316,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
             })}
           </tbody>
         </table>
-      </div>
+      </TableScrollContainer>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">

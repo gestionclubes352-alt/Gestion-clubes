@@ -37,6 +37,14 @@ const EditJugadorResiModal: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    if (name === 'numero_habitacion') {
+      setFormData(prev => ({ ...prev, numero_habitacion: value ? (Number(value) as 1 | 2 | 3) : undefined }));
+      return;
+    }
+    if (name === 'habitacion_id') {
+      setFormData(prev => ({ ...prev, habitacion_id: value, numero_habitacion: value ? prev.numero_habitacion : undefined }));
+      return;
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -99,19 +107,36 @@ const EditJugadorResiModal: React.FC<{
               <p className="text-sm font-bold text-slate-700">{calcularAnyos(jugador?.fecha_nacimiento) ?? '—'}</p>
             </div>
           </div>
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Habitación</label>
-            <select
-              name="habitacion_id"
-              value={formData.habitacion_id ?? ''}
-              onChange={handleChange}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-            >
-              <option value="">Sin asignar</option>
-              {habitaciones.map(h => (
-                <option key={h.id} value={h.id}>{h.nombre}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Apartamento</label>
+              <select
+                name="habitacion_id"
+                value={formData.habitacion_id ?? ''}
+                onChange={handleChange}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+              >
+                <option value="">Sin asignar</option>
+                {habitaciones.map(h => (
+                  <option key={h.id} value={h.id}>{h.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Habitación</label>
+              <select
+                name="numero_habitacion"
+                value={formData.numero_habitacion ?? ''}
+                onChange={handleChange}
+                disabled={!formData.habitacion_id}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+              >
+                <option value="">Sin asignar</option>
+                <option value="1">Habitación 1</option>
+                <option value="2">Habitación 2</option>
+                <option value="3">Habitación 3</option>
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -196,6 +221,9 @@ const JugadoresResiView: React.FC = () => {
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filtroEquipo, setFiltroEquipo] = useState('');
+  const [filtroHabitacion, setFiltroHabitacion] = useState('');
+  const [filtroPlanta, setFiltroPlanta] = useState('');
   const [editingJugador, setEditingJugador] = useState<Jugador | null>(null);
   const [qrJugador, setQrJugador] = useState<Jugador | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -248,19 +276,61 @@ const JugadoresResiView: React.FC = () => {
   const getHabitacionNombre = (id?: string | null) => habitaciones.find(h => h.id === id)?.nombre || 'Sin asignar';
   const getEquipoNombre = (id?: string | null) => equipos.find(e => e.id === id)?.nombre || '—';
 
+  const equiposConResidentes = useMemo(() => {
+    const idsUsados = new Set(jugadores.map(j => String(j.equipo_id)));
+    return equipos
+      .filter(eq => idsUsados.has(String(eq.id)))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [jugadores, equipos]);
+
+  const habitacionesConResidentes = useMemo(() => {
+    const idsUsadas = new Set(registros.map(r => r.habitacion_id).filter(Boolean));
+    return habitaciones
+      .filter(h => idsUsadas.has(h.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [registros, habitaciones]);
+
+  const plantasConResidentes = useMemo(() => {
+    const idsUsadas = new Set(registros.map(r => r.habitacion_id).filter(Boolean));
+    const plantas = new Set(
+      habitaciones.filter(h => idsUsadas.has(h.id)).map(h => h.planta).filter((p): p is string => !!p)
+    );
+    return Array.from(plantas).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [registros, habitaciones]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = !q ? jugadores : jugadores.filter(j =>
-      j.nombre.toLowerCase().includes(q) ||
-      getHabitacionNombre(getRegistro(j.id)?.habitacion_id).toLowerCase().includes(q)
-    );
+    let list = jugadores;
+    if (q) {
+      list = list.filter(j =>
+        j.nombre.toLowerCase().includes(q) ||
+        getHabitacionNombre(getRegistro(j.id)?.habitacion_id).toLowerCase().includes(q)
+      );
+    }
+    if (filtroEquipo) {
+      list = list.filter(j => String(j.equipo_id) === filtroEquipo);
+    }
+    if (filtroPlanta) {
+      list = list.filter(j => {
+        const habitacionId = getRegistro(j.id)?.habitacion_id;
+        const planta = habitaciones.find(h => h.id === habitacionId)?.planta;
+        return planta === filtroPlanta;
+      });
+    }
+    if (filtroHabitacion) {
+      list = list.filter(j => {
+        const habitacionId = getRegistro(j.id)?.habitacion_id;
+        return filtroHabitacion === 'sin_asignar' ? !habitacionId : habitacionId === filtroHabitacion;
+      });
+    }
     return [...list].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [jugadores, registros, habitaciones, search]);
+  }, [jugadores, registros, habitaciones, search, filtroEquipo, filtroPlanta, filtroHabitacion]);
 
   const handleSave = async (data: ResidenciaJugadorFormData) => {
     if (data.id) {
       await residenciaJugadoresService.update(data.id, {
         habitacion_id: data.habitacion_id || null,
+        numero_habitacion: data.habitacion_id ? (data.numero_habitacion ?? null) : null,
         fecha_entrada: data.fecha_entrada || null,
         fecha_salida: data.fecha_salida || null,
         notas: data.notas,
@@ -270,6 +340,7 @@ const JugadoresResiView: React.FC = () => {
         club_id: perfil?.club_id,
         jugador_id: data.jugador_id,
         habitacion_id: data.habitacion_id || null,
+        numero_habitacion: data.habitacion_id ? (data.numero_habitacion ?? null) : null,
         fecha_entrada: data.fecha_entrada || null,
         fecha_salida: data.fecha_salida || null,
         notas: data.notas,
@@ -306,7 +377,7 @@ const JugadoresResiView: React.FC = () => {
         <div className="flex-1 flex justify-end" />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
           <input
@@ -317,6 +388,37 @@ const JugadoresResiView: React.FC = () => {
             className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
           />
         </div>
+        <select
+          value={filtroEquipo}
+          onChange={e => setFiltroEquipo(e.target.value)}
+          className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+        >
+          <option value="">Todos los equipos</option>
+          {equiposConResidentes.map(eq => (
+            <option key={eq.id} value={String(eq.id)}>{eq.nombre}</option>
+          ))}
+        </select>
+        <select
+          value={filtroPlanta}
+          onChange={e => setFiltroPlanta(e.target.value)}
+          className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+        >
+          <option value="">Todas las plantas</option>
+          {plantasConResidentes.map(p => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+        <select
+          value={filtroHabitacion}
+          onChange={e => setFiltroHabitacion(e.target.value)}
+          className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+        >
+          <option value="">Todas las habitaciones</option>
+          {habitacionesConResidentes.map(h => (
+            <option key={h.id} value={h.id}>{h.nombre}</option>
+          ))}
+          <option value="sin_asignar">Sin asignar</option>
+        </select>
       </div>
 
       {error && (
@@ -359,6 +461,7 @@ const JugadoresResiView: React.FC = () => {
                   <span className="text-sm text-slate-600 flex items-center gap-2 truncate">
                     <i className="fa-solid fa-bed text-slate-400"></i>
                     {getHabitacionNombre(registro?.habitacion_id)}
+                    {registro?.numero_habitacion ? ` · Hab. ${registro.numero_habitacion}` : ''}
                   </span>
                   <span className="text-xs text-slate-400">
                     {registro?.fecha_entrada || registro?.fecha_salida

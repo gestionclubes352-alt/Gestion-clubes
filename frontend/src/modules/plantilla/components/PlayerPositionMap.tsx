@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Match, MatchReport } from '@modules/partidos/types';
 import { db } from '@shared/services/dataService';
 import { MATCH_DURATION_MINUTES } from '../../partidos/components/PlayerStatsSummary';
+import TableScrollContainer from '@shared/components/TableScrollContainer';
 
 interface PlayerPositionMapProps {
   playerId: string;
@@ -213,7 +214,7 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
         ))}
       </div>
 
-      <div className="mt-3 overflow-x-auto">
+      <TableScrollContainer className="mt-3">
         <table className="w-full text-[9px] text-slate-300">
           <thead>
             <tr className="uppercase text-slate-500 font-black tracking-widest text-[8px]">
@@ -236,7 +237,7 @@ const PlayerPositionMap: React.FC<PlayerPositionMapProps> = ({ playerId, playerN
             ))}
           </tbody>
         </table>
-      </div>
+      </TableScrollContainer>
     </div>
   );
 };
