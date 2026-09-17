@@ -69,6 +69,59 @@ const Semaforo: React.FC<{
   );
 };
 
+const EstadoDropdown: React.FC<{
+  opciones: { value: string; label: string; color: string }[];
+  activeValue: string;
+  onSelect: (value: string) => void;
+}> = ({ opciones, activeValue, onSelect }) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const actual = opciones.find(o => o.value === activeValue) ?? opciones[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(prev => !prev)}
+        title={actual.label}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:border-[var(--accent)] transition-colors"
+      >
+        <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: actual.color }} />
+        <i className={`fa-solid fa-chevron-down text-[9px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}></i>
+      </button>
+      {open && (
+        <div className="absolute z-10 mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden min-w-[10rem]">
+          {opciones.map(({ value, label, color }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                onSelect(value);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 ${value === activeValue ? 'bg-slate-50' : ''}`}
+            >
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EstadoZonaComunSelect: React.FC<{
   value: 'buenas_condiciones' | 'desordenado' | 'sucio';
   onChange: (value: 'buenas_condiciones' | 'desordenado' | 'sucio') => void;
@@ -576,12 +629,16 @@ const HabitacionesView: React.FC = () => {
   }, [jugadoresResidentes, registros]);
 
   const handleAsignarResidente = async (jugadorId: string, numeroHabitacion: 1 | 2 | 3, habitacionId: string) => {
-    const registroExistente = registros.find(r => String(r.jugador_id) === String(jugadorId) && !r.fecha_salida);
-    if (registroExistente) {
-      await residenciaJugadoresService.update(registroExistente.id, {
+    const registrosExistentes = registros.filter(r => String(r.jugador_id) === String(jugadorId) && !r.fecha_salida);
+    const [registroPrincipal, ...duplicados] = registrosExistentes;
+    if (registroPrincipal) {
+      await residenciaJugadoresService.update(registroPrincipal.id, {
         habitacion_id: habitacionId,
         numero_habitacion: numeroHabitacion,
       } as any);
+      await Promise.all(
+        duplicados.map(r => residenciaJugadoresService.update(r.id, { habitacion_id: null, numero_habitacion: null } as any))
+      );
     } else {
       await residenciaJugadoresService.create({
         club_id: perfil?.club_id,
@@ -687,7 +744,7 @@ const HabitacionesView: React.FC = () => {
           />
         </div>
         <button
-          onClick={() => setVista(prev => (prev === 'lista' ? 'estado' : 'lista'))}
+          onClick={() => setVista('estado')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${
             vista === 'estado'
               ? 'bg-[var(--accent)] text-white'
@@ -695,7 +752,18 @@ const HabitacionesView: React.FC = () => {
           }`}
         >
           <i className="fa-solid fa-clipboard-check text-xs"></i>
-          {vista === 'estado' ? 'Ver Listado' : 'Estado'}
+          Estado
+        </button>
+        <button
+          onClick={() => setVista('lista')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${
+            vista === 'lista'
+              ? 'bg-[var(--accent)] text-white'
+              : 'bg-white border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/5'
+          }`}
+        >
+          <i className="fa-solid fa-list text-xs"></i>
+          Listado
         </button>
         <button
           onClick={() => setIsAsignando(true)}
@@ -794,31 +862,20 @@ const HabitacionesView: React.FC = () => {
               >
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <span
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap"
-                    style={{ backgroundColor: `${estadoInfo.color}22`, color: estadoInfo.color }}
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500"
                   >
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: estadoInfo.color }} />
                     Estado apartamento{h.incidencia ? `: ${h.incidencia}` : ''}
                   </span>
                   <span
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap"
-                    style={{ backgroundColor: `${zonaInfo.color}22`, color: zonaInfo.color }}
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500"
                   >
-                    <i className="fa-solid fa-couch text-[8px]"></i>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: zonaInfo.color }} />
                     Estado zonas comunes: {zonaInfo.label}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter">{h.nombre}</h3>
-                  {h.incidencia && (
-                    <p
-                      className="text-xs mt-1 font-semibold"
-                      style={{ color: estadoInfo.color }}
-                    >
-                      <i className="fa-solid fa-triangle-exclamation mr-1"></i>
-                      {h.incidencia}
-                    </p>
-                  )}
 
                   <div className="mt-2 space-y-1.5">
                     {([1, 2, 3] as const).map(numero => {
@@ -845,12 +902,12 @@ const HabitacionesView: React.FC = () => {
                                         <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
                                       </div>
                                     )}
-                                    <span className="text-sm text-slate-600">{j.nombre}</span>
+                                    <span className="text-xs text-slate-600">{j.nombre}</span>
                                     <span
                                       className="w-2 h-2 rounded-full flex-shrink-0"
                                       style={{ backgroundColor: residenteEstado.color }}
                                     />
-                                    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: residenteEstado.color }}>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                                       {residenteEstado.label}
                                     </span>
                                   </div>
@@ -893,14 +950,13 @@ const HabitacionesView: React.FC = () => {
                         <i className="fa-solid fa-bed text-[var(--accent)]"></i>
                         Estado apartamento
                       </h4>
-                      <Semaforo
+                      <EstadoDropdown
                         opciones={estadosHabitacion}
                         activeValue={h.estado ?? 'verde'}
                         onSelect={value => {
                           setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, estado: value as 'verde' | 'naranja' | 'rojo' } : hab)));
                           residenciaHabitacionesService.update(h.id, { estado: value } as any);
                         }}
-                        editable
                       />
                     </div>
 
@@ -909,14 +965,13 @@ const HabitacionesView: React.FC = () => {
                         <i className="fa-solid fa-couch text-[var(--accent)]"></i>
                         Zona común
                       </h4>
-                      <Semaforo
+                      <EstadoDropdown
                         opciones={estadosZonaComun}
                         activeValue={h.zona_comun_estado ?? 'buenas_condiciones'}
                         onSelect={value => {
                           setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, zona_comun_estado: value as 'buenas_condiciones' | 'desordenado' | 'sucio' } : hab)));
                           residenciaHabitacionesService.update(h.id, { zona_comun_estado: value } as any);
                         }}
-                        editable
                       />
                     </div>
 
