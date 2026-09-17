@@ -4,7 +4,7 @@ import { residenciaComidasService } from '@shared/services';
 import { useAuth } from '@context/AuthContext';
 import type { ResidenciaComidaFormData } from '../types';
 
-const TURNOS = ['Desayuno', 'Comida', 'Merienda', 'Cena'];
+const TURNOS = ['Desayuno', 'Comida', 'Cena'];
 
 const EditComidaModal: React.FC<{
   comida?: ResidenciaComidaFormData | null;

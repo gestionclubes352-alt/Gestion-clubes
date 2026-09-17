@@ -208,6 +208,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [is3DView, setIs3DView] = useState(false);
+  const [isHorizontalView, setIsHorizontalView] = useState(false);
   const [ballFrames, setBallFrames] = useState<Ball[]>([{ x: 50, y: 50 }]);
   const [draggingBall, setDraggingBall] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
@@ -623,8 +624,12 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
 
     const horizontalPadding = is3DView ? 34 : 8;
     const verticalPadding = is3DView ? 28 : 8;
-    const availableWidth = Math.max(260, pitchStageSize.width - horizontalPadding);
-    const availableHeight = Math.max(220, pitchStageSize.height - verticalPadding);
+    // En vista horizontal el campo se rota 90°, así que el hueco disponible
+    // para su ancho/alto real se toma del alto/ancho del contenedor.
+    const rawAvailableWidth = isHorizontalView ? pitchStageSize.height : pitchStageSize.width;
+    const rawAvailableHeight = isHorizontalView ? pitchStageSize.width : pitchStageSize.height;
+    const availableWidth = Math.max(260, rawAvailableWidth - horizontalPadding);
+    const availableHeight = Math.max(220, rawAvailableHeight - verticalPadding);
 
     if (is3DView) {
       const projectedHeightFactor = 0.74;
@@ -641,7 +646,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
       width: `${Math.round(width)}px`,
       height: `${Math.round(width / PITCH_ASPECT)}px`,
     };
-  }, [is3DView, pitchStageSize.height, pitchStageSize.width]);
+  }, [is3DView, isHorizontalView, pitchStageSize.height, pitchStageSize.width]);
 
   const rectIntersects = useCallback(
     (a: { left: number; right: number; top: number; bottom: number }, b: { left: number; right: number; top: number; bottom: number }) =>
@@ -2514,6 +2519,20 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <i className="fa-solid fa-cube text-[12px]" />
             3D
           </button>
+          <button
+            type="button"
+            onClick={() => setIsHorizontalView(value => !value)}
+            className={`flex h-8 shrink-0 items-center gap-2 rounded-md border px-3 text-[12px] font-black uppercase tracking-[0.12em] transition-all ${
+              isHorizontalView
+                ? 'border-sky-400/30 bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-[#1a1a1a] dark:text-slate-300 dark:hover:bg-white/5'
+            }`}
+            title={isHorizontalView ? 'Volver a vista vertical' : 'Ver el campo en horizontal (porterías a los lados)'}
+            aria-pressed={isHorizontalView}
+          >
+            <i className="fa-solid fa-rotate text-[12px]" />
+            {isHorizontalView ? 'VERTICAL' : 'HORIZONTAL'}
+          </button>
           <div className="ml-1 flex shrink-0 items-center gap-2 border-l border-slate-200 pl-3 dark:border-white/10">
             <button
               type="button"
@@ -2688,10 +2707,25 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
             <section
               ref={pitchStageRef}
               className={`min-h-0 transition-colors duration-500 flex items-center justify-center ${
-                is3DView ? 'overflow-hidden bg-[#07140d] px-0 py-1' : 'overflow-hidden p-1'
+                is3DView
+                  ? 'overflow-hidden bg-[#07140d] px-0 py-1'
+                  : isHorizontalView
+                    ? 'overflow-visible p-1'
+                    : 'overflow-hidden p-1'
               }`}
               style={is3DView ? { perspective: '1400px', perspectiveOrigin: '50% 28%' } : undefined}
             >
+              <div
+                style={
+                  isHorizontalView && !is3DView
+                    ? {
+                        position: 'relative',
+                        width: pitchFrameSize?.height ?? '100%',
+                        height: pitchFrameSize?.width ?? '100%',
+                      }
+                    : undefined
+                }
+              >
               <div
                 ref={pitchRef}
                 className={`relative rounded-[14px] border transition-all duration-500 ease-out dark:border-white/10 ${
@@ -2706,7 +2740,14 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                   maxWidth: is3DView ? 'none' : '100%',
                   maxHeight: is3DView ? 'none' : '100%',
                   aspectRatio: '105 / 68',
-                  transform: is3DView ? 'translateY(-7%) rotateX(42deg) scale(1)' : 'none',
+                  ...(isHorizontalView && !is3DView
+                    ? { position: 'absolute', top: '50%', left: '50%' }
+                    : undefined),
+                  transform: is3DView
+                    ? 'translateY(-7%) rotateX(42deg) scale(1)'
+                    : isHorizontalView
+                      ? 'translate(-50%, -50%) rotate(-90deg)'
+                      : 'none',
                   transformOrigin: '50% 50%',
                   transformStyle: 'preserve-3d',
                 }}
@@ -2951,7 +2992,9 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                         top: `${player.y}%`,
                         transform: is3DView
                           ? `translate(-50%, -50%) rotate(${player.rotation ?? 0}deg) translateZ(${PITCH_PLAYER_3D_LIFT_PX}px)`
-                          : `translate(-50%, -50%) rotate(${player.rotation ?? 0}deg)`,
+                          : isHorizontalView
+                            ? `translate(-50%, -50%) rotate(${(player.rotation ?? 0) + 90}deg)`
+                            : `translate(-50%, -50%) rotate(${player.rotation ?? 0}deg)`,
                         transformStyle: 'preserve-3d',
                         cursor: isPlaying ? 'default' : isDragging ? 'grabbing' : 'grab',
                         touchAction: 'none',
@@ -3075,6 +3118,7 @@ const PizarraTactica: React.FC<PizarraTacticaProps> = ({ ownClubId }) => {
                     }}
                   />
                 )}
+              </div>
               </div>
             </section>
 

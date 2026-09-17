@@ -81,8 +81,8 @@ import { InstalacionesView } from '@modules/instalaciones';
 
 // Modules - Residencia
 import {
-  HabitacionesView, JugadoresResiView, ComidasView,
-  ComedorFichajeView, ComedorLandingView, ComedorAccesosView, ComedorQrImprimirView,
+  HabitacionesView, JugadoresResiView, ComedorView,
+  ComedorFichajeView, ComedorLandingView, ComedorQrImprimirView,
 } from '@modules/residencia';
 
 // Modules - Mediciones
@@ -139,7 +139,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
   '/residencia/jugadores': 'RESI_JUGADORES',
   '/residencia/habitaciones': 'RESI_HABITACIONES',
   '/residencia/estado-habitaciones': 'RESI_ESTADO_HABITACIONES',
-  '/residencia/comidas': 'RESI_COMIDAS',
+  '/residencia/comidas': 'RESI_COMEDOR',
   '/residencia/comedor': 'RESI_COMEDOR',
   '/mediciones/registro': 'MEDICIONES_REGISTRO',
   '/mediciones/analisis': 'MEDICIONES_ANALISIS',
@@ -174,7 +174,6 @@ const SECTION_TO_ROUTE: Record<string, string> = {
   'RESI_JUGADORES': '/residencia/jugadores',
   'RESI_HABITACIONES': '/residencia/habitaciones',
   'RESI_ESTADO_HABITACIONES': '/residencia/estado-habitaciones',
-  'RESI_COMIDAS': '/residencia/comidas',
   'RESI_COMEDOR': '/residencia/comedor',
   'MEDICIONES_REGISTRO': '/mediciones/registro',
   'MEDICIONES_ANALISIS': '/mediciones/analisis',
@@ -1804,8 +1803,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
               <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
               <Route path="/residencia/estado-habitaciones" element={<HabitacionesView />} />
-              <Route path="/residencia/comidas" element={<ComidasView />} />
-              <Route path="/residencia/comedor" element={<ComedorAccesosView />} />
+              <Route path="/residencia/comidas" element={<ComedorView />} />
+              <Route path="/residencia/comedor" element={<ComedorView />} />
               <Route path="/residencia/comedor/qr" element={<ComedorQrImprimirView />} />
               <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
               <Route path="/mediciones/analisis" element={<AnalisisMedicionesView />} />

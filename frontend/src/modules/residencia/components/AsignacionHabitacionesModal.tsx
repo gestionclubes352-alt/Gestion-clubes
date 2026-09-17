@@ -169,13 +169,15 @@ const AsignacionHabitacionesModal: React.FC<AsignacionHabitacionesModalProps> = 
                 ))
               )}
             </div>
-            <p className="text-[10px] text-slate-400 italic">
-              <i className="fa-solid fa-hand-pointer mr-1"></i>
-              Arrastra un jugador hasta un hueco de habitación
-            </p>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            {habitacionesOrdenadas.length > 0 && (
+              <p className="text-xs text-slate-400 italic mb-3 flex items-center gap-1.5">
+                <i className="fa-solid fa-hand-pointer"></i>
+                Arrastra los jugadores del listado a los apartamentos
+              </p>
+            )}
             {habitacionesOrdenadas.length === 0 ? (
               <div className="text-center py-12 text-slate-500">
                 <i className="fa-solid fa-bed text-4xl text-slate-300 mb-4 block"></i>
@@ -209,7 +211,7 @@ const AsignacionHabitacionesModal: React.FC<AsignacionHabitacionesModalProps> = 
                               isDragOver ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-transparent'
                             }`}
                           >
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Habitación {numero}</p>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Habitación {numero}</p>
                             {isBusy ? (
                               <div className="flex items-center justify-center py-3">
                                 <i className="fa-solid fa-spinner animate-spin text-[var(--accent)]"></i>

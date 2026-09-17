@@ -9,7 +9,7 @@ import { DEFAULT_VISIBLE_MENU_SET, DEFAULT_VISIBLE_SECTIONS_SET } from '../../co
 import { useAuth } from '@context/AuthContext';
 
 /** Únicos ítems/secciones que puede ver el rol Jugador, sin importar la config de deploy. */
-const JUGADOR_ALLOWED_MENU_IDS = new Set(['CALENDARIO', 'PLANTILLAS', 'MEDICIONES_ANALISIS', 'VIDEOTECA', 'COMPETICIÓN', 'RESI_COMIDAS']);
+const JUGADOR_ALLOWED_MENU_IDS = new Set(['CALENDARIO', 'PLANTILLAS', 'MEDICIONES_ANALISIS', 'VIDEOTECA', 'COMPETICIÓN', 'RESI_COMEDOR']);
 const JUGADOR_ALLOWED_SECTIONS = new Set(['general', 'management', 'medical', 'planning', 'residencia']);
 
 const STORAGE_KEY = 'menu-visibility';
@@ -19,7 +19,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 24;
+const MENU_VERSION = 25;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -63,8 +63,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   { id: 'RESI_JUGADORES', labelKey: 'sidebar.residenciaPlayersLabel', icon: 'fa-people-roof', section: 'residencia' },
   { id: 'RESI_HABITACIONES', labelKey: 'sidebar.residenciaRoomsLabel', icon: 'fa-bed', section: 'residencia' },
   { id: 'RESI_ESTADO_HABITACIONES', labelKey: 'sidebar.residenciaRoomsStatusLabel', icon: 'fa-clipboard-check', section: 'residencia' },
-  { id: 'RESI_COMIDAS', labelKey: 'sidebar.residenciaMealsLabel', icon: 'fa-utensils', section: 'residencia' },
-  { id: 'RESI_COMEDOR', labelKey: 'sidebar.residenciaDiningLabel', icon: 'fa-qrcode', section: 'residencia' },
+  { id: 'RESI_COMEDOR', labelKey: 'sidebar.residenciaDiningLabel', icon: 'fa-utensils', section: 'residencia' },
   // Admin
   { id: 'CLUBES', labelKey: 'sidebar.clubsLabel', icon: 'fa-shield-halved', section: 'admin' },
   { id: 'EQUIPOS', labelKey: 'sidebar.teamsLabel', icon: 'fa-trophy', section: 'admin' },

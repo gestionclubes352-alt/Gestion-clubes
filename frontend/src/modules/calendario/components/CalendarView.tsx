@@ -1372,20 +1372,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                               <span className="truncate leading-tight flex-1" onClick={() => handleEventClick(ev)}>
                                 {`${ev.time}${ev.team ? ` - ${ev.team}` : ''}`}
                               </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
+                                className="flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all bg-black/20 hover:bg-red-600 text-white"
+                                title={t('common.delete')}
+                              >
+                                <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                              </button>
                             </div>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
-                            className="flex sm:hidden sm:group-hover/ev:flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all"
-                            style={{
-                              color: ev.type === 'Partido' ? 'rgb(248, 113, 113)' : 'rgb(52, 211, 153)',
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = ev.type === 'Partido' ? 'rgb(239, 68, 68)' : 'rgb(16, 185, 129)'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            title={t('common.delete')}
-                          >
-                            <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
-                          </button>
                         </div>
                       ))}
                     </div>

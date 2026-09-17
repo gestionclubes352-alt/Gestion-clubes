@@ -152,11 +152,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     return result;
   }, [filteredRepository]);
 
-  /** Agrupa las tareas de 4 en 4: cada grupo ocupa una página A4 completa en el PDF */
+  /** Agrupa las tareas de 2 en 2: cada grupo ocupa una página A4 completa en el PDF */
   const exportPages = useMemo(() => {
     const pages: SessionTask[][] = [];
-    for (let i = 0; i < tasks.length; i += 4) {
-      pages.push(tasks.slice(i, i + 4));
+    for (let i = 0; i < tasks.length; i += 2) {
+      pages.push(tasks.slice(i, i + 2));
     }
     return pages;
   }, [tasks]);
@@ -168,106 +168,108 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)
         : task.durationMinutes ?? 0;
 
+    const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
+    const vestColorStyles: Record<string, { bg: string; color: string }> = {
+      '': { bg: '#f5f5f5', color: '#94a3b8' },
+      rojo: { bg: '#ef4444', color: '#ffffff' },
+      azul: { bg: '#3b82f6', color: '#ffffff' },
+      verde: { bg: '#22c55e', color: '#ffffff' },
+    };
+
     return (
-      <div key={task.id} className="overflow-hidden rounded-lg border border-slate-200 p-2.5 flex flex-col gap-2" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
-        {/* Header con número y duración */}
-        <div className="flex items-center justify-between flex-shrink-0">
-          <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">
-            {t('calendarView.exerciseLabel')} {globalIndex + 1}
-          </span>
-          <div className="flex items-center gap-1 border border-slate-200 rounded px-1.5 py-0.5">
-            <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
-            <span className="text-[12px] font-black text-slate-600">{seriesTotal} min</span>
+      <div key={task.id} className="overflow-hidden rounded-xl border border-slate-200 p-4 flex flex-col gap-3" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
+        {/* Header con número, nombre, tipo y duración */}
+        <div className="flex items-center justify-between flex-shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-[14px] font-black flex-shrink-0">
+              {globalIndex + 1}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.exerciseLabel')} · {task.category || t('calendarView.notDefined')}</p>
+              <p className="text-[15px] font-black text-slate-800 truncate">{task.title}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 border border-slate-200 rounded px-2 py-1 flex-shrink-0">
+            <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
+            <span className="text-[13px] font-black text-slate-600">{seriesTotal} min</span>
           </div>
         </div>
 
-        {/* Pizarra táctica */}
-        <div className="h-32 flex items-center justify-center overflow-hidden">
-          {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-            <div className="w-full max-h-full rounded-md overflow-hidden">
-              <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
-            </div>
-          ) : task.thumbnail ? (
-            <div className="w-full max-h-full aspect-[105/68] rounded-md bg-[#2f5a30] overflow-hidden flex items-center justify-center">
-              <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <div className={`w-full max-h-full aspect-[105/68] rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-              <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[14px]`}></i>
-            </div>
-          )}
-        </div>
-
-        {/* Nombre y tipo */}
-        <div className="flex-shrink-0">
-          <div className="text-[11px] font-bold text-slate-700 truncate mb-0.5">{task.title}</div>
-          <div className="text-[10px] text-slate-500">{task.category || t('calendarView.notDefined')}</div>
-        </div>
-
-        {/* Series y tiempos */}
-        {(task.numberOfSeries ?? 0) > 0 && (
-          <div className="flex-shrink-0 space-y-0.5">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
-            <div className="grid grid-cols-3 gap-0.5">
-              <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
-                <p className="text-[8px] font-bold text-slate-400 uppercase">Series</p>
-                <p className="text-[11px] font-black text-slate-700">{task.numberOfSeries ?? 0}</p>
+        {/* Cuerpo: pizarra a la izquierda, info a la derecha */}
+        <div className="flex-1 min-h-0 flex gap-4">
+          {/* Pizarra táctica */}
+          <div className="flex-[1.3] min-w-0 flex items-center justify-center overflow-hidden rounded-lg bg-[#2f5a30]/5">
+            {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+              <div className="w-full h-full rounded-md overflow-hidden">
+                <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full h-full" />
               </div>
-              <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
-                <p className="text-[8px] font-bold text-slate-400 uppercase">T/Serie</p>
-                <p className="text-[11px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+            ) : task.thumbnail ? (
+              <div className="w-full h-full rounded-md bg-[#2f5a30] overflow-hidden flex items-center justify-center">
+                <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
-              <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
-                <p className="text-[8px] font-bold text-slate-400 uppercase">Descanso</p>
-                <p className="text-[11px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+            ) : (
+              <div className={`w-full h-full rounded-md flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
+                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[24px]`}></i>
               </div>
-            </div>
+            )}
           </div>
-        )}
 
-        {/* Descripción */}
-        {task.description && (
-          <div className="flex-shrink-0">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Descripción</p>
-            <p className="text-[10px] font-bold text-slate-600 line-clamp-2">{task.description}</p>
-          </div>
-        )}
-
-        {/* Roles */}
-        {task.technicalRoles && (
-          <div className="flex-shrink-0">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Roles</p>
-            <p className="text-[10px] font-bold text-slate-600 line-clamp-2">{task.technicalRoles}</p>
-          </div>
-        )}
-
-        {/* Petos de Entrenamiento */}
-        {(() => {
-          const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
-          if (!filteredPlayers || filteredPlayers.length === 0) return null;
-          const vestColorStyles: Record<string, { bg: string; color: string }> = {
-            '': { bg: '#f5f5f5', color: '#94a3b8' },
-            rojo: { bg: '#ef4444', color: '#ffffff' },
-            azul: { bg: '#3b82f6', color: '#ffffff' },
-            verde: { bg: '#22c55e', color: '#ffffff' },
-          };
-          return (
+          {/* Columna de información */}
+          <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden">
+            {/* Descripción */}
             <div className="flex-shrink-0">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Petos</p>
-              <div className="grid grid-cols-2 gap-0.5">
-                {filteredPlayers.map(player => {
-                  const current = task.playerVestColors?.[String(player.id)] || '';
-                  const style = vestColorStyles[current] || vestColorStyles[''];
-                  return (
-                    <div key={player.id} className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: style.bg, color: style.color }}>
-                      <span className="truncate">{player.apodo || player.nombre}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Descripción</p>
+              <p className="text-[11px] font-bold text-slate-600 line-clamp-3">{task.description || '—'}</p>
             </div>
-          );
-        })()}
+
+            {/* Series y tiempos */}
+            {(task.numberOfSeries ?? 0) > 0 && (
+              <div className="flex-shrink-0 space-y-0.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
+                <div className="grid grid-cols-3 gap-1">
+                  <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Series</p>
+                    <p className="text-[12px] font-black text-slate-700">{task.numberOfSeries ?? 0}</p>
+                  </div>
+                  <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">T/Serie</p>
+                    <p className="text-[12px] font-black text-slate-700">{task.timePerSeries ?? 0}m</p>
+                  </div>
+                  <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Descanso</p>
+                    <p className="text-[12px] font-black text-slate-700">{task.restBetweenSeries ?? 0}m</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Roles técnicos */}
+            {task.technicalRoles && (
+              <div className="flex-shrink-0">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Roles</p>
+                <p className="text-[11px] font-bold text-slate-600 line-clamp-2">{task.technicalRoles}</p>
+              </div>
+            )}
+
+            {/* Petos de Entrenamiento */}
+            {filteredPlayers.length > 0 && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Petos</p>
+                <div className="grid grid-cols-2 gap-0.5">
+                  {filteredPlayers.map(player => {
+                    const current = task.playerVestColors?.[String(player.id)] || '';
+                    const style = vestColorStyles[current] || vestColorStyles[''];
+                    return (
+                      <div key={player.id} className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: style.bg, color: style.color }}>
+                        <span className="truncate">{player.apodo || player.nombre}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   };
@@ -417,8 +419,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </div>
             </div>
 
-            <div className="grid gap-3 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-              {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 4 + idxInPage))}
+            <div className="grid gap-4 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateRows: 'repeat(2, 1fr)' }}>
+              {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 2 + idxInPage))}
             </div>
           </div>
         ))}

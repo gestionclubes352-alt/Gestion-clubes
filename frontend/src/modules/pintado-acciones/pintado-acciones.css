@@ -581,8 +581,9 @@
   background: transparent;
   cursor: pointer;
 }
-/* Tapar el icono nativo de pausa que YouTube dibuja en el centro del iframe */
-.pintado-acciones-app .stage.is-paused-source.is-youtube-source .youtube-click-shield::after {
+/* Tapar el icono nativo de pausa que YouTube dibuja en el centro del iframe
+   solo durante el instante en que aparece, no mientras dura toda la pausa */
+.pintado-acciones-app .stage.is-pause-flash.is-youtube-source .youtube-click-shield::after {
   content: "";
   position: absolute;
   top: 50%;

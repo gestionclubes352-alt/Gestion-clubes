@@ -1,3 +1,5 @@
+export type ZonaComunEstado = 'buenas_condiciones' | 'naranja_desordenado' | 'naranja_sucio' | 'rojo_desordenado' | 'rojo_sucio';
+
 export interface ResidenciaHabitacionFormData {
   id?: string;
   nombre: string;
@@ -6,7 +8,7 @@ export interface ResidenciaHabitacionFormData {
   notas?: string;
   incidencia?: string;
   estado?: 'verde' | 'naranja' | 'rojo';
-  zona_comun_estado?: 'buenas_condiciones' | 'desordenado' | 'sucio';
+  zona_comun_estado?: ZonaComunEstado;
 }
 
 export interface ResidenciaJugadorFormData {
@@ -17,7 +19,7 @@ export interface ResidenciaJugadorFormData {
   fecha_salida?: string;
   notas?: string;
   estado?: 'verde' | 'naranja' | 'rojo';
-  condicion?: 'buenas_condiciones' | 'desordenado' | 'sucio';
+  condicion?: ZonaComunEstado;
   numero_habitacion?: 1 | 2 | 3;
 }
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { ResidenciaHabitacion, ResidenciaJugador, Jugador } from '@shared/services/dataService';
 import { residenciaHabitacionesService, residenciaJugadoresService, plantillasService } from '@shared/services';
 import { useAuth } from '@context/AuthContext';
-import type { ResidenciaHabitacionFormData } from '../types';
+import type { ResidenciaHabitacionFormData, ZonaComunEstado } from '../types';
 import { useColoresEstado, setColorEstado } from '../estadoColores';
 import AsignacionHabitacionesModal from './AsignacionHabitacionesModal';
 
@@ -17,13 +17,34 @@ const useEstadosHabitacion = (): { value: 'verde' | 'naranja' | 'rojo'; label: s
   ];
 };
 
-const useEstadosZonaComun = (): { value: 'buenas_condiciones' | 'desordenado' | 'sucio'; label: string; color: string }[] => {
-  const colores = useColoresEstado();
+const useEstadosZonaComun = (): { value: ZonaComunEstado; label: string; color: string }[] => {
   return [
     { value: 'buenas_condiciones', label: 'Buenas condiciones', color: '#22c55e' },
-    { value: 'desordenado', label: 'Desordenado', color: colores.nivel2 },
-    { value: 'sucio', label: 'Sucio', color: colores.nivel3 },
+    { value: 'naranja_desordenado', label: 'Naranja · Desordenado', color: '#f97316' },
+    { value: 'naranja_sucio', label: 'Naranja · Sucio', color: '#f97316' },
+    { value: 'rojo_desordenado', label: 'Rojo · Desordenado', color: '#ef4444' },
+    { value: 'rojo_sucio', label: 'Rojo · Sucio', color: '#ef4444' },
   ];
+};
+
+const ZONA_COMUN_POR_COLOR: Record<'verde' | 'naranja' | 'rojo', ZonaComunEstado> = {
+  verde: 'buenas_condiciones',
+  naranja: 'naranja_desordenado',
+  rojo: 'rojo_desordenado',
+};
+
+const useSemaforoZonaComun = (): { value: 'verde' | 'naranja' | 'rojo'; label: string; color: string }[] => {
+  return [
+    { value: 'verde', label: 'Buenas condiciones', color: '#22c55e' },
+    { value: 'naranja', label: 'Naranja', color: '#f97316' },
+    { value: 'rojo', label: 'Rojo', color: '#ef4444' },
+  ];
+};
+
+const colorDeZonaComun = (estado: ZonaComunEstado): 'verde' | 'naranja' | 'rojo' => {
+  if (estado === 'buenas_condiciones') return 'verde';
+  if (estado.startsWith('naranja')) return 'naranja';
+  return 'rojo';
 };
 
 const Semaforo: React.FC<{
@@ -98,6 +119,7 @@ const EstadoDropdown: React.FC<{
         className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:border-[var(--accent)] transition-colors"
       >
         <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: actual.color }} />
+        <span className="text-xs font-bold text-slate-700 whitespace-nowrap">{actual.label}</span>
         <i className={`fa-solid fa-chevron-down text-[9px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}></i>
       </button>
       {open && (
@@ -122,14 +144,116 @@ const EstadoDropdown: React.FC<{
   );
 };
 
+const IncidenciaSelect: React.FC<{
+  value: string;
+  opciones: string[];
+  onSelect: (value: string) => void;
+  onAddOpcion: (value: string) => void;
+}> = ({ value, opciones, onSelect, onAddOpcion }) => {
+  const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [nuevaIncidencia, setNuevaIncidencia] = useState('');
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setAdding(false);
+        setNuevaIncidencia('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  const handleAdd = () => {
+    const valor = nuevaIncidencia.trim();
+    if (!valor) return;
+    onAddOpcion(valor);
+    onSelect(valor);
+    setNuevaIncidencia('');
+    setAdding(false);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(prev => !prev)}
+        title={value || 'Buenas condiciones'}
+        className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+      >
+        {value || 'Buenas condiciones'}
+        <i className={`fa-solid fa-chevron-down text-[8px] transition-transform ${open ? 'rotate-180' : ''}`}></i>
+      </button>
+      {open && (
+        <div className="absolute z-10 mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden min-w-[12rem]">
+          {adding ? (
+            <div className="p-2 flex gap-1.5">
+              <input
+                type="text"
+                value={nuevaIncidencia}
+                onChange={e => setNuevaIncidencia(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+                placeholder="Ej: Cortina rota"
+                autoFocus
+                className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="px-2 py-1 rounded-lg bg-[var(--accent)] text-white text-[10px] font-black"
+              >
+                <i className="fa-solid fa-check"></i>
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => { onSelect(''); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 ${!value ? 'bg-slate-50' : ''}`}
+              >
+                Buenas condiciones
+              </button>
+              {opciones.map(op => (
+                <button
+                  key={op}
+                  type="button"
+                  onClick={() => { onSelect(op); setOpen(false); }}
+                  className={`w-full text-left px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 ${op === value ? 'bg-slate-50' : ''}`}
+                >
+                  {op}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="w-full text-left px-3 py-2 text-sm font-semibold text-[var(--accent)] hover:bg-slate-100 border-t border-slate-100"
+              >
+                <i className="fa-solid fa-plus mr-1"></i>
+                Añadir incidencia...
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EstadoZonaComunSelect: React.FC<{
-  value: 'buenas_condiciones' | 'desordenado' | 'sucio';
-  onChange: (value: 'buenas_condiciones' | 'desordenado' | 'sucio') => void;
-}> = ({ value, onChange }) => {
+  value?: ZonaComunEstado;
+  onChange: (value: ZonaComunEstado) => void;
+  invalid?: boolean;
+}> = ({ value, onChange, invalid = false }) => {
   const [open, setOpen] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const estadosZonaComun = useEstadosZonaComun();
-  const actual = estadosZonaComun.find(e => e.value === value) ?? estadosZonaComun[0];
+  const actual = estadosZonaComun.find(e => e.value === value);
 
   useEffect(() => {
     if (!open) return;
@@ -147,9 +271,11 @@ const EstadoZonaComunSelect: React.FC<{
       <button
         type="button"
         onClick={() => setOpen(prev => !prev)}
-        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 text-left flex items-center justify-between focus:outline-none focus:border-[var(--accent)] bg-white"
+        className={`w-full border rounded-xl px-3 py-2.5 text-sm font-bold text-left flex items-center justify-between focus:outline-none focus:border-[var(--accent)] bg-white ${
+          invalid ? 'border-red-400 text-red-500' : 'border-slate-200 text-slate-800'
+        } ${!actual ? 'text-slate-400 font-semibold' : ''}`}
       >
-        {actual.label}
+        {actual ? actual.label : 'Selecciona un color'}
         <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}></i>
       </button>
       {open && (
@@ -187,6 +313,7 @@ const EditHabitacionModal: React.FC<{
 }> = ({ habitacion, isOpen, onClose, onSave, onDelete, residentes = [], jugadoresDisponibles = [], onUpdateResidente, onAsignarResidente, onQuitarResidente }) => {
   const estadosHabitacion = useEstadosHabitacion();
   const estadosZonaComun = useEstadosZonaComun();
+  const semaforoZonaComun = useSemaforoZonaComun();
   const [formData, setFormData] = useState<ResidenciaHabitacionFormData>({ nombre: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,10 +321,12 @@ const EditHabitacionModal: React.FC<{
   const [addingIncidencia, setAddingIncidencia] = useState(false);
   const [nuevaIncidencia, setNuevaIncidencia] = useState('');
   const [seleccionNueva, setSeleccionNueva] = useState<Record<1 | 2 | 3, string>>({ 1: '', 2: '', 3: '' });
+  const [zonaComunInvalida, setZonaComunInvalida] = useState(false);
 
   useEffect(() => {
     setFormData(habitacion ? { ...habitacion } : { nombre: '', estado: 'verde' });
     setError(null);
+    setZonaComunInvalida(false);
     setAddingIncidencia(false);
     setNuevaIncidencia('');
     setIncidenciasOpciones(prev => {
@@ -236,7 +365,7 @@ const EditHabitacionModal: React.FC<{
     setFormData(prev => ({ ...prev, estado }));
   };
 
-  const handleZonaComunEstadoChange = (zona_comun_estado: 'buenas_condiciones' | 'desordenado' | 'sucio') => {
+  const handleZonaComunEstadoChange = (zona_comun_estado: ZonaComunEstado) => {
     setFormData(prev => ({ ...prev, zona_comun_estado }));
   };
 
@@ -247,6 +376,12 @@ const EditHabitacionModal: React.FC<{
       setError('El nombre de la habitación es obligatorio');
       return;
     }
+    if (!formData.zona_comun_estado) {
+      setZonaComunInvalida(true);
+      setError('Debes elegir un color para el estado de la zona común');
+      return;
+    }
+    setZonaComunInvalida(false);
     try {
       setLoading(true);
       if (onAsignarResidente) {
@@ -402,15 +537,10 @@ const EditHabitacionModal: React.FC<{
               </h4>
 
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
-              <Semaforo
-                opciones={estadosZonaComun}
-                activeValue={formData.zona_comun_estado ?? 'buenas_condiciones'}
-                onSelect={value => handleZonaComunEstadoChange(value as 'buenas_condiciones' | 'desordenado' | 'sucio')}
-                editable
-              />
               <EstadoZonaComunSelect
-                value={formData.zona_comun_estado ?? 'buenas_condiciones'}
-                onChange={handleZonaComunEstadoChange}
+                value={formData.zona_comun_estado}
+                onChange={value => { handleZonaComunEstadoChange(value); setZonaComunInvalida(false); }}
+                invalid={zonaComunInvalida}
               />
             </div>
 
@@ -450,7 +580,7 @@ const EditHabitacionModal: React.FC<{
                                   <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
                                 </div>
                               )}
-                              <span className="text-sm font-semibold text-slate-600 flex-1">{j.nombre}</span>
+                              <span className="text-xs font-semibold text-slate-600 flex-1">{j.nombre}</span>
                               {onQuitarResidente && (
                                 <button
                                   type="button"
@@ -464,15 +594,15 @@ const EditHabitacionModal: React.FC<{
                             </div>
 
                             <Semaforo
-                              opciones={estadosZonaComun}
-                              activeValue={registro.condicion ?? 'buenas_condiciones'}
-                              onSelect={value => onUpdateResidente?.(registro.id, { condicion: value as 'buenas_condiciones' | 'desordenado' | 'sucio' })}
+                              opciones={semaforoZonaComun}
+                              activeValue={colorDeZonaComun(registro.condicion ?? 'buenas_condiciones')}
+                              onSelect={value => onUpdateResidente?.(registro.id, { condicion: ZONA_COMUN_POR_COLOR[value as 'verde' | 'naranja' | 'rojo'] })}
                               size="sm"
                             />
 
                             <select
                               value={registro.condicion ?? 'buenas_condiciones'}
-                              onChange={e => onUpdateResidente?.(registro.id, { condicion: e.target.value as 'buenas_condiciones' | 'desordenado' | 'sucio' })}
+                              onChange={e => onUpdateResidente?.(registro.id, { condicion: e.target.value as ZonaComunEstado })}
                               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
                             >
                               {estadosZonaComun.map(({ value, label }) => (
@@ -568,21 +698,30 @@ const HabitacionesView: React.FC = () => {
   const [plantaFiltro, setPlantaFiltro] = useState('');
   const [habitacionFiltro, setHabitacionFiltro] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState<'' | 'verde' | 'naranja' | 'rojo'>('');
-  const [zonaComunFiltro, setZonaComunFiltro] = useState<'' | 'buenas_condiciones' | 'desordenado' | 'sucio'>('');
+  const [zonaComunFiltro, setZonaComunFiltro] = useState<'' | ZonaComunEstado>('');
   const [editing, setEditing] = useState<ResidenciaHabitacionFormData | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isAsignando, setIsAsignando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [vista, setVista] = useState<'lista' | 'estado'>('lista');
-  const [seleccionEstadoNueva, setSeleccionEstadoNueva] = useState<Record<string, string>>({});
+  const [incidenciasOpcionesVista, setIncidenciasOpcionesVista] = useState<string[]>(INCIDENCIAS_BASE);
+
+  useEffect(() => {
+    setIncidenciasOpcionesVista(prev => {
+      const extras = habitaciones
+        .map(h => h.incidencia)
+        .filter((i): i is string => !!i && !prev.includes(i));
+      return extras.length > 0 ? [...prev, ...Array.from(new Set(extras))] : prev;
+    });
+  }, [habitaciones]);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       const data = await residenciaHabitacionesService.list();
       setHabitaciones(data || []);
 
@@ -602,7 +741,7 @@ const HabitacionesView: React.FC = () => {
       console.error('Error loading habitaciones:', err);
       setError('Error al cargar las habitaciones');
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
@@ -647,12 +786,12 @@ const HabitacionesView: React.FC = () => {
         numero_habitacion: numeroHabitacion,
       } as any);
     }
-    await loadData();
+    await loadData({ silent: true });
   };
 
   const handleQuitarResidente = async (registroId: string) => {
     await residenciaJugadoresService.update(registroId, { habitacion_id: null, numero_habitacion: null } as any);
-    await loadData();
+    await loadData({ silent: true });
   };
 
   const plantasDisponibles = useMemo(() => {
@@ -726,14 +865,14 @@ const HabitacionesView: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex-1" />
-        <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
+        <h2 className="text-lg md:text-xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
           HABITACIONES
         </h2>
         <div className="flex-1 flex justify-end" />
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+        <div className="relative w-56">
           <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
           <input
             type="text"
@@ -743,17 +882,6 @@ const HabitacionesView: React.FC = () => {
             className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
           />
         </div>
-        <button
-          onClick={() => setVista('estado')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${
-            vista === 'estado'
-              ? 'bg-[var(--accent)] text-white'
-              : 'bg-white border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/5'
-          }`}
-        >
-          <i className="fa-solid fa-clipboard-check text-xs"></i>
-          Estado
-        </button>
         <button
           onClick={() => setVista('lista')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${
@@ -771,6 +899,17 @@ const HabitacionesView: React.FC = () => {
         >
           <i className="fa-solid fa-shuffle text-xs"></i>
           Asignación de Habitaciones
+        </button>
+        <button
+          onClick={() => setVista('estado')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm whitespace-nowrap ${
+            vista === 'estado'
+              ? 'bg-[var(--accent)] text-white'
+              : 'bg-white border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/5'
+          }`}
+        >
+          <i className="fa-solid fa-clipboard-check text-xs"></i>
+          Estado
         </button>
         <button
           onClick={() => setIsCreating(true)}
@@ -823,7 +962,7 @@ const HabitacionesView: React.FC = () => {
         </select>
         <select
           value={zonaComunFiltro}
-          onChange={e => setZonaComunFiltro(e.target.value as '' | 'buenas_condiciones' | 'desordenado' | 'sucio')}
+          onChange={e => setZonaComunFiltro(e.target.value as '' | ZonaComunEstado)}
           className="px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
         >
           <option value="">Todos los estados zonas comunes</option>
@@ -860,29 +999,29 @@ const HabitacionesView: React.FC = () => {
                 onClick={() => setEditing(h as ResidenciaHabitacionFormData)}
                 className="p-4 bg-white rounded-xl border border-slate-200 hover:border-[var(--accent)] hover:shadow-md transition-all cursor-pointer flex items-center gap-4"
               >
-                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                <div className="flex flex-col gap-1 flex-shrink-0">
                   <span
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500"
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500"
                   >
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: estadoInfo.color }} />
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: estadoInfo.color }} />
                     Estado apartamento{h.incidencia ? `: ${h.incidencia}` : ''}
                   </span>
                   <span
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500"
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest whitespace-nowrap bg-slate-100 text-slate-500"
                   >
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: zonaInfo.color }} />
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: zonaInfo.color }} />
                     Estado zonas comunes: {zonaInfo.label}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter">{h.nombre}</h3>
+                  <h3 className="font-black text-[var(--accent)] uppercase tracking-tighter text-sm">{h.nombre}</h3>
 
-                  <div className="mt-2 space-y-1.5">
+                  <div className="mt-2 space-y-1">
                     {([1, 2, 3] as const).map(numero => {
                       const ocupantes = residentes.filter(r => r.registro.numero_habitacion === numero);
                       return (
                         <div key={numero} className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0 w-16">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0 w-16">
                             Hab. {numero}
                           </span>
                           {ocupantes.length > 0 ? (
@@ -895,19 +1034,19 @@ const HabitacionesView: React.FC = () => {
                                       <img
                                         src={j.foto_url}
                                         alt={j.nombre}
-                                        className="w-6 h-6 rounded-full object-cover border border-slate-200 flex-shrink-0"
+                                        className="w-5 h-5 rounded-full object-cover border border-slate-200 flex-shrink-0"
                                       />
                                     ) : (
-                                      <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-                                        <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
+                                      <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                                        <i className="fa-solid fa-user text-slate-400 text-[9px]"></i>
                                       </div>
                                     )}
-                                    <span className="text-xs text-slate-600">{j.nombre}</span>
+                                    <span className="text-[11px] text-slate-600">{j.nombre}</span>
                                     <span
-                                      className="w-2 h-2 rounded-full flex-shrink-0"
+                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                                       style={{ backgroundColor: residenteEstado.color }}
                                     />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
                                       {residenteEstado.label}
                                     </span>
                                   </div>
@@ -915,7 +1054,7 @@ const HabitacionesView: React.FC = () => {
                               })}
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 italic">Sin residente</span>
+                            <span className="text-[11px] text-slate-400 italic">Sin residente</span>
                           )}
                         </div>
                       );
@@ -950,14 +1089,25 @@ const HabitacionesView: React.FC = () => {
                         <i className="fa-solid fa-bed text-[var(--accent)]"></i>
                         Estado apartamento
                       </h4>
-                      <EstadoDropdown
-                        opciones={estadosHabitacion}
-                        activeValue={h.estado ?? 'verde'}
-                        onSelect={value => {
-                          setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, estado: value as 'verde' | 'naranja' | 'rojo' } : hab)));
-                          residenciaHabitacionesService.update(h.id, { estado: value } as any);
-                        }}
-                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <EstadoDropdown
+                          opciones={estadosHabitacion}
+                          activeValue={h.estado ?? 'verde'}
+                          onSelect={value => {
+                            setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, estado: value as 'verde' | 'naranja' | 'rojo' } : hab)));
+                            residenciaHabitacionesService.update(h.id, { estado: value } as any);
+                          }}
+                        />
+                        <IncidenciaSelect
+                          value={h.incidencia ?? ''}
+                          opciones={incidenciasOpcionesVista}
+                          onSelect={value => {
+                            setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, incidencia: value || undefined } : hab)));
+                            residenciaHabitacionesService.update(h.id, { incidencia: value || null } as any);
+                          }}
+                          onAddOpcion={valor => setIncidenciasOpcionesVista(prev => (prev.includes(valor) ? prev : [...prev, valor]))}
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -969,7 +1119,7 @@ const HabitacionesView: React.FC = () => {
                         opciones={estadosZonaComun}
                         activeValue={h.zona_comun_estado ?? 'buenas_condiciones'}
                         onSelect={value => {
-                          setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, zona_comun_estado: value as 'buenas_condiciones' | 'desordenado' | 'sucio' } : hab)));
+                          setHabitaciones(prev => prev.map(hab => (hab.id === h.id ? { ...hab, zona_comun_estado: value as ZonaComunEstado } : hab)));
                           residenciaHabitacionesService.update(h.id, { zona_comun_estado: value } as any);
                         }}
                       />
@@ -977,8 +1127,6 @@ const HabitacionesView: React.FC = () => {
 
                     {([1, 2, 3] as const).map(numero => {
                       const ocupantes = residentes.filter(r => r.registro.numero_habitacion === numero);
-                      const disponibles = jugadoresSinApartamento;
-                      const claveSeleccion = `${h.id}-${numero}`;
                       return (
                         <div key={numero} className="space-y-2">
                           <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -1000,7 +1148,7 @@ const HabitacionesView: React.FC = () => {
                                     <i className="fa-solid fa-user text-slate-400 text-[9px]"></i>
                                   </div>
                                 )}
-                                <span className="text-sm font-semibold text-slate-600 truncate flex-1">{item.jugador.nombre}</span>
+                                <span className="text-xs font-semibold text-slate-600 truncate flex-1">{item.jugador.nombre}</span>
                                 <button
                                   type="button"
                                   onClick={() => handleQuitarResidente(item.registro.id)}
@@ -1010,42 +1158,13 @@ const HabitacionesView: React.FC = () => {
                                   <i className="fa-solid fa-xmark"></i>
                                 </button>
                               </div>
-                              <Semaforo
+                              <EstadoDropdown
                                 opciones={estadosZonaComun}
                                 activeValue={item.registro.condicion ?? 'buenas_condiciones'}
-                                onSelect={value => handleUpdateResidente(item.registro.id, { condicion: value as 'buenas_condiciones' | 'desordenado' | 'sucio' })}
-                                size="sm"
+                                onSelect={value => handleUpdateResidente(item.registro.id, { condicion: value as ZonaComunEstado })}
                               />
                             </div>
                           ))}
-
-                          {ocupantes.length < 3 && disponibles.length > 0 && (
-                            <div className="flex gap-1.5">
-                              <select
-                                value={seleccionEstadoNueva[claveSeleccion] ?? ''}
-                                onChange={e => setSeleccionEstadoNueva(prev => ({ ...prev, [claveSeleccion]: e.target.value }))}
-                                className="flex-1 border border-slate-200 rounded-xl px-2 py-2 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
-                              >
-                                <option value="">Añadir jugador...</option>
-                                {disponibles.map(j => (
-                                  <option key={j.id} value={String(j.id)}>{j.nombre}</option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                disabled={!seleccionEstadoNueva[claveSeleccion]}
-                                onClick={async () => {
-                                  const jugadorId = seleccionEstadoNueva[claveSeleccion];
-                                  if (!jugadorId) return;
-                                  await handleAsignarResidente(jugadorId, numero, h.id);
-                                  setSeleccionEstadoNueva(prev => ({ ...prev, [claveSeleccion]: '' }));
-                                }}
-                                className="px-2.5 py-2 rounded-xl bg-[var(--accent)] text-white font-black text-[10px] uppercase tracking-widest hover:bg-[var(--accent-dark)] transition-all disabled:opacity-40"
-                              >
-                                <i className="fa-solid fa-plus"></i>
-                              </button>
-                            </div>
-                          )}
                         </div>
                       );
                     })}

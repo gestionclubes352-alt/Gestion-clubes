@@ -2506,8 +2506,29 @@ function parseYouTubeInput(url) {
   return null;
 }
 
+let pauseFlashTimeoutId = null;
+
 function syncStagePlayToggle(isPlaying) {
   stage?.classList.toggle("is-paused-source", !isPlaying);
+
+  if (pauseFlashTimeoutId) {
+    window.clearTimeout(pauseFlashTimeoutId);
+    pauseFlashTimeoutId = null;
+  }
+
+  if (isPlaying) {
+    stage?.classList.remove("is-pause-flash");
+    return;
+  }
+
+  // Solo tapamos el icono nativo de pausa de YouTube durante un instante:
+  // si lo dejamos permanentemente, cubre el fotograma congelado mientras
+  // el usuario dibuja sobre el video en pausa.
+  stage?.classList.add("is-pause-flash");
+  pauseFlashTimeoutId = window.setTimeout(() => {
+    stage?.classList.remove("is-pause-flash");
+    pauseFlashTimeoutId = null;
+  }, 600);
 }
 
 function resetPlayerState() {
@@ -3773,6 +3794,9 @@ return function destroyPintadoAcciones() {
   window.removeEventListener("keydown", handleKeydown);
   window.removeEventListener("resize", handleResize);
   window.clearInterval(syncIntervalId);
+  if (pauseFlashTimeoutId) {
+    window.clearTimeout(pauseFlashTimeoutId);
+  }
   if (state.player && typeof state.player.destroy === "function") {
     try { state.player.destroy(); } catch (error) { /* noop */ }
   }
