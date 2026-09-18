@@ -162,6 +162,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
 const SECTION_TO_ROUTE: Record<string, string> = {
   'PLANTILLAS': '/plantillas',
   'PERSONAL': '/staff',
+  'OBJETIVOS': '/objetivos',
   'CLUBES': '/clubes',
   'EQUIPOS': '/equipos',
   'EQUIPOS_INTERNOS': '/equipos-internos',
