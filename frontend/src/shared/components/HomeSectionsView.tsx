@@ -27,6 +27,7 @@ const HOME_SECTIONS: HomeSection[] = [
       { labelKey: 'sidebar.squadsLabel', icon: 'fa-users', route: '/plantillas', menuId: 'PLANTILLAS' },
       { labelKey: 'sidebar.fieldDiagramLabel', icon: 'fa-diagram-project', route: '/campograma', menuId: 'CAMPOGRAMA' },
       { labelKey: 'sidebar.technicalStaffLabel', icon: 'fa-user-tie', route: '/staff', menuId: 'PERSONAL' },
+      { labelKey: 'sidebar.objectivesLabel', icon: 'fa-bullseye', route: '/objetivos', menuId: 'OBJETIVOS' },
     ],
   },
   {

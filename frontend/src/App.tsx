@@ -1594,7 +1594,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   userRole={userRole}
                 />
               } />
-              <Route path="/objetivos" element={<ObjetivosIndividualesView />} />
+              <Route path="/objetivos" element={
+                <ObjetivosIndividualesView
+                  equipos={misClubCompetitionTeams.map(team => ({ id: String(team.id), nombre: team.nombre }))}
+                />
+              } />
               <Route path="/clubes" element={
                 <ClubesTable
                   clubes={clubesList}

@@ -9,11 +9,21 @@ import EditObjetivoModal from './EditObjetivoModal';
 const estadoColor = (estado: string) => ESTADOS_OBJETIVO.find(e => e.value === estado)?.color || '#94a3b8';
 const tipoLabel = (tipo: string) => TIPOS_OBJETIVO.find(t => t.value === tipo)?.label || tipo;
 
-const ObjetivosIndividualesView: React.FC = () => {
+interface ObjetivosIndividualesViewProps {
+  /**
+   * Equipos internos del propio club, ya resueltos por App.tsx (`misClubCompetitionTeams`).
+   * Se usan en vez de volver a llamar a `equiposService.list()` directamente porque
+   * la tabla `equipos` puede depender de fallbacks/merges que solo App.tsx aplica.
+   * Si no se pasa, el componente cae a su propio fetch (uso autónomo).
+   */
+  equipos?: Pick<Equipo, 'id' | 'nombre'>[];
+}
+
+const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ equipos: equiposProp }) => {
   const { perfil } = useAuth();
   const [objetivos, setObjetivos] = useState<ObjetivoIndividual[]>([]);
   const [jugadores, setJugadores] = useState<Jugador[]>([]);
-  const [equipos, setEquipos] = useState<Equipo[]>([]);
+  const [equiposPropios, setEquiposPropios] = useState<Pick<Equipo, 'id' | 'nombre'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -21,6 +31,11 @@ const ObjetivosIndividualesView: React.FC = () => {
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [editing, setEditing] = useState<ObjetivoIndividualFormData | null | undefined>(undefined);
+
+  const equipos = useMemo(
+    () => [...(equiposProp ?? equiposPropios)].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [equiposProp, equiposPropios]
+  );
 
   useEffect(() => {
     loadData();
@@ -30,14 +45,23 @@ const ObjetivosIndividualesView: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [objetivosData, jugadoresData, equiposData] = await Promise.all([
-        objetivosIndividualesService.list(),
-        plantillasService.list(),
-        equiposService.list(),
-      ]);
-      setObjetivos(objetivosData || []);
-      setJugadores(jugadoresData || []);
-      setEquipos(equiposData || []);
+      if (equiposProp) {
+        const [objetivosData, jugadoresData] = await Promise.all([
+          objetivosIndividualesService.list(),
+          plantillasService.list(),
+        ]);
+        setObjetivos(objetivosData || []);
+        setJugadores(jugadoresData || []);
+      } else {
+        const [objetivosData, jugadoresData, equiposData] = await Promise.all([
+          objetivosIndividualesService.list(),
+          plantillasService.list(),
+          equiposService.list(),
+        ]);
+        setObjetivos(objetivosData || []);
+        setJugadores(jugadoresData || []);
+        setEquiposPropios(equiposData || []);
+      }
     } catch (err) {
       console.error('Error loading objetivos individuales:', err);
       setError('Error al cargar los datos');

@@ -308,11 +308,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 
           {isSectionVisible('management') && (
-          <SidebarSection title={t('sidebar.management')} sectionKey="management" collapsed={isCollapsed} hasActiveChild={['CALENDARIO', 'PLANTILLAS', 'PERSONAL', 'CAMPOGRAMA'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
+          <SidebarSection title={t('sidebar.management')} sectionKey="management" collapsed={isCollapsed} hasActiveChild={['CALENDARIO', 'PLANTILLAS', 'PERSONAL', 'CAMPOGRAMA', 'OBJETIVOS'].includes(activeSection)} expandedSections={expandedSections} onToggleSection={toggleSection}>
             {userRole === 'Jugador' && isVisible('CALENDARIO') && <SidebarItem icon="fa-calendar" label={t('sidebar.calendarLabel')} active={activeSection === 'CALENDARIO'} onClick={() => handleItemClick('CALENDARIO')} collapsed={isCollapsed} />}
             {isVisible('PLANTILLAS') && <SidebarItem icon="fa-users" label={t(userRole === 'Jugador' ? 'sidebar.myDataLabel' : 'sidebar.squadsLabel')} active={activeSection === 'PLANTILLAS'} onClick={() => handleItemClick('PLANTILLAS')} collapsed={isCollapsed} />}
             {isVisible('CAMPOGRAMA') && <SidebarItem icon="fa-diagram-project" label={t('sidebar.fieldDiagramLabel')} active={activeSection === 'CAMPOGRAMA'} onClick={() => handleItemClick('CAMPOGRAMA')} collapsed={isCollapsed} />}
             {isVisible('PERSONAL') && <SidebarItem icon="fa-user-tie" label={t('sidebar.technicalStaffLabel')} active={activeSection === 'PERSONAL'} onClick={() => handleItemClick('PERSONAL')} collapsed={isCollapsed} />}
+            {isVisible('OBJETIVOS') && <SidebarItem icon="fa-bullseye" label={t('sidebar.objectivesLabel')} active={activeSection === 'OBJETIVOS'} onClick={() => handleItemClick('OBJETIVOS')} collapsed={isCollapsed} />}
           </SidebarSection>
           )}
 

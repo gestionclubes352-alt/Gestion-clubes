@@ -7,11 +7,13 @@ const EditObjetivoModal: React.FC<{
   isOpen: boolean;
   objetivo: ObjetivoIndividualFormData | null;
   jugadores: Jugador[];
-  equipos: Equipo[];
+  equipos: Pick<Equipo, 'id' | 'nombre'>[];
+  /** Nombre del jugador a mostrar en vez del select, cuando el jugador ya viene fijado (p.ej. desde su ficha). */
+  jugadorNombreFijo?: string;
   onClose: () => void;
   onSave: (data: ObjetivoIndividualFormData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
-}> = ({ isOpen, objetivo, jugadores, equipos, onClose, onSave, onDelete }) => {
+}> = ({ isOpen, objetivo, jugadores, equipos, jugadorNombreFijo, onClose, onSave, onDelete }) => {
   const [formData, setFormData] = useState<ObjetivoIndividualFormData>({
     equipo_id: '',
     jugador_id: '',
@@ -54,7 +56,7 @@ const EditObjetivoModal: React.FC<{
     e.preventDefault();
     setError(null);
 
-    if (!formData.equipo_id || !formData.jugador_id) {
+    if (!jugadorNombreFijo && (!formData.equipo_id || !formData.jugador_id)) {
       setError('Selecciona equipo y jugador.');
       return;
     }
@@ -105,39 +107,46 @@ const EditObjetivoModal: React.FC<{
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Equipo</label>
-              <select
-                name="equipo_id"
-                value={formData.equipo_id}
-                onChange={handleChange}
-                required
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
-              >
-                <option value="">Selecciona...</option>
-                {equipos.map(eq => (
-                  <option key={eq.id} value={String(eq.id)}>{eq.nombre}</option>
-                ))}
-              </select>
-            </div>
+          {jugadorNombreFijo ? (
             <div>
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Jugador</label>
-              <select
-                name="jugador_id"
-                value={formData.jugador_id}
-                onChange={handleChange}
-                required
-                disabled={!formData.equipo_id}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
-              >
-                <option value="">Selecciona...</option>
-                {jugadoresDelEquipo.map(j => (
-                  <option key={j.id} value={String(j.id)}>{j.nombre}</option>
-                ))}
-              </select>
+              <p className="text-sm font-bold text-slate-700 px-4 py-3 bg-slate-100 rounded-xl">{jugadorNombreFijo}</p>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Equipo</label>
+                <select
+                  name="equipo_id"
+                  value={formData.equipo_id}
+                  onChange={handleChange}
+                  required
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+                >
+                  <option value="">Selecciona...</option>
+                  {equipos.map(eq => (
+                    <option key={eq.id} value={String(eq.id)}>{eq.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Jugador</label>
+                <select
+                  name="jugador_id"
+                  value={formData.jugador_id}
+                  onChange={handleChange}
+                  required
+                  disabled={!formData.equipo_id}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                >
+                  <option value="">Selecciona...</option>
+                  {jugadoresDelEquipo.map(j => (
+                    <option key={j.id} value={String(j.id)}>{j.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

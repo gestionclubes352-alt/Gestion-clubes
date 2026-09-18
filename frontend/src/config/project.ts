@@ -55,6 +55,7 @@ export const PROJECT_CONFIG: ProjectConfig = {
     'CALENDARIO',
     'PLANTILLAS',
     'PERSONAL',
+    'OBJETIVOS',
     'CLUBES',
     'EQUIPOS',
     'EQUIPOS_INTERNOS',
