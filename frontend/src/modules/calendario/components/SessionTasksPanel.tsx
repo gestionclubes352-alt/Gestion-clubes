@@ -161,7 +161,16 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     return pages;
   }, [tasks]);
 
-  const renderExportCard = (task: SessionTask, globalIndex: number) => {
+  /** Igual que exportPages pero de 3 en 3, para la versión "sin petos" */
+  const exportPagesNoVests = useMemo(() => {
+    const pages: SessionTask[][] = [];
+    for (let i = 0; i < tasks.length; i += 3) {
+      pages.push(tasks.slice(i, i + 3));
+    }
+    return pages;
+  }, [tasks]);
+
+  const renderExportCard = (task: SessionTask, globalIndex: number, hideVests = false) => {
     const seriesTotal =
       (task.numberOfSeries ?? 0) > 0
         ? (task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) +
@@ -253,7 +262,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         </div>
 
         {/* Fila inferior: petos de entrenamiento a todo el ancho, en varias columnas */}
-        {filteredPlayers.length > 0 && (
+        {!hideVests && filteredPlayers.length > 0 && (
           <div className="flex-shrink-0 border border-slate-200 rounded-lg p-2 bg-slate-50 overflow-hidden">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Petos</p>
             <div className="grid grid-cols-3 gap-1">
@@ -290,10 +299,10 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     );
   };
 
-  const exportToPDF = async () => {
+  const exportToPDF = async (mode: 'full' | 'no-vests' = 'full') => {
     // Abrir la pestaña ya (dentro del gesto de click) para que el navegador no la bloquee como pop-up
     const newTab = window.open('', '_blank');
-    const container = document.getElementById('session-tasks-export');
+    const container = document.getElementById(mode === 'full' ? 'session-tasks-export' : 'session-tasks-export-no-vests');
 
     if (!container) {
       newTab?.close();
@@ -358,7 +367,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         throw new Error('No hay tareas para exportar');
       }
 
-      const fileName = `Tareas_sesion_${date ? date.toISOString().split('T')[0] : 'sin_fecha'}.pdf`;
+      const fileNameSuffix = mode === 'no-vests' ? '_sin_petos' : '';
+      const fileName = `Tareas_sesion_${date ? date.toISOString().split('T')[0] : 'sin_fecha'}${fileNameSuffix}.pdf`;
 
       // Obtener el Blob de manera compatible con jsPDF 4.x
       let pdfBlob: Blob;
@@ -441,6 +451,52 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           </div>
         ))}
       </div>
+      <div id="session-tasks-export-no-vests" className="hidden">
+        {exportPagesNoVests.map((pageTasks, pageIndex) => (
+          <div
+            key={pageIndex}
+            data-export-page="true"
+            className="bg-white flex flex-col overflow-hidden"
+            style={{ width: '1191px', height: '1684px', padding: '40px' }}
+          >
+            <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <i className="fa-solid fa-list-check text-[16px] text-[var(--accent)]"></i>
+                <h1 className="text-[16px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
+              </div>
+              <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{exportPagesNoVests.length}</span>
+            </div>
+
+            <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+                  <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+                  <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+                  <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
+              {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 3 + idxInPage, true))}
+            </div>
+          </div>
+        ))}
+      </div>
       <div className="space-y-2">
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
         <div className="flex flex-col items-center justify-center gap-2 mb-2">
@@ -457,10 +513,19 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             {tasks.length > 0 && (
               <button
                 type="button"
-                onClick={exportToPDF}
+                onClick={() => exportToPDF('full')}
                 className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
               >
                 <i className="fa-solid fa-file-pdf"></i> SESION EN PDF
+              </button>
+            )}
+            {tasks.length > 0 && (
+              <button
+                type="button"
+                onClick={() => exportToPDF('no-vests')}
+                className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
+              >
+                <i className="fa-solid fa-file-pdf"></i> PDF SIN PETOS
               </button>
             )}
             <button

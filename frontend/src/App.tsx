@@ -1305,6 +1305,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [eventsList, selectedTeams, competitionTeams]
   );
 
+  // Un jugador solo debe ver los eventos de su propio equipo, nunca los del resto de la plantilla.
+  const playerEventsList = useMemo(() => {
+    const player = perfil?.rol === 'Jugador' ? squadList.find(p => String(p.id) === String(perfil.jugador_id)) : undefined;
+    if (!player) return filteredEventsList;
+    return filteredEventsList.filter(event => eventMatchesSelectedTeams(event, [player.equipo].filter(Boolean) as string[], competitionTeams));
+  }, [filteredEventsList, perfil, squadList, competitionTeams]);
+
   const competitionsById = useMemo(
     () => new Map(competicionesList.map(competition => [String(competition.id), competition])),
     [competicionesList]
@@ -1544,7 +1551,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={() => {}} onClickEvent={handleCalendarEventClick} onDeleteEvent={() => {}} onSaveEvent={async () => {}} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} showFilters={false} />
+                <GestionCalendarView events={playerEventsList} players={filteredCurrentClubSquadList} onCreateEvent={() => {}} onClickEvent={handleCalendarEventClick} onDeleteEvent={() => {}} onSaveEvent={async () => {}} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} showFilters={false} />
               } />
               <Route path="/plantillas" element={
                 <MisDatosView player={filteredSquadList[0]} onOpen={setEditingPlayer} />
