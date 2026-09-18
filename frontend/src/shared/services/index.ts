@@ -23,6 +23,7 @@ export {
   residenciaComedorAccesosService,
   rpeRespuestasService,
   wellnessRespuestasService,
+  objetivosIndividualesService,
 } from './dataService';
 export type {
   Club, Equipo, Jugador, Personal, Usuario,
@@ -30,7 +31,7 @@ export type {
   EquipoRival, Localidad, InstalacionCampo,
   ResidenciaHabitacion, ResidenciaJugador, ResidenciaComida,
   ResidenciaComedorToken, ResidenciaComedorAcceso,
-  RpeRespuesta, WellnessRespuesta,
+  RpeRespuesta, WellnessRespuesta, ObjetivoIndividual,
 } from './dataService';
 
 // Shim temporal de compatibilidad (Fase 1 de la migración, ver dataService.ts)

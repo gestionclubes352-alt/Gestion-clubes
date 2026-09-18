@@ -88,6 +88,9 @@ import {
 // Modules - Mediciones
 import { RegistroDiarioView, AnalisisMedicionesView, FormularioPublicoView } from '@modules/mediciones';
 
+// Modules - Objetivos Individuales
+import { ObjetivosIndividualesView } from '@modules/objetivos';
+
 // Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
 // Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
@@ -123,6 +126,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallbac
 const ROUTE_TO_SECTION: Record<string, string> = {
   '/plantillas': 'PLANTILLAS',
   '/staff': 'PERSONAL',
+  '/objetivos': 'OBJETIVOS',
   '/clubes': 'CLUBES',
   '/equipos': 'EQUIPOS',
   '/equipos-internos': 'EQUIPOS_INTERNOS',
@@ -1156,7 +1160,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   };
 
   const handleCalendarEventClick = (event: CalendarEvent) => {
-    if (perfil?.rol === 'Jugador') return;
     if (event.type === 'Entrenamiento' || event.type === 'Sesión') {
       navigate('/sesiones', { state: { openEventId: event.id, from: location.pathname } });
     } else if (event.type === 'Partido') {
@@ -1296,21 +1299,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [campogramasList, selectedTeams]
   );
 
-  const jugadorPropioEquipo = useMemo(() => {
-    if (perfil?.rol !== 'Jugador') return null;
-    return squadList.find(player => String(player.id) === String(perfil.jugador_id))?.equipo || null;
-  }, [perfil, squadList]);
-
-  const filteredEventsList = useMemo(() => {
-    const base = eventsList.filter(event => eventMatchesSelectedTeams(event, selectedTeams, competitionTeams));
-    if (perfil?.rol !== 'Jugador') return base;
-    if (!jugadorPropioEquipo) return [];
-    return base.filter(event =>
-      matchesSelectedTeams(event.team, [jugadorPropioEquipo]) ||
-      matchesSelectedTeams(event.localTeam, [jugadorPropioEquipo]) ||
-      matchesSelectedTeams(event.visitorTeam, [jugadorPropioEquipo])
-    );
-  }, [eventsList, selectedTeams, competitionTeams, perfil, jugadorPropioEquipo]);
+  const filteredEventsList = useMemo(
+    () => eventsList.filter(event => eventMatchesSelectedTeams(event, selectedTeams, competitionTeams)),
+    [eventsList, selectedTeams, competitionTeams]
+  );
 
   const competitionsById = useMemo(
     () => new Map(competicionesList.map(competition => [String(competition.id), competition])),
@@ -1601,6 +1593,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   userRole={userRole}
                 />
               } />
+              <Route path="/objetivos" element={<ObjetivosIndividualesView />} />
               <Route path="/clubes" element={
                 <ClubesTable
                   clubes={clubesList}
@@ -1747,11 +1740,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               <Route path="/pintado-acciones" element={<PintadoAcciones ownClubId={currentTeam?.id || ''} />} />
               <Route path="/sesiones" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={perfil?.rol === 'Jugador' ? () => {} : setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+                <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/calendario" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={perfil?.rol === 'Jugador' ? () => {} : (date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/partidos" element={
                 isLoadingExtra ? <LoadingScreen /> :

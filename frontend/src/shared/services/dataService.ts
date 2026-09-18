@@ -424,6 +424,20 @@ export interface ShareToken {
   updated_at?: string;
 }
 
+export interface ObjetivoIndividual {
+  id: string;
+  club_id: string;
+  equipo_id: string;
+  jugador_id: string;
+  fecha: string;
+  tipo: 'deportivo' | 'psicologico' | 'habitos' | 'academico';
+  estado: 'verde' | 'naranja' | 'rojo';
+  detalle?: string;
+  plan_accion?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ── Servicios por tabla ────────────────────────────────────────────────────
 export const clubesService = createTableService<Club>('clubes');
 export const equiposService = createTableService<Equipo>('equipos');
@@ -450,6 +464,7 @@ export const residenciaComedorAccesosService = createTableService<ResidenciaCome
 export const rpeRespuestasService = createTableService<RpeRespuesta>('rpe_respuestas');
 export const wellnessRespuestasService = createTableService<WellnessRespuesta>('wellness_respuestas');
 export const shareTokensService = createTableService<ShareToken>('share_tokens');
+export const objetivosIndividualesService = createTableService<ObjetivoIndividual>('objetivos_individuales');
 
 // Ejemplo de uso en un componente:
 //
