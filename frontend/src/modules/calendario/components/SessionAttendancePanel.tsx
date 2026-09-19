@@ -19,6 +19,7 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
   const { t } = useTranslation();
   const [externalTeamFilter, setExternalTeamFilter] = useState<string[]>([]);
   const [externalSearch, setExternalSearch] = useState('');
+  const [showExternalPlayers, setShowExternalPlayers] = useState(false);
   const [absentTeamFilter, setAbsentTeamFilter] = useState<string[]>([]);
   const [absentSearch, setAbsentSearch] = useState('');
 
@@ -412,54 +413,63 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
 
                 {!hideExternalPlayers && uniqueAdditionalPlayers.length > 0 && (
                   <>
-                    <div className="flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setShowExternalPlayers(v => !v)}
+                      className="w-full flex items-center gap-2 mt-6 mb-3 pt-4 border-t border-slate-200"
+                    >
                       <i className="fa-solid fa-user-plus text-slate-400"></i>
                       <h4 className="text-slate-500 font-black text-sm uppercase tracking-widest">{t('calendarView.externalPlayers')}</h4>
                       <span className="ml-auto text-[10px] font-black text-slate-400">{filteredExternalPlayers.length}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                      <MultiSelectFilter
-                        value={externalTeamFilter}
-                        onChange={setExternalTeamFilter}
-                        allLabel={t('calendarView.filterAllTeams')}
-                        options={externalTeams.map((team) => ({ value: team, label: team }))}
-                        className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
-                      />
-                      <div className="relative flex-1">
-                        <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
-                        <input
-                          type="text"
-                          value={externalSearch}
-                          onChange={(e) => setExternalSearch(e.target.value)}
-                          placeholder={t('calendarView.searchPlayerPlaceholder')}
-                          className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold placeholder:text-slate-300 focus:outline-none focus:border-[var(--accent)]"
-                        />
-                      </div>
-                    </div>
-                    {filteredExternalPlayers.length === 0 ? (
-                      <div className="text-center text-slate-400 text-xs font-bold py-4">{t('calendarView.noExternalPlayersFound')}</div>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredExternalPlayers.map((player) => (
-                          <div key={player.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-200">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-9 h-9 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[11px]">
-                                {player.dorsal || player.nombre.charAt(0)}
-                              </div>
-                              <p className="text-[12px] font-black text-slate-700 truncate">
-                                {player.nombre}{getPlayerMeta(player) && ` (${getPlayerMeta(player)})`}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setAttending(player.id, true)}
-                              className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-black hover:bg-emerald-100"
-                            >
-                              {t('calendarView.addPlayer')}
-                            </button>
+                      <i className={`fa-solid ${showExternalPlayers ? 'fa-chevron-up' : 'fa-chevron-down'} text-slate-400 text-xs`}></i>
+                    </button>
+                    {showExternalPlayers && (
+                      <>
+                        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                          <MultiSelectFilter
+                            value={externalTeamFilter}
+                            onChange={setExternalTeamFilter}
+                            allLabel={t('calendarView.filterAllTeams')}
+                            options={externalTeams.map((team) => ({ value: team, label: team }))}
+                            className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-black sm:w-56"
+                          />
+                          <div className="relative flex-1">
+                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                            <input
+                              type="text"
+                              value={externalSearch}
+                              onChange={(e) => setExternalSearch(e.target.value)}
+                              placeholder={t('calendarView.searchPlayerPlaceholder')}
+                              className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold placeholder:text-slate-300 focus:outline-none focus:border-[var(--accent)]"
+                            />
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                        {filteredExternalPlayers.length === 0 ? (
+                          <div className="text-center text-slate-400 text-xs font-bold py-4">{t('calendarView.noExternalPlayersFound')}</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {filteredExternalPlayers.map((player) => (
+                              <div key={player.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-9 h-9 rounded-full bg-slate-300 text-white flex items-center justify-center font-black text-[11px]">
+                                    {player.dorsal || player.nombre.charAt(0)}
+                                  </div>
+                                  <p className="text-[12px] font-black text-slate-700 truncate">
+                                    {player.nombre}{getPlayerMeta(player) && ` (${getPlayerMeta(player)})`}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setAttending(player.id, true)}
+                                  className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-black hover:bg-emerald-100"
+                                >
+                                  {t('calendarView.addPlayer')}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 )}

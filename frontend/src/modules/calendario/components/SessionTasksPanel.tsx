@@ -19,9 +19,11 @@ interface SessionTasksPanelProps {
   sessionNumber?: number;
   squad?: Player[];
   attendance?: Record<string, string>;
+  /** Plantilla completa de la sesión (convocados y no convocados), para el resumen de asistencia */
+  allSquad?: Player[];
 }
 
-const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber, squad = [], attendance = {} }) => {
+const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber, squad = [], attendance = {}, allSquad = [] }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -30,6 +32,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
   const [repositoryLoading, setRepositoryLoading] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
   const [fullscreenTaskId, setFullscreenTaskId] = useState<string | null>(null);
+  const [showVests, setShowVests] = useState(true);
+  const [showAttendanceSummary, setShowAttendanceSummary] = useState(false);
+  const [pdfPreviewMode, setPdfPreviewMode] = useState<'full' | 'no-vests' | null>(null);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfPreviewZoom, setPdfPreviewZoom] = useState(0.5);
 
   const fullscreenTask = useMemo(
     () => tasks.find(task => task.id === fullscreenTaskId) || null,
@@ -53,6 +60,20 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     () => tasks.reduce((sum, task) => sum + (task.durationMinutes || 0), 0),
     [tasks]
   );
+
+  const attendanceSummary = useMemo(() => {
+    const attendees: Player[] = [];
+    const absentees: { player: Player; reason: string }[] = [];
+    for (const player of allSquad) {
+      const status = attendance[String(player.id)] || 'Si';
+      if (status === 'Si') {
+        attendees.push(player);
+      } else {
+        absentees.push({ player, reason: status });
+      }
+    }
+    return { attendees, absentees };
+  }, [allSquad, attendance]);
 
   const openPicker = async () => {
     setPickerOpen(true);
@@ -161,10 +182,13 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     return pages;
   }, [tasks]);
 
-  /** Igual que exportPages pero de 3 en 3, para la versión "sin petos" */
+  /** Igual que exportPages pero de 3 en 3, para la versión "sin petos".
+   * La primera página lleva el resumen de asistencia, así que solo caben 2 ejercicios en ella. */
   const exportPagesNoVests = useMemo(() => {
     const pages: SessionTask[][] = [];
-    for (let i = 0; i < tasks.length; i += 3) {
+    if (tasks.length === 0) return pages;
+    pages.push(tasks.slice(0, 2));
+    for (let i = 2; i < tasks.length; i += 3) {
       pages.push(tasks.slice(i, i + 3));
     }
     return pages;
@@ -177,7 +201,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)
         : task.durationMinutes ?? 0;
 
-    const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
+    const filteredPlayers = squad;
     const vestColorStyles: Record<string, { bg: string; color: string }> = {
       '': { bg: '#ffffff', color: '#94a3b8' },
       rojo: { bg: '#ef4444', color: '#ffffff' },
@@ -299,17 +323,97 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     );
   };
 
+  /** Contenido de una página de exportación (cabecera + grid de tareas), compartido entre los
+   * contenedores ocultos usados por html2canvas y el modal de vista previa. */
+  const renderExportPageContent = (pageTasks: SessionTask[], pageIndex: number, totalPages: number, hideVests: boolean) => {
+    const cardsPerPage = hideVests ? (pageIndex === 0 ? 2 : 3) : 2;
+    const globalStartIndex = hideVests
+      ? (pageIndex === 0 ? 0 : 2 + (pageIndex - 1) * 3)
+      : pageIndex * 2;
+
+    return (
+      <div
+        data-export-page="true"
+        className="bg-white flex flex-col overflow-hidden"
+        style={{ width: '1191px', height: '1684px', padding: '40px' }}
+      >
+        <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-slate-100 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <i className="fa-solid fa-list-check text-[16px] text-[var(--accent)]"></i>
+            <h1 className="text-[16px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
+          </div>
+          <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{totalPages}</span>
+        </div>
+
+        <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+              <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+              <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+              <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
+            </div>
+          </div>
+        </div>
+
+        {hideVests && pageIndex === 0 && (
+          <div className="flex items-stretch gap-3 mb-3 flex-shrink-0">
+            <div className="flex-1 min-w-0 rounded-lg border border-emerald-200 bg-emerald-50 p-2">
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">
+                <i className="fa-solid fa-circle-check"></i> Asisten ({attendanceSummary.attendees.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {attendanceSummary.attendees.map(player => (
+                  <span key={player.id} className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5">
+                    {player.apodo || player.nombre}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 min-w-0 rounded-lg border border-red-200 bg-red-50 p-2">
+              <p className="text-[10px] font-black text-red-700 uppercase tracking-widest mb-1">
+                <i className="fa-solid fa-circle-xmark"></i> No asisten ({attendanceSummary.absentees.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {attendanceSummary.absentees.map(({ player, reason }) => (
+                  <span key={player.id} className="text-[10px] font-bold text-red-700 bg-white border border-red-200 rounded px-1.5 py-0.5">
+                    {player.apodo || player.nombre} · {reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateRows: `repeat(${cardsPerPage}, 1fr)` }}>
+          {pageTasks.map((task, idxInPage) => renderExportCard(task, globalStartIndex + idxInPage, hideVests))}
+        </div>
+      </div>
+    );
+  };
+
   const exportToPDF = async (mode: 'full' | 'no-vests' = 'full') => {
-    // Abrir la pestaña ya (dentro del gesto de click) para que el navegador no la bloquee como pop-up
-    const newTab = window.open('', '_blank');
     const container = document.getElementById(mode === 'full' ? 'session-tasks-export' : 'session-tasks-export-no-vests');
 
     if (!container) {
-      newTab?.close();
       alert(t('calendarView.exportError') || 'Error al exportar PDF');
       return;
     }
 
+    setPdfDownloading(true);
     const originalDisplay = container.style.display;
     const originalPosition = container.style.position;
     const originalVisibility = container.style.visibility;
@@ -383,16 +487,15 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       }
 
       const pdfUrl = URL.createObjectURL(pdfBlob);
-
-      if (newTab) {
-        newTab.document.title = fileName;
-        newTab.location.href = pdfUrl;
-      } else {
-        // El navegador bloqueó la apertura previa de la pestaña; lo intentamos ahora igualmente
-        window.open(pdfUrl, '_blank');
-      }
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(pdfUrl);
+      setPdfPreviewMode(null);
     } catch (error) {
-      newTab?.close();
       console.error('Error exporting to PDF:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       alert(`${t('calendarView.exportError') || 'Error al exportar PDF'}\n\n${errorMessage}`);
@@ -400,6 +503,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       container.style.display = originalDisplay;
       container.style.position = originalPosition;
       container.style.visibility = originalVisibility;
+      setPdfDownloading(false);
     }
   };
 
@@ -407,167 +511,151 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     <>
       <div id="session-tasks-export" className="hidden">
         {exportPages.map((pageTasks, pageIndex) => (
-          <div
-            key={pageIndex}
-            data-export-page="true"
-            className="bg-white flex flex-col overflow-hidden"
-            style={{ width: '1191px', height: '1684px', padding: '40px' }}
-          >
-            <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <i className="fa-solid fa-list-check text-[16px] text-[var(--accent)]"></i>
-                <h1 className="text-[16px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
-              </div>
-              <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{exportPages.length}</span>
-            </div>
-
-            <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-                  <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-                  <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-                  <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateRows: 'repeat(2, 1fr)' }}>
-              {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 2 + idxInPage))}
-            </div>
-          </div>
+          <React.Fragment key={pageIndex}>
+            {renderExportPageContent(pageTasks, pageIndex, exportPages.length, false)}
+          </React.Fragment>
         ))}
       </div>
       <div id="session-tasks-export-no-vests" className="hidden">
         {exportPagesNoVests.map((pageTasks, pageIndex) => (
-          <div
-            key={pageIndex}
-            data-export-page="true"
-            className="bg-white flex flex-col overflow-hidden"
-            style={{ width: '1191px', height: '1684px', padding: '40px' }}
-          >
-            <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <i className="fa-solid fa-list-check text-[16px] text-[var(--accent)]"></i>
-                <h1 className="text-[16px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
-              </div>
-              <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{exportPagesNoVests.length}</span>
-            </div>
-
-            <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-                  <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-                  <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-                  <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 flex-1 min-h-0 overflow-hidden" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
-              {pageTasks.map((task, idxInPage) => renderExportCard(task, pageIndex * 3 + idxInPage, true))}
-            </div>
-          </div>
+          <React.Fragment key={pageIndex}>
+            {renderExportPageContent(pageTasks, pageIndex, exportPagesNoVests.length, true)}
+          </React.Fragment>
         ))}
       </div>
-      <div className="space-y-2">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
-        <div className="flex flex-col items-center justify-center gap-2 mb-2">
-          <div className="flex items-center gap-3">
-            <i className="fa-solid fa-list-check text-[var(--accent)]"></i>
-            <h4 className="text-[var(--accent)] font-black text-[18px]">{t('calendarView.sessionTasksTitle')}</h4>
+      <div className="space-y-1.5">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] items-center gap-3 mb-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <i className="fa-solid fa-list-check text-[var(--accent)] text-[14px]"></i>
+            <h4 className="text-[var(--accent)] font-black text-[14px]">{t('calendarView.sessionTasksTitle')}</h4>
             {tasks.length > 0 && (
-              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 {t('calendarView.totalDuration')}: {totalDuration} {t('calendarView.minutesAbbr')}
               </span>
             )}
+            <div className="flex items-center gap-1.5 flex-wrap ml-2 pl-2 border-l border-slate-200">
+              <button
+                type="button"
+                onClick={openExerciseDesigner}
+                className="px-2.5 py-0.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
+              >
+                <i className="fa-solid fa-plus"></i> {t('calendarView.addCustomTask')}
+              </button>
+              <button
+                type="button"
+                onClick={openPicker}
+                className="px-2.5 py-0.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
+              >
+                <i className="fa-solid fa-book"></i> {t('calendarView.addFromRepository')}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-center">
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {allSquad.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAttendanceSummary(v => !v)}
+                className="px-2.5 py-0.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
+              >
+                <i className="fa-solid fa-users"></i>
+                Mostrar convocados
+                <i className={`fa-solid ${showAttendanceSummary ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowVests(v => !v)}
+              className={`px-2.5 py-0.5 rounded-xl border font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all ${
+                showVests
+                  ? 'border-[var(--accent)]/40 text-[var(--accent)]'
+                  : 'border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40'
+              }`}
+            >
+              <i className={`fa-solid ${showVests ? 'fa-eye-slash' : 'fa-eye'}`}></i> {showVests ? 'OCULTAR PETOS' : 'MOSTRAR PETOS'}
+            </button>
             {tasks.length > 0 && (
               <button
                 type="button"
-                onClick={() => exportToPDF('full')}
-                className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
+                onClick={() => setPdfPreviewMode('full')}
+                className="px-2.5 py-0.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
               >
-                <i className="fa-solid fa-file-pdf"></i> SESION EN PDF
+                <i className="fa-solid fa-file-pdf"></i> PDF CON PETOS
               </button>
             )}
             {tasks.length > 0 && (
               <button
                 type="button"
-                onClick={() => exportToPDF('no-vests')}
-                className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
+                onClick={() => setPdfPreviewMode('no-vests')}
+                className="px-2.5 py-0.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all"
               >
                 <i className="fa-solid fa-file-pdf"></i> PDF SIN PETOS
               </button>
             )}
-            <button
-              type="button"
-              onClick={openExerciseDesigner}
-              className="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
-            >
-              <i className="fa-solid fa-plus"></i> {t('calendarView.addCustomTask')}
-            </button>
-            <button
-              type="button"
-              onClick={openPicker}
-              className="px-3 py-1 rounded-xl border border-slate-200 text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/40 font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all"
-            >
-              <i className="fa-solid fa-book"></i> {t('calendarView.addFromRepository')}
-            </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 mb-3 pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+        <div className="flex flex-wrap items-center gap-3 mb-1.5 pb-1.5 border-b border-slate-100">
+          <div className="flex items-center gap-1.5">
+            <i className="fa-solid fa-calendar-day text-[var(--accent)] text-[12px]"></i>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-              <p className="font-black text-slate-700 text-[14px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+              <p className="font-black text-slate-700 text-[12px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+          <div className="flex items-center gap-1.5">
+            <i className="fa-solid fa-shield-halved text-[var(--accent)] text-[12px]"></i>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-              <p className="font-black text-slate-700 text-[14px]">{team || t('calendarView.notDefined')}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+              <p className="font-black text-slate-700 text-[12px]">{team || t('calendarView.notDefined')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+          <div className="flex items-center gap-1.5">
+            <i className="fa-solid fa-hashtag text-[var(--accent)] text-[12px]"></i>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-              <p className="font-black text-slate-700 text-[14px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+              <p className="font-black text-slate-700 text-[12px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
             </div>
           </div>
         </div>
+
+        {showAttendanceSummary && allSquad.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-1.5 pb-1.5 border-b border-slate-100">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-2">
+              <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                <i className="fa-solid fa-circle-check"></i> Asisten ({attendanceSummary.attendees.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {attendanceSummary.attendees.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 font-bold">—</p>
+                ) : (
+                  attendanceSummary.attendees.map(player => (
+                    <span key={player.id} className="px-1.5 py-0.5 rounded-lg bg-white border border-emerald-200 text-[11px] font-bold text-emerald-700">
+                      {player.apodo || player.nombre}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="rounded-xl border border-red-100 bg-red-50/50 p-2">
+              <p className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                <i className="fa-solid fa-circle-xmark"></i> No asisten ({attendanceSummary.absentees.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {attendanceSummary.absentees.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 font-bold">—</p>
+                ) : (
+                  attendanceSummary.absentees.map(({ player, reason }) => (
+                    <span key={player.id} className="px-1.5 py-0.5 rounded-lg bg-white border border-red-200 text-[11px] font-bold text-red-600 flex items-center gap-1">
+                      {player.apodo || player.nombre}
+                      <span className="text-red-400 font-black">· {reason}</span>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {tasks.length === 0 ? (
           <div className="py-12 text-center text-slate-400 font-bold text-[20px]">{t('calendarView.noSessionTasks')}</div>
@@ -588,11 +676,54 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</p>
                     <p className="font-black text-slate-600 text-[12px] truncate">{task.category || t('calendarView.notDefined')}</p>
                   </div>
+                  <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5">
+                      <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
+                      {(task.numberOfSeries ?? 0) > 0 ? (
+                        <span className="w-8 text-[12px] font-black text-slate-900 text-center">
+                          {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
+                        </span>
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          value={task.durationMinutes ?? 0}
+                          onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
+                          className="w-8 text-[12px] font-black text-slate-900 text-center focus:outline-none bg-transparent"
+                        />
+                      )}
+                    </div>
+                    {task.linkedTaskId && (
+                      <button
+                        type="button"
+                        onClick={() => editTaskDrawing(task)}
+                        className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                        title={t('calendarView.editDrawing') || 'Editar dibujo'}
+                      >
+                        <i className="fa-solid fa-pen text-[11px]"></i>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenTaskId(task.id)}
+                      className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
+                      title={t('calendarView.viewFullscreen')}
+                    >
+                      <i className="fa-solid fa-expand text-[11px]"></i>
+                    </button>
+                    <button
+                      onClick={() => removeTask(task.id)}
+                      className="w-5 h-5 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
+                      title={t('common.delete')}
+                    >
+                      <i className="fa-solid fa-trash-can text-[11px]"></i>
+                    </button>
+                  </div>
                 </div>
 
 
                 {/* Vista previa + Series/Tiempos + Roles (izda, estrecho) | Descripción | Petos */}
-                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 mb-2">
+                <div className={`grid grid-cols-1 gap-2 mb-2 ${showVests ? 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]' : 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
                   <div className="flex flex-col gap-2">
                     <div
                       className={`group/preview relative ${task.linkedTaskId ? 'cursor-pointer' : ''}`}
@@ -683,127 +814,87 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   </div>
 
                   {/* Petos de Entrenamiento */}
-                  <div className="flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50">
-                    <div className="flex items-center justify-end gap-1 mb-1 flex-shrink-0">
-                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5">
-                        <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
-                        {(task.numberOfSeries ?? 0) > 0 ? (
-                          <span className="w-8 text-[12px] font-black text-slate-900 text-center">
-                            {(task.numberOfSeries ?? 0) * (task.timePerSeries ?? 0) + Math.max(0, (task.numberOfSeries ?? 0) - 1) * (task.restBetweenSeries ?? 0)}
-                          </span>
-                        ) : (
-                          <input
-                            type="number"
-                            min={0}
-                            value={task.durationMinutes ?? 0}
-                            onChange={e => updateTask(task.id, { durationMinutes: Number(e.target.value) })}
-                            className="w-8 text-[12px] font-black text-slate-900 text-center focus:outline-none bg-transparent"
-                          />
-                        )}
-                      </div>
-                      {task.linkedTaskId && (
-                        <button
-                          type="button"
-                          onClick={() => editTaskDrawing(task)}
-                          className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
-                          title={t('calendarView.editDrawing') || 'Editar dibujo'}
-                        >
-                          <i className="fa-solid fa-pen text-[11px]"></i>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setFullscreenTaskId(task.id)}
-                        className="w-5 h-5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all flex-shrink-0"
-                        title={t('calendarView.viewFullscreen')}
-                      >
-                        <i className="fa-solid fa-expand text-[11px]"></i>
-                      </button>
-                      <button
-                        onClick={() => removeTask(task.id)}
-                        className="w-5 h-5 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all flex-shrink-0"
-                        title={t('common.delete')}
-                      >
-                        <i className="fa-solid fa-trash-can text-[11px]"></i>
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-                      {(() => {
-                        const filteredPlayers = squad.filter(p => (attendance[String(p.id)] || 'Si') === 'Si');
-                        if (!filteredPlayers || filteredPlayers.length === 0) {
-                          return <p className="text-[10px] text-slate-400 py-2">Sin plantilla</p>;
-                        }
-                        const vestColorStyles: Record<string, { bg: string; color: string }> = {
-                          '': { bg: '#ffffff', color: '#94a3b8' },
-                          rojo: { bg: '#ef4444', color: '#ffffff' },
-                          azul: { bg: '#3b82f6', color: '#ffffff' },
-                          verde: { bg: '#22c55e', color: '#ffffff' },
-                        };
-                        return (
-                          <div className="grid grid-cols-2 gap-1">
-                            {filteredPlayers.map(player => {
-                              const current = task.playerVestColors?.[String(player.id)] || '';
-                              const style = vestColorStyles[current] || vestColorStyles[''];
-                              return (
-                                <div key={player.id} className="flex items-center gap-0.5 p-1 rounded border border-slate-200 bg-white text-[10px]">
-                                  <span className="flex-1 min-w-0 truncate font-bold text-slate-700">{player.apodo || player.nombre}</span>
-                                  <div
-                                    style={{
-                                      position: 'relative',
-                                      width: '24px',
-                                      height: '18px',
-                                      borderRadius: '4px',
-                                      border: '1px solid #cbd5e1',
-                                      backgroundColor: style.bg,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      flexShrink: 0,
-                                      overflow: 'hidden',
-                                    }}
-                                  >
-                                    <span
+                  {showVests && (
+                    <div className="flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Petos</p>
+                      <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                        {(() => {
+                          const filteredPlayers = squad;
+                          if (!filteredPlayers || filteredPlayers.length === 0) {
+                            return <p className="text-[10px] text-slate-400 py-2">Sin plantilla</p>;
+                          }
+                          const vestColorStyles: Record<string, { bg: string; color: string }> = {
+                            '': { bg: '#ffffff', color: '#94a3b8' },
+                            rojo: { bg: '#ef4444', color: '#ffffff' },
+                            azul: { bg: '#3b82f6', color: '#ffffff' },
+                            verde: { bg: '#22c55e', color: '#ffffff' },
+                          };
+                          return (
+                            <div className="grid grid-cols-2 gap-1">
+                              {filteredPlayers.map(player => {
+                                const current = task.playerVestColors?.[String(player.id)] || '';
+                                const style = vestColorStyles[current] || vestColorStyles[''];
+                                return (
+                                  <div key={player.id} className="flex items-center gap-0.5 p-1 rounded border border-slate-200 bg-white text-[10px]">
+                                    <span className="flex-1 min-w-0 truncate font-bold text-slate-700">{player.apodo || player.nombre}</span>
+                                    <div
                                       style={{
-                                        fontSize: '9px',
-                                        fontWeight: 700,
-                                        color: style.color,
-                                        pointerEvents: 'none',
+                                        position: 'relative',
+                                        width: '24px',
+                                        height: '18px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: style.bg,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0,
+                                        overflow: 'hidden',
                                       }}
                                     >
-                                      {current ? current[0].toUpperCase() : '-'}
-                                    </span>
-                                    <select
-                                      value={current}
-                                      onChange={(e) => updateTask(task.id, {
-                                        playerVestColors: {
-                                          ...(task.playerVestColors || {}),
-                                          [String(player.id)]: e.target.value
-                                        }
-                                      })}
-                                      style={{
-                                        position: 'absolute',
-                                        inset: 0,
-                                        width: '100%',
-                                        height: '100%',
-                                        opacity: 0,
-                                        cursor: 'pointer',
-                                        border: 'none',
-                                      }}
-                                    >
-                                      <option value="">-</option>
-                                      <option value="rojo">Rojo</option>
-                                      <option value="azul">Azul</option>
-                                      <option value="verde">Verde</option>
-                                    </select>
+                                      <span
+                                        style={{
+                                          fontSize: '9px',
+                                          fontWeight: 700,
+                                          color: style.color,
+                                          pointerEvents: 'none',
+                                        }}
+                                      >
+                                        {current ? current[0].toUpperCase() : '-'}
+                                      </span>
+                                      <select
+                                        value={current}
+                                        onChange={(e) => updateTask(task.id, {
+                                          playerVestColors: {
+                                            ...(task.playerVestColors || {}),
+                                            [String(player.id)]: e.target.value
+                                          }
+                                        })}
+                                        style={{
+                                          position: 'absolute',
+                                          inset: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          opacity: 0,
+                                          cursor: 'pointer',
+                                          border: 'none',
+                                        }}
+                                      >
+                                        <option value="">-</option>
+                                        <option value="rojo">Rojo</option>
+                                        <option value="azul">Azul</option>
+                                        <option value="verde">Verde</option>
+                                      </select>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -993,6 +1084,71 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                   <p className="text-[28px] font-bold whitespace-pre-wrap leading-relaxed">{fullscreenTask.technicalRoles}</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pdfPreviewMode && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex flex-col" onClick={() => !pdfDownloading && setPdfPreviewMode(null)}>
+          <div className="flex items-center justify-between gap-4 px-6 py-4 bg-white border-b border-slate-200 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <h3 className="font-black text-slate-800 text-[16px] uppercase tracking-widest">
+              Vista previa · {pdfPreviewMode === 'full' ? 'PDF CON PETOS' : 'PDF SIN PETOS'}
+            </h3>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-1 py-1 mr-2">
+                <button
+                  type="button"
+                  onClick={() => setPdfPreviewZoom(z => Math.max(0.25, Math.round((z - 0.1) * 100) / 100))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-all"
+                  title="Alejar"
+                >
+                  <i className="fa-solid fa-minus text-[11px]"></i>
+                </button>
+                <span className="w-12 text-center text-[11px] font-black text-slate-600">{Math.round(pdfPreviewZoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => setPdfPreviewZoom(z => Math.min(1.5, Math.round((z + 0.1) * 100) / 100))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-all"
+                  title="Acercar"
+                >
+                  <i className="fa-solid fa-plus text-[11px]"></i>
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => exportToPDF(pdfPreviewMode)}
+                disabled={pdfDownloading}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-200"
+              >
+                <i className={`fa-solid ${pdfDownloading ? 'fa-spinner fa-spin' : 'fa-download'}`}></i>
+                {pdfDownloading ? 'Generando...' : 'Descargar PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPdfPreviewMode(null)}
+                disabled={pdfDownloading}
+                className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 transition-all disabled:opacity-60"
+              >
+                <i className="fa-solid fa-xmark text-[16px]"></i>
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto py-8" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center gap-8">
+              {(pdfPreviewMode === 'full' ? exportPages : exportPagesNoVests).map((pageTasks, pageIndex) => (
+                <div
+                  key={pageIndex}
+                  className="bg-white shadow-2xl overflow-hidden flex-shrink-0"
+                  style={{ width: `${1191 * pdfPreviewZoom}px`, height: `${1684 * pdfPreviewZoom}px` }}
+                >
+                  <div style={{ width: '1191px', height: '1684px', transform: `scale(${pdfPreviewZoom})`, transformOrigin: 'top left' }}>
+                    {pdfPreviewMode === 'full'
+                      ? renderExportPageContent(pageTasks, pageIndex, exportPages.length, false)
+                      : renderExportPageContent(pageTasks, pageIndex, exportPagesNoVests.length, true)}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
