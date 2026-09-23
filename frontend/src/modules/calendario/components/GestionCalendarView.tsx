@@ -364,6 +364,74 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   });
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('month');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+
+  const generateUUID = (): string => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  const handleDuplicateEvent = (ev: CalendarEvent) => {
+    if (!onSaveEvent) return;
+    const duplicated: CalendarEvent = {
+      ...ev,
+      id: generateUUID(),
+      tasks: [],
+      attendance: {},
+    };
+    onSaveEvent(duplicated);
+    onClickEvent?.(duplicated);
+  };
+
+  const handleEventDragStart = (e: React.DragEvent, ev: CalendarEvent) => {
+    setDraggedEvent(ev);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleEventDragEnd = () => {
+    setDraggedEvent(null);
+    setDragOverSlot(null);
+  };
+
+  const handleSlotDragOver = (e: React.DragEvent, slotKey: string) => {
+    if (!draggedEvent) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot(slotKey);
+  };
+
+  const handleSlotDragLeave = () => {
+    setDragOverSlot(null);
+  };
+
+  const handleSlotDrop = (e: React.DragEvent, date: Date, hour?: number) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+    if (!draggedEvent || !onSaveEvent) return;
+    const newDate = new Date(date);
+    const currentTime = parseEventTime(draggedEvent.time);
+    if (hour !== undefined) {
+      newDate.setHours(hour, currentTime?.minute ?? 0, 0, 0);
+    }
+    const newTime = hour !== undefined
+      ? `${String(hour).padStart(2, '0')}:${String(currentTime?.minute ?? 0).padStart(2, '0')}`
+      : draggedEvent.time;
+    const sameDay = draggedEvent.date instanceof Date
+      ? draggedEvent.date.toDateString() === newDate.toDateString()
+      : new Date(draggedEvent.date).toDateString() === newDate.toDateString();
+    if (!sameDay || newTime !== draggedEvent.time) {
+      onSaveEvent({ ...draggedEvent, date: newDate, time: newTime });
+    }
+    setDraggedEvent(null);
+  };
+
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [playerFilter, setPlayerFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -752,10 +820,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               const visibleEvents = dayEvents.slice(0, 3);
               const extraCount = dayEvents.length - visibleEvents.length;
 
+              const monthSlotKey = date.toISOString();
               return (
                 <div
                   key={date.toISOString()}
-                  className={`min-h-24 bg-white p-1.5 flex flex-col gap-1 ${!isCurrentMonth ? 'bg-slate-50/60' : ''} ${isToday(date) ? 'bg-red-50' : ''}`}
+                  onDragOver={(e) => handleSlotDragOver(e, monthSlotKey)}
+                  onDragLeave={handleSlotDragLeave}
+                  onDrop={(e) => handleSlotDrop(e, date)}
+                  className={`min-h-24 bg-white p-1.5 flex flex-col gap-1 transition-colors ${!isCurrentMonth ? 'bg-slate-50/60' : ''} ${isToday(date) ? 'bg-red-50' : ''} ${dragOverSlot === monthSlotKey ? 'bg-blue-100 ring-2 ring-inset ring-blue-400' : ''}`}
                 >
                   <span className={`text-[11px] font-black self-end px-1 ${isToday(date) ? 'text-white bg-[var(--accent)] rounded-full w-5 h-5 flex items-center justify-center' : isCurrentMonth ? 'text-slate-700' : 'text-slate-300'}`}>
                     {date.getDate()}
@@ -768,28 +840,46 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           key={ev.id}
                           role="button"
                           tabIndex={0}
+                          draggable={Boolean(onSaveEvent)}
+                          onDragStart={(e) => handleEventDragStart(e, ev)}
+                          onDragEnd={handleEventDragEnd}
                           onClick={() => {
                             setSelectedEvent(ev);
                             onClickEvent?.(ev);
                           }}
                           title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                          className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
+                          className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                         >
                           {formatEventLabel(ev.time, ev.team || ev.title)}
                           {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
-                          {onDeleteEvent && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteEvent(ev.id);
-                              }}
-                              className="absolute top-0 right-0 z-10 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-black/10 text-current opacity-0 group-hover/ev:opacity-100 hover:bg-black/25 transition-all"
-                              title={t('common.delete')}
-                            >
-                              <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
-                            </button>
-                          )}
+                          <div className="absolute top-0 right-0 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100">
+                            {onSaveEvent && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDuplicateEvent(ev);
+                                }}
+                                className="w-3.5 h-3.5 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                title={t('common.duplicate', 'Duplicar')}
+                              >
+                                <i className="fa-solid fa-copy" style={{ fontSize: '7px' }}></i>
+                              </button>
+                            )}
+                            {onDeleteEvent && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteEvent(ev.id);
+                                }}
+                                className="w-3.5 h-3.5 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                title={t('common.delete')}
+                              >
+                                <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -855,10 +945,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   });
                   const compact = hourEvents.length > 1;
 
+                  const slotKey = `${date.toISOString()}-${hour}`;
                   return (
                     <div
-                      key={`${date.toISOString()}-${hour}`}
-                      className={`min-h-12 bg-white p-1.5 ${isToday(date) ? 'bg-red-50' : ''}`}
+                      key={slotKey}
+                      onDragOver={(e) => handleSlotDragOver(e, slotKey)}
+                      onDragLeave={handleSlotDragLeave}
+                      onDrop={(e) => handleSlotDrop(e, date, hour)}
+                      className={`min-h-12 bg-white p-1.5 transition-colors ${isToday(date) ? 'bg-red-50' : ''} ${dragOverSlot === slotKey ? 'bg-blue-100 ring-2 ring-inset ring-blue-400' : ''}`}
                     >
                       <div className={hourEvents.length > 0 ? 'flex flex-row gap-1 items-stretch' : 'space-y-1'}>
                         {hourEvents.map(ev => {
@@ -874,28 +968,46 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           return (
                             <div
                               key={ev.id}
+                              draggable={Boolean(onSaveEvent)}
+                              onDragStart={(e) => handleEventDragStart(e, ev)}
+                              onDragEnd={handleEventDragEnd}
                               onClick={() => {
                                 setSelectedEvent(ev);
                                 onClickEvent?.(ev);
                               }}
-                              className={`relative group/ev flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''}`}
+                              className={`relative group/ev flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                               title={isMatch
                                 ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
                                 : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                             >
-                              {onDeleteEvent && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteEvent(ev.id);
-                                  }}
-                                  className="absolute top-0.5 right-0.5 z-10 w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-current opacity-0 group-hover/ev:opacity-100 hover:bg-black/25 transition-all"
-                                  title={t('common.delete')}
-                                >
-                                  <i className="fa-solid fa-xmark" style={{ fontSize: '9px' }}></i>
-                                </button>
-                              )}
+                              <div className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100">
+                                {onSaveEvent && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDuplicateEvent(ev);
+                                    }}
+                                    className="w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                    title={t('common.duplicate', 'Duplicar')}
+                                  >
+                                    <i className="fa-solid fa-copy" style={{ fontSize: '8px' }}></i>
+                                  </button>
+                                )}
+                                {onDeleteEvent && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteEvent(ev.id);
+                                    }}
+                                    className="w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                    title={t('common.delete')}
+                                  >
+                                    <i className="fa-solid fa-xmark" style={{ fontSize: '9px' }}></i>
+                                  </button>
+                                )}
+                              </div>
                               {isMatch ? (
                                 compact ? (
                                   <div className="flex flex-col items-center gap-0.5 w-full text-center">
@@ -1206,6 +1318,18 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {onSaveEvent && (
+                  <button
+                    onClick={() => {
+                      handleDuplicateEvent(selectedEvent);
+                      setSelectedEvent(null);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 transition-all hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                    title={t('common.duplicate', 'Duplicar')}
+                  >
+                    <i className="fa-solid fa-copy text-sm"></i>
+                  </button>
+                )}
                 {onDeleteEvent && (
                   <button
                     onClick={() => {

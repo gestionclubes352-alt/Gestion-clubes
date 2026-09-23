@@ -8,6 +8,7 @@ import type { TrainingTask } from '@modules/repositorio-tareas';
 import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal, DesignerPreview } from '@modules/repositorio-tareas';
 import type { SessionTask } from '../types';
 import type { Player } from '@modules/plantilla';
+import { getFirstDesignerFrame } from '@modules/entrenamientos/types';
 
 interface SessionTasksPanelProps {
   tasks: SessionTask[];
@@ -118,7 +119,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     await db.task_templates.upsert(task);
     setNewTaskModalOpen(false);
     navigate('/disenador', {
-      state: { selectTaskId: task.id, fromSessionCreation: true, returnEventId: eventId },
+      state: {
+        selectTaskId: task.id,
+        fromSessionCreation: true,
+        returnEventId: eventId,
+        sessionSquadIds: squad.map(p => String(p.id)),
+      },
     });
   };
 
@@ -135,6 +141,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         fromSessionCreation: true,
         returnEventId: eventId,
         editSessionTaskId: task.id,
+        sessionSquadIds: squad.map(p => String(p.id)),
       },
     });
   };
@@ -173,16 +180,19 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     return result;
   }, [filteredRepository]);
 
-  /** Agrupa las tareas de 2 en 2: cada grupo ocupa una página A4 completa en el PDF */
+  /** Agrupa las tareas para el PDF con petos: la primera página lleva 2 ejercicios
+   * (cabecera más cargada) y el resto de páginas caben 3 ejercicios cada una. */
   const exportPages = useMemo(() => {
     const pages: SessionTask[][] = [];
-    for (let i = 0; i < tasks.length; i += 2) {
-      pages.push(tasks.slice(i, i + 2));
+    if (tasks.length === 0) return pages;
+    pages.push(tasks.slice(0, 2));
+    for (let i = 2; i < tasks.length; i += 3) {
+      pages.push(tasks.slice(i, i + 3));
     }
     return pages;
   }, [tasks]);
 
-  /** Igual que exportPages pero de 3 en 3, para la versión "sin petos".
+  /** Igual que exportPages pero para la versión "sin petos".
    * La primera página lleva el resumen de asistencia, así que solo caben 2 ejercicios en ella. */
   const exportPagesNoVests = useMemo(() => {
     const pages: SessionTask[][] = [];
@@ -210,97 +220,94 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     };
 
     return (
-      <div key={task.id} className="overflow-hidden rounded-xl border border-slate-200 p-4 flex flex-col gap-2" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
+      <div key={task.id} className="overflow-hidden rounded-xl border border-slate-200 p-3 flex flex-col gap-1.5" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
         {/* Header: número, nombre, tipo y duración total (igual que la vista web) */}
         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-          <span className="w-7 h-7 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-[14px] font-black flex-shrink-0">
+          <span className="w-6 h-6 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-[12px] font-black flex-shrink-0">
             {globalIndex + 1}
           </span>
           <div className="min-w-0 flex items-baseline gap-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nombre:</p>
-            <p className="font-black text-slate-800 text-[15px] truncate">{task.title}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Nombre:</p>
+            <p className="font-black text-slate-800 text-[13px] truncate">{task.title}</p>
           </div>
           <div className="min-w-0 flex items-baseline gap-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</p>
-            <p className="font-black text-slate-600 text-[15px] truncate">{task.category || t('calendarView.notDefined')}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</p>
+            <p className="font-black text-slate-600 text-[13px] truncate">{task.category || t('calendarView.notDefined')}</p>
           </div>
-          <div className="flex items-center gap-1 border border-slate-200 rounded px-2 py-1 flex-shrink-0 ml-auto">
-            <i className="fa-solid fa-clock text-slate-400 text-[11px]"></i>
-            <span className="text-[13px] font-black text-slate-600">{seriesTotal} min</span>
+          <div className="flex items-center gap-1 border border-slate-200 rounded px-1.5 py-0.5 flex-shrink-0 ml-auto">
+            <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
+            <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
           </div>
         </div>
 
-        {/* Fila superior: pizarra+series+roles (izda, más ancha) | Descripción (dcha, más ancha) */}
-        <div className="flex-1 min-h-0 grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1fr)' }}>
-          {/* Columna izquierda: pizarra, series y tiempos, roles técnicos */}
-          <div className="min-w-0 flex flex-col gap-2 overflow-hidden">
-            <div className="flex-shrink-0 w-full">
-              {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-                <div className="w-full rounded-lg overflow-hidden">
-                  <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
-                </div>
-              ) : task.thumbnail ? (
-                <div className="w-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center">
-                  <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
-                </div>
-              ) : (
-                <div className={`w-full aspect-[105/68] rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}>
-                  <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[24px]`}></i>
-                </div>
-              )}
-            </div>
+        {/* Cuerpo: pizarra (izda, ancho fijo por altura) | Info (dcha: series+roles / descripción) */}
+        <div className="flex-1 min-h-0 flex gap-3">
+          {/* Pizarra: se ajusta a la altura disponible manteniendo proporción 105:68, sin recortarse */}
+          <div className="h-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+            {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
+              <div className="rounded-lg overflow-hidden" style={{ height: '100%', width: 'auto', aspectRatio: '105 / 68' }}>
+                <DesignerPreview items={getFirstDesignerFrame(task.designerSnapshot)} fieldStructure={task.fieldStructure} className="w-full! h-full!" />
+              </div>
+            ) : task.thumbnail ? (
+              <div className="rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center" style={{ height: '100%', width: 'auto', aspectRatio: '105 / 68' }}>
+                <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div
+                className={`rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}
+                style={{ height: '100%', width: 'auto', aspectRatio: '105 / 68' }}
+              >
+                <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[20px]`}></i>
+              </div>
+            )}
+          </div>
 
-            {/* Series y tiempos */}
-            <div className="flex-shrink-0 space-y-0.5">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
-              <div className="grid grid-cols-3 gap-1">
-                <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase">Nº Series</p>
-                  <p className="text-[12px] font-black text-slate-700">{task.numberOfSeries ?? 0}</p>
-                </div>
-                <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase">T/Serie</p>
-                  <p className="text-[12px] font-black text-slate-700">{task.timePerSeries ?? 0}</p>
-                </div>
-                <div className="rounded-sm border border-slate-200 px-1 py-0.5 text-center">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase">Descanso</p>
-                  <p className="text-[12px] font-black text-slate-700">{task.restBetweenSeries ?? 0}</p>
-                </div>
+          {/* Columna derecha: series/tiempos + roles arriba, descripción abajo, todo compacto */}
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5 overflow-hidden">
+            <div className="flex-shrink-0 flex items-center gap-1.5">
+              <div className="rounded-sm border border-slate-200 px-1.5 py-0.5 text-center">
+                <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight">Nº Series</p>
+                <p className="text-[11px] font-black text-slate-700 leading-tight">{task.numberOfSeries ?? 0}</p>
+              </div>
+              <div className="rounded-sm border border-slate-200 px-1.5 py-0.5 text-center">
+                <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight">T/Serie</p>
+                <p className="text-[11px] font-black text-slate-700 leading-tight">{task.timePerSeries ?? 0}</p>
+              </div>
+              <div className="rounded-sm border border-slate-200 px-1.5 py-0.5 text-center">
+                <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight">Descanso</p>
+                <p className="text-[11px] font-black text-slate-700 leading-tight">{task.restBetweenSeries ?? 0}</p>
               </div>
             </div>
 
-            {/* Roles técnicos */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Roles Técnicos</p>
-              <p className="text-[11px] font-bold text-slate-600 whitespace-pre-wrap">{task.technicalRoles || '—'}</p>
-            </div>
-          </div>
+            {task.technicalRoles && (
+              <div className="flex-shrink-0 overflow-hidden">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Roles Técnicos</p>
+                <p className="text-[10px] font-bold text-slate-600 whitespace-pre-wrap line-clamp-2">{task.technicalRoles}</p>
+              </div>
+            )}
 
-          {/* Columna derecha: descripción a toda altura y ancho */}
-          <div className="min-w-0 flex flex-col overflow-hidden">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Descripción</p>
             <div className="flex-1 min-h-0 overflow-hidden">
-              <p className="text-[12px] font-bold text-slate-600 whitespace-pre-wrap">{task.description || '—'}</p>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldDescription')}</p>
+              <p className="text-[11px] font-bold text-slate-600 whitespace-pre-wrap">{task.description || '—'}</p>
             </div>
           </div>
         </div>
 
-        {/* Fila inferior: petos de entrenamiento a todo el ancho, en varias columnas */}
+        {/* Fila inferior: petos de entrenamiento a todo el ancho, compactos */}
         {!hideVests && filteredPlayers.length > 0 && (
-          <div className="flex-shrink-0 border border-slate-200 rounded-lg p-2 bg-slate-50 overflow-hidden">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Petos</p>
-            <div className="grid grid-cols-3 gap-1">
+          <div className="flex-shrink-0 border border-slate-200 rounded-lg px-2 py-1 bg-slate-50 overflow-hidden">
+            <div className="grid grid-cols-4 gap-1">
               {filteredPlayers.map(player => {
                 const current = task.playerVestColors?.[String(player.id)] || '';
                 const style = vestColorStyles[current] || vestColorStyles[''];
                 return (
-                  <div key={player.id} className="flex items-center gap-0.5 p-1 rounded border border-slate-200 bg-white text-[10px]">
+                  <div key={player.id} className="flex items-center gap-0.5 px-1 py-0.5 rounded border border-slate-200 bg-white text-[9px]">
                     <span className="flex-1 min-w-0 truncate font-bold text-slate-700">{player.apodo || player.nombre}</span>
                     <div
                       style={{
-                        width: '20px',
-                        height: '16px',
-                        borderRadius: '4px',
+                        width: '16px',
+                        height: '13px',
+                        borderRadius: '3px',
                         border: '1px solid #cbd5e1',
                         backgroundColor: style.bg,
                         display: 'flex',
@@ -309,7 +316,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         flexShrink: 0,
                       }}
                     >
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: style.color }}>
+                      <span style={{ fontSize: '7px', fontWeight: 700, color: style.color }}>
                         {current ? current[0].toUpperCase() : '-'}
                       </span>
                     </div>
@@ -326,10 +333,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
   /** Contenido de una página de exportación (cabecera + grid de tareas), compartido entre los
    * contenedores ocultos usados por html2canvas y el modal de vista previa. */
   const renderExportPageContent = (pageTasks: SessionTask[], pageIndex: number, totalPages: number, hideVests: boolean) => {
-    const cardsPerPage = hideVests ? (pageIndex === 0 ? 2 : 3) : 2;
-    const globalStartIndex = hideVests
-      ? (pageIndex === 0 ? 0 : 2 + (pageIndex - 1) * 3)
-      : pageIndex * 2;
+    const cardsPerPage = pageIndex === 0 ? 2 : 3;
+    const globalStartIndex = pageIndex === 0 ? 0 : 2 + (pageIndex - 1) * 3;
 
     return (
       <div
@@ -345,29 +350,31 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{totalPages}</span>
         </div>
 
-        <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-              <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+        {pageIndex === 0 && (
+          <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
+                <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
+                <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
+                <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-              <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-              <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
-            </div>
-          </div>
-        </div>
+        )}
 
         {hideVests && pageIndex === 0 && (
           <div className="flex items-stretch gap-3 mb-3 flex-shrink-0">
@@ -732,7 +739,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                     >
                       {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
                         <div className="rounded-lg overflow-hidden">
-                          <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full" />
+                          <DesignerPreview items={getFirstDesignerFrame(task.designerSnapshot)} fieldStructure={task.fieldStructure} className="w-full" />
                         </div>
                       ) : task.thumbnail ? (
                         <div className="w-full aspect-[105/68] rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center border border-slate-100">
@@ -1028,7 +1035,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             <div className="w-full">
               {fullscreenTask.designerSnapshot && fullscreenTask.designerSnapshot.length > 0 ? (
                 <DesignerPreview
-                  items={fullscreenTask.designerSnapshot}
+                  items={getFirstDesignerFrame(fullscreenTask.designerSnapshot)}
                   fieldStructure={fullscreenTask.fieldStructure}
                   className="w-full shadow-2xl"
                 />

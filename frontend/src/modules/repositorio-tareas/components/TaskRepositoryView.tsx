@@ -15,6 +15,7 @@ import {
 } from '../types';
 import TaskDetailModal from './TaskDetailModal';
 import DesignerPreview from './DesignerPreview';
+import { normalizeDesignerFrames, getFirstDesignerFrame } from '@modules/entrenamientos/types';
 
 const TaskRepositoryView: React.FC = () => {
   const { t } = useTranslation();
@@ -165,10 +166,12 @@ const TaskRepositoryView: React.FC = () => {
   const handleRotate = async (task: TrainingTask) => {
     if (!task.designerSnapshot || task.designerSnapshot.length === 0) return;
 
-    const rotatedSnapshot = task.designerSnapshot.map(item => rotateDesignerItem(item));
+    const rotatedFrames = normalizeDesignerFrames(task.designerSnapshot).map(frame =>
+      frame.map(item => rotateDesignerItem(item))
+    );
     const updatedTask: TrainingTask = {
       ...task,
-      designerSnapshot: rotatedSnapshot,
+      designerSnapshot: rotatedFrames,
       updatedAt: new Date().toISOString(),
     };
 
@@ -238,7 +241,7 @@ const TaskRepositoryView: React.FC = () => {
 
       {/* Image preview */}
       {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-        <DesignerPreview items={task.designerSnapshot} fieldStructure={task.fieldStructure} className="w-full flex-1 object-cover" />
+        <DesignerPreview items={getFirstDesignerFrame(task.designerSnapshot)} fieldStructure={task.fieldStructure} className="w-full flex-1 object-cover" />
       ) : task.thumbnail ? (
         <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.name} className="flex-1 w-full object-cover" />
       ) : (
@@ -363,7 +366,7 @@ const TaskRepositoryView: React.FC = () => {
                     transformOrigin: 'center center',
                   }}
                 >
-                  <DesignerPreview items={localTask.designerSnapshot} fieldStructure={localTask.fieldStructure} is3D={is3DPreview} className="max-w-full shadow-2xl" />
+                  <DesignerPreview items={getFirstDesignerFrame(localTask.designerSnapshot)} fieldStructure={localTask.fieldStructure} is3D={is3DPreview} className="max-w-full shadow-2xl" />
                 </div>
               </div>
             </div>
@@ -470,6 +473,32 @@ const TaskRepositoryView: React.FC = () => {
           </div>
         </div>
 
+        {/* Creator Filter Dropdown */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            {t('taskRepository.filterByCreator')}:
+          </label>
+          <select
+            value={selectedCreator}
+            onChange={e => setSelectedCreator(e.target.value)}
+            className="flex-1 min-w-40 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
+          >
+            <option value="">{t('taskRepository.allCreators')}</option>
+            {creators.map(creator => (
+              <option key={creator} value={creator}>{creator}</option>
+            ))}
+          </select>
+          {selectedCreator && (
+            <button
+              onClick={() => setSelectedCreator('')}
+              className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+              title={t('taskRepository.allCreators')}
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+
         {/* Category Filter Dropdown */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
@@ -509,32 +538,6 @@ const TaskRepositoryView: React.FC = () => {
               onClick={() => setSelectedCategories(new Set())}
               className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
               title="Mostrar todas las categorías"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
-
-        {/* Creator Filter Dropdown */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            {t('taskRepository.filterByCreator')}:
-          </label>
-          <select
-            value={selectedCreator}
-            onChange={e => setSelectedCreator(e.target.value)}
-            className="flex-1 min-w-40 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
-          >
-            <option value="">{t('taskRepository.allCreators')}</option>
-            {creators.map(creator => (
-              <option key={creator} value={creator}>{creator}</option>
-            ))}
-          </select>
-          {selectedCreator && (
-            <button
-              onClick={() => setSelectedCreator('')}
-              className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
-              title={t('taskRepository.allCreators')}
             >
               Limpiar
             </button>

@@ -41,6 +41,43 @@ export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 
       const isPlayer = item.type.startsWith('player-');
       const isCone = item.type === 'cone' || item.type === 'slalom';
 
+      if (item.type?.startsWith('arrow-') && item.arrowStart && item.arrowEnd) {
+        const startX = (item.arrowStart.x / 100) * width;
+        const startY = (item.arrowStart.y / 100) * height;
+        const endX = (item.arrowEnd.x / 100) * width;
+        const endY = (item.arrowEnd.y / 100) * height;
+        const isCurved = item.type.includes('curve');
+        const isDashed = item.type.includes('dashed');
+        ctx.strokeStyle = item.color || '#ffffff';
+        ctx.lineWidth = ((item.strokeWidth ?? 0.3) / 100) * width;
+        ctx.setLineDash(isDashed ? [4, 3] : []);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        if (isCurved) {
+          const controlX = (startX + endX) / 2;
+          const controlY = Math.min(startY, endY) - height * 0.15;
+          ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+        } else {
+          ctx.lineTo(endX, endY);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Punta de flecha simple en el extremo final
+        const angle = isCurved
+          ? Math.atan2(endY - ((startY + endY) / 2 - height * 0.15), endX - (startX + endX) / 2)
+          : Math.atan2(endY - startY, endX - startX);
+        const headLength = 6;
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+        ctx.lineWidth = 1.5;
+        continue;
+      }
+
       if (item.type === 'zone') {
         const w = ((item.width || 15) / 100) * width;
         const h = ((item.height || 15) / 100) * height;

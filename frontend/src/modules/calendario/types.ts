@@ -14,8 +14,12 @@ export interface SessionTask {
   description?: string;
   /** URL/path de imagen o diagrama asociado, copiada de la tarea del repositorio (fallback si no hay designerSnapshot) */
   thumbnail?: string;
-  /** Snapshot del diseño táctico, copiado de la tarea del repositorio, para renderizar el dibujo en vivo */
-  designerSnapshot?: DesignerItem[];
+  /**
+   * Snapshot del diseño táctico, copiado de la tarea del repositorio, para renderizar el dibujo en vivo.
+   * Soporta múltiples fotogramas (DesignerItem[][]); las tareas antiguas pueden traer un único
+   * fotograma plano (DesignerItem[]) por compatibilidad.
+   */
+  designerSnapshot?: DesignerItem[] | DesignerItem[][];
   /** Estructura de campo activa al guardar el snapshot, copiada de la tarea del repositorio */
   fieldStructure?: FieldStructure;
   numberOfSeries?: number;

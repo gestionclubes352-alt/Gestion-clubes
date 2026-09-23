@@ -36,6 +36,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
       style={{
         ...FIELD_BACKGROUND,
         aspectRatio: isHalfField ? '68 / 52.5' : '105 / 68',
+        containerType: 'inline-size',
       }}
     >
       {/* Líneas del campo (réplica exacta del trazado real del diseñador; 'libre' no dibuja líneas) */}
@@ -103,12 +104,60 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
         </svg>
       )}
 
+      {/* Flechas (rectas/curvas, sólidas/discontinuas) */}
+      <svg
+        className="absolute inset-0 pointer-events-none"
+        style={{ width: '100%', height: '100%', overflow: 'visible' }}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <marker id="designer-preview-arrowhead" markerWidth="3" markerHeight="3" refX="1.4" refY="1.5" orient="auto">
+            <path d="M0,0 L0,3 L3,1.5 Z" fill="context-stroke" />
+          </marker>
+        </defs>
+        {sortedItems.map((item) => {
+          if (!item.type?.startsWith('arrow-') || !item.arrowStart || !item.arrowEnd) return null;
+          const isCurved = item.type.includes('curve');
+          const strokeW = item.strokeWidth ?? 0.3;
+          return isCurved ? (
+            <path
+              key={item.id}
+              d={`M ${item.arrowStart.x} ${item.arrowStart.y} Q ${(item.arrowStart.x + item.arrowEnd.x) / 2} ${Math.min(item.arrowStart.y, item.arrowEnd.y) - 15} ${item.arrowEnd.x} ${item.arrowEnd.y}`}
+              stroke={item.color || '#ffffff'}
+              strokeWidth={strokeW}
+              fill="none"
+              strokeDasharray={item.type.includes('dashed') ? '1.5,1.5' : '0'}
+              markerEnd="url(#designer-preview-arrowhead)"
+              strokeLinecap="round"
+            />
+          ) : (
+            <line
+              key={item.id}
+              x1={item.arrowStart.x}
+              y1={item.arrowStart.y}
+              x2={item.arrowEnd.x}
+              y2={item.arrowEnd.y}
+              stroke={item.color || '#ffffff'}
+              strokeWidth={strokeW}
+              strokeDasharray={item.type.includes('dashed') ? '1.5,1.5' : '0'}
+              markerEnd="url(#designer-preview-arrowhead)"
+              strokeLinecap="round"
+            />
+          );
+        })}
+      </svg>
+
       {/* Elementos del ejercicio */}
       {sortedItems.map((item) => {
         const x = (item.x / 100) * 100 + '%';
         const y = (item.y / 100) * 100 + '%';
         const isPlayer = item.type.startsWith('player-');
         const isCone = item.type === 'cone';
+
+        if (item.type?.startsWith('arrow-')) {
+          return null;
+        }
 
         if (item.type === 'zone') {
           const width = `${item.width || 15}%`;
@@ -167,6 +216,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
 
         if (isPlayer) {
           const playerScale = is3D ? 1 : (item.scale || 1);
+          const rotation = item.rotation || 0;
           return (
             <div
               key={item.id}
@@ -175,22 +225,38 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 left: x,
                 top: y,
                 width: '5%',
-                transform: `translate(-50%, -50%) scale(${playerScale})`,
+                transform: `translate(-50%, -50%) rotate(${rotation}deg) scale(${playerScale})`,
                 transformStyle: 'preserve-3d',
                 aspectRatio: '1 / 1',
               }}
             >
+              {/* Indicador de orientación (réplica del arco del diseñador) */}
+              <svg
+                width="200%"
+                height="200%"
+                viewBox="-40 -40 80 80"
+                className="absolute left-1/2 top-1/2 overflow-visible pointer-events-none"
+                style={{ transform: 'translate(-50%, -50%)' }}
+              >
+                <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
+              </svg>
               <div
-                className="flex h-full w-full items-center justify-center rounded-full border-[1.5px] border-white"
+                className="flex h-full w-full items-center justify-center rounded-full border-solid overflow-hidden"
                 style={{
                   backgroundColor: item.color || '#ffffff',
+                  borderColor: item.playerId !== undefined && item.playerPhoto && item.playerPhoto.length > 1 ? (item.color || '#ffffff') : '#ffffff',
+                  borderWidth: item.playerId !== undefined && item.playerPhoto && item.playerPhoto.length > 1 ? '1.2cqw' : '0.3cqw',
                   transform: is3D ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
                   transformStyle: 'preserve-3d',
                 }}
               >
-                <span className="text-[6px] font-black text-white leading-none">
-                  {item.type.replace('player-', '')}
-                </span>
+                {item.playerId !== undefined && item.playerPhoto && item.playerPhoto.length > 1 ? (
+                  <img src={item.playerPhoto} className="w-full h-full object-cover" draggable={false} />
+                ) : (
+                  <span className="text-[6px] font-black text-white leading-none">
+                    {item.playerId !== undefined ? (item.playerDorsal ?? '') : item.type.replace('player-', '')}
+                  </span>
+                )}
               </div>
             </div>
           );

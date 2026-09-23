@@ -1393,27 +1393,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                           }`}
                         >
                           {ev.type === 'Partido' ? (
-                            <div
-                              className="flex flex-col gap-0.5 p-0.5 w-full cursor-pointer"
-                              onClick={() => handleEventClick(ev)}
-                            >
-                              <div className="text-[9px] font-bold leading-tight">{ev.time}</div>
-                              {(ev.localTeam && ev.visitorTeam) ? (
-                                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-[8px] font-semibold leading-tight">
-                                  <MatchTeamMini name={ev.localTeam} clubId={ev.localTeamClubId} />
-                                  <span className="text-red-700 font-black">VS</span>
-                                  <MatchTeamMini name={ev.visitorTeam} clubId={ev.visitorTeamClubId} />
+                            <div className="flex flex-col gap-0.5 p-0.5 w-full">
+                              <div className="flex items-center gap-0.5">
+                                <div
+                                  className="flex-1 min-w-0 cursor-pointer"
+                                  onClick={() => handleEventClick(ev)}
+                                >
+                                  <div className="text-[9px] font-bold leading-tight">{ev.time}</div>
                                 </div>
-                              ) : (
-                                <div className="text-[8px] font-semibold leading-tight truncate">
-                                  {ev.title || ev.opponent || 'Partido'}
-                                </div>
-                              )}
-                              {ev.score && (
-                                <div className="text-[7px] font-bold text-red-700 text-center">
-                                  {ev.score}
-                                </div>
-                              )}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDuplicateEvent(ev); }}
+                                  className="flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all bg-black/20 hover:bg-[var(--accent)] text-white"
+                                  title={t('common.duplicate', 'Duplicar')}
+                                >
+                                  <i className="fa-solid fa-copy" style={{ fontSize: '7px' }}></i>
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
+                                  className="flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all bg-black/20 hover:bg-red-600 text-white"
+                                  title={t('common.delete')}
+                                >
+                                  <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                                </button>
+                              </div>
+                              <div className="cursor-pointer" onClick={() => handleEventClick(ev)}>
+                                {(ev.localTeam && ev.visitorTeam) ? (
+                                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-[8px] font-semibold leading-tight">
+                                    <MatchTeamMini name={ev.localTeam} clubId={ev.localTeamClubId} />
+                                    <span className="text-red-700 font-black">VS</span>
+                                    <MatchTeamMini name={ev.visitorTeam} clubId={ev.visitorTeamClubId} />
+                                  </div>
+                                ) : (
+                                  <div className="text-[8px] font-semibold leading-tight truncate">
+                                    {ev.title || ev.opponent || 'Partido'}
+                                  </div>
+                                )}
+                                {ev.score && (
+                                  <div className="text-[7px] font-bold text-red-700 text-center">
+                                    {ev.score}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5">

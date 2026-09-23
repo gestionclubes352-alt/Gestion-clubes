@@ -85,3 +85,20 @@ export interface ExerciseTemplate {
   items: DesignerItem[];
   thumbnail?: string;
 }
+
+/**
+ * Normaliza un designerSnapshot que puede venir como DesignerItem[][] (multi-fotograma, formato
+ * actual) o como DesignerItem[] (fotograma único, tareas guardadas antes de soportar animación)
+ * a siempre DesignerItem[][].
+ */
+export const normalizeDesignerFrames = (
+  snapshot: DesignerItem[] | DesignerItem[][] | undefined | null
+): DesignerItem[][] => {
+  if (!snapshot || snapshot.length === 0) return [[]];
+  return Array.isArray(snapshot[0]) ? (snapshot as DesignerItem[][]) : [snapshot as DesignerItem[]];
+};
+
+/** Primer fotograma de un designerSnapshot (multi o único), para previsualizaciones estáticas. */
+export const getFirstDesignerFrame = (
+  snapshot: DesignerItem[] | DesignerItem[][] | undefined | null
+): DesignerItem[] => normalizeDesignerFrames(snapshot)[0] || [];

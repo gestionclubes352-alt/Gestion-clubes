@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { DesignerItem, Exercise, GoalStyle } from '../types';
-import { getDesignerItemAnimationClass, GOAL_STYLES } from '../types';
+import { getDesignerItemAnimationClass, GOAL_STYLES, normalizeDesignerFrames } from '../types';
 import { renderThumbnail } from '../utils/renderThumbnail';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { db } from '@shared/services/dataService';
@@ -80,7 +80,18 @@ interface ExerciseDesignerProps {
 }
 
 const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSquad }) => {
-  const squadForPicker = allSquad && allSquad.length > 0 ? allSquad : squad;
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Al venir de una sesión de entreno, solo se ofrecen los jugadores convocados (no los ausentes)
+  const sessionSquadIdsRef = useRef<string[] | null>((location.state as any)?.sessionSquadIds ?? null);
+  const squadForPicker = useMemo(() => {
+    const base = allSquad && allSquad.length > 0 ? allSquad : squad;
+    if (sessionSquadIdsRef.current) {
+      const ids = new Set(sessionSquadIdsRef.current);
+      return base.filter(player => ids.has(String(player.id)));
+    }
+    return base;
+  }, [allSquad, squad]);
   const [collapsedSquadTeams, setCollapsedSquadTeams] = useState<Set<string>>(new Set());
   const squadByTeam = useMemo(() => {
     const groups = new Map<string, Player[]>();
@@ -91,8 +102,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     });
     return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
   }, [squadForPicker]);
-  const location = useLocation();
-  const navigate = useNavigate();
   // Tarea a preseleccionar al llegar desde el Repositorio de Tareas (creación rápida de una tarea nueva)
   const incomingSelectTaskIdRef = useRef<string | null>((location.state as any)?.selectTaskId ?? null);
   const fromSessionCreationRef = useRef<boolean>((location.state as any)?.fromSessionCreation ?? false);
@@ -110,7 +119,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
    * con un botón explícito para volver, en vez de redirigir automáticamente. */
   const [showReturnToSessionBanner, setShowReturnToSessionBanner] = useState(false);
   const [activeProject, setActiveProject] = useState('NUEVO EJERCICIO TÁCTICO');
-  const [tasks, setTasks] = useState<Array<{ id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[]; fieldStructure?: string }>>([]);
+  const [tasks, setTasks] = useState<Array<{ id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] | DesignerItem[][]; fieldStructure?: string }>>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [editingDimensionItemId, setEditingDimensionItemId] = useState<string | null>(null);
   const [editingDimensionType, setEditingDimensionType] = useState<'width' | 'height' | null>(null);
@@ -432,13 +441,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   };
 
   /** Deep-clone de items del canvas para evitar referencias compartidas */
-  const deepCloneItems = (items: DesignerItem[]): DesignerItem[] => {
-    if (!items || items.length === 0) return [];
-    return JSON.parse(JSON.stringify(items));
-  };
+  const deepCloneFrames = (value: DesignerItem[][]): DesignerItem[][] => JSON.parse(JSON.stringify(value));
 
-  /** Persistir snapshot (y miniatura) de una tarea en la DB. Devuelve true si se guardó realmente. */
-  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[], thumbnail?: string, structure?: string): Promise<boolean> => {
+  /** Persistir snapshot (todos los fotogramas) y miniatura de una tarea en la DB. Devuelve true si se guardó realmente. */
+  const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[][], thumbnail?: string, structure?: string): Promise<boolean> => {
     try {
       let { data } = await db.task_templates.get();
       let existing = (data as TrainingTask[] | undefined)?.find(t => t.id === taskId);
@@ -469,8 +475,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   /** Auto-guardar la tarea activa actual antes de cambiar */
   const autoSaveActiveTask = async () => {
     if (!activeTaskId) return;
-    const snapshot = deepCloneItems(frames[currentFrameIndex]);
-    const thumbnail = renderThumbnail(snapshot, activeStructure);
+    const snapshot = deepCloneFrames(frames);
+    const thumbnail = renderThumbnail(snapshot[0] || [], activeStructure);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
     const ok = await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
     if (!ok) {
@@ -480,7 +486,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   };
 
   /** Seleccionar una tarea y cargar su snapshot en el canvas */
-  const handleSelectTask = (task: { id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[]; fieldStructure?: string }) => {
+  const handleSelectTask = (task: { id: string; name: string; type: 'Juego' | 'Posesión' | 'Finalización'; designerSnapshot?: DesignerItem[] | DesignerItem[][]; fieldStructure?: string }) => {
     // Si ya estamos en esta tarea, auto-guardar y deseleccionar
     if (activeTaskId === task.id) {
       autoSaveActiveTask();
@@ -499,9 +505,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     }
     pushHistoryNow();
     setActiveTaskId(task.id);
-    // Cargar snapshot en el canvas (deep-clone)
-    const snapshot = deepCloneItems(task.designerSnapshot || []);
-    setFrames([snapshot]);
+    // Cargar todos los fotogramas del snapshot en el canvas (deep-clone), con compatibilidad
+    // con tareas antiguas guardadas como un único fotograma plano
+    const snapshotFrames = deepCloneFrames(normalizeDesignerFrames(task.designerSnapshot));
+    setFrames(snapshotFrames);
     setCurrentFrameIndex(0);
     setActiveStructure(task.fieldStructure || 'libre');
   };
@@ -522,8 +529,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   /** Guardar los cambios del canvas de vuelta a la tarea activa */
   const handleSaveActiveTask = async (options?: { showToast?: boolean }) => {
     if (!activeTaskId) return;
-    const snapshot = deepCloneItems(frames[currentFrameIndex]);
-    const thumbnail = renderThumbnail(snapshot, activeStructure);
+    const snapshot = deepCloneFrames(frames);
+    const thumbnail = renderThumbnail(snapshot[0] || [], activeStructure);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
     const ok = await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
     if (!ok) {
@@ -630,7 +637,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       it.id === itemId
         ? {
             ...it,
-            color: SQUAD_PLAYER_COLOR,
+            // Se mantiene el color ya asignado a la ficha (p.ej. equipo rojo/azul) en vez de sobrescribirlo,
+            // para que ese color de fondo siga visible tras la foto del jugador.
+            color: it.color || SQUAD_PLAYER_COLOR,
             playerId: squadPlayer.id,
             playerName: squadPlayer.apodo || squadPlayer.nombre,
             playerDorsal: squadPlayer.dorsal,
@@ -2322,7 +2331,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                           {Math.round(size.width ?? 0)}% × {Math.round(size.height ?? 0)}%
                         </div>
                         <div className="rounded-full bg-black/85 px-2.5 py-1 text-[9px] font-semibold text-white/80 shadow-lg">
-                          Dale a esc para dejar de modificar
+                          Doble clic para dejar de modificar
                         </div>
                       </div>
                     )}
@@ -2465,6 +2474,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                                     itemY: item.y
                                   });
                                 }}
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  setResizingId(null);
+                                  setResizeHandle(null);
+                                }}
                                 className={`absolute flex items-center justify-center ${resizeHandleHitClass(handle.shape)} ${handle.className}`}
                               >
                                 <div className={`bg-[var(--accent)] shadow-lg ${resizeHandleDotClass(handle.shape)}`} />
@@ -2506,6 +2520,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                                       itemX: item.x,
                                       itemY: item.y
                                     });
+                                  }}
+                                  onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    setResizingId(null);
+                                    setResizeHandle(null);
                                   }}
                                   className={`absolute flex items-center justify-center ${resizeHandleHitClass(handle.shape)} ${handle.className}`}
                                 >
@@ -2558,11 +2577,13 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       <div
                         style={{
                           backgroundColor: item.color || SQUAD_PLAYER_COLOR,
+                          borderColor: item.playerPhoto && item.playerPhoto.length > 1 ? (item.color || SQUAD_PLAYER_COLOR) : '#ffffff',
+                          borderWidth: item.playerPhoto && item.playerPhoto.length > 1 ? '6px' : '4px',
                           transform: is3DView ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
                           transformOrigin: is3DView ? PLAYER_3D_BILLBOARD_ORIGIN : undefined,
                           transformStyle: 'preserve-3d',
                         }}
-                        className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
+                        className={`w-10 h-10 rounded-full border-solid shadow-xl flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
                       >
                         {item.playerId !== undefined ? (
                           item.playerPhoto && item.playerPhoto.length > 1 ? (
@@ -2834,7 +2855,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                             ))}
                           </div>
                           {selectedItem.playerId !== undefined && selectedItem.playerPhoto && selectedItem.playerPhoto.length > 1 && (
-                            <p className="mt-2 text-[9px] font-semibold text-slate-500">El color queda oculto por la foto del jugador; quítasela para verlo.</p>
+                            <p className="mt-2 text-[9px] font-semibold text-slate-500">Con foto, el color se muestra como borde de la ficha.</p>
                           )}
                         </div>
                       )}

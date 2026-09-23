@@ -68,6 +68,10 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string>('');
+  const [isAddingLocalidad, setIsAddingLocalidad] = useState(false);
+  const [newLocalidadNombre, setNewLocalidadNombre] = useState('');
+  const [isAddingInstalacion, setIsAddingInstalacion] = useState(false);
+  const [newInstalacionNombre, setNewInstalacionNombre] = useState('');
   const hasPendingTeamCreation = isAddingLocalTeam || isAddingVisitorTeam || isCreatingTeamFromButton;
 
   useEffect(() => {
@@ -236,6 +240,39 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
       return;
     }
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleCreateLocalidad = async () => {
+    const nombre = newLocalidadNombre.trim();
+    if (!nombre) return;
+    try {
+      const created = await localidadesService.create({ nombre, club_id: ownClubId || null });
+      setLocalidades(prev => [...prev, created]);
+      setFormData(prev => ({ ...prev, localidad_id: created.id }));
+      setInstalacionPrincipalId('');
+      setNewLocalidadNombre('');
+      setIsAddingLocalidad(false);
+    } catch (err) {
+      console.error('Error creating localidad:', err);
+    }
+  };
+
+  const handleCreateInstalacion = async () => {
+    const nombre = newInstalacionNombre.trim();
+    if (!nombre) return;
+    try {
+      const created = await instalacionesCamposService.create({
+        nombre,
+        club_id: ownClubId || null,
+        localidad_id: formData.localidad_id || null,
+      });
+      setInstalacionesCampos(prev => [...prev, created]);
+      setInstalacionPrincipalId(created.id);
+      setNewInstalacionNombre('');
+      setIsAddingInstalacion(false);
+    } catch (err) {
+      console.error('Error creating instalación:', err);
+    }
   };
 
   // Resolver el id de la competición seleccionada (el selector guarda el nombre, no el id)
@@ -615,39 +652,114 @@ const NewEventModal: React.FC<NewEventModalProps> = ({
 
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Localidad</p>
-                <select
-                  name="localidad_id"
-                  value={formData.localidad_id || ''}
-                  onChange={(e) => {
-                    const localidad_id = e.target.value;
-                    setFormData({ ...formData, localidad_id });
-                    setInstalacionPrincipalId('');
-                  }}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
-                >
-                  <option value="">Selecciona localidad</option>
-                  {localidades.map(loc => (
-                    <option key={loc.id} value={loc.id || ''}>
-                      {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
-                    </option>
-                  ))}
-                </select>
+                {isAddingLocalidad ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newLocalidadNombre}
+                      onChange={(e) => setNewLocalidadNombre(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); handleCreateLocalidad(); }
+                        if (e.key === 'Escape') { setIsAddingLocalidad(false); setNewLocalidadNombre(''); }
+                      }}
+                      placeholder="Nombre de la nueva localidad"
+                      className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateLocalidad}
+                      className="px-3 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                    >
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingLocalidad(false); setNewLocalidadNombre(''); }}
+                      className="px-3 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    name="localidad_id"
+                    value={formData.localidad_id || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '__NEW__') {
+                        setIsAddingLocalidad(true);
+                        return;
+                      }
+                      setFormData({ ...formData, localidad_id: value });
+                      setInstalacionPrincipalId('');
+                    }}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                  >
+                    <option value="">Selecciona localidad</option>
+                    {localidades.map(loc => (
+                      <option key={loc.id} value={loc.id || ''}>
+                        {loc.nombre} {loc.provincia ? `(${loc.provincia})` : ''}
+                      </option>
+                    ))}
+                    <option value="__NEW__">+ Añadir nueva localidad</option>
+                  </select>
+                )}
               </div>
 
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 mb-2">Instalación</p>
-                <select
-                  value={instalacionPrincipalId}
-                  onChange={(e) => setInstalacionPrincipalId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
-                >
-                  <option value="">Selecciona instalación</option>
-                  {instalacionesPrincipales.map(ic => (
-                    <option key={ic.id} value={ic.id}>
-                      {ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}
-                    </option>
-                  ))}
-                </select>
+                {isAddingInstalacion ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newInstalacionNombre}
+                      onChange={(e) => setNewInstalacionNombre(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); handleCreateInstalacion(); }
+                        if (e.key === 'Escape') { setIsAddingInstalacion(false); setNewInstalacionNombre(''); }
+                      }}
+                      placeholder="Nombre de la nueva instalación"
+                      className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateInstalacion}
+                      className="px-3 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                    >
+                      <i className="fa-solid fa-check"></i>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingInstalacion(false); setNewInstalacionNombre(''); }}
+                      className="px-3 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={instalacionPrincipalId}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '__NEW__') {
+                        setIsAddingInstalacion(true);
+                        return;
+                      }
+                      setInstalacionPrincipalId(value);
+                    }}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 focus:outline-none focus:border-[#8b2b35] appearance-none bg-white"
+                  >
+                    <option value="">Selecciona instalación</option>
+                    {instalacionesPrincipales.map(ic => (
+                      <option key={ic.id} value={ic.id}>
+                        {ic.nombre} {ic.tipo ? `(${ic.tipo})` : ''}
+                      </option>
+                    ))}
+                    <option value="__NEW__">+ Añadir nueva instalación</option>
+                  </select>
+                )}
               </div>
 
               {instalacionPrincipalId && camposDisponibles.length > 0 && (

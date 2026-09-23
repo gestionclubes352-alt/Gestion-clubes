@@ -43,8 +43,12 @@ export interface TrainingTask {
   category: TaskCategory;
   /** URL/path de imagen o diagrama asociado */
   thumbnail?: string;
-  /** Snapshot del diseño (si fue creada con el diseñador) */
-  designerSnapshot?: any[];
+  /**
+   * Snapshot del diseño (si fue creada con el diseñador). Soporta múltiples fotogramas
+   * (DesignerItem[][]) para conservar toda la animación diseñada; por compatibilidad con
+   * tareas antiguas también puede llegar como un único fotograma plano (DesignerItem[]).
+   */
+  designerSnapshot?: any[] | any[][];
   /** Estructura de campo activa al guardar el snapshot (por defecto 'campo-total' si no se especifica) */
   fieldStructure?: FieldStructure;
   /** Fecha de creación (ISO) */
