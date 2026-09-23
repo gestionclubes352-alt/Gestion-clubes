@@ -15,8 +15,10 @@ export interface User {
   firebaseUid?: string;
   /** Club al que pertenece (Custom Claim de Firebase Auth) */
   clubId?: string;
-  /** Jugador de `plantillas` vinculado a esta cuenta (rol Jugador) */
-  jugadorId?: string;
+  /** Equipo interno (`equipos`) vinculado a esta cuenta (rol Jugador) */
+  equipoId?: string;
+  /** Nota libre "recordar" sobre el usuario (solo visible para Administrador) */
+  recordar?: string;
 }
 
 export type UserRole = User['rol'];

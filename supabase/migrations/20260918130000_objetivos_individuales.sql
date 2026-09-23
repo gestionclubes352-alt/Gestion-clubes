@@ -29,8 +29,10 @@ CREATE TRIGGER trg_objetivos_individuales_updated_at
 
 ALTER TABLE objetivos_individuales ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "objetivos_individuales: leer si autenticado" ON objetivos_individuales;
 CREATE POLICY "objetivos_individuales: leer si autenticado" ON objetivos_individuales
     FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "objetivos_individuales: escribir si autenticado" ON objetivos_individuales;
 CREATE POLICY "objetivos_individuales: escribir si autenticado" ON objetivos_individuales
     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');

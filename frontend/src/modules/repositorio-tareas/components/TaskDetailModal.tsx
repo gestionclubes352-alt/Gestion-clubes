@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import type { TrainingTask, TaskCategory } from '../types';
 import { TASK_CATEGORIES, CATEGORY_ICONS, CATEGORY_COLORS } from '../types';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { useAuth } from '../../../context/AuthContext';
 
 interface TaskDetailModalProps {
   task: TrainingTask | null;
@@ -29,6 +30,7 @@ const emptyTask = (): Omit<TrainingTask, 'id' | 'createdAt' | 'updatedAt'> => ({
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, onSave, minimalFields = false, returnEventId }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { perfil } = useAuth();
   const isEditing = !!task;
 
   const [form, setForm] = useState(emptyTask());
@@ -79,7 +81,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
     }
 
     const saved: TrainingTask = {
-      ...(task || { id: crypto.randomUUID(), createdAt: now }),
+      ...(task || { id: crypto.randomUUID(), createdAt: now, createdBy: perfil?.nombre }),
       ...form,
       thumbnail,
       designerSnapshot: designerSnapshot || form.designerSnapshot,
@@ -94,7 +96,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
     const taskId = task?.id || crypto.randomUUID();
 
     const taskToSave: TrainingTask = {
-      ...(task || { id: taskId, createdAt: now }),
+      ...(task || { id: taskId, createdAt: now, createdBy: perfil?.nombre }),
       ...form,
       thumbnail: form.thumbnail,
       designerSnapshot: designerSnapshot || form.designerSnapshot,

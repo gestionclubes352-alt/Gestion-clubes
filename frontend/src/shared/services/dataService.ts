@@ -143,7 +143,8 @@ export interface Usuario {
   email: string;
   rol: 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador';
   estado: 'Activo' | 'Inactivo' | 'Pendiente';
-  jugador_id?: string | null;
+  equipo_id?: string | null;
+  recordar?: string | null;
 }
 
 export interface Competicion {

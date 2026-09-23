@@ -388,6 +388,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     navigate(location.pathname, { replace: true, state: {} });
   }, [location.state, events, location.pathname, navigate, onSaveEvent]);
 
+  // Evita que el autoguardado dispare un guardado espurio justo al abrir la sesión,
+  // cuando los estados locales se rellenan desde activeTraining (no es una edición del usuario).
+  const skipAutosaveRef = useRef(false);
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!activeTraining) return;
     if (skipDatosResetRef.current) {
@@ -395,6 +400,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     } else {
       setDetailTab('datos');
     }
+    skipAutosaveRef.current = true;
     setRolesText(activeTraining.staffRoles || '');
     setNotesText(activeTraining.notes || '');
     setVideoUrl(activeTraining.videoUrl || '');
@@ -420,6 +426,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       playerVestColors: playerVestColorsArray.length > 0 ? playerVestColorsArray : undefined
     });
   };
+
+  // Autoguardado: cuando el usuario edita cualquier dato de la sesión activa (tareas, notas,
+  // roles, vídeo, documento, asistencia o petos), se guarda solo tras una pausa de escritura,
+  // sin necesidad de pulsar el botón "Guardar".
+  useEffect(() => {
+    if (!activeTraining) return;
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
+    if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
+    autosaveTimeoutRef.current = setTimeout(() => {
+      handleSaveSession();
+    }, 1200);
+    return () => {
+      if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesText, notesText, videoUrl, docUrl, sessionTasks, attendance, playerVestColors]);
 
   const formatLongDate = (date: Date) => {
     return `${dayNamesLong[date.getDay()]}, ${date.getDate()} de ${monthNames[date.getMonth()].toLowerCase()} ${date.getFullYear()}`;
@@ -494,6 +519,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       console.error('Error al duplicar evento:', err, event);
       throw new Error(`No se pudo duplicar el evento correctamente: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  const handleDuplicateEvent = (event: CalendarEvent) => {
+    const duplicated = duplicateEvent(event, event.date instanceof Date ? event.date : new Date(event.date));
+    onSaveEvent(duplicated);
+    setEditingSessionEvent(duplicated);
   };
 
   const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
@@ -1277,6 +1308,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                                 <i className="fa-solid fa-chevron-right text-[10px]"></i>
                               </button>
                               <button
+                                onClick={() => handleDuplicateEvent(ev)}
+                                className="w-6 h-6 rounded-md bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all"
+                                title={t('common.duplicate', 'Duplicar')}
+                              >
+                                <i className="fa-solid fa-copy text-xs"></i>
+                              </button>
+                              <button
                                 onClick={() => onDeleteEvent(String(ev.id))}
                                 className="w-6 h-6 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 hover:border-red-500 transition-all"
                                 title={t('common.delete')}
@@ -1384,6 +1422,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                                 {`${ev.time}${ev.team ? ` - ${ev.team}` : ''}`}
                               </span>
                               <button
+                                onClick={(e) => { e.stopPropagation(); handleDuplicateEvent(ev); }}
+                                className="flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all bg-black/20 hover:bg-[var(--accent)] text-white"
+                                title={t('common.duplicate', 'Duplicar')}
+                              >
+                                <i className="fa-solid fa-copy" style={{ fontSize: '7px' }}></i>
+                              </button>
+                              <button
                                 onClick={(e) => { e.stopPropagation(); onDeleteEvent(String(ev.id)); }}
                                 className="flex w-3.5 h-3.5 items-center justify-center rounded-full flex-shrink-0 transition-all bg-black/20 hover:bg-red-600 text-white"
                                 title={t('common.delete')}
@@ -1442,6 +1487,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       title={t('common.edit', 'Editar')}
                     >
                       <i className="fa-solid fa-pen text-sm"></i>
+                    </button>
+                    <button
+                      onClick={() => handleDuplicateEvent(ev)}
+                      className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0"
+                      title={t('common.duplicate', 'Duplicar')}
+                    >
+                      <i className="fa-solid fa-copy text-sm"></i>
                     </button>
                     <button
                       onClick={() => onDeleteEvent(String(ev.id))}

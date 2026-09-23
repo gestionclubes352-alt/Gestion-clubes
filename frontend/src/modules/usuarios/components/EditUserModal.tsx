@@ -3,15 +3,16 @@ import { useTranslation } from 'react-i18next';
 import type { User } from '../types';
 import { uploadStaffPhoto } from '../../../shared/services/staffPhotoService';
 import SearchableSelect from '@shared/components/SearchableSelect';
-import type { Player } from '../../plantilla/types';
+import type { EquipoInterno } from '../../equiposInternos/types';
 
 interface EditUserModalProps {
   user: User;
   isNew?: boolean;
   clubId?: string;
-  players?: Player[];
+  equipos?: EquipoInterno[];
+  isAdmin?: boolean;
   onClose: () => void;
-  onSave: (user: User, password?: string) => Promise<void>;
+  onSave: (user: User, password?: string, sendEmail?: boolean) => Promise<void>;
 }
 
 const getInitials = (name: string): string => {
@@ -21,15 +22,26 @@ const getInitials = (name: string): string => {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
-const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, players, onClose, onSave }) => {
+const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, equipos, isAdmin, onClose, onSave }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<User>({ ...user });
   const isPlayerRole = formData.rol === 'Jugador';
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(user.fotoUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const bytes = new Uint32Array(12);
+    crypto.getRandomValues(bytes);
+    const generated = Array.from(bytes, (n) => chars[n % chars.length]).join('');
+    setPassword(generated);
+    setShowPassword(true);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,8 +54,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, play
   };
 
   const handleSave = async () => {
-    if (isPlayerRole && !formData.jugadorId) {
-      alert(t('editUser.playerRequired'));
+    if (isPlayerRole && !formData.equipoId) {
+      alert(t('editUser.teamRequired'));
       return;
     }
 
@@ -74,6 +86,20 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, play
       await onSave(dataToSave, password || undefined);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSendPassword = async () => {
+    if (!password || !formData.email) return;
+    if (isPlayerRole && !formData.equipoId) {
+      alert(t('editUser.teamRequired'));
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      await onSave({ ...formData }, password, true);
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -147,15 +173,64 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, play
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{isNew ? t('editUser.password') : t('editUser.passwordEditLabel')}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
-              placeholder={isNew ? t('editUser.passwordPlaceholder') : t('editUser.passwordKeepPlaceholder')}
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">{isNew ? t('editUser.password') : t('editUser.passwordEditLabel')}</label>
+              <button
+                type="button"
+                onClick={generatePassword}
+                className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest hover:underline"
+              >
+                {t('editUser.generatePassword')}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-11 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+                placeholder={isNew ? t('editUser.passwordPlaceholder') : t('editUser.passwordKeepPlaceholder')}
+                autoComplete="new-password"
+              />
+              {password && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label={showPassword ? t('editUser.hidePassword') : t('editUser.showPassword')}
+                >
+                  <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
+                </button>
+              )}
+            </div>
+            {!isNew && (
+              <p className="text-[10px] text-slate-400 mt-1.5">{t('editUser.passwordSecurityNote')}</p>
+            )}
+            {password && !isNew && (
+              <button
+                type="button"
+                disabled={isSendingEmail || isSaving}
+                onClick={handleSendPassword}
+                className="mt-3 w-full py-2.5 border border-[var(--accent)] text-[var(--accent)] rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-[var(--accent)] hover:text-white transition-all disabled:opacity-50"
+              >
+                {isSendingEmail ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-paper-plane"></i>}
+                {isSendingEmail ? t('editUser.sendingPassword') : t('editUser.sendPassword')}
+              </button>
+            )}
           </div>
+
+          {isAdmin && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.remember')}</label>
+              <input
+                type="text"
+                value={formData.recordar || ''}
+                onChange={(e) => setFormData({...formData, recordar: e.target.value})}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+                placeholder={t('editUser.rememberPlaceholder')}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -186,25 +261,19 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, play
 
           {isPlayerRole && (
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.linkedPlayer')}</label>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">{t('editUser.linkedTeam')}</label>
               <SearchableSelect
-                value={formData.jugadorId || ''}
+                value={formData.equipoId || ''}
                 onChange={(e) => {
-                  const playerId = e.target.value;
-                  const player = players?.find(p => String(p.id) === playerId);
-                  setFormData(prev => ({
-                    ...prev,
-                    jugadorId: playerId,
-                    nombre: player?.nombreCompleto || player?.nombre || prev.nombre,
-                    email: player?.correo ? player.correo.trim().toLowerCase() : prev.email,
-                  }));
+                  const equipoId = e.target.value;
+                  setFormData(prev => ({ ...prev, equipoId }));
                 }}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-900 appearance-none"
               >
-                <option value="">{t('editUser.selectPlayer')}</option>
-                {(players || []).map(p => (
-                  <option key={p.id} value={String(p.id)}>
-                    {(p.nombreCompleto || p.nombre) + (p.dorsal ? ` (#${p.dorsal})` : '')}
+                <option value="">{t('editUser.selectTeam')}</option>
+                {(equipos || []).map(eq => (
+                  <option key={eq.id} value={String(eq.id)}>
+                    {eq.nombre}{eq.equipo ? ` (${eq.equipo})` : ''}
                   </option>
                 ))}
               </SearchableSelect>

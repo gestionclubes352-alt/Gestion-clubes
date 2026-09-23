@@ -38,6 +38,8 @@ export interface DataTableProps<T> {
   searchPlaceholder?: string;
   /** Enable column sorting */
   sortable?: boolean;
+  /** Initial sorting state (e.g. [{ id: 'nombre', desc: false }]) */
+  defaultSorting?: SortingState;
   /** Enable pagination */
   paginated?: boolean;
   /** Default page size */
@@ -300,6 +302,7 @@ function DataTable<T extends Record<string, any>>({
   footer,
   allowModeToggle,
   defaultMode = 'advanced',
+  defaultSorting = [],
 }: DataTableProps<T>) {
   // Inject animations on mount
   useEffect(() => { injectStyles(); }, []);
@@ -309,7 +312,7 @@ function DataTable<T extends Record<string, any>>({
   const [mode, setMode] = useState<'basic' | 'advanced'>(defaultMode);
   const isAdvanced = mode === 'advanced';
 
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(defaultSorting);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});

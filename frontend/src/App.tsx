@@ -1035,7 +1035,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       estado: u.estado,
       departamento: u.rol === 'Tecnico' ? 'Personal' : 'Directiva',
       clubId: u.club_id ?? undefined,
-      jugadorId: u.jugador_id ?? undefined,
+      equipoId: u.equipo_id ?? undefined,
+      recordar: u.recordar ?? undefined,
     }));
     setUsersList(users);
   };
@@ -1958,18 +1959,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
         }}
       />}
-      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} players={squadList} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
+      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} equipos={filteredMisClubCompetitionTeams} isAdmin={perfil?.rol === 'Administrador'} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password, sendEmail) => {
         if (isNewUser) {
           try {
             const result = await authService.createAuthUser(u.email, password || '', u.nombre, {
               rol: u.rol as 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador',
               estado: u.estado as 'Activo' | 'Inactivo' | 'Pendiente',
               clubId: u.clubId || currentTeam?.id || null,
-              jugadorId: u.jugadorId || null,
-            });
+              equipoId: u.equipoId || null,
+            }, sendEmail || false);
             if (!result.success) {
               alert(result.error || 'No se pudo crear el usuario.');
               return;
+            }
+            if (result.emailError) {
+              alert(`Usuario creado, pero no se pudo enviar el email: ${result.emailError}`);
+            }
+            if (u.recordar && result.uid) {
+              await usuariosService.update(result.uid, { recordar: u.recordar });
             }
             await fetchUsers();
             setEditingUser(null); setIsNewUser(false);
@@ -1979,25 +1986,38 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           return;
         }
         try {
-          await usuariosService.update(u.id, {
-            nombre: u.nombre,
-            email: u.email,
-            rol: u.rol as Usuario['rol'],
-            estado: u.estado as Usuario['estado'],
-            club_id: u.clubId || currentTeam?.id || null,
-            jugador_id: u.jugadorId || null,
-          });
+          if (!sendEmail) {
+            await usuariosService.update(u.id, {
+              nombre: u.nombre,
+              email: u.email,
+              rol: u.rol as Usuario['rol'],
+              estado: u.estado as Usuario['estado'],
+              club_id: u.clubId || currentTeam?.id || null,
+              equipo_id: u.equipoId || null,
+              recordar: u.recordar || null,
+            });
+          }
           if (password) {
-            const pwResult = await authService.setUserPassword(String(u.id), password);
+            const pwResult = await authService.setUserPassword(String(u.id), password, sendEmail || false);
             if (!pwResult.success) {
               alert(pwResult.error || 'No se pudo actualizar la contraseña.');
+              return;
+            }
+            if (sendEmail) {
+              if (pwResult.emailError) {
+                alert(`No se pudo enviar el email: ${pwResult.emailError}`);
+              } else {
+                setShowStatus('Email enviado correctamente.');
+                setTimeout(() => setShowStatus(null), 3000);
+              }
               return;
             }
           }
           await fetchUsers();
           setEditingUser(null); setIsNewUser(false);
         } catch (e) {
-          alert(e instanceof Error ? e.message : 'Error al guardar el usuario');
+          const message = e instanceof Error ? e.message : (e as { message?: string })?.message;
+          alert(message || 'Error al guardar el usuario');
         }
       }} />}
       {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={ownClubCompetitionTeams} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {

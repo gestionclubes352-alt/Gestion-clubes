@@ -51,6 +51,8 @@ export interface TrainingTask {
   createdAt: string;
   /** Fecha de última edición (ISO) */
   updatedAt: string;
+  /** Nombre del usuario que creó la tarea */
+  createdBy?: string;
 }
 
 /** Todas las categorías disponibles */

@@ -30,6 +30,7 @@ const TaskRepositoryView: React.FC = () => {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [previewTask, setPreviewTask] = useState<TrainingTask | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<TaskCategory>>(new Set());
+  const [selectedCreator, setSelectedCreator] = useState<string>('');
 
   // ─── Data loading ───
   const fetchTasks = useCallback(async () => {
@@ -56,8 +57,20 @@ const TaskRepositoryView: React.FC = () => {
     if (selectedCategories.size > 0) {
       result = result.filter(t => selectedCategories.has(t.category));
     }
+    if (selectedCreator) {
+      const unknownLabel = t('taskRepository.unknownCreator', { defaultValue: 'Desconocido' });
+      result = result.filter(task => (task.createdBy || unknownLabel) === selectedCreator);
+    }
     return result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [tasks, search, selectedCategories]);
+  }, [tasks, search, selectedCategories, selectedCreator, t]);
+
+  // ─── Lista de usuarios creadores disponibles ───
+  const creators = useMemo(() => {
+    const unknownLabel = t('taskRepository.unknownCreator', { defaultValue: 'Desconocido' });
+    const set = new Set<string>();
+    for (const task of tasks) set.add(task.createdBy || unknownLabel);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tasks, t]);
 
   // ─── Grouped by category ───
   const grouped = useMemo(() => {
@@ -235,9 +248,14 @@ const TaskRepositoryView: React.FC = () => {
       )}
       <div className="p-2 bg-white border-t border-slate-100 shrink-0">
         <h4 className="text-[9px] font-black uppercase tracking-tight text-slate-800 truncate leading-tight mb-1">{task.name}</h4>
-        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider text-white ${CATEGORY_COLORS[task.category]}`}>
-          {task.category}
-        </span>
+        <div className="flex items-center justify-between gap-1">
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider text-white ${CATEGORY_COLORS[task.category]}`}>
+            {task.category}
+          </span>
+          {task.createdBy && (
+            <span className="text-[7px] font-bold text-slate-400 truncate" title={task.createdBy}>{task.createdBy}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -362,9 +380,16 @@ const TaskRepositoryView: React.FC = () => {
             {/* Header */}
             <div className="mb-3">
               <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 mb-2">{localTask.name}</h3>
-              <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[localTask.category]}`}>
-                {localTask.category}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[localTask.category]}`}>
+                  {localTask.category}
+                </span>
+                {localTask.createdBy && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 bg-slate-100">
+                    <i className="fa-solid fa-user text-[9px]"></i> {localTask.createdBy}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Actions */}
@@ -484,6 +509,32 @@ const TaskRepositoryView: React.FC = () => {
               onClick={() => setSelectedCategories(new Set())}
               className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
               title="Mostrar todas las categorías"
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+
+        {/* Creator Filter Dropdown */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            {t('taskRepository.filterByCreator')}:
+          </label>
+          <select
+            value={selectedCreator}
+            onChange={e => setSelectedCreator(e.target.value)}
+            className="flex-1 min-w-40 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
+          >
+            <option value="">{t('taskRepository.allCreators')}</option>
+            {creators.map(creator => (
+              <option key={creator} value={creator}>{creator}</option>
+            ))}
+          </select>
+          {selectedCreator && (
+            <button
+              onClick={() => setSelectedCreator('')}
+              className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+              title={t('taskRepository.allCreators')}
             >
               Limpiar
             </button>

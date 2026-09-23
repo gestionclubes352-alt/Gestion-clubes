@@ -112,6 +112,11 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
     return [
     columnHelper.accessor('nombre', {
       header: t('userTable.user'),
+      sortingFn: (rowA, rowB, columnId) => {
+        const a = String(rowA.getValue(columnId) ?? '');
+        const b = String(rowB.getValue(columnId) ?? '');
+        return a.localeCompare(b, 'es', { sensitivity: 'base' });
+      },
       cell: info => {
         const user = info.row.original;
         return (
@@ -284,6 +289,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, onCreate
         searchable
         searchPlaceholder={t('userTable.searchPlaceholder')}
         sortable
+        defaultSorting={[{ id: 'nombre', desc: false }]}
         paginated
         pageSize={10}
         exportable
