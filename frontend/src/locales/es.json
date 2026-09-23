@@ -846,8 +846,6 @@
     "showPassword": "Mostrar contraseña",
     "hidePassword": "Ocultar contraseña",
     "passwordSecurityNote": "Por seguridad no se puede ver la contraseña actual. Escribe una nueva o genera una temporal.",
-    "sendPassword": "Enviar contraseña por email",
-    "sendingPassword": "Enviando...",
     "remember": "Recordar",
     "rememberPlaceholder": "Anotación libre sobre este usuario...",
     "department": "Departamento *",

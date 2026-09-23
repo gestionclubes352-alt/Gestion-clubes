@@ -12,7 +12,7 @@ interface EditUserModalProps {
   equipos?: EquipoInterno[];
   isAdmin?: boolean;
   onClose: () => void;
-  onSave: (user: User, password?: string, sendEmail?: boolean) => Promise<void>;
+  onSave: (user: User, password?: string) => Promise<void>;
 }
 
 const getInitials = (name: string): string => {
@@ -29,7 +29,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, equi
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(user.fotoUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,20 +85,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, equi
       await onSave(dataToSave, password || undefined);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleSendPassword = async () => {
-    if (!password || !formData.email) return;
-    if (isPlayerRole && !formData.equipoId) {
-      alert(t('editUser.teamRequired'));
-      return;
-    }
-    setIsSendingEmail(true);
-    try {
-      await onSave({ ...formData }, password, true);
-    } finally {
-      setIsSendingEmail(false);
     }
   };
 
@@ -205,17 +190,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, isNew, clubId, equi
             </div>
             {!isNew && (
               <p className="text-[10px] text-slate-400 mt-1.5">{t('editUser.passwordSecurityNote')}</p>
-            )}
-            {password && !isNew && (
-              <button
-                type="button"
-                disabled={isSendingEmail || isSaving}
-                onClick={handleSendPassword}
-                className="mt-3 w-full py-2.5 border border-[var(--accent)] text-[var(--accent)] rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-[var(--accent)] hover:text-white transition-all disabled:opacity-50"
-              >
-                {isSendingEmail ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-paper-plane"></i>}
-                {isSendingEmail ? t('editUser.sendingPassword') : t('editUser.sendPassword')}
-              </button>
             )}
           </div>
 

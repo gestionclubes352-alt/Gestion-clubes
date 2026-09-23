@@ -751,11 +751,23 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         </div>
                       )}
                       {task.linkedTaskId && (
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 opacity-0 transition-all group-hover/preview:bg-black/40 group-hover/preview:opacity-100">
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 rounded-lg bg-black/0 opacity-0 transition-all group-hover/preview:bg-black/40 group-hover/preview:opacity-100">
                           <span className="flex items-center gap-2 rounded-lg bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
                             <i className="fa-solid fa-pen"></i>
                             {t('calendarView.editDrawing') || 'Editar dibujo'}
                           </span>
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setFullscreenTaskId(task.id);
+                            }}
+                            className="pointer-events-auto flex items-center gap-2 rounded-lg bg-white/90 hover:bg-white px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 transition-colors"
+                            title={t('calendarView.viewFullscreen') || 'Ver'}
+                          >
+                            <i className="fa-solid fa-eye"></i>
+                            Ver
+                          </button>
                         </div>
                       )}
                     </div>

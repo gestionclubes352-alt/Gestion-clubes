@@ -846,8 +846,6 @@
     "showPassword": "Erakutsi pasahitza",
     "hidePassword": "Ezkutatu pasahitza",
     "passwordSecurityNote": "Segurtasun arrazoiengatik, ezin da uneko pasahitza ikusi. Idatzi berri bat edo sortu aldi baterako bat.",
-    "sendPassword": "Bidali pasahitza emailez",
-    "sendingPassword": "Bidaltzen...",
     "remember": "Gogoratu",
     "rememberPlaceholder": "Erabiltzaile honi buruzko ohar librea...",
     "department": "Saila *",

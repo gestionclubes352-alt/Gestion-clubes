@@ -21,49 +21,6 @@ function json(body: unknown, status: number) {
   });
 }
 
-/** Envía la contraseña por email vía Resend. No lanza: si falla, solo se loguea. */
-async function sendPasswordEmail(email: string, nombre: string, password: string): Promise<string | null> {
-  const resendApiKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendApiKey) return 'RESEND_API_KEY no configurada.';
-
-  const fromAddress = Deno.env.get('RESEND_FROM_EMAIL') || 'Gestión Clubes <onboarding@resend.dev>';
-  const appUrl = Deno.env.get('APP_URL') || '';
-
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1e293b;">
-      <h2 style="color: #a73741;">Acceso a Gestión de Clubes</h2>
-      <p>Hola ${nombre || ''},</p>
-      <p>Se han generado tus credenciales de acceso:</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <tr><td style="padding: 8px 0; font-weight: bold;">Email:</td><td style="padding: 8px 0;">${email}</td></tr>
-        <tr><td style="padding: 8px 0; font-weight: bold;">Contraseña:</td><td style="padding: 8px 0; font-family: monospace;">${password}</td></tr>
-      </table>
-      ${appUrl ? `<p><a href="${appUrl}" style="display: inline-block; background: #a73741; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: bold;">Iniciar sesión</a></p>` : ''}
-      <p style="font-size: 12px; color: #94a3b8; margin-top: 24px;">Por seguridad, te recomendamos cambiar la contraseña tras iniciar sesión.</p>
-    </div>
-  `;
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: fromAddress,
-      to: [email],
-      subject: 'Tus credenciales de acceso',
-      html,
-    }),
-  });
-
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    return `Resend error (${res.status}): ${errBody}`;
-  }
-  return null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -98,7 +55,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Solo un Administrador puede gestionar usuarios.' }, 403);
   }
 
-  let body: { user_id?: string; email?: string; password?: string; nombre?: string; rol?: string; estado?: string; club_id?: string | null; jugador_id?: string | null; send_email?: boolean };
+  let body: { user_id?: string; email?: string; password?: string; nombre?: string; rol?: string; estado?: string; club_id?: string | null; jugador_id?: string | null };
   try {
     body = await req.json();
   } catch {
@@ -119,21 +76,7 @@ Deno.serve(async (req) => {
     if (pwError) {
       return json({ error: pwError.message }, 400);
     }
-
-    let emailError: string | null = null;
-    if (body.send_email) {
-      const { data: perfil } = await adminClient
-        .from('usuarios')
-        .select('email, nombre')
-        .eq('id', body.user_id)
-        .single();
-      if (perfil?.email) {
-        emailError = await sendPasswordEmail(perfil.email, perfil.nombre || '', body.password);
-      } else {
-        emailError = 'No se encontró el email del usuario.';
-      }
-    }
-    return json({ id: body.user_id, email_error: emailError }, 200);
+    return json({ id: body.user_id }, 200);
   }
 
   const { password, nombre, rol, estado, club_id, jugador_id } = body;
@@ -171,10 +114,5 @@ Deno.serve(async (req) => {
     return json({ error: updateError.message }, 400);
   }
 
-  let emailError: string | null = null;
-  if (body.send_email) {
-    emailError = await sendPasswordEmail(email, nombre, password);
-  }
-
-  return json({ id: created.user.id, email_error: emailError }, 200);
+  return json({ id: created.user.id }, 200);
 });

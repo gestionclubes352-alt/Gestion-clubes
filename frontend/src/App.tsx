@@ -1959,7 +1959,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
         }}
       />}
-      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} equipos={filteredMisClubCompetitionTeams} isAdmin={perfil?.rol === 'Administrador'} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password, sendEmail) => {
+      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} equipos={filteredMisClubCompetitionTeams} isAdmin={perfil?.rol === 'Administrador'} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
         if (isNewUser) {
           try {
             const result = await authService.createAuthUser(u.email, password || '', u.nombre, {
@@ -1967,13 +1967,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               estado: u.estado as 'Activo' | 'Inactivo' | 'Pendiente',
               clubId: u.clubId || currentTeam?.id || null,
               equipoId: u.equipoId || null,
-            }, sendEmail || false);
+            });
             if (!result.success) {
               alert(result.error || 'No se pudo crear el usuario.');
               return;
-            }
-            if (result.emailError) {
-              alert(`Usuario creado, pero no se pudo enviar el email: ${result.emailError}`);
             }
             if (u.recordar && result.uid) {
               await usuariosService.update(result.uid, { recordar: u.recordar });
@@ -1986,30 +1983,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
           return;
         }
         try {
-          if (!sendEmail) {
-            await usuariosService.update(u.id, {
-              nombre: u.nombre,
-              email: u.email,
-              rol: u.rol as Usuario['rol'],
-              estado: u.estado as Usuario['estado'],
-              club_id: u.clubId || currentTeam?.id || null,
-              equipo_id: u.equipoId || null,
-              recordar: u.recordar || null,
-            });
-          }
+          await usuariosService.update(u.id, {
+            nombre: u.nombre,
+            email: u.email,
+            rol: u.rol as Usuario['rol'],
+            estado: u.estado as Usuario['estado'],
+            club_id: u.clubId || currentTeam?.id || null,
+            equipo_id: u.equipoId || null,
+            recordar: u.recordar || null,
+          });
           if (password) {
-            const pwResult = await authService.setUserPassword(String(u.id), password, sendEmail || false);
+            const pwResult = await authService.setUserPassword(String(u.id), password);
             if (!pwResult.success) {
               alert(pwResult.error || 'No se pudo actualizar la contraseña.');
-              return;
-            }
-            if (sendEmail) {
-              if (pwResult.emailError) {
-                alert(`No se pudo enviar el email: ${pwResult.emailError}`);
-              } else {
-                setShowStatus('Email enviado correctamente.');
-                setTimeout(() => setShowStatus(null), 3000);
-              }
               return;
             }
           }

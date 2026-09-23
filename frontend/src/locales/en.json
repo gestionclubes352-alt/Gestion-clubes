@@ -846,8 +846,6 @@
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "passwordSecurityNote": "For security reasons the current password can't be viewed. Type a new one or generate a temporary one.",
-    "sendPassword": "Send password by email",
-    "sendingPassword": "Sending...",
     "remember": "Remember",
     "rememberPlaceholder": "Free note about this user...",
     "department": "Department *",

@@ -58,9 +58,8 @@ class AuthServiceStub {
     email: string,
     password: string,
     displayName: string,
-    perfil: NewUserPerfil,
-    sendEmail = false
-  ): Promise<{ success: boolean; uid?: string; error?: string; emailError?: string }> {
+    perfil: NewUserPerfil
+  ): Promise<{ success: boolean; uid?: string; error?: string }> {
     const { data, error } = await supabase.functions.invoke('create-user', {
       body: {
         email,
@@ -70,31 +69,26 @@ class AuthServiceStub {
         estado: perfil.estado,
         club_id: perfil.clubId ?? null,
         jugador_id: perfil.jugadorId ?? null,
-        send_email: sendEmail,
       },
     });
 
     if (error) return { success: false, error: await extractFunctionErrorMessage(error) };
     if (data?.error) return { success: false, error: data.error };
-    return { success: true, uid: data?.id, emailError: data?.email_error ?? undefined };
+    return { success: true, uid: data?.id };
   }
 
-  /**
-   * Resetea la contraseña de un usuario ya existente (misma Edge Function, sin crear cuenta).
-   * `sendEmail`: si es true, la Edge Function envía la nueva contraseña por email vía Resend.
-   */
+  /** Resetea la contraseña de un usuario ya existente (misma Edge Function, sin crear cuenta). */
   async setUserPassword(
     userId: string,
-    password: string,
-    sendEmail = false
-  ): Promise<{ success: boolean; error?: string; emailError?: string }> {
+    password: string
+  ): Promise<{ success: boolean; error?: string }> {
     const { data, error } = await supabase.functions.invoke('create-user', {
-      body: { user_id: userId, password, send_email: sendEmail },
+      body: { user_id: userId, password },
     });
 
     if (error) return { success: false, error: await extractFunctionErrorMessage(error) };
     if (data?.error) return { success: false, error: data.error };
-    return { success: true, emailError: data?.email_error ?? undefined };
+    return { success: true };
   }
 
   async getIdToken(): Promise<string | null> {

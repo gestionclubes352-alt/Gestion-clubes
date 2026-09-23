@@ -357,6 +357,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     [allTeamsForSelectors, clubNameById]
   );
 
+  const internalTeamOptions = useMemo(
+    () => (ownClubId ? teamOptions.filter(option => option.clubId === String(ownClubId)) : teamOptions),
+    [teamOptions, ownClubId]
+  );
+
   const handleCreateTeamForCompetition = async ({ value, club, escudoFile }: { value: string; club?: string; escudoFile?: File }) => {
     const clubName = club?.trim();
     const teamName = value.trim();
@@ -6319,7 +6324,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <EquipoSelect
             value={dgForm.nombreInterno}
             onChange={(value) => setDgForm({ ...dgForm, nombreInterno: value })}
-            extraTeams={teamOptions}
+            extraTeams={internalTeamOptions}
             placeholder="Selecciona equipo interno"
             useDefaultTeams={false}
             onCreateOption={handleCreateTeamForCompetition}

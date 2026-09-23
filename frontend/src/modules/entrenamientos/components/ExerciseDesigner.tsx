@@ -84,6 +84,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const navigate = useNavigate();
   // Al venir de una sesión de entreno, solo se ofrecen los jugadores convocados (no los ausentes)
   const sessionSquadIdsRef = useRef<string[] | null>((location.state as any)?.sessionSquadIds ?? null);
+  const [incomingStateVersion, setIncomingStateVersion] = useState(0);
   const squadForPicker = useMemo(() => {
     const base = allSquad && allSquad.length > 0 ? allSquad : squad;
     if (sessionSquadIdsRef.current) {
@@ -109,6 +110,26 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   // Id de la tarea de sesión (SessionTask) cuyo dibujo se está editando, para actualizarla en vez de añadir una nueva al volver
   const editSessionTaskIdRef = useRef<string | null>((location.state as any)?.editSessionTaskId ?? null);
   const [incomingTaskApplied, setIncomingTaskApplied] = useState(false);
+
+  // El componente del Diseñador permanece montado entre navegaciones dentro de la SPA (la ruta
+  // /disenador no se desmonta), así que los useRef anteriores solo capturan el location.state la
+  // primera vez. Si el usuario vuelve a navegar aquí (p.ej. "Editar dibujo" de otra tarea, o incluso
+  // de la misma) con un nuevo selectTaskId, hay que releer el state y forzar que se vuelva a aplicar.
+  // Se usa location.key (único por cada entrada de historial) en vez del propio taskId, porque
+  // reabrir dos veces seguidas la MISMA tarea también debe forzar la recarga de su snapshot.
+  const lastAppliedLocationKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const incomingTaskId = (location.state as any)?.selectTaskId ?? null;
+    if (!incomingTaskId || location.key === lastAppliedLocationKeyRef.current) return;
+    lastAppliedLocationKeyRef.current = location.key;
+    sessionSquadIdsRef.current = (location.state as any)?.sessionSquadIds ?? null;
+    incomingSelectTaskIdRef.current = incomingTaskId;
+    fromSessionCreationRef.current = (location.state as any)?.fromSessionCreation ?? false;
+    returnEventIdRef.current = (location.state as any)?.returnEventId ?? null;
+    editSessionTaskIdRef.current = (location.state as any)?.editSessionTaskId ?? null;
+    setIncomingTaskApplied(false);
+    setIncomingStateVersion(v => v + 1);
+  }, [location.state, location.key]);
   const [frames, setFrames] = useState<DesignerItem[][]>([[]]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -128,9 +149,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [historyCount, setHistoryCount] = useState(0);
 
   // Cargar tareas guardadas del repositorio
-  const loadSavedTasks = useCallback(async () => {
+  const loadSavedTasks = useCallback(async (force = false) => {
     try {
-      const { data } = await db.task_templates.get();
+      const { data } = await db.task_templates.get(force);
       if (data && data.length > 0) {
         const mapped = (data as TrainingTask[]).map(t => ({
           id: t.id,
@@ -149,6 +170,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   useEffect(() => {
     loadSavedTasks();
   }, [loadSavedTasks]);
+
+  // Al llegar una nueva tarea a preseleccionar (navegación desde el Repositorio), refrescar la
+  // lista con datos frescos: la caché en memoria de `tasks` puede no incluir aún una tarea recién
+  // creada/editada, dejando el canvas mostrando el último ejercicio abierto sin abrir la nueva tarea.
+  useEffect(() => {
+    if (incomingSelectTaskIdRef.current) {
+      loadSavedTasks(true);
+    }
+  }, [incomingStateVersion, loadSavedTasks]);
 
   useEffect(() => {
     const loadLastExercise = async () => {
@@ -520,11 +550,21 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     if (!targetId || tasks.length === 0) return;
     const target = tasks.find(t => t.id === targetId);
     if (!target) return;
-    handleSelectTask(target);
+    // No usar handleSelectTask aquí: si la tarea entrante ya es la activa (p.ej. se ha vuelto a
+    // pulsar "Editar dibujo" sobre la misma tarea), handleSelectTask la deseleccionaría (toggle) en
+    // vez de recargar su snapshot, dejando el canvas con el contenido anterior.
+    if (activeTaskId) {
+      autoSaveActiveTask();
+    }
+    pushHistoryNow();
+    setActiveTaskId(target.id);
+    setFrames(deepCloneFrames(normalizeDesignerFrames(target.designerSnapshot)));
+    setCurrentFrameIndex(0);
+    setActiveStructure(target.fieldStructure || 'libre');
     setActiveProject(target.name);
     setIncomingTaskApplied(true);
     navigate(location.pathname, { replace: true, state: null });
-  }, [tasks, incomingTaskApplied, handleSelectTask, navigate, location.pathname]);
+  }, [tasks, incomingTaskApplied, incomingStateVersion, activeTaskId, navigate, location.pathname]);
 
   /** Guardar los cambios del canvas de vuelta a la tarea activa */
   const handleSaveActiveTask = async (options?: { showToast?: boolean }) => {

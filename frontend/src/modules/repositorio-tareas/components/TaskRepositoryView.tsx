@@ -420,33 +420,33 @@ const TaskRepositoryView: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
-          <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">{t('taskRepository.title')}</h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">{t('taskRepository.subtitle')}</p>
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter">{t('taskRepository.title')}</h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('taskRepository.subtitle')}</p>
         </div>
-        <button onClick={openNew} className="w-full md:w-auto bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl transition-colors">
-          <i className="fa-solid fa-plus text-lg"></i> {t('taskRepository.newTask')}
+        <button onClick={openNew} className="w-full md:w-auto bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg transition-colors">
+          <i className="fa-solid fa-plus text-sm"></i> {t('taskRepository.newTask')}
         </button>
       </div>
 
       {/* Stats summary */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 mr-4">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
-              <i className="fa-solid fa-layer-group text-slate-500 text-sm"></i>
+      <div className="bg-white border border-slate-200 rounded-2xl p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 mr-3">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+              <i className="fa-solid fa-layer-group text-slate-500 text-xs"></i>
             </div>
             <div>
-              <div className="text-xl font-black text-slate-800">{stats.total}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t('taskRepository.totalTasks')}</div>
+              <div className="text-base font-black text-slate-800 leading-tight">{stats.total}</div>
+              <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">{t('taskRepository.totalTasks')}</div>
             </div>
           </div>
-          <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
-          <div className="flex flex-wrap gap-2">
+          <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+          <div className="flex flex-wrap gap-1.5">
             {stats.categories.map(c => (
-              <span key={c.category} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[c.category]}`}>
-                <i className={`fa-solid ${CATEGORY_ICONS[c.category]} text-[9px]`}></i>
+              <span key={c.category} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[c.category]}`}>
+                <i className={`fa-solid ${CATEGORY_ICONS[c.category]} text-[8px]`}></i>
                 {c.category} <span className="bg-white/25 rounded-md px-1.5">{c.count}</span>
               </span>
             ))}

@@ -38,6 +38,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [imageMode, setImageMode] = useState<'none' | 'upload' | 'design'>('none');
   const [designerSnapshot, setDesignerSnapshot] = useState<any[] | undefined>(undefined);
+  const [openingDesigner, setOpeningDesigner] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -92,6 +93,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
   };
 
   const handleOpenDesigner = async () => {
+    if (openingDesigner) return;
+    if (!form.name.trim()) {
+      alert('Ponle un nombre a la tarea antes de abrir el diseñador.');
+      return;
+    }
+
     const now = new Date().toISOString();
     const taskId = task?.id || crypto.randomUUID();
 
@@ -103,12 +110,23 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
       updatedAt: now,
     } as TrainingTask;
 
-    await onSave(taskToSave);
-    navigate('/disenador', {
-      state: returnEventId
-        ? { selectTaskId: taskId, fromSessionCreation: true, returnEventId }
-        : { selectTaskId: taskId },
-    });
+    setOpeningDesigner(true);
+    try {
+      await onSave(taskToSave);
+      // Cerramos el modal explícitamente: si la navegación ocurriera antes de que el padre
+      // aplique su propio cierre, el modal quedaría montado por encima del diseñador tapándolo.
+      onClose();
+      navigate('/disenador', {
+        state: returnEventId
+          ? { selectTaskId: taskId, fromSessionCreation: true, returnEventId }
+          : { selectTaskId: taskId },
+      });
+    } catch (err) {
+      console.error('Error al guardar la tarea antes de abrir el diseñador:', err);
+      alert('No se ha podido guardar la tarea. Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setOpeningDesigner(false);
+    }
   };
 
   /* -------- Sección reutilizable -------- */
@@ -238,10 +256,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
                   <button
                     type="button"
                     onClick={handleOpenDesigner}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
+                    disabled={openingDesigner}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold rounded-lg transition-colors"
                   >
-                    <i className="fa-solid fa-external-link-alt mr-2"></i>
-                    Abrir diseñador
+                    <i className={`fa-solid ${openingDesigner ? 'fa-spinner fa-spin' : 'fa-external-link-alt'} mr-2`}></i>
+                    {openingDesigner ? 'Abriendo…' : 'Abrir diseñador'}
                   </button>
                   <button
                     type="button"
