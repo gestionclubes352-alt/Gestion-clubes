@@ -74,8 +74,8 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
   }, [players, allSelectablePlayers, selectedAdditionalPlayers, attendance, selectiveAttendance]);
 
   const positionColors: Record<string, { badge: string; bg: string; border: string; text: string; icon: string }> = {
-    'POR': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
-    'Portero': { badge: 'bg-yellow-400', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'GK' },
+    'POR': { badge: 'bg-slate-900', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'GK' },
+    'Portero': { badge: 'bg-slate-900', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', icon: 'GK' },
     'Defensa': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
     'Central': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
     'Lateral': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
@@ -83,12 +83,12 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
     'Lateral derecho': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
     'DFC': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
     'DF': { badge: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'DF' },
-    'Centrocampista': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
-    'MC': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
-    'MF': { badge: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
-    'Delantero': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
-    'DC': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
-    'ST': { badge: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'ST' },
+    'Centrocampista': { badge: 'bg-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
+    'MC': { badge: 'bg-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
+    'MF': { badge: 'bg-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'MF' },
+    'Delantero': { badge: 'bg-purple-700', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', icon: 'ST' },
+    'DC': { badge: 'bg-purple-700', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', icon: 'ST' },
+    'ST': { badge: 'bg-purple-700', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', icon: 'ST' },
   };
 
   const getPositionColor = (player: Player) => {
@@ -360,7 +360,7 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                           {groupedAbsent.map(([positionGroup, posPlayers]) => (
                             <div key={`absent-${positionGroup}`} className="space-y-2">
                               <div className="flex items-center gap-2 mt-2 mb-2">
-                                <div className="bg-red-400 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">DF</div>
+                                <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">DF</div>
                                 <h5 className="text-red-600 font-black text-[11px] uppercase tracking-widest">{positionGroup}</h5>
                               </div>
                               {posPlayers.map((player) => {
@@ -368,7 +368,7 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                                 return (
                                   <div key={player.id} className="flex items-center justify-between bg-red-50 rounded-xl p-3 border border-red-200">
                                     <div className="flex items-center gap-3 min-w-0">
-                                      <div className="w-9 h-9 rounded-full bg-red-400 text-white flex items-center justify-center font-black text-[11px]">
+                                      <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-[11px]">
                                         {player.dorsal || player.nombre.charAt(0)}
                                       </div>
                                       <p className="text-[12px] font-black text-red-700 truncate">

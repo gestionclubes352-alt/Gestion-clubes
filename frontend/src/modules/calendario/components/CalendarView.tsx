@@ -646,10 +646,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     ];
 
     const rosterPositionColors: Record<string, { badge: string; bg: string; border: string; icon: string }> = {
-      Portero: { badge: 'bg-red-400', bg: 'bg-red-50', border: 'border-red-100', icon: 'GK' },
+      Portero: { badge: 'bg-slate-900', bg: 'bg-slate-50', border: 'border-slate-200', icon: 'GK' },
       Defensa: { badge: 'bg-emerald-500', bg: 'bg-white', border: 'border-slate-100', icon: 'DF' },
-      Centrocampista: { badge: 'bg-blue-500', bg: 'bg-white', border: 'border-slate-100', icon: 'MF' },
-      Delantero: { badge: 'bg-red-500', bg: 'bg-white', border: 'border-slate-100', icon: 'ST' },
+      Centrocampista: { badge: 'bg-blue-600', bg: 'bg-white', border: 'border-slate-100', icon: 'MF' },
+      Delantero: { badge: 'bg-purple-700', bg: 'bg-white', border: 'border-slate-100', icon: 'ST' },
     };
     const getRosterPositionGroup = (player: Player) => {
       const pos = (player.posicionJuego || player.posicion || '').toLowerCase();
@@ -950,7 +950,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                         return (
                           <div key={player.id} className="flex items-center justify-between gap-2 bg-red-50 rounded-lg px-2.5 py-1 border border-red-100">
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="bg-red-400 text-white w-7 h-7 shrink-0 rounded-full flex items-center justify-center font-black text-[10px]">
+                              <div className="bg-red-600 text-white w-7 h-7 shrink-0 rounded-full flex items-center justify-center font-black text-[10px]">
                                 {player.dorsal ?? player.nombre.charAt(0)}
                               </div>
                               <p className="text-[11px] font-black text-black truncate">{player.nombre}</p>
