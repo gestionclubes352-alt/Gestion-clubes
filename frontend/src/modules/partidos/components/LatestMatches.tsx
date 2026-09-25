@@ -956,6 +956,8 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             pageSizeOptions={[30, 50, 100]}
             exportable
             exportFilename="partidos"
+            stickyHeader
+            maxHeight="70vh"
             emptyMessage={t('matchesList.noMatches')}
             emptyIcon="fa-solid fa-calendar-xmark"
             onRowClick={(row) => !row.match.readonly && onClickMatch && onClickMatch(row.match)}

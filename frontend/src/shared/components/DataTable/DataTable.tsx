@@ -529,7 +529,7 @@ function DataTable<T extends Record<string, any>>({
         bodyStyle={{ maxHeight: maxHeight ?? '640px' }}
       >
         <table className="w-full" role="table">
-          <thead className={`${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
+          <thead className={`${stickyHeader ? 'sticky top-0 z-10 bg-[var(--surface-1)]' : ''}`}>
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id} className="border-b border-[var(--border-soft)] bg-[var(--surface-1)]">
                 {headerGroup.headers.map(header => {
