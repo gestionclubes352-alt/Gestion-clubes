@@ -28,7 +28,11 @@ const EditObjetivoModal: React.FC<{
   onDelete?: (id: string) => Promise<void>;
   /** Qué parte del historial destacar al abrir (p. ej. al pulsar el nº de acciones/evaluaciones en la tabla). */
   enfoque?: 'acciones' | 'evaluaciones';
-}> = ({ isOpen, objetivo, jugadores, equipos, jugadorNombreFijo, onClose, onSave, onDelete, enfoque }) => {
+  /** Id de una acción/evaluación concreta a destacar (p. ej. al pulsarla en el calendario). */
+  accionDestacadaId?: string;
+}> = ({ isOpen, objetivo, jugadores, equipos, jugadorNombreFijo, onClose, onSave, onDelete, enfoque, accionDestacadaId }) => {
+  const destacada = (id: string, categoria: 'acciones' | 'evaluaciones') =>
+    accionDestacadaId ? id === accionDestacadaId : enfoque === categoria;
   const historialRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<ObjetivoIndividualFormData>({
     equipo_id: '',
@@ -62,14 +66,14 @@ const EditObjetivoModal: React.FC<{
 
   // Lleva la vista al primer elemento destacado (tras renderizar el formulario con el objetivo cargado).
   useEffect(() => {
-    if (!isOpen || !enfoque) return;
+    if (!isOpen || (!enfoque && !accionDestacadaId)) return;
     const t = window.setTimeout(() => {
       historialRef.current
         ?.querySelector('[data-destacado="true"]')
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
     return () => window.clearTimeout(t);
-  }, [isOpen, enfoque, objetivo]);
+  }, [isOpen, enfoque, accionDestacadaId, objetivo]);
 
   const jugadoresDelEquipo = formData.equipo_id
     ? jugadores.filter(j => String(j.equipo_id) === String(formData.equipo_id))
@@ -379,9 +383,9 @@ const EditObjetivoModal: React.FC<{
                 {historial.map(a => a.categoria === 'evaluacion' ? (
                   <div
                     key={a.id}
-                    data-destacado={enfoque === 'evaluaciones'}
+                    data-destacado={destacada(a.id, 'evaluaciones')}
                     className={`rounded-xl p-3 space-y-3 transition-shadow ${
-                      enfoque === 'evaluaciones'
+                      destacada(a.id, 'evaluaciones')
                         ? 'border-2 border-[var(--accent)] bg-[var(--accent)]/5 shadow-md'
                         : 'border border-slate-300 bg-white'
                     }`}
@@ -451,9 +455,9 @@ const EditObjetivoModal: React.FC<{
                 ) : (
                   <div
                     key={a.id}
-                    data-destacado={enfoque === 'acciones'}
+                    data-destacado={destacada(a.id, 'acciones')}
                     className={`rounded-xl p-3 space-y-3 transition-shadow ${
-                      enfoque === 'acciones'
+                      destacada(a.id, 'acciones')
                         ? 'border-2 border-[var(--accent)] bg-[var(--accent)]/5 shadow-md'
                         : 'border border-slate-200 bg-slate-50/50'
                     }`}

@@ -41,6 +41,7 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
   const [filtroEstado, setFiltroEstado] = useState('');
   const [editing, setEditing] = useState<ObjetivoIndividualFormData | null | undefined>(undefined);
   // Sección a destacar en el modal: solo cuando se abre desde el nº de acciones/evaluaciones de la tabla.
+  const [accionDestacadaId, setAccionDestacadaId] = useState<string | undefined>(undefined);
   const [enfoque, setEnfoque] = useState<'acciones' | 'evaluaciones' | undefined>(undefined);
   const [vista, setVista] = useState<'listado' | 'calendario' | 'graficas'>('listado');
 
@@ -246,8 +247,9 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
           objetivos={filtered}
           getJugadorNombre={getJugadorNombre}
           getEquipoNombre={getEquipoNombre}
-          onSelect={o => {
+          onSelect={(o, accionId) => {
             setEnfoque(undefined);
+            setAccionDestacadaId(accionId);
             setEditing(o);
           }}
         />
@@ -283,6 +285,7 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
                     onClick={e => {
                       e.stopPropagation();
                       setEnfoque(kind);
+                      setAccionDestacadaId(undefined);
                       setEditing(o);
                     }}
                     className={`min-w-[28px] px-2 py-0.5 rounded-lg text-sm font-black tabular-nums transition-all ${
@@ -299,6 +302,7 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
               <div
                 onClick={() => {
                   setEnfoque(undefined);
+                  setAccionDestacadaId(undefined);
                   setEditing(o);
                 }}
                 className="grid grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr_2.2fr_0.5fr_3fr_64px_84px] gap-3 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-all cursor-pointer items-center"
@@ -332,6 +336,7 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
         jugadores={jugadores}
         equipos={equipos}
         enfoque={enfoque}
+        accionDestacadaId={accionDestacadaId}
         onClose={() => setEditing(undefined)}
         onSave={handleSave}
         onDelete={handleDelete}

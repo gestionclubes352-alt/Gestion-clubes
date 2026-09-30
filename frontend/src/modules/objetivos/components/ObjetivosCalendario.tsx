@@ -6,7 +6,7 @@ interface ObjetivosCalendarioProps {
   objetivos: ObjetivoIndividual[];
   getJugadorNombre: (id: string) => string;
   getEquipoNombre: (id: string) => string;
-  onSelect: (objetivo: ObjetivoIndividual) => void;
+  onSelect: (objetivo: ObjetivoIndividual, accionId?: string) => void;
 }
 
 type EventoKind = 'objetivo' | 'accion' | 'evaluacion';
@@ -19,6 +19,7 @@ interface Evento {
   titulo: string;
   subtitulo: string;
   objetivo: ObjetivoIndividual;
+  accionId?: string;
 }
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -27,7 +28,15 @@ const MAX_VISIBLES = 3;
 const pad = (n: number) => String(n).padStart(2, '0');
 const toKey = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-const estadoColor = (estado?: string) => ESTADOS_OBJETIVO.find(e => e.value === estado)?.color || '#94a3b8';
+const PALETA_JUGADORES = [
+  '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899',
+  '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#a855f7', '#0ea5e9',
+];
+const colorJugador = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PALETA_JUGADORES[h % PALETA_JUGADORES.length];
+};
 const estadoLabel = (estado?: string) => ESTADOS_OBJETIVO.find(e => e.value === estado)?.label || '';
 const tipoObjetivoLabel = (tipo: string) => TIPOS_OBJETIVO.find(t => t.value === tipo)?.label || tipo;
 const tipoAccionLabel = (tipo?: string) => TIPOS_ACCION.find(t => t.value === tipo)?.label || 'Reunión';
@@ -73,11 +82,12 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
     for (const o of objetivos) {
       const jugador = getJugadorNombre(o.jugador_id);
       const equipo = getEquipoNombre(o.equipo_id);
+      const color = colorJugador(o.jugador_id);
       add({
         key: `o-${o.id}`,
         kind: 'objetivo',
         fecha: o.fecha,
-        color: estadoColor(o.estado_inicial ?? o.estado),
+        color,
         titulo: jugador,
         subtitulo: `${tipoObjetivoLabel(o.tipo)} · ${equipo}`,
         objetivo: o,
@@ -88,12 +98,13 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
           key: `a-${o.id}-${a.id}`,
           kind: esEvaluacion ? 'evaluacion' : 'accion',
           fecha: a.fecha,
-          color: esEvaluacion ? estadoColor(a.estado) : '#64748b',
+          color,
           titulo: jugador,
           subtitulo: esEvaluacion
             ? `Evaluación ${estadoLabel(a.estado).toLowerCase()} · ${equipo}`
             : `${tipoAccionLabel(a.tipo)} · ${equipo}`,
           objetivo: o,
+          accionId: a.id,
         });
       }
     }
@@ -230,13 +241,13 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
                       type="button"
                       onClick={e => {
                         e.stopPropagation();
-                        onSelect(ev.objetivo);
+                        onSelect(ev.objetivo, ev.accionId);
                       }}
                       title={`${KIND_LABEL[ev.kind]} · ${ev.titulo} · ${ev.subtitulo}`}
                       className="w-full flex items-center gap-1 px-1 py-0.5 rounded text-left text-[10px] font-semibold text-slate-700 hover:brightness-95"
                       style={{ backgroundColor: `${ev.color}22`, borderLeft: `3px solid ${ev.color}` }}
                     >
-                      <i className={`fa-solid ${KIND_ICON[ev.kind]} text-[8px] opacity-70`}></i>
+                      <i className={`fa-solid ${KIND_ICON[ev.kind]} text-[10px]`} style={{ color: ev.color }}></i>
                       <span className="truncate">{ev.titulo}</span>
                     </button>
                   ))}
@@ -268,7 +279,7 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
                 <li key={ev.key}>
                   <button
                     type="button"
-                    onClick={() => onSelect(ev.objetivo)}
+                    onClick={() => onSelect(ev.objetivo, ev.accionId)}
                     className="w-full flex items-center gap-3 py-2 text-left hover:bg-slate-50 rounded-lg px-2"
                   >
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: ev.color }} />
