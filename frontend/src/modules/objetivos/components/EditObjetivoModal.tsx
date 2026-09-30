@@ -183,6 +183,17 @@ const EditObjetivoModal: React.FC<{
   historial.forEach(a => {
     numeros[a.id] = a.categoria === 'evaluacion' ? ++nEval : ++nAcc;
   });
+  // Evolución: estado inicial y después el de cada evaluación (ya ordenadas por fecha).
+  const infoEstado = (v: EstadoObjetivoIndividual) => ESTADOS_OBJETIVO.find(e => e.value === v);
+  const evolucion: { etiqueta: string; color: string; fecha?: string }[] = [];
+  const estadoInicial = formData.estado_inicial ?? formData.estado;
+  if (estadoInicial && infoEstado(estadoInicial)) {
+    evolucion.push({ etiqueta: `Inicial: ${infoEstado(estadoInicial)!.label}`, color: infoEstado(estadoInicial)!.color, fecha: formData.fecha });
+  }
+  historial.forEach(a => {
+    const e = a.categoria === 'evaluacion' && a.estado ? infoEstado(a.estado) : undefined;
+    if (e) evolucion.push({ etiqueta: `Eval. ${numeros[a.id]}: ${e.label}`, color: e.color, fecha: a.fecha });
+  });
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -309,7 +320,7 @@ const EditObjetivoModal: React.FC<{
               onChange={handleChange}
               maxLength={150}
               placeholder="Nombre del objetivo"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
+              className="w-full border-2 border-amber-300 bg-amber-50 rounded-xl px-4 py-3 text-base font-black text-amber-800 uppercase tracking-tight focus:outline-none focus:border-amber-500"
             />
           </div>
 
@@ -322,6 +333,30 @@ const EditObjetivoModal: React.FC<{
               rows={3}
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[var(--accent)]"
             />
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Resumen de evolución</label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {evolucion.length === 0 ? (
+                <span className="text-xs font-semibold text-slate-400">Sin estado todavía</span>
+              ) : evolucion.map((paso, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <i className="fa-solid fa-arrow-right text-[10px] text-slate-300"></i>}
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white border border-slate-200 text-[10px] font-black text-slate-600"
+                    title={paso.fecha}
+                  >
+                    <span className="w-3 h-3 rounded-full block" style={{ backgroundColor: paso.color }} />
+                    {paso.etiqueta}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
+              <span><i className="fa-solid fa-list-check text-[var(--accent)] mr-1"></i>{nAcc} {nAcc === 1 ? 'acción' : 'acciones'}</span>
+              <span><i className="fa-solid fa-clipboard-check text-indigo-600 mr-1"></i>{nEval} {nEval === 1 ? 'evaluación' : 'evaluaciones'}</span>
+            </div>
           </div>
           </div>
 
@@ -387,10 +422,13 @@ const EditObjetivoModal: React.FC<{
                     className={`rounded-xl p-3 space-y-3 transition-shadow ${
                       destacada(a.id, 'evaluaciones')
                         ? 'border-2 border-[var(--accent)] bg-[var(--accent)]/5 shadow-md'
-                        : 'border border-slate-300 bg-white'
+                        : 'border border-indigo-200 border-l-4 border-l-indigo-500 bg-indigo-50/40'
                     }`}
                   >
-                    <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest">EVALUACIÓN {numeros[a.id]}</p>
+                    <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest shadow-sm">
+                      <i className="fa-solid fa-clipboard-check"></i>
+                      EVALUACIÓN {numeros[a.id]}
+                    </p>
                     <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
                       <div>
                         <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Fecha</label>

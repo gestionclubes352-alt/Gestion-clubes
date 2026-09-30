@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   uploadObjetivoDocumento,
   openObjetivoDocumento,
+  getObjetivoDocumentoUrl,
   removeObjetivoDocumento,
   type DocumentoAdjunto,
 } from '@shared/services/objetivoDocumentoService';
@@ -13,6 +14,7 @@ const DocumentoAdjuntoField: React.FC<{
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -24,6 +26,7 @@ const DocumentoAdjuntoField: React.FC<{
       const subido = await uploadObjetivoDocumento(file);
       // Si ya había uno, se sustituye: se borra el anterior del almacenamiento.
       if (documento) removeObjetivoDocumento(documento.path).catch(() => {});
+      setPreviewUrl(null);
       onChange(subido);
     } catch (err) {
       setError((err as { message?: string } | null)?.message || 'No se pudo subir el documento.');
@@ -32,9 +35,26 @@ const DocumentoAdjuntoField: React.FC<{
     }
   };
 
+  const ext = (documento?.nombre.split('.').pop() || '').toLowerCase();
+  const tipoEmbed: 'pdf' | 'img' | null =
+    ext === 'pdf' ? 'pdf' : ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? 'img' : null;
+
   const handleOpen = async () => {
     if (!documento) return;
     setError(null);
+    if (tipoEmbed) {
+      // Se muestra/oculta embebido; la URL firmada se pide al desplegar.
+      if (previewUrl) {
+        setPreviewUrl(null);
+        return;
+      }
+      try {
+        setPreviewUrl(await getObjetivoDocumentoUrl(documento.path));
+      } catch (err) {
+        setError((err as { message?: string } | null)?.message || 'No se pudo abrir el documento.');
+      }
+      return;
+    }
     try {
       await openObjetivoDocumento(documento.path);
     } catch (err) {
@@ -50,6 +70,7 @@ const DocumentoAdjuntoField: React.FC<{
     } catch {
       // Si el fichero ya no existe, se quita igualmente la referencia.
     }
+    setPreviewUrl(null);
     onChange(undefined);
   };
 
@@ -95,6 +116,20 @@ const DocumentoAdjuntoField: React.FC<{
           </button>
         )}
       </div>
+      {previewUrl && tipoEmbed === 'pdf' && (
+        <iframe
+          src={previewUrl}
+          title={documento?.nombre}
+          className="mt-3 h-112 w-full rounded-xl border border-slate-200 bg-white"
+        />
+      )}
+      {previewUrl && tipoEmbed === 'img' && (
+        <img
+          src={previewUrl}
+          alt={documento?.nombre}
+          className="mt-3 max-h-112 w-full rounded-xl border border-slate-200 bg-white object-contain"
+        />
+      )}
       {error && <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>}
     </div>
   );

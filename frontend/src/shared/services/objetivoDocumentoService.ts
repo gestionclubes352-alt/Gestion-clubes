@@ -33,10 +33,14 @@ export async function uploadObjetivoDocumento(file: File): Promise<DocumentoAdju
   return { nombre: file.name, path, tamano: file.size };
 }
 
-export async function openObjetivoDocumento(path: string): Promise<void> {
+export async function getObjetivoDocumentoUrl(path: string): Promise<string> {
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 10);
   if (error || !data?.signedUrl) throw error ?? new Error('No se pudo abrir el documento.');
-  window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  return data.signedUrl;
+}
+
+export async function openObjetivoDocumento(path: string): Promise<void> {
+  window.open(await getObjetivoDocumentoUrl(path), '_blank', 'noopener,noreferrer');
 }
 
 export async function removeObjetivoDocumento(path: string): Promise<void> {

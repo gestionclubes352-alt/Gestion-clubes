@@ -15,6 +15,12 @@ const esUrlYouTube = (url: string): boolean => {
   }
 };
 
+/** Convierte una URL de YouTube (ya validada) en su URL de embed; null si no se reconoce el ID. */
+const getEmbedUrl = (url: string): string | null => {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return m ? `https://www.youtube.com/embed/${m[1]}` : null;
+};
+
 /**
  * Sube un vídeo directamente al canal de YouTube del club (no listado) y
  * guarda solo su URL. La subida corre en esta pestaña: hay que esperar a que
@@ -31,7 +37,9 @@ const VideoYouTubeField: React.FC<{
   const abortRef = useRef<AbortController | null>(null);
   const [progress, setProgress] = useState<YouTubeUploadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPlayer, setShowPlayer] = useState(false);
   const busy = !!progress && progress.stage !== 'done' && progress.stage !== 'error';
+  const embedUrl = videoUrl && esUrlYouTube(videoUrl) ? getEmbedUrl(videoUrl) : null;
 
   useEffect(() => {
     onBusyChange?.(busy);
@@ -87,17 +95,16 @@ const VideoYouTubeField: React.FC<{
         className="hidden"
       />
       <div className="flex items-center gap-2 flex-wrap">
-        {videoUrl && esUrlYouTube(videoUrl) && (
-          <a
-            href={videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+        {embedUrl && (
+          <button
+            type="button"
+            onClick={() => setShowPlayer((v) => !v)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-[var(--accent)]/40"
-            title="Abrir en YouTube"
+            title={showPlayer ? 'Ocultar vídeo' : 'Ver vídeo aquí'}
           >
             <i className="fa-brands fa-youtube text-red-600"></i>
-            <span>Ver vídeo</span>
-          </a>
+            <span>{showPlayer ? 'Ocultar vídeo' : 'Ver vídeo'}</span>
+          </button>
         )}
         <button
           type="button"
@@ -128,6 +135,18 @@ const VideoYouTubeField: React.FC<{
           </button>
         )}
       </div>
+      {embedUrl && showPlayer && (
+        <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl border border-slate-200 bg-black">
+          <iframe
+            src={embedUrl}
+            title="Vídeo"
+            className="h-full w-full"
+            allow="accelerometer; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      )}
       {busy && progress && (
         <div className="mt-2">
           <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">

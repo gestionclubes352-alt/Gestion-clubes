@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface MultiSelectFilterOption {
   value: string;
@@ -38,6 +39,8 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
   const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
 
   const selectedSet = useMemo(() => new Set(value), [value]);
 
@@ -55,7 +58,8 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
-      if (!rootRef.current || rootRef.current.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (!rootRef.current || rootRef.current.contains(target) || dropdownRef.current?.contains(target)) return;
       setIsOpen(false);
       setQuery('');
     };
@@ -85,14 +89,23 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
     return `${value.length} seleccionados`;
   }, [value, options, allLabel]);
 
-  const getDropdownPosition = () => {
-    if (!rootRef.current) return { top: 0, left: 0 };
-    const rect = rootRef.current.getBoundingClientRect();
-    return {
-      top: rect.bottom + window.scrollY,
-      left: Math.max(0, rect.right - 300 + window.scrollX),
+  // El desplegable va en un portal (position: fixed respecto al viewport) para no depender
+  // de ancestros con backdrop-filter/transform, que alteran el bloque contenedor de fixed.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const update = () => {
+      if (!rootRef.current) return;
+      const rect = rootRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom, left: Math.max(8, rect.right - 300) });
     };
-  };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [isOpen]);
 
   return (
     <div ref={rootRef} className={`relative min-w-0 ${className}`}>
@@ -112,10 +125,9 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
         <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true"></i>
       </button>
 
-      {isOpen && (() => {
-        const pos = getDropdownPosition();
-        return (
+      {isOpen && createPortal(
           <div
+            ref={dropdownRef}
             className="fixed z-[2000] mt-1 w-max overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
             style={{
               top: `${pos.top}px`,
@@ -186,9 +198,9 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                 })
               )}
             </div>
-          </div>
-        );
-      })()}
+          </div>,
+        document.body
+      )}
     </div>
   );
 };
