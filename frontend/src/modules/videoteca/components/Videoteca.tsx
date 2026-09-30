@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createColumnHelper } from '@tanstack/react-table';
 import type { Match, MatchReport } from '@modules/partidos';
@@ -106,6 +106,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
   const [equipoInternoFilter, setEquipoInternoFilter] = useState<string[]>([]);
   const [tipoFilter, setTipoFilter] = useState<string[]>([]);
   const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
+  const [partidoFilter, setPartidoFilter] = useState<string[]>([]);
   const [eventoTipoFilter, setEventoTipoFilter] = useState<string[]>([]);
   const [ladoFilter, setLadoFilter] = useState<string[]>([]);
   const [playerFilter, setPlayerFilter] = useState<string[]>([]);
@@ -231,9 +232,36 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
     return Array.from(types).sort((a, b) => a.localeCompare(b, 'es'));
   }, [matchesWithVideo]);
 
+  const matchesByEquipo = useMemo(
+    () => equipoInternoFilter.length === 0
+      ? matchesWithVideo
+      : matchesWithVideo.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m, ownCompetitionTeams, internalNameByFedName))),
+    [matchesWithVideo, equipoInternoFilter, ownCompetitionTeams, internalNameByFedName]
+  );
+
   const competitionOptions = useMemo(
-    () => Array.from(new Set(matchesWithVideo.map((m) => m.competition || '-').filter((c) => c !== '-'))).sort((a, b) => a.localeCompare(b, 'es')),
-    [matchesWithVideo]
+    () => Array.from(new Set(matchesByEquipo.map((m) => m.competition || '-').filter((c) => c !== '-'))).sort((a, b) => a.localeCompare(b, 'es')),
+    [matchesByEquipo]
+  );
+
+  const buildMatchTitle = useCallback((match: Match) => {
+    const equipoInterno = resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName);
+    let clubVisitante = match.visitorTeam || 'Visitante';
+    if (match.visitorTeamClubId) {
+      const clubData = clubsById.get(String(match.visitorTeamClubId));
+      if (clubData) clubVisitante = clubData.nombre || clubVisitante;
+    }
+    return `${equipoInterno} vs ${clubVisitante}${match.jornada ? ` (Jornada ${match.jornada})` : ''}`;
+  }, [ownCompetitionTeams, internalNameByFedName, clubsById]);
+
+  const partidoOptions = useMemo(
+    () => matchesByEquipo
+      .filter((m) => competitionFilter.length === 0 || competitionFilter.includes(m.competition))
+      .map((m) => ({
+        value: String(m.id),
+        label: `${buildMatchTitle(m)}${m.date ? ` · ${new Date(m.date).toLocaleDateString('es-ES')}` : ''}`,
+      })),
+    [matchesByEquipo, competitionFilter, buildMatchTitle]
   );
 
   const playerOptions = useMemo(() => {
@@ -281,6 +309,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         if (equipoInternoFilter.length > 0 && !equipoInternoFilter.includes(resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName))) return false;
         if (tipoFilter.length > 0 && !tipoFilter.includes(getCompetitionType(match.competition))) return false;
         if (competitionFilter.length > 0 && !competitionFilter.includes(match.competition)) return false;
+        if (partidoFilter.length > 0 && !partidoFilter.includes(String(match.id))) return false;
 
         // Filtro de fechas
         if (match.date) {
@@ -342,19 +371,10 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         // Obtener nombre interno del equipo local
         const equipoInterno = resolveEquipoInterno(match, ownCompetitionTeams, internalNameByFedName);
 
-        // Obtener nombre del club visitante
-        let clubVisitante = match.visitorTeam || 'Visitante';
-        if (match.visitorTeamClubId) {
-          const clubData = clubsById.get(String(match.visitorTeamClubId));
-          if (clubData) {
-            clubVisitante = clubData.nombre || clubVisitante;
-          }
-        }
-
         const videoUrl = report.videoUrl || (report.videoOriginals?.videoUrl);
         return {
           matchId: String(match.id),
-          title: `${equipoInterno} vs ${clubVisitante}${match.jornada ? ` (Jornada ${match.jornada})` : ''}`,
+          title: buildMatchTitle(match),
           competition: match.competition || '-',
           date: match.date ? new Date(match.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-',
           vimeoUrl: videoUrl,
@@ -366,7 +386,7 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         };
       })
       .sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime());
-  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, eventoTipoFilter, ladoFilter, playerFilter, dateFromFilter, dateToFilter, monthFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
+  }, [matchesWithVideo, matchReportsById, equipoInternoFilter, tipoFilter, competitionFilter, partidoFilter, buildMatchTitle, eventoTipoFilter, ladoFilter, playerFilter, dateFromFilter, dateToFilter, monthFilter, ownCompetitionTeams, internalNameByFedName, clubsById]);
 
   const toggleRowExpanded = (matchId: string) => {
     setExpandedRows(prev => {
@@ -514,8 +534,8 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
         </div>
       </div>
 
-      {/* Filtros: Tipo, Equipo, Jugadores */}
-      <div className={`grid grid-cols-1 gap-3 ${esJugador ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+      {/* Filtros: Tipo, Equipo, Competición, Partido, Jugadores */}
+      <div className="flex flex-wrap gap-3 [&>div]:w-full sm:[&>div]:w-48 lg:[&>div]:w-56 max-w-full">
         <div>
           <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Tipo</label>
           <MultiSelectFilter
@@ -531,11 +551,29 @@ const Videoteca: React.FC<VideotecaProps> = ({ matches = [], competitionTeams = 
             <MultiSelectFilter
               options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
               value={equipoInternoFilter}
-              onChange={setEquipoInternoFilter}
+              onChange={(v) => { setEquipoInternoFilter(v); setCompetitionFilter([]); setPartidoFilter([]); }}
               allLabel="Todos los equipos"
             />
           </div>
         )}
+        <div>
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Competición</label>
+          <MultiSelectFilter
+            options={competitionOptions.map((name) => ({ value: name, label: name }))}
+            value={competitionFilter}
+            onChange={(v) => { setCompetitionFilter(v); setPartidoFilter([]); }}
+            allLabel="Todas las competiciones"
+          />
+        </div>
+        <div>
+          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Partido</label>
+          <MultiSelectFilter
+            options={partidoOptions}
+            value={partidoFilter}
+            onChange={setPartidoFilter}
+            allLabel="Todos los partidos"
+          />
+        </div>
         <div>
           <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Jugadores</label>
           <MultiSelectFilter

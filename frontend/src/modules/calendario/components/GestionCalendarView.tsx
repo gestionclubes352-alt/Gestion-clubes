@@ -8,8 +8,8 @@ import type { MatchReport } from '@modules/partidos/types';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
-import { db, localidadesService, instalacionesCamposService } from '@shared/services/dataService';
-import type { Localidad, InstalacionCampo } from '@shared/services/dataService';
+import { db, localidadesService, instalacionesCamposService, objetivosIndividualesService } from '@shared/services/dataService';
+import type { Localidad, InstalacionCampo, ObjetivoIndividual } from '@shared/services/dataService';
 import { getPlayerSessionAttendance, hasRecordedAttendance, isSelectiveAttendanceSession } from '../utils/attendance';
 import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
 
@@ -26,7 +26,25 @@ interface GestionCalendarViewProps {
   showFilters?: boolean;
 }
 
+const OBJETIVO_EVENT_PREFIX = 'obj:';
+const isObjetivoEvent = (ev: { id: string | number }) => String(ev.id).startsWith(OBJETIVO_EVENT_PREFIX);
+const OBJETIVO_TIPO_LABEL: Record<string, string> = {
+  deportivo: 'Deportivo',
+  psicologico: 'Psicológico',
+  habitos: 'Hábitos',
+  academico: 'Académico',
+};
+const OBJETIVO_ESTADO_LABEL: Record<string, string> = { verde: 'Verde', naranja: 'Naranja', rojo: 'Rojo' };
+const OBJETIVO_ACCION_LABEL: Record<string, string> = {
+  reunion: 'Reunión',
+  video: 'Vídeo',
+  sesion_individual: 'Sesión individual',
+  sesion_colectiva: 'Sesión colectiva',
+  sesion_grupal: 'Sesión grupal',
+};
+
 const EVENT_BADGE_COLORS: Record<string, string> = {
+  Objetivo: 'bg-rose-100 text-rose-700 border-rose-200',
   Entrenamiento: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   Partido: 'bg-red-100 text-red-700 border-red-200',
   Reunión: 'bg-purple-100 text-purple-700 border-purple-200',
@@ -36,6 +54,7 @@ const EVENT_BADGE_COLORS: Record<string, string> = {
 };
 
 const EVENT_THICK_COLORS: Record<string, string> = {
+  Objetivo: 'bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-400',
   Entrenamiento: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-400',
   Partido: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-400',
   Reunión: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-400',
@@ -54,6 +73,7 @@ const EVENT_DELETE_HOVER_COLORS: Record<string, { color: string; hoverBg: string
 };
 
 const EVENT_DOT_COLORS: Record<string, string> = {
+  Objetivo: 'bg-rose-500',
   Entrenamiento: 'bg-emerald-500',
   Partido: 'bg-red-500',
   Reunión: 'bg-purple-500',
@@ -445,6 +465,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [localidades, setLocalidades] = useState<Localidad[]>([]);
   const [instalaciones, setInstalaciones] = useState<InstalacionCampo[]>([]);
   const [filtersVisible, setFiltersVisible] = useState(true);
+  const [showObjetivos, setShowObjetivos] = useState(false);
+  const [objetivos, setObjetivos] = useState<ObjetivoIndividual[]>([]);
+  const [objetivosLoaded, setObjetivosLoaded] = useState(false);
+  const openEvent = (ev: CalendarEvent) => {
+    setSelectedEvent(ev);
+    if (!isObjetivoEvent(ev)) onClickEvent?.(ev);
+  };
 
   const instalacionesPrincipales = useMemo(
     () => instalaciones.filter(i => !i.parent_instalacion_id && (localidadId.length === 0 || (!!i.localidad_id && localidadId.includes(i.localidad_id)))),
@@ -605,11 +632,91 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     });
   }, [availableActivities]);
 
+  // Objetivos individuales: desactivados por defecto; al activar el botón se cargan y se
+  // muestran como eventos sintéticos (solo lectura) de todos los jugadores.
+  useEffect(() => {
+    if (!showObjetivos || objetivosLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await objetivosIndividualesService.list();
+        if (!cancelled) setObjetivos((data as ObjetivoIndividual[]) || []);
+      } catch (err) {
+        console.error('No se pudieron cargar los objetivos individuales', err);
+        if (!cancelled) setObjetivos([]);
+      } finally {
+        if (!cancelled) setObjetivosLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showObjetivos, objetivosLoaded]);
+
+  const objetivoEvents = useMemo<CalendarEvent[]>(() => {
+    if (!showObjetivos) return [];
+    const playersById = new Map(players.map(p => [String(p.id), p]));
+    const teamNameById = new Map(
+      internalCompetitionTeams.map(team => [String(team.id), (team.equipo || team.nombre || '').trim()])
+    );
+    const toDate = (fecha: string) => {
+      const [y, m, d] = String(fecha).slice(0, 10).split('-').map(Number);
+      return new Date(y, (m || 1) - 1, d || 1);
+    };
+    const result: CalendarEvent[] = [];
+    objetivos.forEach(o => {
+      if (!o.fecha) return;
+      const player = playersById.get(String(o.jugador_id));
+      const playerName = player ? (player.apodo || player.nombre) : 'Jugador';
+      const team = teamNameById.get(String(o.equipo_id)) || player?.equipo || undefined;
+      const tipo = OBJETIVO_TIPO_LABEL[o.tipo] || o.tipo;
+      const base = { type: 'Objetivo' as unknown as CalendarEvent['type'], time: '', team, jugadorId: String(o.jugador_id) };
+      result.push({
+        ...base,
+        id: `${OBJETIVO_EVENT_PREFIX}${o.id}`,
+        title: `🎯 ${playerName} · ${tipo}`,
+        date: toDate(o.fecha),
+        notes: [`Estado: ${OBJETIVO_ESTADO_LABEL[o.estado] || o.estado}`, o.detalle].filter(Boolean).join('\n'),
+      } as CalendarEvent);
+      (o.acciones || []).forEach(a => {
+        if (!a.fecha) return;
+        const esEval = a.categoria === 'evaluacion';
+        const label = esEval ? 'Evaluación' : (OBJETIVO_ACCION_LABEL[a.tipo || 'reunion'] || 'Acción');
+        result.push({
+          ...base,
+          id: `${OBJETIVO_EVENT_PREFIX}${o.id}:${a.id}`,
+          title: `🎯 ${playerName} · ${label}`,
+          date: toDate(a.fecha),
+          notes: [`Objetivo ${tipo}`, esEval && a.estado ? `Estado: ${OBJETIVO_ESTADO_LABEL[a.estado] || a.estado}` : '', a.detalle]
+            .filter(Boolean).join('\n'),
+        } as CalendarEvent);
+      });
+    });
+    return result;
+  }, [showObjetivos, objetivos, players, internalCompetitionTeams]);
+
+  const allEvents = useMemo(
+    () => (objetivoEvents.length > 0 ? [...events, ...objetivoEvents] : events),
+    [events, objetivoEvents]
+  );
+
   const filteredEvents = useMemo(() => {
     const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
     const dateTo = filterDateTo ? new Date(filterDateTo) : null;
 
-    return events.filter(ev => {
+    return allEvents.filter(ev => {
+      if (isObjetivoEvent(ev)) {
+        if (typeFilter.length > 0 && !typeFilter.includes('Objetivo')) return false;
+        if (playerFilter.length > 0 && !playerFilter.includes((ev as CalendarEvent & { jugadorId?: string }).jugadorId || '')) return false;
+        if (teamFilter.length > 0 && !(ev.team && teamFilter.includes(ev.team))) return false;
+        const od = ev.date instanceof Date ? ev.date : new Date(ev.date);
+        if (monthFilter.length > 0 && !monthFilter.includes(String(od.getMonth()))) return false;
+        if (dateFrom && od < dateFrom) return false;
+        if (dateTo) {
+          const end = new Date(dateTo);
+          end.setHours(23, 59, 59, 999);
+          if (od > end) return false;
+        }
+        return true;
+      }
       if (typeFilter.length > 0 && (!ev.type || !typeFilter.includes(ev.type))) return false;
       if (activityFilter.length > 0 && !activityFilter.includes(getEventActivity(ev))) return false;
       if (localidadId.length > 0 && (!ev.localidad_id || !localidadId.includes(ev.localidad_id))) return false;
@@ -636,7 +743,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       }
       return true;
     });
-  }, [events, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById, localidadId, instalacionPrincipalId, instalacionId, campoParentMap]);
+  }, [allEvents, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById, localidadId, instalacionPrincipalId, instalacionId, campoParentMap]);
 
   const teamColorLegend = useMemo(() => {
     const keys = new Set<string>();
@@ -767,10 +874,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                         {dayEvents.map(ev => (
                           <button
                             key={ev.id}
-                            onClick={() => {
-                              setSelectedEvent(ev);
-                              onClickEvent?.(ev);
-                            }}
+                            onClick={() => openEvent(ev)}
                             title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                             className={`w-full text-left truncate rounded-lg px-1.5 py-1 text-[10px] font-bold border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
                           >
@@ -840,19 +944,16 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           key={ev.id}
                           role="button"
                           tabIndex={0}
-                          draggable={Boolean(onSaveEvent)}
+                          draggable={Boolean(onSaveEvent) && !isObjetivoEvent(ev)}
                           onDragStart={(e) => handleEventDragStart(e, ev)}
                           onDragEnd={handleEventDragEnd}
-                          onClick={() => {
-                            setSelectedEvent(ev);
-                            onClickEvent?.(ev);
-                          }}
+                          onClick={() => openEvent(ev)}
                           title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                           className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                         >
                           {formatEventLabel(ev.time, ev.team || ev.title)}
                           {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
-                          <div className="absolute top-0 right-0 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100">
+                          <div className={`absolute top-0 right-0 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
                             {onSaveEvent && (
                               <button
                                 type="button"
@@ -968,19 +1069,16 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           return (
                             <div
                               key={ev.id}
-                              draggable={Boolean(onSaveEvent)}
+                              draggable={Boolean(onSaveEvent) && !isObjetivoEvent(ev)}
                               onDragStart={(e) => handleEventDragStart(e, ev)}
                               onDragEnd={handleEventDragEnd}
-                              onClick={() => {
-                                setSelectedEvent(ev);
-                                onClickEvent?.(ev);
-                              }}
+                              onClick={() => openEvent(ev)}
                               className={`relative group/ev flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                               title={isMatch
                                 ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
                                 : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                             >
-                              <div className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100">
+                              <div className={`absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
                                 {onSaveEvent && (
                                   <button
                                     type="button"
@@ -1165,6 +1263,20 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             options={availableActivities.map((activity) => ({ value: activity, label: activity }))}
             className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 disabled:bg-slate-50 disabled:text-slate-400"
           />
+          <button
+            type="button"
+            onClick={() => setShowObjetivos((prev) => !prev)}
+            aria-pressed={showObjetivos}
+            title={showObjetivos ? 'Ocultar objetivos individuales' : 'Mostrar los objetivos individuales de todos los jugadores'}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold shadow-sm transition-all ${
+              showObjetivos
+                ? 'border-rose-400 bg-rose-500 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-rose-300 hover:text-rose-600'
+            }`}
+          >
+            <i className="fa-solid fa-bullseye text-[11px]"></i>
+            Objetivos individuales
+          </button>
           <MultiSelectFilter
             value={monthFilter}
             onChange={setMonthFilter}
@@ -1318,7 +1430,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {onSaveEvent && (
+                {onSaveEvent && !isObjetivoEvent(selectedEvent) && (
                   <button
                     onClick={() => {
                       handleDuplicateEvent(selectedEvent);
@@ -1330,7 +1442,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     <i className="fa-solid fa-copy text-sm"></i>
                   </button>
                 )}
-                {onDeleteEvent && (
+                {onDeleteEvent && !isObjetivoEvent(selectedEvent) && (
                   <button
                     onClick={() => {
                       onDeleteEvent(selectedEvent.id);

@@ -45,8 +45,10 @@ const PlayerObjetivosSection: React.FC<PlayerObjetivosSectionProps> = ({ playerI
         fecha: data.fecha,
         tipo: data.tipo,
         estado: data.estado,
+        estado_inicial: data.estado_inicial ?? data.estado,
+        nombre_objetivo: data.nombre_objetivo?.trim() || null,
         detalle: data.detalle,
-        plan_accion: data.plan_accion,
+        acciones: data.acciones ?? [],
       });
     } else {
       await objetivosIndividualesService.create({
@@ -56,8 +58,10 @@ const PlayerObjetivosSection: React.FC<PlayerObjetivosSectionProps> = ({ playerI
         fecha: data.fecha,
         tipo: data.tipo,
         estado: data.estado,
+        estado_inicial: data.estado_inicial ?? data.estado,
+        nombre_objetivo: data.nombre_objetivo?.trim() || null,
         detalle: data.detalle,
-        plan_accion: data.plan_accion,
+        acciones: data.acciones ?? [],
       } as any);
     }
     await loadData();
@@ -117,7 +121,6 @@ const PlayerObjetivosSection: React.FC<PlayerObjetivosSectionProps> = ({ playerI
                   <span className="text-[10px] font-bold text-slate-400">{o.fecha}</span>
                 </div>
                 {o.detalle && <p className="text-xs text-slate-600 mt-1 truncate">{o.detalle}</p>}
-                {o.plan_accion && <p className="text-[11px] text-slate-400 mt-0.5 truncate">Plan: {o.plan_accion}</p>}
               </div>
             </button>
           ))}

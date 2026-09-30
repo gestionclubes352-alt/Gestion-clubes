@@ -433,8 +433,19 @@ export interface ObjetivoIndividual {
   fecha: string;
   tipo: 'deportivo' | 'psicologico' | 'habitos' | 'academico';
   estado: 'verde' | 'naranja' | 'rojo';
+  estado_inicial?: 'verde' | 'naranja' | 'rojo';
+  nombre_objetivo?: string | null;
   detalle?: string;
-  plan_accion?: string;
+  acciones?: {
+    id: string;
+    fecha: string;
+    categoria?: 'accion' | 'evaluacion';
+    tipo?: 'reunion' | 'video' | 'sesion_individual' | 'sesion_colectiva' | 'sesion_grupal';
+    estado?: 'verde' | 'naranja' | 'rojo';
+    detalle?: string;
+    documento?: { nombre: string; path: string; tamano?: number };
+    video_url?: string;
+  }[];
   created_at?: string;
   updated_at?: string;
 }
