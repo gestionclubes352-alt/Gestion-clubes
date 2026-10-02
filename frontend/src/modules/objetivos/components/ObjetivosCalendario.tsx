@@ -18,6 +18,7 @@ interface Evento {
   color: string;
   titulo: string;
   subtitulo: string;
+  equipo: string;
   objetivo: ObjetivoIndividual;
   accionId?: string;
 }
@@ -90,6 +91,7 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
         color,
         titulo: jugador,
         subtitulo: `${tipoObjetivoLabel(o.tipo)} · ${equipo}`,
+        equipo,
         objetivo: o,
       });
       for (const a of o.acciones ?? []) {
@@ -103,6 +105,7 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
           subtitulo: esEvaluacion
             ? `Evaluación ${estadoLabel(a.estado).toLowerCase()} · ${equipo}`
             : `${tipoAccionLabel(a.tipo)} · ${equipo}`,
+          equipo,
           objetivo: o,
           accionId: a.id,
         });
@@ -247,8 +250,13 @@ const ObjetivosCalendario: React.FC<ObjetivosCalendarioProps> = ({
                       className="w-full flex items-center gap-1 px-1 py-0.5 rounded text-left text-[10px] font-semibold text-slate-700 hover:brightness-95"
                       style={{ backgroundColor: `${ev.color}22`, borderLeft: `3px solid ${ev.color}` }}
                     >
-                      <i className={`fa-solid ${KIND_ICON[ev.kind]} text-[10px]`} style={{ color: ev.color }}></i>
-                      <span className="truncate">{ev.titulo}</span>
+                      <i className={`fa-solid ${KIND_ICON[ev.kind]} text-[10px] shrink-0`} style={{ color: ev.color }}></i>
+                      <span className="flex flex-col min-w-0 leading-tight">
+                        <span className="truncate">{ev.titulo}</span>
+                        <span className="truncate text-[9px] font-bold text-slate-500">
+                          {ev.equipo ? `${ev.equipo} · ` : ''}{KIND_LABEL[ev.kind]}
+                        </span>
+                      </span>
                     </button>
                   ))}
                   {eventos.length > MAX_VISIBLES && (

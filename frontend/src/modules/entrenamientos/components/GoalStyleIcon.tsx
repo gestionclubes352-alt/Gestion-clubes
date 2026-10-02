@@ -11,17 +11,17 @@ interface GoalStyleIconProps {
 }
 
 /** Marco clásico: mismo trazo que usaba el diseñador antes de existir variantes (3 lados, sin base). */
-const ClasicaFrame: FC<{ className?: string }> = ({ className }) => (
-  <div className={`border-[4px] border-white border-b-0 shadow-2xl group-hover:border-[#ffd700] transition-colors ${className || ''}`} />
+const ClasicaFrame: FC<{ className?: string; thumbnail?: boolean }> = ({ className, thumbnail }) => (
+  <div className={`border-[4px] ${thumbnail ? 'border-current' : 'border-white shadow-2xl'} border-b-0 group-hover:border-[#ffd700] transition-colors ${className || ''}`} />
 );
 
 /** Marco con esquinas biseladas en V invertida en vez de ángulo recto. */
-const BiseladaFrame: FC<{ className?: string }> = ({ className }) => (
+const BiseladaFrame: FC<{ className?: string; thumbnail?: boolean }> = ({ className, thumbnail }) => (
   <svg viewBox="0 0 100 60" preserveAspectRatio="none" className={className}>
     <polyline
       points="0,60 0,32 30,0 70,0 100,32 100,60"
       fill="none"
-      stroke="white"
+      stroke={thumbnail ? 'currentColor' : 'white'}
       strokeWidth="6"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -34,10 +34,10 @@ const BiseladaFrame: FC<{ className?: string }> = ({ className }) => (
 /** Miniatura simplificada de la variante con red/perspectiva, para el selector (el marco 3D real no se aprecia a tamaño reducido). */
 const Red3DThumbnail: FC<{ className?: string }> = ({ className }) => (
   <svg viewBox="0 0 100 60" preserveAspectRatio="none" className={className}>
-    <polygon points="15,55 15,10 85,10 85,55" fill="none" stroke="white" strokeWidth="5" vectorEffect="non-scaling-stroke" />
-    <polygon points="0,58 15,10 85,10 100,58" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-    <line x1="0" y1="58" x2="15" y2="55" stroke="rgba(255,255,255,0.55)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-    <line x1="100" y1="58" x2="85" y2="55" stroke="rgba(255,255,255,0.55)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+    <polygon points="15,55 15,10 85,10 85,55" fill="none" stroke="currentColor" strokeWidth="5" vectorEffect="non-scaling-stroke" />
+    <polygon points="0,58 15,10 85,10 100,58" fill="none" stroke="currentColor" strokeOpacity="0.55" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+    <line x1="0" y1="58" x2="15" y2="55" stroke="currentColor" strokeOpacity="0.55" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+    <line x1="100" y1="58" x2="85" y2="55" stroke="currentColor" strokeOpacity="0.55" strokeWidth="3" vectorEffect="non-scaling-stroke" />
   </svg>
 );
 
@@ -48,9 +48,9 @@ const GoalStyleIcon: FC<GoalStyleIconProps> = ({ style, className, isFlipped, th
       : <GoalFrame3D className={className} isFlipped={isFlipped} compact />;
   }
   if (style === 'biselada') {
-    return <BiseladaFrame className={className} />;
+    return <BiseladaFrame className={className} thumbnail={thumbnail} />;
   }
-  return <ClasicaFrame className={className} />;
+  return <ClasicaFrame className={className} thumbnail={thumbnail} />;
 };
 
 export default GoalStyleIcon;

@@ -454,7 +454,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [playerFilter, setPlayerFilter] = useState<string[]>([]);
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>(['Partido', 'Sesión']);
   const [activityFilter, setActivityFilter] = useState<string[]>([]);
   const [monthFilter, setMonthFilter] = useState<string[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
@@ -606,8 +606,9 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const availableTypes = useMemo(() => {
     const types = new Set<string>();
     events.forEach(ev => { if (ev.type) types.add(ev.type); });
+    if (showObjetivos) types.add('Objetivo');
     return Array.from(types).sort((a, b) => a.localeCompare(b));
-  }, [events]);
+  }, [events, showObjetivos]);
 
   const availableActivities = useMemo(() => {
     const relevantTypes: string[] = typeFilter.filter((t) => t === 'Partido' || t === 'Sesión' || t === 'Entrenamiento');
@@ -672,7 +673,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       result.push({
         ...base,
         id: `${OBJETIVO_EVENT_PREFIX}${o.id}`,
-        title: `🎯 ${playerName} · ${tipo}`,
+        title: `🎯 ${playerName} · ${o.nombre_objetivo?.trim() || tipo}`,
         date: toDate(o.fecha),
         notes: [`Estado: ${OBJETIVO_ESTADO_LABEL[o.estado] || o.estado}`, o.detalle].filter(Boolean).join('\n'),
       } as CalendarEvent);
@@ -683,9 +684,9 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         result.push({
           ...base,
           id: `${OBJETIVO_EVENT_PREFIX}${o.id}:${a.id}`,
-          title: `🎯 ${playerName} · ${label}`,
+          title: `🎯 ${playerName} · ${o.nombre_objetivo?.trim() || tipo} (${label})`,
           date: toDate(a.fecha),
-          notes: [`Objetivo ${tipo}`, esEval && a.estado ? `Estado: ${OBJETIVO_ESTADO_LABEL[a.estado] || a.estado}` : '', a.detalle]
+          notes: [`Objetivo ${o.nombre_objetivo?.trim() || tipo}`, esEval && a.estado ? `Estado: ${OBJETIVO_ESTADO_LABEL[a.estado] || a.estado}` : '', a.detalle]
             .filter(Boolean).join('\n'),
         } as CalendarEvent);
       });
@@ -704,7 +705,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
     return allEvents.filter(ev => {
       if (isObjetivoEvent(ev)) {
-        if (typeFilter.length > 0 && !typeFilter.includes('Objetivo')) return false;
+        if (!typeFilter.includes('Objetivo')) return false;
         if (playerFilter.length > 0 && !playerFilter.includes((ev as CalendarEvent & { jugadorId?: string }).jugadorId || '')) return false;
         if (teamFilter.length > 0 && !(ev.team && teamFilter.includes(ev.team))) return false;
         const od = ev.date instanceof Date ? ev.date : new Date(ev.date);
@@ -717,7 +718,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         }
         return true;
       }
-      if (typeFilter.length > 0 && (!ev.type || !typeFilter.includes(ev.type))) return false;
+      if (!ev.type || !typeFilter.includes(ev.type)) return false;
       if (activityFilter.length > 0 && !activityFilter.includes(getEventActivity(ev))) return false;
       if (localidadId.length > 0 && (!ev.localidad_id || !localidadId.includes(ev.localidad_id))) return false;
       if (instalacionPrincipalId.length > 0) {
@@ -951,7 +952,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                           className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                         >
-                          {formatEventLabel(ev.time, ev.team || ev.title)}
+                          {isObjetivoEvent(ev) ? ev.title : formatEventLabel(ev.time, ev.team || ev.title)}
                           {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
                           <div className={`absolute top-0 right-0 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
                             {onSaveEvent && (
@@ -1250,6 +1251,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
               setActivityFilter([]);
             }}
             allLabel={t('calendarView.filterAllEvents', 'Todos los eventos')}
+            emptyMeansNone
             options={availableTypes.map((type) => ({ value: type, label: type }))}
             className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           />
@@ -1265,7 +1267,16 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
           />
           <button
             type="button"
-            onClick={() => setShowObjetivos((prev) => !prev)}
+            onClick={() => {
+              const next = !showObjetivos;
+              setShowObjetivos(next);
+              setTypeFilter((prev) => {
+                if (prev.length === 0) return prev;
+                return next
+                  ? (prev.includes('Objetivo') ? prev : [...prev, 'Objetivo'])
+                  : prev.filter((t) => t !== 'Objetivo');
+              });
+            }}
             aria-pressed={showObjetivos}
             title={showObjetivos ? 'Ocultar objetivos individuales' : 'Mostrar los objetivos individuales de todos los jugadores'}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold shadow-sm transition-all ${

@@ -22,13 +22,138 @@ const GoalFrame3D: FC<GoalFrame3DProps> = ({ className = '', compact = false, is
   const rearVerticalLines = [0.2, 0.4, 0.6, 0.8];
   const rearHorizontalLines = [0.25, 0.5, 0.75];
 
+  if (isFlipped) {
+    // Portería mirando hacia arriba: se ve desde atrás. El marco grande y cercano es la red trasera;
+    // la boca (postes y larguero brillantes) queda más lejos, hacia arriba.
+    const nearVertical = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875];
+    const nearHorizontal = [0.2, 0.4, 0.6, 0.8];
+    const nearX = (t: number) => frontLeft + (frontRight - frontLeft) * t;
+    return (
+      <div
+        className={`relative h-full w-full overflow-visible ${className}`}
+        style={{ transformStyle: 'preserve-3d' }}
+      >
+        <div
+          className="absolute inset-x-[-4%] bottom-[-8%] h-[30%] rounded-full bg-black/35 blur-[7px]"
+          style={{ transform: 'translateZ(-2px)' }}
+        />
+        <svg
+          className="absolute inset-0 h-full w-full overflow-visible"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={{ overflow: 'visible', transform: 'translateZ(6px)' }}
+          aria-hidden="true"
+        >
+          <defs>
+            <filter id={glowId} x="-35%" y="-70%" width="170%" height="220%">
+              <feGaussianBlur stdDeviation="2.4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* Techo de red: de la boca (lejos) al marco trasero (cerca) */}
+          <polygon
+            points={`${rearLeft},${-depth} ${rearRight},${-depth} ${frontRight},0 ${frontLeft},0`}
+            fill="rgba(255,255,255,0.10)"
+            stroke="rgba(255,255,255,0.32)"
+            strokeWidth="0.9"
+            vectorEffect="non-scaling-stroke"
+          />
+          {/* Laterales de red */}
+          <polygon
+            points={`${rearLeft},${-depth} ${frontLeft},0 ${frontLeft},100 ${rearLeft},${100 - depth}`}
+            fill="rgba(255,255,255,0.06)"
+            stroke="rgba(255,255,255,0.26)"
+            strokeWidth="0.9"
+            vectorEffect="non-scaling-stroke"
+          />
+          <polygon
+            points={`${rearRight},${-depth} ${frontRight},0 ${frontRight},100 ${rearRight},${100 - depth}`}
+            fill="rgba(255,255,255,0.06)"
+            stroke="rgba(255,255,255,0.26)"
+            strokeWidth="0.9"
+            vectorEffect="non-scaling-stroke"
+          />
+
+          <g stroke="rgba(255,255,255,0.3)" strokeWidth="0.7" vectorEffect="non-scaling-stroke">
+            {sideHorizontalLines.map(y => (
+              <g key={`up-side-h-${y}`}>
+                <line x1={frontLeft} y1={y} x2={rearLeft} y2={y - depth} />
+                <line x1={frontRight} y1={y} x2={rearRight} y2={y - depth} />
+              </g>
+            ))}
+            {sideDepthLines.map(t => {
+              const leftX = frontLeft + (rearLeft - frontLeft) * t;
+              const rightX = frontRight + (rearRight - frontRight) * t;
+              return (
+                <g key={`up-side-d-${t}`}>
+                  <line x1={leftX} y1={-depth * t} x2={leftX} y2={100 - depth * t} />
+                  <line x1={rightX} y1={-depth * t} x2={rightX} y2={100 - depth * t} />
+                  <line
+                    x1={leftX}
+                    y1={-depth * t}
+                    x2={rightX}
+                    y2={-depth * t}
+                  />
+                </g>
+              );
+            })}
+          </g>
+
+          {/* Boca de la portería (lejos): postes y larguero brillantes */}
+          <path
+            d={`M ${rearLeft} ${100 - depth} L ${rearLeft} ${-depth} L ${rearRight} ${-depth} L ${rearRight} ${100 - depth}`}
+            fill="none"
+            stroke="rgba(255,255,255,0.98)"
+            strokeWidth={tubeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            filter={`url(#${glowId})`}
+          />
+
+          {/* Red trasera (cerca): malla sobre todo el marco */}
+          <polygon
+            points={`${frontLeft},0 ${frontRight},0 ${frontRight},100 ${frontLeft},100`}
+            fill="rgba(255,255,255,0.12)"
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="0.9"
+            vectorEffect="non-scaling-stroke"
+          />
+          <g stroke="rgba(255,255,255,0.34)" strokeWidth="0.7" vectorEffect="non-scaling-stroke">
+            {nearVertical.map(t => (
+              <line key={`near-v-${t}`} x1={nearX(t)} y1={0} x2={nearX(t)} y2={100} />
+            ))}
+            {nearHorizontal.map(t => (
+              <line key={`near-h-${t}`} x1={frontLeft} y1={100 * t} x2={frontRight} y2={100 * t} />
+            ))}
+          </g>
+
+          {/* Marco trasero: más fino, con travesaño de apoyo */}
+          <g fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
+            <path
+              d={`M ${frontLeft} 100 L ${frontLeft} 0 L ${frontRight} 0 L ${frontRight} 100`}
+              stroke="rgba(255,255,255,0.85)"
+              strokeWidth={tubeWidth * 0.7}
+            />
+            <path
+              d={`M ${frontLeft} 0 L ${rearLeft} ${-depth} M ${frontRight} 0 L ${rearRight} ${-depth} M ${frontLeft} 100 L ${rearLeft} ${100 - depth} M ${frontRight} 100 L ${rearRight} ${100 - depth}`}
+              stroke="rgba(255,255,255,0.7)"
+              strokeWidth={tubeWidth * 0.55}
+            />
+          </g>
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative h-full w-full overflow-visible ${className}`}
-      style={{
-        transformStyle: 'preserve-3d',
-        transform: isFlipped ? 'scaleY(-1)' : undefined,
-      }}
+      style={{ transformStyle: 'preserve-3d' }}
     >
       <div
         className="absolute inset-x-[-8%] bottom-[-10%] h-[42%] rounded-full bg-black/35 blur-[7px]"

@@ -461,6 +461,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       { id: 'arrow-curve-solid', label: 'CURVA CONTINUA', icon: 'fa-arrow-up-right', style: 'solid', curve: true },
       { id: 'arrow-curve-dashed', label: 'CURVA DISCONTINUA', icon: 'fa-arrow-up-right', style: 'dashed', curve: true },
       { id: 'arrow-curve-inv-solid', label: 'CURVA CONTINUA INVERSA', icon: 'fa-arrow-down-right', style: 'solid', curve: true },
+      { id: 'arrow-curve-inv-dashed', label: 'CURVA DISCONTINUA INVERSA', icon: 'fa-arrow-down-right', style: 'dashed', curve: true },
     ],
     material: [
       { id: 'ball', label: 'BALÓN', icon: 'fa-futbol' },
@@ -1747,7 +1748,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                           setIsGoalStylePickerOpen(v => !v);
                         } else {
                           setSelectedTool('goal');
-                          setIsGoalStylePickerOpen(false);
+                          setIsGoalStylePickerOpen(true);
                         }
                         return;
                       }
@@ -2225,7 +2226,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     <>
                       {selectedTool?.includes('curve') ? (
                         <path
-                          d={`M ${arrowCreationLine.startX} ${arrowCreationLine.startY} Q ${(arrowCreationLine.startX + arrowCreationLine.endX) / 2} ${selectedTool?.includes('-inv-') ? Math.max(arrowCreationLine.startY, arrowCreationLine.endY) + 15 : Math.min(arrowCreationLine.startY, arrowCreationLine.endY) - 15}${arrowCreationLine.endX} ${arrowCreationLine.endY}`}
+                          d={(() => {
+                            const control = getArrowControlPoint(
+                              { x: arrowCreationLine.startX, y: arrowCreationLine.startY },
+                              { x: arrowCreationLine.endX, y: arrowCreationLine.endY },
+                              !!selectedTool?.includes('-inv-')
+                            );
+                            return `M ${arrowCreationLine.startX} ${arrowCreationLine.startY} Q ${control.x} ${control.y} ${arrowCreationLine.endX} ${arrowCreationLine.endY}`;
+                          })()}
                           stroke="white"
                           strokeWidth={arrowStrokeWidth}
                           fill="none"
@@ -2363,6 +2371,13 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       if (item.type === 'zone' && !isItemSelected) return;
                       handleDragStart(e, item);
                     }}
+                    onDoubleClick={(e) => {
+                      if (item.type !== 'goal' || (resizingId !== item.id && rotatingId !== item.id)) return;
+                      e.stopPropagation();
+                      setResizingId(null);
+                      setResizeHandle(null);
+                      setRotatingId(null);
+                    }}
                     onClick={(e) => {
                       if (item.type === 'zone' && selectedTool) return;
                       e.stopPropagation();
@@ -2402,7 +2417,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     )}
                     {(rotatingId === item.id || resizingId === item.id) && item.type === 'goal' && (
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-full bg-black/85 px-2.5 py-1 text-[9px] font-semibold text-white/80 shadow-lg pointer-events-none z-20 whitespace-nowrap">
-                        Dale a scape para salir
+                        Doble clic para dejar de modificar
                       </div>
                     )}
                     {isResizable && item.type !== 'goal' && (isItemSelected || resizingId === item.id) && (() => {
@@ -2761,6 +2776,26 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         aria-label="Girar entrenador manualmente"
                       >
                         <i className="fa-solid fa-rotate-right text-sm"></i>
+                      </button>
+                    )}
+                    {!is3DView && item.type === 'goal' && isItemSelected && !item.locked && (
+                      <button
+                        type="button"
+                        data-orientation-handle="true"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          duplicateSelectedItem();
+                        }}
+                        className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
+                        style={{ transform: 'translate(60%, 60%)' }}
+                        title="Duplicar portería"
+                        aria-label="Duplicar portería"
+                      >
+                        <i className="fa-solid fa-clone text-sm"></i>
                       </button>
                     )}
                     {item.playerId !== undefined && item.playerName && (

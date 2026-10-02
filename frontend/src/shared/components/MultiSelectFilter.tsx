@@ -14,6 +14,8 @@ interface MultiSelectFilterProps {
   allLabel?: string;
   className?: string;
   disabled?: boolean;
+  /** Si true, vacío = "ninguno" (no se muestra nada) y la opción "todos" selecciona todas las opciones. */
+  emptyMeansNone?: boolean;
 }
 
 const normalize = (value: string) =>
@@ -34,6 +36,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
   allLabel = 'Todos',
   className = '',
   disabled,
+  emptyMeansNone = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -75,19 +78,28 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
     }
   };
 
+  const allSelected = emptyMeansNone
+    ? options.length > 0 && options.every((o) => selectedSet.has(o.value))
+    : value.length === 0;
+
   const clearAll = () => {
-    onChange([]);
+    onChange(emptyMeansNone ? options.map((o) => o.value) : []);
     setIsOpen(false);
     setQuery('');
   };
 
   const summaryLabel = useMemo(() => {
-    if (value.length === 0) return allLabel;
+    if (emptyMeansNone) {
+      if (value.length === 0) return 'Ninguno';
+      if (allSelected) return allLabel;
+    } else if (value.length === 0) {
+      return allLabel;
+    }
     if (value.length === 1) {
       return options.find((o) => o.value === value[0])?.label ?? value[0];
     }
     return `${value.length} seleccionados`;
-  }, [value, options, allLabel]);
+  }, [value, options, allLabel, emptyMeansNone, allSelected]);
 
   // El desplegable va en un portal (position: fixed respecto al viewport) para no depender
   // de ancestros con backdrop-filter/transform, que alteran el bloque contenedor de fixed.
@@ -159,14 +171,14 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
               <button
                 type="button"
                 role="option"
-                aria-selected={value.length === 0}
+                aria-selected={allSelected}
                 onClick={clearAll}
                 className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm font-bold transition-colors ${
-                  value.length === 0 ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
+                  allSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{allLabel}</span>
-                {value.length === 0 && <i className="fa-solid fa-check text-[10px] text-blue-600" aria-hidden="true"></i>}
+                {allSelected && <i className="fa-solid fa-check text-[10px] text-blue-600" aria-hidden="true"></i>}
               </button>
 
               {filteredOptions.length === 0 ? (
