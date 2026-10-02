@@ -4,6 +4,7 @@ import type { FieldStructure } from '../types';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import GoalFrame3D from '@modules/entrenamientos/components/GoalFrame3D';
+import { getArrowControlPoint } from '@modules/entrenamientos/utils/arrowCurve';
 
 interface DesignerPreviewProps {
   items: DesignerItem[];
@@ -120,10 +121,11 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
           if (!item.type?.startsWith('arrow-') || !item.arrowStart || !item.arrowEnd) return null;
           const isCurved = item.type.includes('curve');
           const strokeW = item.strokeWidth ?? 0.3;
+          const control = getArrowControlPoint(item.arrowStart, item.arrowEnd, item.type.includes('-inv-'));
           return isCurved ? (
             <path
               key={item.id}
-              d={`M ${item.arrowStart.x} ${item.arrowStart.y} Q ${(item.arrowStart.x + item.arrowEnd.x) / 2} ${Math.min(item.arrowStart.y, item.arrowEnd.y) - 15} ${item.arrowEnd.x} ${item.arrowEnd.y}`}
+              d={`M ${item.arrowStart.x} ${item.arrowStart.y} Q ${control.x} ${control.y} ${item.arrowEnd.x} ${item.arrowEnd.y}`}
               stroke={item.color || '#ffffff'}
               strokeWidth={strokeW}
               fill="none"
@@ -235,6 +237,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 width="200%"
                 height="200%"
                 viewBox="-40 -40 80 80"
+                data-orientation-ring="true"
                 className="absolute left-1/2 top-1/2 overflow-visible pointer-events-none"
                 style={{ transform: 'translate(-50%, -50%)' }}
               >

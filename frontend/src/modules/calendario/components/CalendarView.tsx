@@ -315,6 +315,50 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
       });
   }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo, localidadId, instalacionId]);
 
+  type SessionSortKey = 'date' | 'time' | 'team' | 'type' | 'session' | 'instalacion' | 'campo' | 'players';
+  const [sessionSort, setSessionSort] = useState<{ key: SessionSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'asc' });
+
+  const toggleSessionSort = (key: SessionSortKey) =>
+    setSessionSort(prev => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+
+  const sortedTableEvents = useMemo(() => {
+    const valueOf = (ev: CalendarEvent): string | number => {
+      switch (sessionSort.key) {
+        case 'date': return (ev.date instanceof Date ? ev.date : new Date(ev.date)).getTime();
+        case 'time': return ev.time || '';
+        case 'team': return ev.team || '';
+        case 'type': return ev.type || '';
+        case 'session': return ev.sessionNumber ? Number(ev.sessionNumber) || 0 : 0;
+        case 'instalacion': return resolveEventInstalacionCampo(ev).instalacion || '';
+        case 'campo': return resolveEventInstalacionCampo(ev).campo || '';
+        case 'players': return getSelectiveSessionPlayerNames(ev).length;
+      }
+    };
+    const factor = sessionSort.dir === 'asc' ? 1 : -1;
+    return [...filteredEvents].sort((a, b) => {
+      const va = valueOf(a);
+      const vb = valueOf(b);
+      const cmp = typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb), 'es', { numeric: true });
+      return cmp * factor;
+    });
+  }, [filteredEvents, sessionSort]);
+
+  const renderSortableTh = (key: SessionSortKey, label: string) => {
+    const active = sessionSort.key === key;
+    return (
+      <th
+        className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none cursor-pointer select-none hover:text-[var(--accent)]"
+        onClick={() => toggleSessionSort(key)}
+        aria-sort={active ? (sessionSort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        {label}
+        <i className={`fa-solid ml-1 text-[9px] ${active ? (sessionSort.dir === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down') : 'fa-sort opacity-40'}`}></i>
+      </th>
+    );
+  };
+
   useEffect(() => {
     const state = location.state as { openEventId?: string; newTaskId?: string; editSessionTaskId?: string; from?: string } | null;
     const openEventId = state?.openEventId;
@@ -1241,19 +1285,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/60 border-b border-slate-100">
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colDate')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colTime')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colTeam')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colSessionType')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colSession')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colInstalacion', 'Instalación')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colCampo', 'Campo')}</th>
-                      <th className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none">{t('calendarView.colPlayers', 'Jugadores')}</th>
+                      {renderSortableTh('date', t('calendarView.colDate'))}
+                      {renderSortableTh('time', t('calendarView.colTime'))}
+                      {renderSortableTh('team', t('calendarView.colTeam'))}
+                      {renderSortableTh('type', t('calendarView.colSessionType'))}
+                      {renderSortableTh('session', t('calendarView.colSession'))}
+                      {renderSortableTh('instalacion', t('calendarView.colInstalacion', 'Instalación'))}
+                      {renderSortableTh('campo', t('calendarView.colCampo', 'Campo'))}
+                      {renderSortableTh('players', t('calendarView.colPlayers', 'Jugadores'))}
                       <th className="px-4 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right leading-none">{t('calendarView.colActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {filteredEvents.map((ev) => {
+                    {sortedTableEvents.map((ev) => {
                       const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
                       const selectivePlayerNames = getSelectiveSessionPlayerNames(ev);
                       const { instalacion, campo } = resolveEventInstalacionCampo(ev);

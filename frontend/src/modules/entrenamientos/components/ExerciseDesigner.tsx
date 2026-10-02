@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import type { DesignerItem, Exercise, GoalStyle } from '../types';
 import { getDesignerItemAnimationClass, GOAL_STYLES, normalizeDesignerFrames } from '../types';
 import { renderThumbnail } from '../utils/renderThumbnail';
+import { getArrowControlPoint } from '../utils/arrowCurve';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { db } from '@shared/services/dataService';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
@@ -332,6 +333,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [rotatingArrowId, setRotatingArrowId] = useState<string | null>(null);
+  const arrowRotateRef = useRef<{
+    pivot: { x: number; y: number };
+    startAngle: number;
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+    rotation: number;
+  } | null>(null);
   const [initialResizeData, setInitialResizeData] = useState({ x: 0, y: 0, w: 0, h: 0, itemX: 0, itemY: 0 });
   
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -459,6 +468,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       { id: 'arrow-straight-dashed', label: 'RECTA DISCONTINUA', icon: 'fa-arrow-right', style: 'dashed', curve: false },
       { id: 'arrow-curve-solid', label: 'CURVA CONTINUA', icon: 'fa-arrow-up-right', style: 'solid', curve: true },
       { id: 'arrow-curve-dashed', label: 'CURVA DISCONTINUA', icon: 'fa-arrow-up-right', style: 'dashed', curve: true },
+      { id: 'arrow-curve-inv-solid', label: 'CURVA CONTINUA INVERSA', icon: 'fa-arrow-down-right', style: 'solid', curve: true },
     ],
     material: [
       { id: 'ball', label: 'BALÓN', icon: 'fa-futbol' },
@@ -923,6 +933,23 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     selectItemOnly(item.id);
   }, [isPlaying, selectItemOnly]);
 
+  const handleArrowRotateStart = useCallback((e: React.PointerEvent, item: DesignerItem) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (item.locked || isPlaying || !item.arrowStart || !item.arrowEnd || !pitchRef.current) return;
+    const rect = pitchRef.current.getBoundingClientRect();
+    const pivot = {
+      x: ((item.arrowStart.x + item.arrowEnd.x) / 2 / 100) * rect.width,
+      y: ((item.arrowStart.y + item.arrowEnd.y) / 2 / 100) * rect.height,
+    };
+    const startAngle = Math.atan2(e.clientY - rect.top - pivot.y, e.clientX - rect.left - pivot.x);
+    arrowRotateRef.current = { pivot, startAngle, start: { ...item.arrowStart }, end: { ...item.arrowEnd }, rotation: item.rotation || 0 };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    beginHistorySnapshot();
+    setRotatingArrowId(item.id);
+    selectItemOnly(item.id);
+  }, [isPlaying, selectItemOnly]);
+
   const updateSelectedItem = (updates: Partial<DesignerItem>) => {
     if (!selectedId) return;
     updateFrames(prev => prev.map(item => item.id === selectedId ? { ...item, ...updates } : item));
@@ -1289,6 +1316,47 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       window.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [rotatingId]);
+
+  // Rotate an arrow around the midpoint of its chord by dragging its handle
+  useEffect(() => {
+    if (!rotatingArrowId) return;
+    const handlePointerMove = (e: PointerEvent) => {
+      const data = arrowRotateRef.current;
+      if (!data || !pitchRef.current) return;
+      const rect = pitchRef.current.getBoundingClientRect();
+      const angle = Math.atan2(e.clientY - rect.top - data.pivot.y, e.clientX - rect.left - data.pivot.x);
+      const delta = angle - data.startAngle;
+      const cos = Math.cos(delta);
+      const sin = Math.sin(delta);
+      const rotatePoint = (p: { x: number; y: number }) => {
+        const px = (p.x / 100) * rect.width - data.pivot.x;
+        const py = (p.y / 100) * rect.height - data.pivot.y;
+        return {
+          x: Math.min(100, Math.max(0, ((data.pivot.x + px * cos - py * sin) / rect.width) * 100)),
+          y: Math.min(100, Math.max(0, ((data.pivot.y + px * sin + py * cos) / rect.height) * 100)),
+        };
+      };
+      const nextStart = rotatePoint(data.start);
+      const nextEnd = rotatePoint(data.end);
+      updateFrames(prev => prev.map(it => it.id === rotatingArrowId
+        ? { ...it, rotation: data.rotation + (delta * 180) / Math.PI, arrowStart: nextStart, arrowEnd: nextEnd, x: (nextStart.x + nextEnd.x) / 2, y: (nextStart.y + nextEnd.y) / 2 }
+        : it));
+    };
+    const handlePointerUp = () => {
+      commitHistorySnapshot();
+      arrowRotateRef.current = null;
+      setRotatingArrowId(null);
+      suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [rotatingArrowId]);
 
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.zIndex - b.zIndex), [items]);
   useEffect(() => {
@@ -2201,7 +2269,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     <>
                       {selectedTool?.includes('curve') ? (
                         <path
-                          d={`M ${arrowCreationLine.startX} ${arrowCreationLine.startY} Q ${(arrowCreationLine.startX + arrowCreationLine.endX) / 2} ${Math.min(arrowCreationLine.startY, arrowCreationLine.endY) - 15} ${arrowCreationLine.endX} ${arrowCreationLine.endY}`}
+                          d={`M ${arrowCreationLine.startX} ${arrowCreationLine.startY} Q ${(arrowCreationLine.startX + arrowCreationLine.endX) / 2} ${selectedTool?.includes('-inv-') ? Math.max(arrowCreationLine.startY, arrowCreationLine.endY) + 15 : Math.min(arrowCreationLine.startY, arrowCreationLine.endY) - 15}${arrowCreationLine.endX} ${arrowCreationLine.endY}`}
                           stroke="white"
                           strokeWidth={arrowStrokeWidth}
                           fill="none"
@@ -2267,10 +2335,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       }
                       (e.target as any).setPointerCapture(e.pointerId);
                     };
+                    const control = getArrowControlPoint(item.arrowStart, item.arrowEnd, item.type.includes('-inv-'));
                     return isCurved ? (
                       <path
                         key={item.id}
-                        d={`M ${item.arrowStart.x} ${item.arrowStart.y} Q ${(item.arrowStart.x + item.arrowEnd.x) / 2} ${Math.min(item.arrowStart.y, item.arrowEnd.y) - 15} ${item.arrowEnd.x} ${item.arrowEnd.y}`}
+                        d={`M ${item.arrowStart.x} ${item.arrowStart.y} Q ${control.x} ${control.y} ${item.arrowEnd.x} ${item.arrowEnd.y}`}
                         stroke={item.color || '#ffffff'}
                         strokeWidth={strokeW}
                         fill="none"
@@ -2302,6 +2371,27 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     );
                   })}
                 </svg>
+
+                {!is3DView && !isPlaying && sortedItems.map((item) => {
+                  if (!item.type?.startsWith('arrow-') || !item.arrowStart || !item.arrowEnd || item.locked) return null;
+                  if (!selectedIds.includes(item.id)) return null;
+                  const handleX = (item.arrowStart.x + item.arrowEnd.x) / 2;
+                  const handleY = Math.min(100, Math.max(item.arrowStart.y, item.arrowEnd.y) + 6);
+                  return (
+                    <button
+                      key={`rotate-${item.id}`}
+                      type="button"
+                      onPointerDown={(e) => handleArrowRotateStart(e, item)}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`absolute z-[20] flex h-7 w-7 touch-none items-center justify-center rounded-full border border-white/20 bg-[#121212]/90 text-white shadow-lg hover:bg-[var(--accent)] ${rotatingArrowId === item.id ? 'cursor-grabbing' : 'cursor-grab'}`}
+                      style={{ left: `${handleX}%`, top: `${handleY}%`, transform: 'translate(-50%, -50%)' }}
+                      title="Rotar flecha (arrastrar)"
+                      aria-label="Rotar flecha"
+                    >
+                      <i className="fa-solid fa-rotate text-xs"></i>
+                    </button>
+                  );
+                })}
 
                 {zoneCreationBox && zoneCreationRef.current?.moved && (
                   <div

@@ -37,7 +37,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
   const [showAttendanceSummary, setShowAttendanceSummary] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<'full' | 'no-vests' | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
-  const [pdfPreviewZoom, setPdfPreviewZoom] = useState(0.5);
+  // Arrastre: la tarjeta solo es arrastrable mientras se pulsa el asa, para no romper la selección de texto en los campos
+  const [armedTaskId, setArmedTaskId] = useState<string | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
+  const [pdfPreviewZoom, setPdfPreviewZoom] = useState(0.7);
 
   const fullscreenTask = useMemo(
     () => tasks.find(task => task.id === fullscreenTaskId) || null,
@@ -126,6 +130,24 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         sessionSquadIds: squad.map(p => String(p.id)),
       },
     });
+  };
+
+  /** Mueve una tarea a la posición de destino (reordenación por arrastre) */
+  const moveTaskTo = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const from = tasks.findIndex(task => task.id === fromId);
+    const to = tasks.findIndex(task => task.id === toId);
+    if (from < 0 || to < 0) return;
+    const next = [...tasks];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  };
+
+  const endDrag = () => {
+    setArmedTaskId(null);
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
   };
 
   const removeTask = (id: string) => {
@@ -343,10 +365,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         style={{ width: '1191px', height: '1684px', padding: '40px' }}
       >
         <div className="flex items-center justify-between mb-2 pb-2 border-b-2 border-slate-100 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <i className="fa-solid fa-list-check text-[16px] text-[var(--accent)]"></i>
-            <h1 className="text-[16px] font-black text-slate-900">{t('calendarView.sessionTasksTitle')}</h1>
-          </div>
+          <div />
           <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{totalPages}</span>
         </div>
 
@@ -427,8 +446,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
     try {
       container.style.display = 'block';
-      container.style.position = 'static';
-      container.style.visibility = 'visible';
+      // Fijo en (0,0) y de una página cada vez: el render por foreignObject depende de la posición
+      // del elemento en pantalla y del scroll, y la captura salía desplazada.
+      Object.assign(container.style, { position: 'fixed', top: '0', left: '0', zIndex: '-1', pointerEvents: 'none', visibility: 'visible' });
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -449,8 +469,14 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       let pdf: jsPDF | null = null;
 
       for (let i = 0; i < pageEls.length; i++) {
+        pageEls.forEach((el, idx) => { el.style.display = idx === i ? '' : 'none'; });
+        await new Promise(resolve => setTimeout(resolve, 50));
         const canvas = await html2canvas(pageEls[i], {
           scale: 2,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0,
           width: PAGE_WIDTH_PX,
           height: PAGE_HEIGHT_PX,
           windowWidth: PAGE_WIDTH_PX,
@@ -459,6 +485,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           useCORS: true,
           allowTaint: true,
           logging: false,
+          // Render nativo del navegador (foreignObject): html2canvas reimplementa el layout y falla con
+          // SVG dimensionados en %, viewBox, unidades cqw y rotaciones (campo, flechas y arcos de orientación).
+          foreignObjectRendering: true,
         });
 
         if (!pdf) {
@@ -510,6 +539,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       container.style.display = originalDisplay;
       container.style.position = originalPosition;
       container.style.visibility = originalVisibility;
+      Object.assign(container.style, { top: '', left: '', zIndex: '', pointerEvents: '' });
+      container.querySelectorAll<HTMLElement>('[data-export-page]').forEach((el) => { el.style.display = ''; });
       setPdfDownloading(false);
     }
   };
@@ -669,9 +700,46 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {tasks.map((task, index) => (
-              <div key={task.id} className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow">
+              <div
+                key={task.id}
+                draggable={armedTaskId === task.id}
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', task.id);
+                  setDraggedTaskId(task.id);
+                }}
+                onDragOver={e => {
+                  if (!draggedTaskId) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverTaskId !== task.id) setDragOverTaskId(task.id);
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (draggedTaskId) moveTaskTo(draggedTaskId, task.id);
+                  endDrag();
+                }}
+                onDragEnd={endDrag}
+                className={`rounded-2xl border bg-white p-3 shadow-sm hover:shadow-md transition-all ${
+                  draggedTaskId === task.id
+                    ? 'opacity-40 border-slate-100'
+                    : dragOverTaskId === task.id && draggedTaskId
+                      ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/30'
+                      : 'border-slate-100'
+                }`}
+              >
                 {/* Header con número de ejercicio, nombre, tipo y duración */}
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  {tasks.length > 1 && (
+                    <span
+                      onMouseDown={() => setArmedTaskId(task.id)}
+                      onMouseUp={() => setArmedTaskId(null)}
+                      className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-[var(--accent)] cursor-grab active:cursor-grabbing flex-shrink-0"
+                      title="Arrastra para reordenar"
+                    >
+                      <i className="fa-solid fa-grip-vertical text-[12px]"></i>
+                    </span>
+                  )}
                   <span className="w-5 h-5 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-[11px] font-black flex-shrink-0">
                     {index + 1}
                   </span>

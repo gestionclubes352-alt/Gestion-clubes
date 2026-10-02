@@ -1,4 +1,5 @@
 import type { DesignerItem } from '../types';
+import { getArrowControlPoint } from './arrowCurve';
 
 /**
  * Genera una miniatura (JPEG en base64) dibujando directamente los elementos del ejercicio
@@ -53,9 +54,10 @@ export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 
         ctx.setLineDash(isDashed ? [4, 3] : []);
         ctx.beginPath();
         ctx.moveTo(startX, startY);
+        const control = getArrowControlPoint(item.arrowStart, item.arrowEnd, item.type.includes('-inv-'));
+        const controlX = (control.x / 100) * width;
+        const controlY = (control.y / 100) * height;
         if (isCurved) {
-          const controlX = (startX + endX) / 2;
-          const controlY = Math.min(startY, endY) - height * 0.15;
           ctx.quadraticCurveTo(controlX, controlY, endX, endY);
         } else {
           ctx.lineTo(endX, endY);
@@ -65,7 +67,7 @@ export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 
 
         // Punta de flecha simple en el extremo final
         const angle = isCurved
-          ? Math.atan2(endY - ((startY + endY) / 2 - height * 0.15), endX - (startX + endX) / 2)
+          ? Math.atan2(endY - controlY, endX - controlX)
           : Math.atan2(endY - startY, endX - startX);
         const headLength = 6;
         ctx.beginPath();
