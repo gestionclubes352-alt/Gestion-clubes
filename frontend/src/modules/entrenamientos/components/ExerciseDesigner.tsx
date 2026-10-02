@@ -333,14 +333,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
-  const [rotatingArrowId, setRotatingArrowId] = useState<string | null>(null);
-  const arrowRotateRef = useRef<{
-    pivot: { x: number; y: number };
-    startAngle: number;
-    start: { x: number; y: number };
-    end: { x: number; y: number };
-    rotation: number;
-  } | null>(null);
   const [initialResizeData, setInitialResizeData] = useState({ x: 0, y: 0, w: 0, h: 0, itemX: 0, itemY: 0 });
   
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -933,22 +925,27 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     selectItemOnly(item.id);
   }, [isPlaying, selectItemOnly]);
 
-  const handleArrowRotateStart = useCallback((e: React.PointerEvent, item: DesignerItem) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (item.locked || isPlaying || !item.arrowStart || !item.arrowEnd || !pitchRef.current) return;
-    const rect = pitchRef.current.getBoundingClientRect();
-    const pivot = {
-      x: ((item.arrowStart.x + item.arrowEnd.x) / 2 / 100) * rect.width,
-      y: ((item.arrowStart.y + item.arrowEnd.y) / 2 / 100) * rect.height,
+  // Gira la flecha seleccionada `deltaDeg` grados alrededor del punto medio entre su inicio y su final
+  const rotateSelectedArrow = (deltaDeg: number) => {
+    const arrow = items.find(it => it.id === selectedId);
+    if (!arrow?.arrowStart || !arrow.arrowEnd || arrow.locked) return;
+    const aspect = pitchAspectValue;
+    const mx = (arrow.arrowStart.x + arrow.arrowEnd.x) / 2;
+    const my = (arrow.arrowStart.y + arrow.arrowEnd.y) / 2;
+    const theta = (deltaDeg * Math.PI) / 180;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+    const rotatePoint = (p: { x: number; y: number }) => {
+      const dx = (p.x - mx) * aspect;
+      const dy = p.y - my;
+      return {
+        x: Math.min(100, Math.max(0, mx + (dx * cos - dy * sin) / aspect)),
+        y: Math.min(100, Math.max(0, my + dx * sin + dy * cos)),
+      };
     };
-    const startAngle = Math.atan2(e.clientY - rect.top - pivot.y, e.clientX - rect.left - pivot.x);
-    arrowRotateRef.current = { pivot, startAngle, start: { ...item.arrowStart }, end: { ...item.arrowEnd }, rotation: item.rotation || 0 };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    beginHistorySnapshot();
-    setRotatingArrowId(item.id);
-    selectItemOnly(item.id);
-  }, [isPlaying, selectItemOnly]);
+    pushHistoryNow();
+    updateSelectedItem({ arrowStart: rotatePoint(arrow.arrowStart), arrowEnd: rotatePoint(arrow.arrowEnd) });
+  };
 
   const updateSelectedItem = (updates: Partial<DesignerItem>) => {
     if (!selectedId) return;
@@ -1316,47 +1313,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       window.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [rotatingId]);
-
-  // Rotate an arrow around the midpoint of its chord by dragging its handle
-  useEffect(() => {
-    if (!rotatingArrowId) return;
-    const handlePointerMove = (e: PointerEvent) => {
-      const data = arrowRotateRef.current;
-      if (!data || !pitchRef.current) return;
-      const rect = pitchRef.current.getBoundingClientRect();
-      const angle = Math.atan2(e.clientY - rect.top - data.pivot.y, e.clientX - rect.left - data.pivot.x);
-      const delta = angle - data.startAngle;
-      const cos = Math.cos(delta);
-      const sin = Math.sin(delta);
-      const rotatePoint = (p: { x: number; y: number }) => {
-        const px = (p.x / 100) * rect.width - data.pivot.x;
-        const py = (p.y / 100) * rect.height - data.pivot.y;
-        return {
-          x: Math.min(100, Math.max(0, ((data.pivot.x + px * cos - py * sin) / rect.width) * 100)),
-          y: Math.min(100, Math.max(0, ((data.pivot.y + px * sin + py * cos) / rect.height) * 100)),
-        };
-      };
-      const nextStart = rotatePoint(data.start);
-      const nextEnd = rotatePoint(data.end);
-      updateFrames(prev => prev.map(it => it.id === rotatingArrowId
-        ? { ...it, rotation: data.rotation + (delta * 180) / Math.PI, arrowStart: nextStart, arrowEnd: nextEnd, x: (nextStart.x + nextEnd.x) / 2, y: (nextStart.y + nextEnd.y) / 2 }
-        : it));
-    };
-    const handlePointerUp = () => {
-      commitHistorySnapshot();
-      arrowRotateRef.current = null;
-      setRotatingArrowId(null);
-      suppressBackgroundClicksUntilRef.current = Date.now() + SUPPRESS_BACKGROUND_CLICK_MS;
-    };
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
-    };
-  }, [rotatingArrowId]);
 
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.zIndex - b.zIndex), [items]);
   useEffect(() => {
@@ -2372,27 +2328,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                   })}
                 </svg>
 
-                {!is3DView && !isPlaying && sortedItems.map((item) => {
-                  if (!item.type?.startsWith('arrow-') || !item.arrowStart || !item.arrowEnd || item.locked) return null;
-                  if (!selectedIds.includes(item.id)) return null;
-                  const handleX = (item.arrowStart.x + item.arrowEnd.x) / 2;
-                  const handleY = Math.min(100, Math.max(item.arrowStart.y, item.arrowEnd.y) + 6);
-                  return (
-                    <button
-                      key={`rotate-${item.id}`}
-                      type="button"
-                      onPointerDown={(e) => handleArrowRotateStart(e, item)}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`absolute z-[20] flex h-7 w-7 touch-none items-center justify-center rounded-full border border-white/20 bg-[#121212]/90 text-white shadow-lg hover:bg-[var(--accent)] ${rotatingArrowId === item.id ? 'cursor-grabbing' : 'cursor-grab'}`}
-                      style={{ left: `${handleX}%`, top: `${handleY}%`, transform: 'translate(-50%, -50%)' }}
-                      title="Rotar flecha (arrastrar)"
-                      aria-label="Rotar flecha"
-                    >
-                      <i className="fa-solid fa-rotate text-xs"></i>
-                    </button>
-                  );
-                })}
-
                 {zoneCreationBox && zoneCreationRef.current?.moved && (
                   <div
                     className="absolute z-[8] pointer-events-none border-[3px] border-dashed border-white/80 bg-white/10 backdrop-blur-[1px]"
@@ -3005,6 +2940,24 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                               />
                             ))}
                           </div>
+                          {!selectedItem.locked && (
+                            <div className="mb-4">
+                              <span className="mb-2 block text-[8px] font-black uppercase tracking-widest text-slate-500">Rotar</span>
+                              <div className="grid grid-cols-6 gap-1.5">
+                                {[-90, -45, -15, 15, 45, 90].map((angle) => (
+                                  <button
+                                    key={angle}
+                                    type="button"
+                                    onClick={() => rotateSelectedArrow(angle)}
+                                    className="rounded-xl border border-white/10 bg-white/5 px-1 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-300 transition-all hover:bg-white/10"
+                                    title={`Rotar ${angle > 0 ? '+' : ''}${angle}°`}
+                                  >
+                                    {angle > 0 ? `+${angle}` : angle}°
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <div>
                             <div className="mb-2 flex items-center justify-between">
                               <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Grosor</span>
