@@ -295,7 +295,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           )}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col items-start gap-0.5 min-w-0">
                             <div className="flex items-center gap-1">
                               <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-[var(--accent)] text-white'}`}>
                                 {player.dorsal}
@@ -311,7 +311,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                                 </span>
                               )}
                             </div>
-                            <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : isOnField ? 'text-blue-600' : 'text-slate-600'}`}>
+                            <span className={`text-[11px] font-black uppercase truncate max-w-full ${inThisPos ? 'text-white' : isOnField ? 'text-blue-600' : 'text-slate-600'}`}>
                               {player.apodo || player.nombre}
                             </span>
                           </div>
@@ -415,7 +415,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           )}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col items-start gap-0.5 min-w-0">
                             <div className="flex items-center gap-1">
                               <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${inThisPos ? 'bg-white/15 text-white' : 'bg-orange-400 text-white'}`}>
                                 {player.dorsal}
@@ -426,7 +426,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                                 </span>
                               )}
                             </div>
-                            <span className={`text-[11px] font-black uppercase truncate ${inThisPos ? 'text-white' : isOnField ? 'text-orange-600' : 'text-slate-600'}`}>
+                            <span className={`text-[11px] font-black uppercase truncate max-w-full ${inThisPos ? 'text-white' : isOnField ? 'text-orange-600' : 'text-slate-600'}`}>
                               {player.apodo || player.nombre}
                             </span>
                           </div>
@@ -486,7 +486,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                           )}
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col items-start gap-0.5 min-w-0">
                             <div className="flex items-center gap-1">
                               <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-slate-300 text-white">
                                 {player.dorsal}
@@ -497,7 +497,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] font-black uppercase truncate text-slate-500">
+                            <span className="text-[11px] font-black uppercase truncate max-w-full text-slate-500">
                               {player.apodo || player.nombre}
                             </span>
                           </div>
