@@ -1282,37 +1282,38 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           equipoId: ownEquipoId,
         }));
 
-        // Cargar plantillas de otros equipos del club
-        const otherEquipoIds = ownTeams.filter(t => t.id !== ownEquipoId).map(t => t.id);
-        const otherMapped: Player[] = [];
+        const byDorsal = (a: Player, b: Player) => (a.dorsal ?? 999) - (b.dorsal ?? 999);
+        // Mostrar ya la plantilla principal sin esperar al resto de equipos
+        if (mainMapped.length > 0) setSquad([...mainMapped].sort(byDorsal));
 
-        for (const equipoId of otherEquipoIds) {
+        // Cargar plantillas de otros equipos del club en paralelo
+        const otherEquipoIds = ownTeams.filter(t => t.id !== ownEquipoId).map(t => t.id);
+        const results = await Promise.all(otherEquipoIds.map(async (equipoId): Promise<Player[]> => {
           try {
             const rows = await plantillasService.list({ equipo_id: equipoId });
             const teamName = ownTeams.find(t => t.id === equipoId)?.nombre || '';
-            rows.forEach(p => {
-              otherMapped.push({
-                id: p.id,
-                fotoUrl: p.foto_url || '',
-                competicion: '',
-                club: '',
-                equipo: teamName,
-                dorsal: p.dorsal ?? 0,
-                nombre: p.nombre,
-                apodo: p.apodo,
-                posicion: p.posicion,
-                posicionJuego: p.posicion_juego || '',
-                perfil: (p.perfil || 'D') as Player['perfil'],
-                estado: p.estado,
-              });
-            });
+            return rows.map((p): Player => ({
+              id: p.id,
+              fotoUrl: p.foto_url || '',
+              competicion: '',
+              club: '',
+              equipo: teamName,
+              dorsal: p.dorsal ?? 0,
+              nombre: p.nombre,
+              apodo: p.apodo,
+              posicion: p.posicion,
+              posicionJuego: p.posicion_juego || '',
+              perfil: (p.perfil || 'D') as Player['perfil'],
+              estado: p.estado,
+            }));
           } catch (err) {
             console.warn(`No se pudo cargar plantilla del equipo ${equipoId}:`, err);
+            return [];
           }
-        }
+        }));
 
-        const combined = [...mainMapped, ...otherMapped];
-        if (combined.length > 0) setSquad(combined.sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999)));
+        const combined = [...mainMapped, ...results.flat()];
+        if (combined.length > 0) setSquad(combined.sort(byDorsal));
       } catch (err) {
         console.error('No se pudo cargar la plantilla propia', err);
       }

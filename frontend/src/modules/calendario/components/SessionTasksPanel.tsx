@@ -262,22 +262,22 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           </div>
         </div>
 
-        {/* Cuerpo: pizarra (izda, ancho fijo por altura) | Info (dcha: series+roles / descripción) */}
+        {/* Cuerpo: pizarra (izda, reducida al 78% de la altura, más espacio a la dcha) | Info (dcha: series+roles / descripción) */}
         <div className="flex-1 min-h-0 flex gap-3">
           {/* Pizarra: se ajusta a la altura disponible manteniendo proporción 105:68, sin recortarse */}
-          <div className="h-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+          <div className="h-full flex-shrink-0 flex items-start justify-center overflow-hidden">
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="rounded-lg overflow-hidden" style={{ height: '100%', width: 'auto', aspectRatio: '105 / 68' }}>
+              <div className="rounded-lg overflow-hidden" style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}>
                 <DesignerPreview items={getFirstDesignerFrame(task.designerSnapshot)} fieldStructure={task.fieldStructure} className="w-full! h-full!" />
               </div>
             ) : task.thumbnail ? (
-              <div className="rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center" style={{ height: '100%', width: 'auto', aspectRatio: '105 / 68' }}>
+              <div className="rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center" style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}>
                 <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
             ) : (
               <div
                 className={`rounded-lg flex items-center justify-center text-white ${task.category ? CATEGORY_COLORS[task.category] : 'bg-slate-400'}`}
-                style={{ height: '100%', width: 'auto', aspectRatio: '105 / 68' }}
+                style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}
               >
                 <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[20px]`}></i>
               </div>
@@ -304,13 +304,13 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             {task.technicalRoles && (
               <div className="flex-shrink-0 overflow-hidden">
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Roles Técnicos</p>
-                <p className="text-[10px] font-bold text-slate-600 whitespace-pre-wrap line-clamp-2">{task.technicalRoles}</p>
+                <p className="text-[12px] font-bold text-slate-600 whitespace-pre-wrap line-clamp-2">{task.technicalRoles}</p>
               </div>
             )}
 
             <div className="flex-1 min-h-0 overflow-hidden">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldDescription')}</p>
-              <p className="text-[11px] font-bold text-slate-600 whitespace-pre-wrap">{task.description || '—'}</p>
+              <p className="text-[13px] font-bold text-slate-600 whitespace-pre-wrap">{task.description || '—'}</p>
             </div>
           </div>
         </div>
