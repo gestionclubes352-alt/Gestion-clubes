@@ -55,6 +55,8 @@ type SizePreset = 'S' | 'M' | 'L' | 'XL';
 const SIZE_PRESETS: SizePreset[] = ['S', 'M', 'L', 'XL'];
 const TEXT_SIZES: Record<SizePreset, number> = { S: 16, M: 22, L: 30, XL: 42 };
 const ELEMENT_SCALES: Record<SizePreset, number> = { S: 0.75, M: 1, L: 1.3, XL: 1.6 };
+/** Tallas de los jugadores (más pequeñas que el resto de elementos). */
+const PLAYER_SCALES: Record<SizePreset, number> = { S: 0.5, M: 0.7, L: 0.9, XL: 1.15 };
 /** Factor de amortiguación de escala para la valla: reduce la variación de tamaño entre tallas respecto al resto de materiales. */
 const FENCE_SCALE_DAMPING = 0.15;
 const getEffectiveItemScale = (item: { type?: string; scale?: number }) => {
@@ -736,7 +738,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
       x,
       y,
       rotation: goalRotation,
-      scale: isPlayer ? ELEMENT_SCALES[playerSize] : isCone ? ELEMENT_SCALES[coneSize] : isMaterial ? ELEMENT_SCALES[materialSize] : 1,
+      scale: isPlayer || isCoach ? PLAYER_SCALES[playerSize] : isCone ? ELEMENT_SCALES[coneSize] : isMaterial ? ELEMENT_SCALES[materialSize] : 1,
       locked: false,
       zIndex: nextZ,
       color: coneColor || tools.jugadores.find(p => p.id === selectedTool)?.color || (squadPlayer ? SQUAD_PLAYER_COLOR : undefined) || (isText ? textColor : undefined),
@@ -781,7 +783,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
         x: formation[index]?.x ?? 50,
         y: formation[index]?.y ?? 50,
         rotation: 0,
-        scale: ELEMENT_SCALES[playerSize],
+        scale: PLAYER_SCALES[playerSize],
         locked: false,
         zIndex: baseZ + index,
         color: p.color,
@@ -1364,21 +1366,24 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     return `${Math.max(Math.min(260, availableWidth), Math.floor(width))}px`;
   }, [canvasSize.height, canvasSize.width, is3DView, pitchAspectValue]);
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-  const isPlayerItem = (item?: DesignerItem | null) => !!item?.type?.startsWith('player-');
+  // El entrenador comparte tallas con los jugadores
+  const isPlayerItem = (item?: DesignerItem | null) => !!item?.type?.startsWith('player-') || item?.type === 'coach';
   const isCoachItem = (item?: DesignerItem | null) => item?.type === 'coach';
   const isConeItem = (item?: DesignerItem | null) => item?.type === 'cone' || item?.type === 'slalom';
   const isMaterialItem = (item?: DesignerItem | null) =>
     !!item && tools.material.some(material => material.id === item.type);
-  const getSizePresetForScale = (scale = 1): SizePreset =>
+  const getSizePresetForScale = (scale = 1, scales: Record<SizePreset, number> = ELEMENT_SCALES): SizePreset =>
     SIZE_PRESETS.reduce((closest, size) => (
-      Math.abs(ELEMENT_SCALES[size] - scale) < Math.abs(ELEMENT_SCALES[closest] - scale) ? size : closest
+      Math.abs(scales[size] - scale) < Math.abs(scales[closest] - scale) ? size : closest
     ), 'M' as SizePreset);
-  const selectedElementSize = selectedItem ? getSizePresetForScale(selectedItem.scale) : 'M';
+  const selectedElementSize = selectedItem
+    ? getSizePresetForScale(selectedItem.scale, isPlayerItem(selectedItem) ? PLAYER_SCALES : ELEMENT_SCALES)
+    : 'M';
   const applyPlayerSize = (size: SizePreset) => {
     setPlayerSize(size);
     if (isPlayerItem(selectedItem)) {
       pushHistoryNow();
-      updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+      updateSelectedItem({ scale: PLAYER_SCALES[size] });
     }
   };
   const applyConeSize = (size: SizePreset) => {
@@ -2918,7 +2923,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                                     type="button"
                                     onClick={() => {
                                       pushHistoryNow();
-                                      updateSelectedItem({ scale: ELEMENT_SCALES[size] });
+                                      updateSelectedItem({ scale: (isPlayerItem(selectedItem) ? PLAYER_SCALES : ELEMENT_SCALES)[size] });
                                       if (isPlayerItem(selectedItem)) setPlayerSize(size);
                                       if (isConeItem(selectedItem)) setConeSize(size);
                                       if (isMaterialItem(selectedItem)) setMaterialSize(size);
