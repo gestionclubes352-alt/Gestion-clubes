@@ -229,6 +229,17 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 aspectRatio: '1 / 1',
               }}
             >
+              {/* Indicador de orientación (réplica del arco del diseñador) */}
+              <svg
+                width="200%"
+                height="200%"
+                viewBox="-40 -40 80 80"
+                data-orientation-ring="true"
+                className="absolute left-1/2 top-1/2 overflow-visible pointer-events-none"
+                style={{ transform: 'translate(-50%, -50%)' }}
+              >
+                <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
+              </svg>
               <div
                 className="flex h-full w-full items-center justify-center rounded-full border-solid overflow-hidden"
                 style={{

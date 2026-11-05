@@ -19,13 +19,8 @@ const RESIZABLE_DEFAULT_SIZES: Record<string, { width: number; height: number }>
 };
 
 const FIELD_BACKGROUND = {
-  backgroundColor: '#2d7a34',
-  backgroundImage: [
-    'radial-gradient(circle at 50% 48%, rgba(117, 166, 99, 0.20) 0%, rgba(80, 121, 73, 0.12) 42%, rgba(18, 30, 18, 0.34) 100%)',
-    'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.020) 0 56px, rgba(0, 0, 0, 0.045) 56px 112px)',
-    'repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.010) 0 2px, transparent 2px 128px)',
-  ].join(', '),
-  backgroundBlendMode: 'soft-light, multiply, normal',
+  backgroundColor: '#2f7d4c',
+  backgroundImage: 'repeating-linear-gradient(to right, rgba(255, 255, 255, 0.045) 0 10%, rgba(0, 0, 0, 0.05) 10% 20%)',
 } as const;
 
 const PLAYER_TOOL_COLORS = [
@@ -2111,7 +2106,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                 className={`max-w-full max-h-full relative overflow-visible transition-all duration-500 origin-center ml-0 ${
                   is3DView
                     ? `rounded-[10px] border border-white/20 ${selectedTool ? 'cursor-crosshair' : 'cursor-default'} shadow-[0_46px_95px_rgba(0,0,0,0.8)]`
-                    : 'rounded-3xl border-[12px] border-[#ffffff22] cursor-crosshair shadow-[0_40px_100px_rgba(0,0,0,0.3)]'
+                    : 'rounded-2xl cursor-crosshair shadow-[0_20px_50px_rgba(0,0,0,0.25)]'
                 }`}
                 onPointerDown={handlePitchPointerDown}
                 onClick={handlePitchBackgroundClick}
@@ -2137,7 +2132,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                 )}
                 {activeStructure !== 'libre' && (
                   <svg
-                    className={`absolute pointer-events-none ${is3DView ? 'opacity-60' : 'opacity-35'}`}
+                    className={`absolute pointer-events-none ${is3DView ? 'opacity-60' : 'opacity-90'}`}
                     style={{ top: '4%', left: '4%', width: '92%', height: '92%', overflow: 'visible' }}
                     viewBox={
                       activeStructure === 'ataque' ? '0 0 68 52.5'
@@ -2146,7 +2141,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     }
                     aria-hidden="true"
                   >
-                    <g fill="none" stroke="white" strokeWidth="0.45">
+                    <g fill="none" stroke="white" strokeWidth="0.35">
                       {activeStructure === 'campo-total' ? (
                         <>
                           <rect x="0" y="0" width="105" height="68" />
@@ -2657,13 +2652,13 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       <div
                         style={{
                           backgroundColor: item.color || SQUAD_PLAYER_COLOR,
-                          borderColor: item.playerPhoto && item.playerPhoto.length > 1 ? (item.color || SQUAD_PLAYER_COLOR) : '#ffffff',
-                          borderWidth: item.playerPhoto && item.playerPhoto.length > 1 ? '6px' : '4px',
+                          borderColor: item.color || SQUAD_PLAYER_COLOR,
+                          borderWidth: item.playerPhoto && item.playerPhoto.length > 1 ? '6px' : '0px',
                           transform: is3DView ? PLAYER_3D_BILLBOARD_TRANSFORM : undefined,
                           transformOrigin: is3DView ? PLAYER_3D_BILLBOARD_ORIGIN : undefined,
                           transformStyle: 'preserve-3d',
                         }}
-                        className={`w-10 h-10 rounded-full border-solid shadow-xl flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
+                        className={`w-10 h-10 rounded-full border-solid flex items-center justify-center overflow-hidden font-black text-white ${animationClass}`}
                       >
                         {item.playerId !== undefined ? (
                           item.playerPhoto && item.playerPhoto.length > 1 ? (
@@ -2694,7 +2689,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                           transformOrigin: is3DView ? PLAYER_3D_BILLBOARD_ORIGIN : undefined,
                           transformStyle: 'preserve-3d',
                         }}
-                        className={`w-10 h-10 rounded-full border-[4px] border-white shadow-xl flex items-center justify-center font-black text-white text-[13px] leading-none ${animationClass}`}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-[13px] leading-none ${animationClass}`}
                       >
                         E
                       </div>
