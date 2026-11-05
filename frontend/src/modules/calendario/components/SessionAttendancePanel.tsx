@@ -223,8 +223,8 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
                       const colors = getPositionColor(player);
                       const meta = getPlayerMeta(player);
                       return (
-                        <div key={player.id} className={`flex items-center justify-between ${colors.bg} rounded-xl p-3 border ${colors.border}`}>
-                          <div className="flex items-center gap-3 min-w-0">
+                        <div key={player.id} className={`flex items-center gap-4 ${colors.bg} rounded-xl p-3 border ${colors.border}`}>
+                          <div className="flex items-center gap-3 min-w-0 w-72 shrink-0">
                             <div className={`${colors.badge} text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[11px]`}>
                               {player.dorsal || player.nombre.charAt(0)}
                             </div>

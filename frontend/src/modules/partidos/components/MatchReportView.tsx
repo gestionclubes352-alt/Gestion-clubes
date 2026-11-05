@@ -220,6 +220,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [saveError, setSaveError] = useState<string | null>(null);
   const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
   const [squad, setSquad] = useState<Player[]>([]);
+  const [squadLoaded, setSquadLoaded] = useState(false);
   const [showChartsInDatosPartido, setShowChartsInDatosPartido] = useState(false);
 
   // Formulario "Añadir cambio" en la pestaña Eventos
@@ -1174,6 +1175,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
   };
 
+  // Equipos propios: consulta ligera filtrada por club, para no esperar a la carga completa de equipos/clubes
+  useEffect(() => {
+    if (!ownClubId) return;
+    (async () => {
+      try {
+        const own = await equiposService.list({ club_id: ownClubId });
+        setOwnTeams(prev => (prev.length > 0 ? prev : own));
+      } catch (err) {
+        console.error('No se pudieron cargar los equipos propios', err);
+      }
+    })();
+  }, [ownClubId]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -1186,7 +1200,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           .sort((a, b) => (a.clubNombre || a.nombre).localeCompare(b.clubNombre || b.nombre, 'es'));
         setRivalTeams(rivals);
         const own = equiposRows.filter(e => ownClubId && String(e.club_id) === String(ownClubId));
-        setOwnTeams(own);
+        setOwnTeams(prev => (prev.length > 0 ? prev : own));
       } catch (err) {
         console.error('No se pudieron cargar los equipos rivales', err);
       }
@@ -1253,8 +1267,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
       .filter((v): v is string => !!v && normalizeTeamName(v) !== opponentNorm);
     const found = findTeamByName(ownTeams, ownNameCandidates.map(normalizeTeamName), t => t.sub_equipo || t.nombre);
     if (found) { setOwnEquipoId(found.id); return; }
-    // Si solo hay un equipo propio dado de alta, usarlo por defecto
-    if (ownTeams.length === 1) setOwnEquipoId(ownTeams[0].id);
+    // Sin coincidencia por nombre: usar el primer equipo propio para no dejar la alineación sin plantilla
+    setOwnEquipoId(ownTeams[0].id);
   }, [ownTeams, match.team, match.localTeam, match.visitorTeam, match.opponent, ownEquipoId]);
 
   // Carga la plantilla real del equipo propio (Supabase) para la pestaña Alineación
@@ -1263,32 +1277,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     if (!ownEquipoId || !ownTeams.length) return;
     (async () => {
       try {
-        // Cargar plantilla del equipo principal
-        const mainRows = await plantillasService.list({ equipo_id: ownEquipoId });
-        const mainTeam = ownTeams.find(t => t.id === ownEquipoId);
-        const mainMapped: Player[] = mainRows.map((p): Player => ({
-          id: p.id,
-          fotoUrl: p.foto_url || '',
-          competicion: '',
-          club: '',
-          equipo: mainTeam?.nombre || '',
-          dorsal: p.dorsal ?? 0,
-          nombre: p.nombre,
-          apodo: p.apodo,
-          posicion: p.posicion,
-          posicionJuego: p.posicion_juego || '',
-          perfil: (p.perfil || 'D') as Player['perfil'],
-          estado: p.estado,
-          equipoId: ownEquipoId,
-        }));
-
-        const byDorsal = (a: Player, b: Player) => (a.dorsal ?? 999) - (b.dorsal ?? 999);
-        // Mostrar ya la plantilla principal sin esperar al resto de equipos
-        if (mainMapped.length > 0) setSquad([...mainMapped].sort(byDorsal));
-
-        // Cargar plantillas de otros equipos del club en paralelo
+        // Lanzar ya las plantillas de otros equipos del club, en paralelo con la principal
         const otherEquipoIds = ownTeams.filter(t => t.id !== ownEquipoId).map(t => t.id);
-        const results = await Promise.all(otherEquipoIds.map(async (equipoId): Promise<Player[]> => {
+        const othersPromise = Promise.all(otherEquipoIds.map(async (equipoId): Promise<Player[]> => {
           try {
             const rows = await plantillasService.list({ equipo_id: equipoId });
             const teamName = ownTeams.find(t => t.id === equipoId)?.nombre || '';
@@ -1312,10 +1303,37 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           }
         }));
 
+        // Cargar plantilla del equipo principal
+        const mainRows = await plantillasService.list({ equipo_id: ownEquipoId });
+        const mainTeam = ownTeams.find(t => t.id === ownEquipoId);
+        const mainMapped: Player[] = mainRows.map((p): Player => ({
+          id: p.id,
+          fotoUrl: p.foto_url || '',
+          competicion: '',
+          club: '',
+          equipo: mainTeam?.nombre || '',
+          dorsal: p.dorsal ?? 0,
+          nombre: p.nombre,
+          apodo: p.apodo,
+          posicion: p.posicion,
+          posicionJuego: p.posicion_juego || '',
+          perfil: (p.perfil || 'D') as Player['perfil'],
+          estado: p.estado,
+          equipoId: ownEquipoId,
+        }));
+
+        const byDorsal = (a: Player, b: Player) => (a.dorsal ?? 999) - (b.dorsal ?? 999);
+        // Mostrar ya la plantilla principal sin esperar al resto de equipos
+        if (mainMapped.length > 0) setSquad([...mainMapped].sort(byDorsal));
+
+        const results = await othersPromise;
+
         const combined = [...mainMapped, ...results.flat()];
         if (combined.length > 0) setSquad(combined.sort(byDorsal));
       } catch (err) {
         console.error('No se pudo cargar la plantilla propia', err);
+      } finally {
+        setSquadLoaded(true);
       }
     })();
   }, [ownEquipoId, ownTeams]);
@@ -4294,6 +4312,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                 <p className="text-sm font-bold text-[var(--text-muted)]">
                   {lineupTeamView === 'rival'
                     ? 'No se pudo cargar la plantilla del equipo visitante'
+                    : squadLoaded
+                    ? 'El equipo no tiene jugadores en la plantilla'
                     : 'Cargando plantilla...'}
                 </p>
               </div>

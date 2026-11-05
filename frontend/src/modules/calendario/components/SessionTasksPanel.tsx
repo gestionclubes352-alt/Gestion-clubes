@@ -7,6 +7,7 @@ import { db } from '@shared/services/dataService';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal, DesignerPreview } from '@modules/repositorio-tareas';
 import type { SessionTask } from '../types';
+import { getEmbeddedFontCss } from '../utils/pdfFonts';
 import type { Player } from '@modules/plantilla';
 import { getFirstDesignerFrame } from '@modules/entrenamientos/types';
 
@@ -51,6 +52,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     () => tasks.findIndex(task => task.id === fullscreenTaskId),
     [tasks, fullscreenTaskId]
   );
+
+  // Precarga las fuentes incrustadas mientras el usuario mira la vista previa del PDF.
+  React.useEffect(() => {
+    if (pdfPreviewMode) void getEmbeddedFontCss();
+  }, [pdfPreviewMode]);
 
   React.useEffect(() => {
     if (!fullscreenTaskId) return;
@@ -403,7 +409,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </p>
               <div className="flex flex-wrap gap-1">
                 {attendanceSummary.attendees.map(player => (
-                  <span key={player.id} className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5">
+                  <span key={player.id} className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight">
                     {player.apodo || player.nombre}
                   </span>
                 ))}
@@ -415,7 +421,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               </p>
               <div className="flex flex-wrap gap-1">
                 {attendanceSummary.absentees.map(({ player, reason }) => (
-                  <span key={player.id} className="text-[10px] font-bold text-red-700 bg-white border border-red-200 rounded px-1.5 py-0.5">
+                  <span key={player.id} className="text-[10px] font-bold text-red-700 bg-white border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight">
                     {player.apodo || player.nombre} · {reason}
                   </span>
                 ))}
@@ -466,13 +472,19 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       const PAGE_WIDTH_PX = 1191;
       const PAGE_HEIGHT_PX = 1684;
 
+      // Fuentes incrustadas: sin ellas el render por foreignObject usa una fuente de respaldo más ancha
+      // (textos truncados/desbordados) y los iconos de Font Awesome salen como cuadrados.
+      const fontCss = await getEmbeddedFontCss();
+      if (!fontCss) console.warn('No se pudieron incrustar las fuentes para el PDF');
+
       let pdf: jsPDF | null = null;
 
       for (let i = 0; i < pageEls.length; i++) {
+        const tPage = performance.now();
         pageEls.forEach((el, idx) => { el.style.display = idx === i ? '' : 'none'; });
         await new Promise(resolve => setTimeout(resolve, 50));
-        const canvas = await html2canvas(pageEls[i], {
-          scale: 2,
+        const captureOpts = {
+          scale: 1.5,
           scrollX: 0,
           scrollY: 0,
           x: 0,
@@ -488,7 +500,27 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           // Render nativo del navegador (foreignObject): html2canvas reimplementa el layout y falla con
           // SVG dimensionados en %, viewBox, unidades cqw y rotaciones (campo, flechas y arcos de orientación).
           foreignObjectRendering: true,
-        });
+          // html2canvas clona todo el documento en cada captura; se descarta cuanto no sea la página
+          // exportada (o sus ancestros) para no clonar la app entera, la vista previa ni las demás hojas.
+          ignoreElements: (el) => {
+            const page = pageEls[i];
+            if (el === page || page.contains(el) || el.contains(page)) return false;
+            return !['STYLE', 'LINK', 'SCRIPT', 'META', 'TITLE'].includes(el.tagName);
+          },
+          onclone: (_doc, clonedEl) => {
+            if (!fontCss) return;
+            const style = _doc.createElement('style');
+            style.textContent = fontCss;
+            clonedEl.insertBefore(style, clonedEl.firstChild);
+          },
+        };
+        // Las fuentes incrustadas en el SVG se cargan al primer render y la imagen se dibuja antes de que
+        // estén listas; una captura previa en miniatura las calienta para que la real ya las use.
+        if (fontCss && i === 0) {
+          await html2canvas(pageEls[i], { ...captureOpts, scale: 0.1 });
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        const canvas = await html2canvas(pageEls[i], captureOpts);
 
         if (!pdf) {
           pdf = new jsPDF({
@@ -500,7 +532,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           pdf.addPage([A4_WIDTH_MM, A4_HEIGHT_MM]);
         }
 
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+        // JPEG: codificar PNG de una página A4 a esta resolución tardaba segundos y pesaba mucho más.
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM, undefined, 'FAST');
+        console.debug(`[PDF] página ${i + 1}/${pageEls.length}: ${Math.round(performance.now() - tPage)} ms`);
       }
 
       if (!pdf) {
