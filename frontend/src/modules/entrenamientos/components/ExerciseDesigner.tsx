@@ -2704,7 +2704,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         className={`absolute left-1/2 top-1/2 overflow-visible ${isItemSelected ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
                         style={{ transform: 'translate(-50%, -50%)' }}
                       >
-                        <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="6" strokeLinecap="round" />
+                        <path d="M 19.8 -19.8 A 28 28 0 1 1 -19.8 -19.8" fill="none" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
                         {isItemSelected && (
                           <path
                             data-orientation-handle="true"
