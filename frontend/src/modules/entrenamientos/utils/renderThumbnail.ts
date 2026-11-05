@@ -94,9 +94,35 @@ export const renderThumbnail = (items: DesignerItem[], fieldStructure: string = 
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(((item.rotation || 0) * Math.PI) / 180);
+        // Red por detrás del larguero (hacia fuera del campo), como en el diseñador
+        const netH = h * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(-w / 2 + w * 0.08, -h / 2 - netH);
+        ctx.lineTo(w / 2 - w * 0.08, -h / 2 - netH);
+        ctx.lineTo(w / 2, -h / 2);
+        ctx.lineTo(-w / 2, -h / 2);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
-        ctx.strokeRect(-w / 2, -h / 2, w, h);
+        if (item.goalStyle === 'biselada') {
+          ctx.beginPath();
+          ctx.moveTo(-w / 2, h / 2);
+          ctx.lineTo(-w / 2, -h / 2 + h * 0.5);
+          ctx.lineTo(-w / 2 + w * 0.3, -h / 2);
+          ctx.lineTo(w / 2 - w * 0.3, -h / 2);
+          ctx.lineTo(w / 2, -h / 2 + h * 0.5);
+          ctx.lineTo(w / 2, h / 2);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-w / 2, h / 2);
+          ctx.lineTo(-w / 2, -h / 2);
+          ctx.lineTo(w / 2, -h / 2);
+          ctx.lineTo(w / 2, h / 2);
+          ctx.stroke();
+        }
         ctx.restore();
         ctx.lineWidth = 1.5;
       } else if (isPlayer || isCone) {

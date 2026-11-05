@@ -23,7 +23,7 @@ const ClasicaFrame: FC<{ className?: string; thumbnail?: boolean }> = ({ classNa
     <div className={`relative ${className || ''}`}>
       {/* Red: se extiende por detrás del larguero (hacia fuera del campo), algo más estrecha al fondo */}
       <div
-        className="absolute bottom-full left-0 h-[70%] w-full"
+        className="absolute bottom-full left-0 h-[35%] w-full"
         style={{
           backgroundImage: NET_MESH,
           backgroundColor: 'rgba(255,255,255,0.12)',

@@ -4,6 +4,7 @@ import type { FieldStructure } from '../types';
 import SlalomPoleIcon from '@shared/components/SlalomPoleIcon';
 import SoccerBallIcon from '@shared/components/SoccerBallIcon';
 import GoalFrame3D from '@modules/entrenamientos/components/GoalFrame3D';
+import GoalStyleIcon from '@modules/entrenamientos/components/GoalStyleIcon';
 import { getArrowControlPoint } from '@modules/entrenamientos/utils/arrowCurve';
 
 interface DesignerPreviewProps {
@@ -201,7 +202,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
           return (
             <div
               key={item.id}
-              className="absolute border-2 border-white"
+              className="absolute"
               style={{
                 left: x,
                 top: y,
@@ -209,7 +210,13 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 height,
                 transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`,
               }}
-            />
+            >
+              <GoalStyleIcon
+                style={item.goalStyle ?? 'clasica'}
+                isFlipped={item.rotation === 180}
+                className="absolute h-full w-full pointer-events-none"
+              />
+            </div>
           );
         }
 
