@@ -687,7 +687,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     const sessionHeader = {
       clubName: (ownClubId != null ? clubNameById.get(String(ownClubId)) : undefined) || '',
       clubLogo: (ownClubId != null ? clubLogoById.get(String(ownClubId)) : undefined) || undefined,
-      subtitle: [ownSessionTeam?.competicion, sessionSeason && `TEMPORADA ${sessionSeason}`].filter(Boolean).join(' · '),
+      subtitle: [activeTraining.team, ownSessionTeam?.competicion, sessionSeason && `TEMPORADA ${sessionSeason}`].filter(Boolean).join(' · '),
       time: activeTraining.time,
     };
     const selectiveAttendance = isSelectiveAttendanceSession(activeTraining);

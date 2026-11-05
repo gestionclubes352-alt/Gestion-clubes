@@ -104,7 +104,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
       timeLabel = `${pad(Number(m[1]))}:${m[2]} – ${pad(Math.floor(endMin / 60) % 24)}:${pad(endMin % 60)}`;
     }
     const label = `${big ? 'text-[12px]' : 'text-[9px]'} font-black uppercase tracking-[0.18em] text-[var(--accent)]`;
-    const value = `${big ? 'text-[28px]' : 'text-[15px]'} font-black text-slate-900 leading-tight`;
+    const value = `${big ? 'text-[22px]' : 'text-[12px]'} font-black text-slate-900 leading-tight`;
 
     return (
       <div className={`flex items-center flex-shrink-0 border-b-[4px] border-slate-900 ${big ? 'gap-8 pb-5 mb-4' : 'gap-4 pb-2 mb-2 flex-wrap'}`}>
@@ -304,36 +304,28 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     };
 
     return (
-      <div key={task.id} className="overflow-hidden rounded-xl border border-slate-200 p-3 flex flex-col gap-1.5" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
-        {/* Header: número, nombre, tipo y duración total (igual que la vista web) */}
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-          <span className="w-6 h-6 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-[12px] font-black flex-shrink-0">
+      <div key={task.id} className="overflow-hidden rounded-xl border-2 border-slate-400 p-3 flex flex-col gap-1.5" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
+        {/* Header: insignia numerada, nombre y duración total en píldora */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="w-6 h-6 rounded-md bg-[var(--accent)] text-white flex items-center justify-center text-[12px] font-black flex-shrink-0">
             {globalIndex + 1}
           </span>
-          <div className="min-w-0 flex items-baseline gap-1">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Nombre:</p>
-            <p className="font-black text-slate-800 text-[13px] truncate">{task.title}</p>
-          </div>
-          <div className="min-w-0 flex items-baseline gap-1">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tipo:</p>
-            <p className="font-black text-slate-600 text-[13px] truncate">{task.category || t('calendarView.notDefined')}</p>
-          </div>
-          <div className="flex items-center gap-1 border border-slate-200 rounded px-1.5 py-0.5 flex-shrink-0 ml-auto">
-            <i className="fa-solid fa-clock text-slate-400 text-[10px]"></i>
-            <span className="text-[11px] font-black text-slate-600">{seriesTotal} min</span>
-          </div>
+          <p className="font-black text-slate-800 text-[15px] truncate min-w-0">{task.title}</p>
+          <span className="ml-auto flex-shrink-0 border border-slate-800 rounded-full px-2.5 py-0.5 text-[11px] font-black text-slate-800">
+            {seriesTotal}'
+          </span>
         </div>
 
         {/* Cuerpo: pizarra (izda, reducida al 78% de la altura, más espacio a la dcha) | Info (dcha: series+roles / descripción) */}
         <div className="flex-1 min-h-0 flex gap-3">
           {/* Pizarra: se ajusta a la altura disponible manteniendo proporción 105:68, sin recortarse */}
-          <div className="h-full flex-shrink-0 flex items-start justify-center overflow-hidden">
+          <div className="h-full flex-shrink-0 flex flex-col gap-2 overflow-hidden">
             {task.designerSnapshot && task.designerSnapshot.length > 0 ? (
-              <div className="rounded-lg overflow-hidden" style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}>
+              <div className="rounded-lg overflow-hidden border-2 border-slate-500" style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}>
                 <DesignerPreview items={getFirstDesignerFrame(task.designerSnapshot)} fieldStructure={task.fieldStructure} className="w-full! h-full!" />
               </div>
             ) : task.thumbnail ? (
-              <div className="rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center" style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}>
+              <div className="rounded-lg bg-[#2f5a30] overflow-hidden flex items-center justify-center border-2 border-slate-500" style={{ height: '78%', width: 'auto', aspectRatio: '105 / 68' }}>
                 <img loading="lazy" decoding="async" src={task.thumbnail} alt={task.title} className="w-full h-full object-contain" />
               </div>
             ) : (
@@ -344,37 +336,37 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 <i className={`fa-solid ${task.category ? CATEGORY_ICONS[task.category] : 'fa-ellipsis'} text-[20px]`}></i>
               </div>
             )}
-          </div>
-
-          {/* Columna derecha: series/tiempos + roles arriba, descripción abajo, todo compacto */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5 overflow-hidden">
-            <div className="flex-shrink-0 flex items-center gap-1.5">
-              <div className="rounded-sm border border-slate-200 px-1.5 py-0.5 text-center">
-                <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight">Nº Series</p>
-                <p className="text-[11px] font-black text-slate-700 leading-tight">{task.numberOfSeries ?? 0}</p>
-              </div>
-              <div className="rounded-sm border border-slate-200 px-1.5 py-0.5 text-center">
-                <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight">T/Serie</p>
-                <p className="text-[11px] font-black text-slate-700 leading-tight">{task.timePerSeries ?? 0}</p>
-              </div>
-              <div className="rounded-sm border border-slate-200 px-1.5 py-0.5 text-center">
-                <p className="text-[7px] font-bold text-slate-400 uppercase leading-tight">Descanso</p>
-                <p className="text-[11px] font-black text-slate-700 leading-tight">{task.restBetweenSeries ?? 0}</p>
-              </div>
-            </div>
-
             {task.technicalRoles && (
-              <div className="flex-shrink-0 overflow-hidden">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Roles Técnicos</p>
-                <p className="text-[12px] font-bold text-slate-600 whitespace-pre-wrap line-clamp-2">{task.technicalRoles}</p>
+              <div className="flex-1 min-h-0 overflow-hidden rounded-lg border-2 border-slate-400 p-2" style={{ width: 0, minWidth: '100%' }}>
+                <p className="text-[9px] font-black text-[var(--accent)] uppercase tracking-widest mb-0.5">Roles Técnicos</p>
+                <p className="text-[12px] font-medium text-slate-700 whitespace-pre-wrap leading-snug">{task.technicalRoles}</p>
               </div>
             )}
+          </div>
 
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.fieldDescription')}</p>
-              <p className="text-[13px] font-bold text-slate-600 whitespace-pre-wrap">{task.description || '—'}</p>
+          {/* Columna derecha: descripción */}
+          <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden rounded-lg border-2 border-slate-400 p-2">
+              <p className="text-[9px] font-black text-[var(--accent)] uppercase tracking-widest mb-0.5">{t('calendarView.fieldDescription')}</p>
+              <p className="text-[13px] font-medium text-slate-800 whitespace-pre-wrap leading-snug">{task.description || '—'}</p>
             </div>
           </div>
+        </div>
+
+        {/* Fila de métricas inferior */}
+        <div className="flex-shrink-0 grid grid-cols-5 border-t-2 border-slate-400 pt-1">
+          {[
+            ['Duración', `${seriesTotal}`],
+            ['Tipo', task.category || t('calendarView.notDefined')],
+            ['Nº Series', `${task.numberOfSeries ?? 0}`],
+            ['T/Serie', `${task.timePerSeries ?? 0}`],
+            ['Descanso', `${task.restBetweenSeries ?? 0}`],
+          ].map(([label, value], i) => (
+            <div key={label} className={`px-2 ${i > 0 ? 'border-l-2 border-slate-400' : ''}`}>
+              <p className="text-[11px] font-medium text-slate-500 leading-tight">{label}</p>
+              <p className="text-[15px] font-black text-slate-800 leading-tight truncate">{value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Fila inferior: petos de entrenamiento a todo el ancho, compactos */}
