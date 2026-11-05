@@ -2811,8 +2811,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         e.stopPropagation();
                         selectSingleItem(item.id);
                       }}
-                      className={`absolute bottom-0 left-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white ${isItemSelected ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                      style={{ transform: 'translate(-60%, 60%)' }}
+                      className={`absolute ${item.type === 'goal' && !is3DView ? 'top-0 left-1/2' : 'bottom-0 left-0'} z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white ${isItemSelected ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                      style={{ transform: item.type === 'goal' && !is3DView ? 'translate(-50%, -50%)' : 'translate(-60%, 60%)' }}
                       title="Editar elemento"
                       aria-label="Editar elemento"
                     >
