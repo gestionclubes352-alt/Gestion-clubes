@@ -23,9 +23,11 @@ interface SessionTasksPanelProps {
   attendance?: Record<string, string>;
   /** Plantilla completa de la sesión (convocados y no convocados), para el resumen de asistencia */
   allSquad?: Player[];
+  /** Datos de la cabecera de sesión: club propio, competición/temporada y hora de inicio */
+  header?: { clubName?: string; clubLogo?: string; subtitle?: string; time?: string };
 }
 
-const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber, squad = [], attendance = {}, allSquad = [] }) => {
+const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, eventId, date, team, sessionNumber, squad = [], attendance = {}, allSquad = [], header }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -85,6 +87,60 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
     }
     return { attendees, absentees };
   }, [allSquad, attendance]);
+
+  /** Cabecera de sesión (escudo, club, fecha, horario y nº de sesión), igual en pantalla y en el PDF. */
+  const renderSessionHeader = (size: 'screen' | 'export') => {
+    const big = size === 'export';
+    const weekday = date ? date.toLocaleDateString(i18n.language, { weekday: 'short' }).replace('.', '') : '';
+    const dateLabel = date
+      ? `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`
+      : t('calendarView.notDefined');
+    const start = header?.time;
+    let timeLabel = start || '';
+    const m = start?.match(/^(\d{1,2}):(\d{2})/);
+    if (m && totalDuration > 0) {
+      const endMin = Number(m[1]) * 60 + Number(m[2]) + totalDuration;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      timeLabel = `${pad(Number(m[1]))}:${m[2]} – ${pad(Math.floor(endMin / 60) % 24)}:${pad(endMin % 60)}`;
+    }
+    const label = `${big ? 'text-[12px]' : 'text-[9px]'} font-black uppercase tracking-[0.18em] text-[var(--accent)]`;
+    const value = `${big ? 'text-[28px]' : 'text-[15px]'} font-black text-slate-900 leading-tight`;
+
+    return (
+      <div className={`flex items-center flex-shrink-0 border-b-[4px] border-slate-900 ${big ? 'gap-8 pb-5 mb-4' : 'gap-4 pb-2 mb-2 flex-wrap'}`}>
+        {header?.clubLogo && (
+          <img
+            src={header.clubLogo}
+            alt=""
+            crossOrigin="anonymous"
+            className={`${big ? 'h-[110px] w-[110px]' : 'h-[52px] w-[52px]'} object-contain flex-shrink-0`}
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className={`${big ? 'text-[44px]' : 'text-[22px]'} font-black text-slate-900 uppercase tracking-wide leading-tight truncate`}>
+            {header?.clubName || team || t('calendarView.notDefined')}
+          </p>
+          {header?.subtitle && <p className={`${label} ${big ? 'mt-1' : ''}`}>{header.subtitle}</p>}
+        </div>
+        <div className="flex-shrink-0">
+          <p className={label}>{t('calendarView.colDate')}</p>
+          <p className={value}>{dateLabel}</p>
+        </div>
+        {timeLabel && (
+          <div className="flex-shrink-0">
+            <p className={label}>Horario</p>
+            <p className={value}>{timeLabel}</p>
+          </div>
+        )}
+        <div
+          className={`flex-shrink-0 flex flex-col items-center justify-center bg-[var(--accent)] text-white ${big ? 'rounded-2xl px-10 py-4 min-w-[150px]' : 'rounded-lg px-4 py-1.5 min-w-[72px]'}`}
+        >
+          <span className={`${big ? 'text-[14px]' : 'text-[9px]'} font-black uppercase tracking-[0.25em] leading-none`}>Sesión</span>
+          <span className={`${big ? 'text-[56px]' : 'text-[28px]'} font-black leading-none`}>{sessionNumber ?? '-'}</span>
+        </div>
+      </div>
+    );
+  };
 
   const openPicker = async () => {
     setPickerOpen(true);
@@ -375,31 +431,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           <span className="text-[16px] font-black text-slate-400">{pageIndex + 1}/{totalPages}</span>
         </div>
 
-        {pageIndex === 0 && (
-          <div className="flex items-center gap-6 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-calendar-day text-[var(--accent)]"></i>
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-                <p className="font-black text-slate-700 text-[16px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-shield-halved text-[var(--accent)]"></i>
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-                <p className="font-black text-slate-700 text-[16px]">{team || t('calendarView.notDefined')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-hashtag text-[var(--accent)]"></i>
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-                <p className="font-black text-slate-700 text-[16px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {pageIndex === 0 && renderSessionHeader('export')}
 
         {hideVests && pageIndex === 0 && (
           <div className="flex items-stretch gap-3 mb-3 flex-shrink-0">
@@ -667,29 +699,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 mb-1.5 pb-1.5 border-b border-slate-100">
-          <div className="flex items-center gap-1.5">
-            <i className="fa-solid fa-calendar-day text-[var(--accent)] text-[12px]"></i>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colDate')}</p>
-              <p className="font-black text-slate-700 text-[12px]">{date ? date.toLocaleDateString(i18n.language) : t('calendarView.notDefined')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <i className="fa-solid fa-shield-halved text-[var(--accent)] text-[12px]"></i>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.colTeam')}</p>
-              <p className="font-black text-slate-700 text-[12px]">{team || t('calendarView.notDefined')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <i className="fa-solid fa-hashtag text-[var(--accent)] text-[12px]"></i>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.sessionNumberLabel')}</p>
-              <p className="font-black text-slate-700 text-[12px]">{sessionNumber ?? t('calendarView.notDefined')}</p>
-            </div>
-          </div>
-        </div>
+        {renderSessionHeader('screen')}
 
         {showAttendanceSummary && allSquad.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-1.5 pb-1.5 border-b border-slate-100">

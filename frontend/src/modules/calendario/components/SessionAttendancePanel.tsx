@@ -176,11 +176,8 @@ const SessionAttendancePanel: React.FC<SessionAttendancePanelProps> = ({ players
     <div className="space-y-6">
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
         <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-clipboard-user text-[var(--accent)]"></i>
-            <h4 className="text-[var(--accent)] font-black text-lg">{t('calendarView.attendanceDataTitle')}</h4>
-          </div>
           <div className="flex items-center gap-3">
+            <i className="fa-solid fa-clipboard-user text-[var(--accent)]"></i>
             <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-black uppercase tracking-widest">
               {t('calendarView.attendedSummary')}: {attendedCount}
             </span>

@@ -675,6 +675,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   if (activeTraining) {
     const sessionDate = activeTraining.date instanceof Date ? activeTraining.date : new Date(activeTraining.date);
     const sessionPlayers = activeTraining.team ? squad.filter(p => !p.equipo || p.equipo === activeTraining.team) : squad;
+    const ownSessionTeam = competitionTeams?.find(
+      team => String(team.clubId ?? '') === String(ownClubId ?? '') && (team.equipo || team.nombre) === activeTraining.team
+    );
+    const sessionSeason = (() => {
+      const m = ownSessionTeam?.temporada?.match(/(\d{2,4})\s*[/-]\s*(\d{2,4})/);
+      if (!m) return '';
+      const start = m[1].length === 2 ? `20${m[1]}` : m[1];
+      return `${start}-${m[2].slice(-2)}`;
+    })();
+    const sessionHeader = {
+      clubName: (ownClubId != null ? clubNameById.get(String(ownClubId)) : undefined) || '',
+      clubLogo: (ownClubId != null ? clubLogoById.get(String(ownClubId)) : undefined) || undefined,
+      subtitle: [ownSessionTeam?.competicion, sessionSeason && `TEMPORADA ${sessionSeason}`].filter(Boolean).join(' · '),
+      time: activeTraining.time,
+    };
     const selectiveAttendance = isSelectiveAttendanceSession(activeTraining);
     const attendanceScope = getAttendanceSessionScope(activeTraining);
     const externalSessionPlayers = activeTraining.team
@@ -792,6 +807,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
             squad={vestEligiblePlayers}
             attendance={attendance}
             allSquad={sessionPlayers}
+            header={sessionHeader}
           />
         )}
 
