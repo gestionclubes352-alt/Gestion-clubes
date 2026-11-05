@@ -11,6 +11,20 @@ import { getEmbeddedFontCss } from '../utils/pdfFonts';
 import type { Player } from '@modules/plantilla';
 import { getFirstDesignerFrame } from '@modules/entrenamientos/types';
 
+/** Líneas de la plantilla; `match` agrupa también las demarcaciones específicas (p. ej. Lateral → Defensas). */
+const POSITION_GROUPS = [
+  { label: 'Porteros', match: /portero/i },
+  { label: 'Defensas', match: /defensa|lateral|central/i },
+  { label: 'Medios', match: /medio|pivote|interior|media punta|mediapunta/i },
+  { label: 'Delanteros', match: /delantero|extremo|punta/i },
+];
+
+/** Índice de la línea a la que pertenece una posición; las desconocidas van al final. */
+const positionGroupIndex = (posicion?: string): number => {
+  const idx = POSITION_GROUPS.findIndex(g => g.match.test(posicion || ''));
+  return idx === -1 ? POSITION_GROUPS.length : idx;
+};
+
 interface SessionTasksPanelProps {
   tasks: SessionTask[];
   onChange: (tasks: SessionTask[]) => void;
@@ -85,8 +99,23 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         absentees.push({ player, reason: status });
       }
     }
+    const byPosition = (a: Player, b: Player) =>
+      positionGroupIndex(a.posicion) - positionGroupIndex(b.posicion) ||
+      (a.dorsal ?? 999) - (b.dorsal ?? 999);
+    attendees.sort(byPosition);
+    absentees.sort((a, b) => byPosition(a.player, b.player));
     return { attendees, absentees };
   }, [allSquad, attendance]);
+
+  /** Asistentes agrupados por línea (porteros, defensas, medios, delanteros), con el mismo orden que la plantilla. */
+  const attendeeGroups = useMemo(
+    () =>
+      POSITION_GROUPS.map((group, idx) => ({
+        label: group.label,
+        players: attendanceSummary.attendees.filter(p => positionGroupIndex(p.posicion) === idx),
+      })).filter(g => g.players.length > 0),
+    [attendanceSummary.attendees]
+  );
 
   /** Cabecera de sesión (escudo, club, fecha, horario y nº de sesión), igual en pantalla y en el PDF. */
   const renderSessionHeader = (size: 'screen' | 'export') => {
@@ -117,10 +146,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           />
         )}
         <div className="min-w-0 flex-1">
-          <p className={`${big ? 'text-[44px]' : 'text-[22px]'} font-black text-slate-900 uppercase tracking-wide leading-tight truncate`}>
+          <p className={`${big ? 'text-[34px]' : 'text-[17px]'} font-black text-slate-900 uppercase tracking-wide leading-none truncate`}>
             {header?.clubName || team || t('calendarView.notDefined')}
           </p>
-          {header?.subtitle && <p className={`${label} ${big ? 'mt-1' : ''}`}>{header.subtitle}</p>}
+          {header?.subtitle && (
+            <p className={`${big ? 'text-[30px] mt-2' : 'text-[15px] mt-1'} font-black uppercase tracking-[0.12em] text-[var(--accent)] leading-tight truncate`}>{header.subtitle}</p>
+          )}
         </div>
         <div className="flex-shrink-0">
           <p className={label}>{t('calendarView.colDate')}</p>
@@ -431,11 +462,18 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">
                 <i className="fa-solid fa-circle-check"></i> Asisten ({attendanceSummary.attendees.length})
               </p>
-              <div className="flex flex-wrap gap-1">
-                {attendanceSummary.attendees.map(player => (
-                  <span key={player.id} className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight">
-                    {player.apodo || player.nombre}
-                  </span>
+              <div className="flex flex-col gap-1">
+                {attendeeGroups.map(group => (
+                  <div key={group.label} className="flex items-start gap-1.5">
+                    <span className="w-[62px] flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-emerald-600 pt-[3px]">{group.label}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {group.players.map(player => (
+                        <span key={player.id} className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight">
+                          {player.apodo || player.nombre}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -699,14 +737,21 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
                 <i className="fa-solid fa-circle-check"></i> Asisten ({attendanceSummary.attendees.length})
               </p>
-              <div className="flex flex-wrap gap-1">
-                {attendanceSummary.attendees.length === 0 ? (
+              <div className="flex flex-col gap-1">
+                {attendeeGroups.length === 0 ? (
                   <p className="text-[11px] text-slate-400 font-bold">—</p>
                 ) : (
-                  attendanceSummary.attendees.map(player => (
-                    <span key={player.id} className="px-1.5 py-0.5 rounded-lg bg-white border border-emerald-200 text-[11px] font-bold text-emerald-700">
-                      {player.apodo || player.nombre}
-                    </span>
+                  attendeeGroups.map(group => (
+                    <div key={group.label} className="flex items-start gap-1.5">
+                      <span className="w-[58px] flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-emerald-500 pt-[3px]">{group.label}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {group.players.map(player => (
+                          <span key={player.id} className="px-1.5 py-0.5 rounded-lg bg-white border border-emerald-200 text-[11px] font-bold text-emerald-700">
+                            {player.apodo || player.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ))
                 )}
               </div>

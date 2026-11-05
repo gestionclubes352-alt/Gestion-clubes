@@ -226,20 +226,11 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           const pos = info.getValue();
           const style = positionStyles[pos] || positionStyles.Otros;
           return (
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider border w-fit whitespace-nowrap ${style.chip}`}>
-              <i className={`fa-solid ${style.icon} text-[9px]`}></i>
-              {pos}
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 whitespace-nowrap">
+              <i className={`fa-solid ${style.icon} text-[10px] opacity-70 ${style.text}`}></i>
+              {info.row.original.posicionJuego || pos}
             </span>
           );
-        },
-      }),
-      // 6. Posición de juego
-      columnHelper.accessor('posicionJuego', {
-        header: t('playerTable.tacticalRole', 'Pos. Juego'),
-        size: 140,
-        cell: info => {
-          const val = info.getValue();
-          return val ? <span className="text-slate-500 text-xs whitespace-nowrap">{val}</span> : <span className="text-slate-300">—</span>;
         },
       }),
       // 7. Perfil
