@@ -316,7 +316,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [textSize, setTextSize] = useState<SizePreset>('M');
   const [textColor, setTextColor] = useState('#ffffff');
   
-  const [showStructure, setShowStructure] = useState(false);
   const [showPlayers, setShowPlayers] = useState(true);
   const [showCoach, setShowCoach] = useState(true);
   const [showCones, setShowCones] = useState(true);
@@ -1509,20 +1508,15 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     <div className="relative flex min-h-[calc(100vh-60px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl animate-fade-in lg:h-[calc(100vh-60px)] lg:flex-row">
       <aside className="flex w-full flex-col gap-6 overflow-y-visible border-b border-slate-200 bg-[#f1f5f9] p-4 scrollbar-hide sm:p-5 lg:w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:overflow-y-auto">
         <div className="flex flex-col gap-3">
-          <button onClick={() => setShowStructure(!showStructure)} className="flex justify-between items-center px-2 w-full">
-            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">ESTRUCTURA</h4>
-            <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform ${showStructure ? '' : '-rotate-90'}`}></i>
-          </button>
-          {showStructure && (
-            <div className="flex flex-col gap-2 px-1">
-              { [{ id: 'campo-total', label: 'Campo Total', icon: 'fa-up-right-and-down-left-from-center' }, { id: 'ataque', label: 'Ataque', icon: 'fa-chevron-up' }, { id: 'defensa', label: 'Defensa', icon: 'fa-chevron-down' }, { id: 'libre', label: 'Libre', icon: 'fa-square' }].map((s) => (
-                <button key={s.id} onClick={() => { setShowStructure(false); setActiveStructure(s.id); }} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl transition-all w-full border ${activeStructure === s.id ? 'bg-[var(--accent)] text-white shadow-lg border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-white/80'}`}>
-                  <i className={`fa-solid ${s.icon} text-[10px] ${activeStructure === s.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
-                  <span className="text-[11px] font-black uppercase">{s.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <h4 className="px-2 text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">TIPO DE CAMPO</h4>
+          <div className="grid grid-cols-2 gap-2 px-1">
+            { [{ id: 'campo-total', label: 'Campo Total', icon: 'fa-up-right-and-down-left-from-center' }, { id: 'ataque', label: 'Ataque', icon: 'fa-chevron-up' }, { id: 'defensa', label: 'Defensa', icon: 'fa-chevron-down' }, { id: 'libre', label: 'Libre', icon: 'fa-square' }].map((s) => (
+              <button key={s.id} type="button" onClick={() => setActiveStructure(s.id)} aria-pressed={activeStructure === s.id} className={`flex items-center justify-center gap-2 px-2 py-2 rounded-lg transition-all border ${activeStructure === s.id ? 'bg-[var(--accent)] text-white shadow-md border-[var(--accent)]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                <i className={`fa-solid ${s.icon} text-[9px] ${activeStructure === s.id ? 'text-white' : 'text-[var(--accent)]'}`}></i>
+                <span className="text-[9px] font-black uppercase">{s.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="h-px bg-slate-200 mx-2"></div>
