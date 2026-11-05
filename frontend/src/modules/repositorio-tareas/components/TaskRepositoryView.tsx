@@ -444,44 +444,67 @@ const TaskRepositoryView: React.FC = () => {
           </div>
           <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
           <div className="flex flex-wrap gap-1.5">
-            {stats.categories.map(c => (
-              <span key={c.category} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest text-white ${CATEGORY_COLORS[c.category]}`}>
-                <i className={`fa-solid ${CATEGORY_ICONS[c.category]} text-[8px]`}></i>
-                {c.category} <span className="bg-white/25 rounded-md px-1.5">{c.count}</span>
-              </span>
-            ))}
+            {stats.categories.map(c => {
+              const isActive = selectedCategories.has(c.category);
+              const isDimmed = selectedCategories.size > 0 && !isActive;
+              return (
+                <button
+                  key={c.category}
+                  type="button"
+                  onClick={() => {
+                    const next = new Set(selectedCategories);
+                    if (next.has(c.category)) next.delete(c.category);
+                    else next.add(c.category);
+                    setSelectedCategories(next);
+                  }}
+                  aria-pressed={isActive}
+                  title={isActive ? 'Quitar filtro' : `Filtrar por ${c.category}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest text-white transition-all ${CATEGORY_COLORS[c.category]} ${
+                    isActive ? 'ring-2 ring-offset-1 ring-slate-800 shadow-md' : ''
+                  } ${isDimmed ? 'opacity-40 hover:opacity-70' : 'hover:brightness-110'}`}
+                >
+                  <i className={`fa-solid ${CATEGORY_ICONS[c.category]} text-[8px]`}></i>
+                  {c.category} <span className="bg-white/25 rounded-md px-1.5">{c.count}</span>
+                </button>
+              );
+            })}
+            {selectedCategories.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategories(new Set())}
+                className="px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+                title="Mostrar todas las categorías"
+              >
+                Limpiar
+              </button>
+            )}
             {stats.categories.length === 0 && <span className="text-[10px] text-slate-400 font-bold uppercase">{t('taskRepository.noTasks')}</span>}
           </div>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="space-y-3">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
         {/* Search */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-          <div className="relative flex-1">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
-              placeholder={t('taskRepository.searchPlaceholder')}
-            />
-          </div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">
-            {filtered.length} {t('taskRepository.results')}
-          </div>
+        <div className="relative flex-1 min-w-0">
+          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
+            placeholder={t('taskRepository.searchPlaceholder')}
+          />
         </div>
 
         {/* Creator Filter Dropdown */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+        <div className="flex items-center gap-3">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
             {t('taskRepository.filterByCreator')}:
           </label>
           <select
             value={selectedCreator}
             onChange={e => setSelectedCreator(e.target.value)}
-            className="flex-1 min-w-40 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="flex-1 md:w-56 min-w-40 px-3 py-2.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300"
           >
             <option value="">{t('taskRepository.allCreators')}</option>
             {creators.map(creator => (
@@ -499,49 +522,8 @@ const TaskRepositoryView: React.FC = () => {
           )}
         </div>
 
-        {/* Category Filter Dropdown */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Filtrar por tipo:
-          </label>
-          <div className="flex flex-wrap items-center gap-2 flex-1">
-            {TASK_CATEGORIES.map(category => {
-              const isSelected = selectedCategories.has(category);
-              const count = tasks.filter(t => t.category === category).length;
-              return (
-                <button
-                  key={category}
-                  onClick={() => {
-                    const next = new Set(selectedCategories);
-                    if (next.has(category)) {
-                      next.delete(category);
-                    } else {
-                      next.add(category);
-                    }
-                    setSelectedCategories(next);
-                  }}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                    isSelected
-                      ? `${CATEGORY_COLORS[category]} text-white shadow-sm`
-                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                  title={`${category} (${count} tareas)`}
-                >
-                  <i className={`fa-solid ${CATEGORY_ICONS[category]} text-[8px]`}></i>
-                  {category}
-                </button>
-              );
-            })}
-          </div>
-          {selectedCategories.size > 0 && (
-            <button
-              onClick={() => setSelectedCategories(new Set())}
-              className="px-2 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
-              title="Mostrar todas las categorías"
-            >
-              Limpiar
-            </button>
-          )}
+        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 whitespace-nowrap">
+          {filtered.length} {t('taskRepository.results')}
         </div>
       </div>
 

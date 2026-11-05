@@ -11,9 +11,29 @@ interface GoalStyleIconProps {
 }
 
 /** Marco clásico: mismo trazo que usaba el diseñador antes de existir variantes (3 lados, sin base). */
-const ClasicaFrame: FC<{ className?: string; thumbnail?: boolean }> = ({ className, thumbnail }) => (
-  <div className={`border-[4px] ${thumbnail ? 'border-current' : 'border-white shadow-2xl'} border-b-0 group-hover:border-[#ffd700] transition-colors ${className || ''}`} />
-);
+const NET_MESH =
+  'repeating-linear-gradient(0deg, rgba(255,255,255,0.55) 0 1px, transparent 1px 5px), ' +
+  'repeating-linear-gradient(90deg, rgba(255,255,255,0.55) 0 1px, transparent 1px 5px)';
+
+const ClasicaFrame: FC<{ className?: string; thumbnail?: boolean }> = ({ className, thumbnail }) => {
+  if (thumbnail) {
+    return <div className={`border-[4px] border-current border-b-0 group-hover:border-[#ffd700] transition-colors ${className || ''}`} />;
+  }
+  return (
+    <div className={`relative ${className || ''}`}>
+      {/* Red: se extiende por detrás del larguero (hacia fuera del campo), algo más estrecha al fondo */}
+      <div
+        className="absolute bottom-full left-0 h-[70%] w-full"
+        style={{
+          backgroundImage: NET_MESH,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          clipPath: 'polygon(8% 0, 92% 0, 100% 100%, 0 100%)',
+        }}
+      />
+      <div className="absolute inset-0 border-[4px] border-white shadow-2xl border-b-0 group-hover:border-[#ffd700] transition-colors" />
+    </div>
+  );
+};
 
 /** Marco con esquinas biseladas en V invertida en vez de ángulo recto. */
 const BiseladaFrame: FC<{ className?: string; thumbnail?: boolean }> = ({ className, thumbnail }) => (
