@@ -13,6 +13,7 @@ import { computeMatchStats } from '../../partidos/components/PlayerStatsSummary'
 import { db } from '@shared/services/dataService';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import PlayerDashboard from './PlayerDashboard';
 
 const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
 const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
@@ -116,6 +117,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File|null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'edit' | 'tile'>('edit');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -589,8 +591,44 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           </button>
         </div>
 
+        {/* === PESTAÑAS: Editar ficha / Vista tile === */}
+        <div className="flex gap-1 px-3 sm:px-4 pt-2 border-b border-slate-100 bg-slate-50" role="tablist">
+          {([
+            { id: 'edit', icon: 'fa-pen-to-square', label: t('editPlayer.tabEdit', 'Editar') },
+            { id: 'tile', icon: 'fa-id-badge', label: t('editPlayer.tabTile', 'Ficha jugador') },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-t-xl border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'text-[var(--accent)] border-[var(--accent)] bg-white'
+                  : 'text-slate-400 border-transparent hover:text-slate-600'
+              }`}
+            >
+              <i className={`fa-solid ${tab.icon} mr-2`}></i>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* === PESTAÑA FICHA JUGADOR: dashboard del jugador === */}
+        {activeTab === 'tile' && (
+          <div className="p-3 sm:p-4 overflow-y-auto flex-1">
+            <PlayerDashboard
+              player={formData}
+              photoUrl={preview}
+              matchStats={matchStats}
+              attendance={{ total: attendanceStats.total, attended: attendanceStats.attended }}
+            />
+          </div>
+        )}
+
         <fieldset disabled={readOnly} className="contents">
-        <div className="p-3 sm:p-4 overflow-y-auto flex-1" data-export-scroll ref={exportRef}>
+        <div className={`p-3 sm:p-4 overflow-y-auto flex-1 ${activeTab === 'tile' ? 'hidden' : ''}`} data-export-scroll ref={exportRef}>
           {/* === CABECERA: Foto + Datos básicos === */}
           <div className="flex flex-col sm:flex-row gap-4 mb-4">
             {/* Foto compacta */}
@@ -1186,7 +1224,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             <button
               type="button"
               onClick={exportPlayerProfile}
-              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
+              disabled={activeTab === 'tile'}
+              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t('editPlayer.exportPdf')}
             </button>

@@ -1053,9 +1053,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
                 {/* Vista previa + Series/Tiempos + Roles (izda, estrecho) | Descripción | Petos */}
                 <div className={`grid grid-cols-1 gap-2 mb-2 ${showVests ? 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]' : 'sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
-                  <div className="flex flex-col gap-2">
+                  <>
                     <div
-                      className={`group/preview relative ${task.linkedTaskId ? 'cursor-pointer' : ''}`}
+                      className={`group/preview relative sm:col-start-1 sm:row-start-1 ${task.linkedTaskId ? 'cursor-pointer' : ''}`}
                       onClick={() => task.linkedTaskId && editTaskDrawing(task)}
                       title={task.linkedTaskId ? (t('calendarView.editDrawing') || 'Editar dibujo') : undefined}
                     >
@@ -1095,7 +1095,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                     </div>
 
                     {/* Dimensiones del campo + series y tiempos */}
-                    <div className="space-y-1">
+                    <div className="space-y-1 sm:col-start-1 sm:row-start-2">
                       <div className="grid grid-cols-2 gap-1">
                         {([['length', 'Campo largo (m)'], ['width', 'Campo ancho (m)']] as const).map(([key, label]) => (
                           <div key={key} className="flex flex-col">
@@ -1149,12 +1149,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         </div>
                       </div>
                     </div>
+                  </>
 
-                  </div>
-
-                  {/* Descripción (más espacio) + Roles técnicos debajo */}
-                  <div className="flex flex-col gap-2 min-h-0">
-                    <div className="flex flex-col flex-none">
+                  {/* Descripción + Roles técnicos (alineados con las dimensiones del campo) */}
+                  <>
+                    <div className="flex flex-col flex-none sm:col-start-2 sm:row-start-1">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldDescription')}</p>
                       <AutoGrowTextarea
                         value={task.description || ''}
@@ -1163,18 +1162,18 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         className="w-full resize-none overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 !text-[10px] leading-snug font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                       />
                     </div>
-                    <div className="flex flex-col flex-none mt-auto pt-16">
+                    <div className="flex flex-col flex-none sm:col-start-2 sm:row-start-2">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ROLES Técnicos</p>
                       <TechnicalRolesEditor
                         value={task.technicalRoles}
                         onChange={v => updateTask(task.id, { technicalRoles: v })}
                       />
                     </div>
-                  </div>
+                  </>
 
                   {/* Petos de Entrenamiento */}
                   {showVests && (
-                    <div className="flex flex-col border border-slate-200 rounded-lg p-1 bg-slate-50">
+                    <div className="flex flex-col sm:col-start-3 sm:row-start-1 sm:row-span-2 border border-slate-200 rounded-lg p-1 bg-slate-50">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Petos</p>
                       <div className="flex-1 overflow-y-auto space-y-1 pr-1">
                         {(() => {

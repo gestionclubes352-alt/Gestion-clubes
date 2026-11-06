@@ -6,6 +6,8 @@ import type { DataTableAction } from '../../../shared/components/DataTable';
 import { useIsMobile } from '@shared/hooks/useIsMobile';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { Player } from '../types';
+import PlayerTile from './PlayerTile';
+import { useTileConfig } from '../utils/tileConfig';
 
 interface PlayerTableProps {
   squad: Player[];
@@ -67,6 +69,7 @@ const normalizeTeamLabel = (team: string) =>
 const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload, onRemoveBackgrounds, simplified }) => {
   const { t, i18n } = useTranslation();
   const { isMobile } = useIsMobile();
+  const [tileConfig] = useTileConfig();
   const isHuesca = clubId === 'escuela-huesca';
   const positionOrder = isHuesca ? huescaPositionOrder : defaultPositionOrder;
   const [activeTab, setActiveTab] = useState<'mis' | 'rivales'>('mis');
@@ -618,54 +621,9 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
 
                 {!isCollapsed && (
                   <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
-                    {group.players.map((player) => {
-                      const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
-                      const hasPhoto = isImageUrl(player.fotoUrl);
-                      const hasTransparentPhoto = /^data:image\/png|\.png(\?|$)/i.test(player.fotoUrl || '');
-                      const estadoColor = player.estado === 'LESIONADO' ? 'bg-red-500' : player.estado === 'OTRO' ? 'bg-amber-500' : 'bg-emerald-500';
-
-                      return (
-                        <div
-                          key={player.id}
-                          className="group relative bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg overflow-hidden shadow-sm hover:shadow-lg hover:border-[var(--surface-3)] transition-all duration-300 cursor-pointer hover:scale-[1.05] aspect-[4/5] flex flex-col"
-                          onClick={() => onEdit(player)}
-                        >
-                          {/* Imagen o iniciales - ocupa todo el espacio disponible */}
-                          {hasPhoto ? (
-                            <div className={`flex-1 overflow-hidden ${hasTransparentPhoto ? 'bg-gradient-to-b from-[var(--surface-1)] to-[var(--surface-2)]' : ''}`}>
-                              <img loading="lazy" decoding="async"
-                                src={player.fotoUrl}
-                                alt={player.nombre}
-                                className={`w-full h-full group-hover:scale-110 transition-transform duration-500 ${hasTransparentPhoto ? 'object-contain object-bottom' : 'object-cover object-[50%_20%]'}`}
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex-1 bg-[var(--surface-1)] flex items-center justify-center">
-                              <span className="text-3xl font-black text-[var(--surface-3)] select-none">{getInitials(player.nombre)}</span>
-                            </div>
-                          )}
-
-                          {/* Dorsal + estado */}
-                          <div className="absolute top-1.5 right-1.5 flex flex-col items-center gap-1">
-                            <div className="bg-slate-900 text-white w-6 h-6 rounded-md flex items-center justify-center font-black text-[11px] shadow-lg tabular-nums leading-none">
-                              {player.dorsal}
-                            </div>
-                            <div className={`w-1.5 h-1.5 rounded-full ${estadoColor} ring-2 ring-white/80`}></div>
-                          </div>
-
-                          {/* Info inferior - mínima y compacta */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/95 via-slate-900/80 to-transparent p-1.5">
-                            <h3 className="text-[10px] font-bold text-white uppercase leading-tight truncate">{player.nombre}</h3>
-                            {player.posicionJuego && (
-                              <p className="text-[8px] text-slate-300 uppercase leading-tight truncate">{player.posicionJuego}</p>
-                            )}
-                            {player.fechaNacimiento && (
-                              <p className="text-[8px] text-slate-400 leading-tight truncate">{formatDate(player.fechaNacimiento, i18n.language)}</p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {group.players.map((player) => (
+                      <PlayerTile key={player.id} player={player} config={tileConfig} onClick={() => onEdit(player)} />
+                    ))}
                   </div>
                 )}
               </div>
