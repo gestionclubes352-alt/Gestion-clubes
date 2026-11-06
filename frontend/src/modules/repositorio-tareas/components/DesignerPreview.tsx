@@ -42,7 +42,13 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
       {fieldStructure !== 'libre' && (
         <svg
           className="absolute pointer-events-none"
-          style={{ top: '4%', left: '4%', width: '92%', height: '92%', overflow: 'visible' }}
+          style={{
+            top: fieldStructure === 'ataque' ? '10%' : '4%',
+            left: '4%',
+            width: '92%',
+            height: fieldStructure === 'campo-total' ? '92%' : '86%',
+            overflow: 'visible',
+          }}
           viewBox={
             fieldStructure === 'ataque' ? '0 0 68 52.5'
             : fieldStructure === 'defensa' ? '0 52.5 68 52.5'
@@ -50,7 +56,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
           }
           preserveAspectRatio="none"
         >
-          <g fill="none" stroke={FIELD_LINE_COLOR} strokeWidth="0.35">
+          <g fill="none" stroke={FIELD_LINE_COLOR} strokeWidth="0.25">
             {fieldStructure === 'campo-total' ? (
               <>
                 {/* Borde exterior */}
@@ -65,13 +71,13 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 <rect x="0" y="24.84" width="5.5" height="18.32" />
                 <circle cx="11" cy="34" r="0.3" fill={FIELD_LINE_COLOR} stroke="none" />
                 <path d="M 16.5 26.69 A 9.15 9.15 0 0 1 16.5 41.31" />
-                <rect x="-2" y="30.34" width="2" height="7.32" strokeWidth="0.6" />
+                <g><g strokeWidth="0.06" opacity="0.55"><line x1="-2" y1="31.25" x2="0" y2="31.25" /><line x1="-2" y1="32.17" x2="0" y2="32.17" /><line x1="-2" y1="33.09" x2="0" y2="33.09" /><line x1="-2" y1="34.00" x2="0" y2="34.00" /><line x1="-2" y1="34.91" x2="0" y2="34.91" /><line x1="-2" y1="35.83" x2="0" y2="35.83" /><line x1="-2" y1="36.74" x2="0" y2="36.74" /><line x1="-1.33" y1="30.34" x2="-1.33" y2="37.66" /><line x1="-0.67" y1="30.34" x2="-0.67" y2="37.66" /></g><path d="M 0 30.34 L -2 30.34 L -2 37.66 L 0 37.66" strokeWidth="0.25" /></g>
                 {/* Área grande y pequeña, derecha */}
                 <rect x="88.5" y="13.84" width="16.5" height="40.32" />
                 <rect x="99.5" y="24.84" width="5.5" height="18.32" />
                 <circle cx="94" cy="34" r="0.3" fill={FIELD_LINE_COLOR} stroke="none" />
                 <path d="M 88.5 26.69 A 9.15 9.15 0 0 0 88.5 41.31" />
-                <rect x="105" y="30.34" width="2" height="7.32" strokeWidth="0.6" />
+                <g><g strokeWidth="0.06" opacity="0.55"><line x1="105" y1="31.25" x2="107" y2="31.25" /><line x1="105" y1="32.17" x2="107" y2="32.17" /><line x1="105" y1="33.09" x2="107" y2="33.09" /><line x1="105" y1="34.00" x2="107" y2="34.00" /><line x1="105" y1="34.91" x2="107" y2="34.91" /><line x1="105" y1="35.83" x2="107" y2="35.83" /><line x1="105" y1="36.74" x2="107" y2="36.74" /><line x1="105.67" y1="30.34" x2="105.67" y2="37.66" /><line x1="106.33" y1="30.34" x2="106.33" y2="37.66" /></g><path d="M 105 30.34 L 107 30.34 L 107 37.66 L 105 37.66" strokeWidth="0.25" /></g>
                 {/* Arcos de córner */}
                 <path d="M 0 1 A 1 1 0 0 1 1 0" />
                 <path d="M 104 0 A 1 1 0 0 1 105 1" />
@@ -87,12 +93,12 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 <rect x="24.84" y="0" width="18.32" height="5.5" />
                 <circle cx="34" cy="11" r="0.3" fill={FIELD_LINE_COLOR} stroke="none" />
                 <path d="M 26.69 16.5 A 9.15 9.15 0 0 0 41.31 16.5" />
-                <rect x="30.34" y="-2" width="7.32" height="2" strokeWidth="0.6" />
+                <g><g strokeWidth="0.06" opacity="0.55"><line x1="31.25" y1="-2" x2="31.25" y2="0" /><line x1="32.17" y1="-2" x2="32.17" y2="0" /><line x1="33.09" y1="-2" x2="33.09" y2="0" /><line x1="34.00" y1="-2" x2="34.00" y2="0" /><line x1="34.91" y1="-2" x2="34.91" y2="0" /><line x1="35.83" y1="-2" x2="35.83" y2="0" /><line x1="36.74" y1="-2" x2="36.74" y2="0" /><line x1="30.34" y1="-1.33" x2="37.66" y2="-1.33" /><line x1="30.34" y1="-0.67" x2="37.66" y2="-0.67" /></g><path d="M 30.34 0 L 30.34 -2 L 37.66 -2 L 37.66 0" strokeWidth="0.25" /></g>
                 <rect x="13.84" y="88.5" width="40.32" height="16.5" />
                 <rect x="24.84" y="99.5" width="18.32" height="5.5" />
                 <circle cx="34" cy="94" r="0.3" fill={FIELD_LINE_COLOR} stroke="none" />
                 <path d="M 26.69 88.5 A 9.15 9.15 0 0 1 41.31 88.5" />
-                <rect x="30.34" y="105" width="7.32" height="2" strokeWidth="0.6" />
+                <g><g strokeWidth="0.06" opacity="0.55"><line x1="31.25" y1="105" x2="31.25" y2="107" /><line x1="32.17" y1="105" x2="32.17" y2="107" /><line x1="33.09" y1="105" x2="33.09" y2="107" /><line x1="34.00" y1="105" x2="34.00" y2="107" /><line x1="34.91" y1="105" x2="34.91" y2="107" /><line x1="35.83" y1="105" x2="35.83" y2="107" /><line x1="36.74" y1="105" x2="36.74" y2="107" /><line x1="30.34" y1="105.67" x2="37.66" y2="105.67" /><line x1="30.34" y1="106.33" x2="37.66" y2="106.33" /></g><path d="M 30.34 105 L 30.34 107 L 37.66 107 L 37.66 105" strokeWidth="0.25" /></g>
                 <path d="M 0 1 A 1 1 0 0 1 1 0" />
                 <path d="M 67 0 A 1 1 0 0 1 68 1" />
                 <path d="M 1 105 A 1 1 0 0 1 0 104" />
@@ -165,7 +171,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
           return (
             <div
               key={item.id}
-              className="absolute border-2 border-dashed border-white/50"
+              className="absolute border-2 border-dashed border-white/50 bg-white/20"
               style={{
                 left: x,
                 top: y,
@@ -177,8 +183,10 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
         }
 
         if (item.type === 'goal') {
-          const width = `${item.width || 16}%`;
-          const height = `${item.height || 8}%`;
+          // Mismos tamaños por defecto y escala que el diseñador (ExerciseDesigner)
+          const width = `${item.width ?? 11}%`;
+          const height = `${item.height ?? 5.5}%`;
+          const goalScale = item.scale ?? 1;
 
           if (is3D) {
             return (
@@ -190,7 +198,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                   top: y,
                   width,
                   height,
-                  transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg) translateZ(8px)`,
+                  transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg) scale(${goalScale}) translateZ(8px)`,
                   transformStyle: 'preserve-3d',
                 }}
               >
@@ -208,7 +216,7 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                 top: y,
                 width,
                 height,
-                transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`,
+                transform: `translate(-50%, -50%) rotate(${item.rotation || 0}deg) scale(${goalScale})`,
               }}
             >
               <GoalStyleIcon

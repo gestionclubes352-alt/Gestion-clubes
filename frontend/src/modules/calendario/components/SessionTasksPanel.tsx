@@ -16,7 +16,31 @@ import { getFirstDesignerFrame } from '@modules/entrenamientos/types';
 // ── Roles técnicos: cada línea "Técnico: rol" (se mantiene como texto para no cambiar el modelo) ──
 const DEFAULT_STAFF = ['Lizer', 'Raúl'];
 const DEFAULT_ROLES = ['Balones fase defensiva', 'Balones fase ofensiva'];
+/** Quita el prefijo "Sergio - " de los roles (p. ej. "Sergio - Dirigir tarea" → "Dirigir tarea"). */
+const cleanRole = (r: string) => r.replace(/^\s*Sergio\s*-\s*/i, '');
+/** Textarea que se estira con su contenido (sin barra de desplazamiento). */
+const AutoGrowTextarea: React.FC<{
+  value: string; onChange: (v: string) => void; placeholder?: string; className?: string; minHeight?: number;
+}> = ({ value, onChange, placeholder, className, minHeight = 80 }) => {
+  const ref = React.useRef<HTMLTextAreaElement>(null);
+  const resize = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`;
+  }, [minHeight]);
+  React.useLayoutEffect(resize, [value, resize]);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(resize); // reajusta si cambia el ancho de la columna
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [resize]);
+  return <textarea ref={ref} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={className} rows={1} />;
+};
 const ADD_NEW = '__add__';
+const MIN_ROWS = 2; // filas visibles por defecto; el resto con "+ Seleccionar técnico"
 
 const parseRoleLines = (text?: string): { staff: string; role: string }[] =>
   (text || '').split('\n').filter(l => l.trim()).map(l => {
@@ -38,10 +62,10 @@ const TechnicalRolesEditor: React.FC<{ value?: string; onChange: (v: string) => 
     let cancelled = false;
     tareasStaffCatalogoService.list({ club_id: clubId }).then(rows => {
       if (cancelled) return;
-      const merge = (tipo: 'tecnico' | 'rol', defaults: string[]) => [
-        ...defaults,
-        ...rows.filter(r => r.tipo === tipo && !defaults.includes(r.nombre)).map(r => r.nombre),
-      ];
+      const merge = (tipo: 'tecnico' | 'rol', defaults: string[]) => {
+        const names = rows.filter(r => r.tipo === tipo).map(r => (tipo === 'rol' ? cleanRole(r.nombre) : r.nombre));
+        return [...defaults, ...Array.from(new Set(names)).filter(n => !defaults.includes(n))];
+      };
       setStaffList(merge('tecnico', DEFAULT_STAFF));
       setRoleList(merge('rol', DEFAULT_ROLES));
     }).catch(() => { /* sin catálogo: se usan los valores por defecto */ });
@@ -54,8 +78,10 @@ const TechnicalRolesEditor: React.FC<{ value?: string; onChange: (v: string) => 
 
   const commit = (rows: { staff: string; role: string }[]) =>
     onChange(serializeRoleLines(rows.filter(r => r.staff || r.role)));
+  // Por defecto se muestran MIN_ROWS filas (vacías si aún no hay datos)
+  const rows = [...lines, ...Array.from({ length: Math.max(0, MIN_ROWS - lines.length) }, () => ({ staff: '', role: '' }))];
   const updateRow = (i: number, patch: Partial<{ staff: string; role: string }>) =>
-    commit(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+    commit(rows.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const removeRow = (i: number) => commit(lines.filter((_, idx) => idx !== i));
 
   const addToCatalog = (kind: 'staff' | 'role'): string | null => {
@@ -94,32 +120,37 @@ const TechnicalRolesEditor: React.FC<{ value?: string; onChange: (v: string) => 
     <>
       <option value="">Seleccionar técnico…</option>
       {allStaff.map(x => <option key={x} value={x}>{x}</option>)}
-      <option value={ADD_NEW}>+ Nuevo técnico…</option>
+      <option value={ADD_NEW}>+ Añadir técnico (si no está en la lista)…</option>
     </>
   );
-  const selectCls = 'min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1 py-1 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30';
+  const selectCls = 'min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1 py-1 !text-[9px] !min-h-0 font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30';
 
-  const roleOptions = (current: string) => (
+  const roleOptions = (rawCurrent: string) => {
+    const current = cleanRole(rawCurrent);
+    return (
     <>
       <option value="">Sin rol</option>
       {current && !roleList.includes(current) && <option value={current}>{current}</option>}
       {roleList.map(x => <option key={x} value={x}>{x}</option>)}
       <option value={ADD_NEW}>+ Añadir rol…</option>
     </>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-1 flex-1 min-h-[40px] overflow-y-auto">
-      {lines.map((l, i) => (
+      {rows.map((l, i) => (
         <div key={i} className="flex items-center gap-1">
-          <select value={l.staff} onChange={e => pickStaff(i, e.target.value)} className={selectCls}>
+          <select value={l.staff} onChange={e => pickStaff(i, e.target.value)} className={`${selectCls} !flex-[2]`}>
             {staffOptions}
           </select>
-          <select value={l.role} onChange={e => pickRole(i, e.target.value)} className={selectCls}>
+          <select value={cleanRole(l.role)} onChange={e => pickRole(i, e.target.value)} className={`${selectCls} !flex-[3]`}>
             {roleOptions(l.role)}
           </select>
-          <button type="button" onClick={() => removeRow(i)} title="Quitar"
-            className="shrink-0 px-1 text-[12px] font-black text-slate-400 hover:text-red-500">×</button>
+          {i < lines.length ? (
+            <button type="button" onClick={() => removeRow(i)} title="Quitar"
+              className="shrink-0 px-1 text-[12px] font-black text-slate-400 hover:text-red-500">×</button>
+          ) : <span className="shrink-0 px-1 text-[12px] invisible">×</span>}
         </div>
       ))}
       {draft && (
@@ -132,7 +163,7 @@ const TechnicalRolesEditor: React.FC<{ value?: string; onChange: (v: string) => 
         </div>
       )}
       <button type="button" onClick={() => setDraft(true)}
-        className="self-start text-[10px] font-black text-[var(--accent)] hover:underline">+ Añadir técnico</button>
+        className="self-start !min-h-0 text-[9px] font-black text-[var(--accent)] hover:underline">+ Seleccionar técnico</button>
     </div>
   );
 };
@@ -283,15 +314,23 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           )}
         </div>
         <div className="flex-shrink-0">
-          <p className={label}>{t('calendarView.colDate')}</p>
-          <p className={value}>{dateLabel}</p>
-        </div>
-        {timeLabel && (
-          <div className="flex-shrink-0">
-            <p className={label}>Horario</p>
-            <p className={value}>{timeLabel}</p>
+          <div className={`flex ${big ? 'gap-8' : 'gap-4'}`}>
+            <div>
+              <p className={label}>{t('calendarView.colDate')}</p>
+              <p className={value}>{dateLabel}</p>
+            </div>
+            {timeLabel && (
+              <div>
+                <p className={label}>Horario</p>
+                <p className={value}>{timeLabel}</p>
+              </div>
+            )}
           </div>
-        )}
+          <div className={`flex items-baseline gap-2 ${big ? 'mt-2' : 'mt-1'}`}>
+            <p className={label}>Duración</p>
+            <p className={value}>{totalDuration} min</p>
+          </div>
+        </div>
         <div
           className={`flex-shrink-0 flex flex-col items-center justify-center bg-[var(--accent)] text-white ${big ? 'rounded-2xl px-8 py-3 min-w-[120px]' : 'rounded-md px-2 py-0.5 min-w-[40px]'}`}
         >
@@ -1089,7 +1128,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                           />
                         </div>
                         <div className="flex flex-col">
-                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">T/Serie</label>
+                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">T/Serie (')</label>
                           <input
                             type="number"
                             min={0}
@@ -1099,7 +1138,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                           />
                         </div>
                         <div className="flex flex-col">
-                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">Descanso</label>
+                          <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">Descanso (')</label>
                           <input
                             type="number"
                             min={0}
@@ -1111,25 +1150,26 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       </div>
                     </div>
 
-                    {/* ROLES Técnicos */}
-                    <div className="flex flex-col flex-1">
+                  </div>
+
+                  {/* Descripción (más espacio) + Roles técnicos debajo */}
+                  <div className="flex flex-col gap-2 min-h-0">
+                    <div className="flex flex-col flex-none">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldDescription')}</p>
+                      <AutoGrowTextarea
+                        value={task.description || ''}
+                        onChange={v => updateTask(task.id, { description: v })}
+                        placeholder={t('calendarView.describeTaskPlaceholder')}
+                        className="w-full resize-none overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 !text-[10px] leading-snug font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                      />
+                    </div>
+                    <div className="flex flex-col flex-1 min-h-[110px]">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ROLES Técnicos</p>
                       <TechnicalRolesEditor
                         value={task.technicalRoles}
                         onChange={v => updateTask(task.id, { technicalRoles: v })}
                       />
                     </div>
-                  </div>
-
-                  {/* Descripción */}
-                  <div className="flex flex-col">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('calendarView.fieldDescription')}</p>
-                    <textarea
-                      value={task.description || ''}
-                      onChange={e => updateTask(task.id, { description: e.target.value })}
-                      placeholder={t('calendarView.describeTaskPlaceholder')}
-                      className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1 text-[12px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1"
-                    />
                   </div>
 
                   {/* Petos de Entrenamiento */}

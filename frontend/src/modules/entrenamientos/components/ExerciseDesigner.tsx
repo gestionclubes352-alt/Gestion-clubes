@@ -2132,7 +2132,14 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                 {activeStructure !== 'libre' && (
                   <svg
                     className={`absolute pointer-events-none ${is3DView ? 'opacity-60' : 'opacity-90'}`}
-                    style={{ top: '4%', left: '4%', width: '92%', height: '92%', overflow: 'visible' }}
+                    style={{
+                      top: activeStructure === 'ataque' ? '10%' : '4%',
+                      left: '4%',
+                      width: '92%',
+                      height: activeStructure === 'campo-total' ? '92%' : '86%',
+                      overflow: 'visible',
+                    }}
+                    preserveAspectRatio="none"
                     viewBox={
                       activeStructure === 'ataque' ? '0 0 68 52.5'
                       : activeStructure === 'defensa' ? '0 52.5 68 52.5'
@@ -2140,7 +2147,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     }
                     aria-hidden="true"
                   >
-                    <g fill="none" stroke="white" strokeWidth="0.35">
+                    <g fill="none" stroke="white" strokeWidth="0.25">
                       {activeStructure === 'campo-total' ? (
                         <>
                           <rect x="0" y="0" width="105" height="68" />
@@ -2151,12 +2158,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                           <rect x="0" y="24.84" width="5.5" height="18.32" />
                           <circle cx="11" cy="34" r="0.2" fill="white" stroke="none" />
                           <path d="M 16.5 26.69 A 9.15 9.15 0 0 1 16.5 41.31" />
-                          <rect x="-2" y="30.34" width="2" height="7.32" strokeWidth="0.6" />
+                          <g><g strokeWidth="0.06" opacity="0.55"><line x1="-2" y1="31.25" x2="0" y2="31.25" /><line x1="-2" y1="32.17" x2="0" y2="32.17" /><line x1="-2" y1="33.09" x2="0" y2="33.09" /><line x1="-2" y1="34.00" x2="0" y2="34.00" /><line x1="-2" y1="34.91" x2="0" y2="34.91" /><line x1="-2" y1="35.83" x2="0" y2="35.83" /><line x1="-2" y1="36.74" x2="0" y2="36.74" /><line x1="-1.33" y1="30.34" x2="-1.33" y2="37.66" /><line x1="-0.67" y1="30.34" x2="-0.67" y2="37.66" /></g><path d="M 0 30.34 L -2 30.34 L -2 37.66 L 0 37.66" strokeWidth="0.25" /></g>
                           <rect x="88.5" y="13.84" width="16.5" height="40.32" />
                           <rect x="99.5" y="24.84" width="5.5" height="18.32" />
                           <circle cx="94" cy="34" r="0.2" fill="white" stroke="none" />
                           <path d="M 88.5 26.69 A 9.15 9.15 0 0 0 88.5 41.31" />
-                          <rect x="105" y="30.34" width="2" height="7.32" strokeWidth="0.6" />
+                          <g><g strokeWidth="0.06" opacity="0.55"><line x1="105" y1="31.25" x2="107" y2="31.25" /><line x1="105" y1="32.17" x2="107" y2="32.17" /><line x1="105" y1="33.09" x2="107" y2="33.09" /><line x1="105" y1="34.00" x2="107" y2="34.00" /><line x1="105" y1="34.91" x2="107" y2="34.91" /><line x1="105" y1="35.83" x2="107" y2="35.83" /><line x1="105" y1="36.74" x2="107" y2="36.74" /><line x1="105.67" y1="30.34" x2="105.67" y2="37.66" /><line x1="106.33" y1="30.34" x2="106.33" y2="37.66" /></g><path d="M 105 30.34 L 107 30.34 L 107 37.66 L 105 37.66" strokeWidth="0.25" /></g>
                           <path d="M 0 1 A 1 1 0 0 1 1 0" />
                           <path d="M 104 0 A 1 1 0 0 1 105 1" />
                           <path d="M 1 68 A 1 1 0 0 1 0 67" />
@@ -2171,12 +2178,12 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                           <rect x="24.84" y="0" width="18.32" height="5.5" />
                           <circle cx="34" cy="11" r="0.2" fill="white" stroke="none" />
                           <path d="M 26.69 16.5 A 9.15 9.15 0 0 0 41.31 16.5" />
-                          <rect x="30.34" y="-2" width="7.32" height="2" strokeWidth="0.6" />
+                          <g><g strokeWidth="0.06" opacity="0.55"><line x1="31.25" y1="-2" x2="31.25" y2="0" /><line x1="32.17" y1="-2" x2="32.17" y2="0" /><line x1="33.09" y1="-2" x2="33.09" y2="0" /><line x1="34.00" y1="-2" x2="34.00" y2="0" /><line x1="34.91" y1="-2" x2="34.91" y2="0" /><line x1="35.83" y1="-2" x2="35.83" y2="0" /><line x1="36.74" y1="-2" x2="36.74" y2="0" /><line x1="30.34" y1="-1.33" x2="37.66" y2="-1.33" /><line x1="30.34" y1="-0.67" x2="37.66" y2="-0.67" /></g><path d="M 30.34 0 L 30.34 -2 L 37.66 -2 L 37.66 0" strokeWidth="0.25" /></g>
                           <rect x="13.84" y="88.5" width="40.32" height="16.5" />
                           <rect x="24.84" y="99.5" width="18.32" height="5.5" />
                           <circle cx="34" cy="94" r="0.2" fill="white" stroke="none" />
                           <path d="M 26.69 88.5 A 9.15 9.15 0 0 1 41.31 88.5" />
-                          <rect x="30.34" y="105" width="7.32" height="2" strokeWidth="0.6" />
+                          <g><g strokeWidth="0.06" opacity="0.55"><line x1="31.25" y1="105" x2="31.25" y2="107" /><line x1="32.17" y1="105" x2="32.17" y2="107" /><line x1="33.09" y1="105" x2="33.09" y2="107" /><line x1="34.00" y1="105" x2="34.00" y2="107" /><line x1="34.91" y1="105" x2="34.91" y2="107" /><line x1="35.83" y1="105" x2="35.83" y2="107" /><line x1="36.74" y1="105" x2="36.74" y2="107" /><line x1="30.34" y1="105.67" x2="37.66" y2="105.67" /><line x1="30.34" y1="106.33" x2="37.66" y2="106.33" /></g><path d="M 30.34 105 L 30.34 107 L 37.66 107 L 37.66 105" strokeWidth="0.25" /></g>
                           <path d="M 0 1 A 1 1 0 0 1 1 0" />
                           <path d="M 67 0 A 1 1 0 0 1 68 1" />
                           <path d="M 1 105 A 1 1 0 0 1 0 104" />
@@ -2332,7 +2339,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
 
                 {zoneCreationBox && zoneCreationRef.current?.moved && (
                   <div
-                    className="absolute z-[8] pointer-events-none border-[3px] border-dashed border-white/80 bg-white/10 backdrop-blur-[1px]"
+                    className="absolute z-[8] pointer-events-none border-[3px] border-dashed border-white/80 bg-white/20 backdrop-blur-[1px]"
                     style={{
                       left: `${zoneCreationBox.left}%`,
                       top: `${zoneCreationBox.top}%`,
@@ -2401,9 +2408,11 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                     )}
                     {resizingId === item.id && item.type !== 'goal' && (
                       <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 whitespace-nowrap pointer-events-none z-20">
-                        <div className="rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
-                          {Math.round(size.width ?? 0)}% × {Math.round(size.height ?? 0)}%
-                        </div>
+                        {item.type !== 'zone' && (
+                          <div className="rounded-full bg-black/85 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
+                            {Math.round(size.width ?? 0)}% × {Math.round(size.height ?? 0)}%
+                          </div>
+                        )}
                         <div className="rounded-full bg-black/85 px-2.5 py-1 text-[9px] font-semibold text-white/80 shadow-lg">
                           Doble clic para dejar de modificar
                         </div>
@@ -2414,7 +2423,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         Doble clic para dejar de modificar
                       </div>
                     )}
-                    {isResizable && item.type !== 'goal' && (isItemSelected || resizingId === item.id) && (() => {
+                    {isResizable && item.type !== 'goal' && item.type !== 'zone' && (isItemSelected || resizingId === item.id) && (() => {
                       const pitchMeters = getPitchMeters();
                       const widthMeters = ((size.width ?? 0) / 100) * pitchMeters.width;
                       const heightMeters = ((size.height ?? 0) / 100) * pitchMeters.height;
@@ -2526,7 +2535,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       );
                     })()}
                     {item.type === 'zone' ? (
-                      <div className={`relative w-full h-full border-[3px] border-dashed border-white/60 bg-white/5 shadow-inner group-hover:border-white transition-colors ${animationClass}`}>
+                      <div className={`relative w-full h-full border-[3px] border-dashed border-white/60 bg-white/20 shadow-inner group-hover:border-white transition-colors ${animationClass}`}>
                         {showResizeHandles && (
                           <>
                             {resizeHandles.map(handle => (
