@@ -1521,7 +1521,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
 
   return (
     <div className="relative flex min-h-[calc(100vh-60px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl animate-fade-in lg:h-[calc(100vh-60px)] lg:flex-row">
-      <aside className="flex w-full flex-col gap-6 overflow-y-visible border-b border-slate-200 bg-[#f1f5f9] p-4 scrollbar-hide sm:p-5 lg:w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:overflow-y-auto">
+      <aside className="flex w-full flex-col gap-6 overflow-y-visible border-b border-slate-200 bg-[#f1f5f9] p-4 scrollbar-hide sm:p-5 lg:w-80 lg:min-w-80 lg:max-w-80 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:overflow-y-auto">
         <div className="flex flex-col gap-3">
           <h4 className="px-2 text-[8px] font-black text-slate-500 uppercase tracking-[0.1em]">TIPO DE CAMPO</h4>
           <div className="grid grid-cols-2 gap-2 px-1">
