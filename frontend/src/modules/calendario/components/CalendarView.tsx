@@ -56,6 +56,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [sessionTypeFilter, setSessionTypeFilter] = useState<string[]>([]);
   const [monthFilter, setMonthFilter] = useState<string[]>([]);
+  const [onlyWithExercises, setOnlyWithExercises] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -294,6 +295,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         return !!e.team && internalTeamNames.has(e.team.trim().toLowerCase());
       })
       .filter(e => sessionTypeFilter.length === 0 || sessionTypeFilter.includes(getSessionTypeLabel(e)))
+      .filter(e => !onlyWithExercises || (e.tasks?.length ?? 0) > 0)
       .filter(e => localidadId.length === 0 || (!!e.localidad_id && localidadId.includes(e.localidad_id)))
       .filter(e => instalacionId.length === 0 || (!!e.instalacion_campo_id && instalacionId.includes(e.instalacion_campo_id)))
       .filter(e => {
@@ -313,7 +315,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
         const db = b.date instanceof Date ? b.date : new Date(b.date);
         return da.getTime() - db.getTime();
       });
-  }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo, localidadId, instalacionId]);
+  }, [events, teamFilter, availableTeams, internalTeamNames, sessionTypeFilter, sessionDefaultLabel, monthFilter, filterDateFrom, filterDateTo, localidadId, instalacionId, onlyWithExercises]);
 
   type SessionSortKey = 'date' | 'time' | 'team' | 'type' | 'session' | 'instalacion' | 'campo' | 'players';
   const [sessionSort, setSessionSort] = useState<{ key: SessionSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'asc' });
@@ -391,6 +393,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 thumbnail: newTask.thumbnail,
                 designerSnapshot: newTask.designerSnapshot,
                 fieldStructure: newTask.fieldStructure,
+                dimensions: newTask.dimensions,
               };
               target = {
                 ...target,
@@ -407,6 +410,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                 thumbnail: newTask.thumbnail,
                 designerSnapshot: newTask.designerSnapshot,
                 fieldStructure: newTask.fieldStructure,
+                dimensions: newTask.dimensions,
               };
               target = { ...target, tasks: [...(target.tasks || []), sessionTask] };
             }
@@ -1227,6 +1231,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               {t('calendarView.sessionDataTitle')}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setOnlyWithExercises(v => !v)}
+            aria-pressed={onlyWithExercises}
+            className={`px-4 py-2.5 rounded-xl border font-black text-sm uppercase tracking-tight shadow-sm transition-all ${
+              onlyWithExercises
+                ? 'bg-[var(--accent)] border-[var(--accent)] text-white'
+                : 'bg-white border-slate-200 text-slate-400 hover:text-[var(--accent)]'
+            }`}
+          >
+            {t('calendarView.withExercises', 'CON EJERCICIOS')}
+          </button>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           {mainTab === 'sesiones' && (

@@ -1,15 +1,144 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
-import { db } from '@shared/services/dataService';
+import { db, tareasStaffCatalogoService } from '@shared/services/dataService';
+import { useAuth } from '@context/AuthContext';
 import type { TrainingTask } from '@modules/repositorio-tareas';
 import { CATEGORY_ICONS, CATEGORY_COLORS, TaskDetailModal, DesignerPreview } from '@modules/repositorio-tareas';
 import type { SessionTask } from '../types';
 import { getEmbeddedFontCss } from '../utils/pdfFonts';
 import type { Player } from '@modules/plantilla';
 import { getFirstDesignerFrame } from '@modules/entrenamientos/types';
+
+/** Nombre en minúsculas con la inicial de cada palabra en mayúscula (p. ej. "MIGUEL FUENTES" → "Miguel Fuentes"). */
+// ── Roles técnicos: cada línea "Técnico: rol" (se mantiene como texto para no cambiar el modelo) ──
+const DEFAULT_STAFF = ['Lizer', 'Raúl'];
+const DEFAULT_ROLES = ['Balones fase defensiva', 'Balones fase ofensiva'];
+const ADD_NEW = '__add__';
+
+const parseRoleLines = (text?: string): { staff: string; role: string }[] =>
+  (text || '').split('\n').filter(l => l.trim()).map(l => {
+    const i = l.indexOf(':');
+    return i < 0 ? { staff: '', role: l.trim() } : { staff: l.slice(0, i).trim(), role: l.slice(i + 1).trim() };
+  });
+const serializeRoleLines = (rows: { staff: string; role: string }[]) =>
+  rows.map(r => (r.staff ? `${r.staff}: ${r.role}` : r.role)).join('\n');
+
+const TechnicalRolesEditor: React.FC<{ value?: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const { perfil } = useAuth();
+  const clubId = perfil?.club_id;
+  const [staffList, setStaffList] = useState<string[]>(DEFAULT_STAFF);
+  const [roleList, setRoleList] = useState<string[]>(DEFAULT_ROLES);
+
+  // Catálogo compartido del club (tabla tareas_staff_catalogo)
+  useEffect(() => {
+    if (!clubId) return;
+    let cancelled = false;
+    tareasStaffCatalogoService.list({ club_id: clubId }).then(rows => {
+      if (cancelled) return;
+      const merge = (tipo: 'tecnico' | 'rol', defaults: string[]) => [
+        ...defaults,
+        ...rows.filter(r => r.tipo === tipo && !defaults.includes(r.nombre)).map(r => r.nombre),
+      ];
+      setStaffList(merge('tecnico', DEFAULT_STAFF));
+      setRoleList(merge('rol', DEFAULT_ROLES));
+    }).catch(() => { /* sin catálogo: se usan los valores por defecto */ });
+    return () => { cancelled = true; };
+  }, [clubId]);
+  const lines = parseRoleLines(value);
+  const [draft, setDraft] = useState(false); // fila nueva aún sin técnico
+  // Técnicos disponibles: catálogo + los que figuren en datos antiguos
+  const allStaff = [...staffList, ...lines.map(l => l.staff).filter((n, i, arr) => n && !staffList.includes(n) && arr.indexOf(n) === i)];
+
+  const commit = (rows: { staff: string; role: string }[]) =>
+    onChange(serializeRoleLines(rows.filter(r => r.staff || r.role)));
+  const updateRow = (i: number, patch: Partial<{ staff: string; role: string }>) =>
+    commit(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  const removeRow = (i: number) => commit(lines.filter((_, idx) => idx !== i));
+
+  const addToCatalog = (kind: 'staff' | 'role'): string | null => {
+    const name = window.prompt(kind === 'staff' ? 'Nombre del técnico' : 'Nombre del rol')?.trim().replace(/[\r\n:]+/g, ' ');
+    if (!name) return null;
+    const list = kind === 'staff' ? staffList : roleList;
+    if (!list.includes(name)) {
+      (kind === 'staff' ? setStaffList : setRoleList)([...list, name]);
+      if (clubId) {
+        tareasStaffCatalogoService
+          .create({ club_id: clubId, tipo: kind === 'staff' ? 'tecnico' : 'rol', nombre: name })
+          .catch(() => { /* ya existente o sin permisos: se mantiene en la lista local */ });
+      }
+    }
+    return name;
+  };
+
+  const pickRole = (i: number, v: string) => {
+    if (v !== ADD_NEW) return updateRow(i, { role: v });
+    const role = addToCatalog('role');
+    if (role) updateRow(i, { role });
+  };
+  const pickStaff = (i: number, v: string) => {
+    if (v !== ADD_NEW) return updateRow(i, { staff: v });
+    const staff = addToCatalog('staff');
+    if (staff) updateRow(i, { staff });
+  };
+  const pickDraftStaff = (v: string) => {
+    const staff = v === ADD_NEW ? addToCatalog('staff') : v;
+    if (!staff) return;
+    setDraft(false);
+    commit([...lines, { staff, role: '' }]);
+  };
+
+  const staffOptions = (
+    <>
+      <option value="">Seleccionar técnico…</option>
+      {allStaff.map(x => <option key={x} value={x}>{x}</option>)}
+      <option value={ADD_NEW}>+ Nuevo técnico…</option>
+    </>
+  );
+  const selectCls = 'min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1 py-1 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30';
+
+  const roleOptions = (current: string) => (
+    <>
+      <option value="">Sin rol</option>
+      {current && !roleList.includes(current) && <option value={current}>{current}</option>}
+      {roleList.map(x => <option key={x} value={x}>{x}</option>)}
+      <option value={ADD_NEW}>+ Añadir rol…</option>
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-1 flex-1 min-h-[40px] overflow-y-auto">
+      {lines.map((l, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <select value={l.staff} onChange={e => pickStaff(i, e.target.value)} className={selectCls}>
+            {staffOptions}
+          </select>
+          <select value={l.role} onChange={e => pickRole(i, e.target.value)} className={selectCls}>
+            {roleOptions(l.role)}
+          </select>
+          <button type="button" onClick={() => removeRow(i)} title="Quitar"
+            className="shrink-0 px-1 text-[12px] font-black text-slate-400 hover:text-red-500">×</button>
+        </div>
+      ))}
+      {draft && (
+        <div className="flex items-center gap-1">
+          <select value="" onChange={e => pickDraftStaff(e.target.value)} className={selectCls}>
+            {staffOptions}
+          </select>
+          <button type="button" onClick={() => setDraft(false)} title="Cancelar"
+            className="shrink-0 px-1 text-[12px] font-black text-slate-400 hover:text-red-500">×</button>
+        </div>
+      )}
+      <button type="button" onClick={() => setDraft(true)}
+        className="self-start text-[10px] font-black text-[var(--accent)] hover:underline">+ Añadir técnico</button>
+    </div>
+  );
+};
+
+const formatPlayerName =(name?: string) =>
+  (name || '').toLocaleLowerCase('es').replace(/(^|[\s'-])(\p{L})/gu, (_, sep, ch) => sep + ch.toLocaleUpperCase('es'));
 
 /** Líneas de la plantilla; `match` agrupa también las demarcaciones específicas (p. ej. Lateral → Defensas). */
 const POSITION_GROUPS = [
@@ -164,10 +293,10 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
           </div>
         )}
         <div
-          className={`flex-shrink-0 flex flex-col items-center justify-center bg-[var(--accent)] text-white ${big ? 'rounded-2xl px-10 py-4 min-w-[150px]' : 'rounded-lg px-4 py-1.5 min-w-[72px]'}`}
+          className={`flex-shrink-0 flex flex-col items-center justify-center bg-[var(--accent)] text-white ${big ? 'rounded-2xl px-8 py-3 min-w-[120px]' : 'rounded-md px-2 py-0.5 min-w-[40px]'}`}
         >
-          <span className={`${big ? 'text-[14px]' : 'text-[9px]'} font-black uppercase tracking-[0.25em] leading-none`}>Sesión</span>
-          <span className={`${big ? 'text-[56px]' : 'text-[28px]'} font-black leading-none`}>{sessionNumber ?? '-'}</span>
+          <span className={`${big ? 'text-[12px]' : 'text-[6px]'} font-black uppercase tracking-[0.2em] leading-none`}>Sesión</span>
+          <span className={`${big ? 'text-[40px]' : 'text-[15px]'} font-black leading-none`}>{sessionNumber ?? '-'}</span>
         </div>
       </div>
     );
@@ -198,6 +327,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         thumbnail: task.thumbnail,
         designerSnapshot: task.designerSnapshot,
         fieldStructure: task.fieldStructure,
+        dimensions: task.dimensions,
       },
     ]);
     setPickerOpen(false);
@@ -342,7 +472,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
             {globalIndex + 1}
           </span>
           <p className="font-black text-slate-800 text-[15px] truncate min-w-0">{task.title}</p>
-          <span className="ml-auto flex-shrink-0 border border-slate-800 rounded-full px-2.5 py-0.5 text-[11px] font-black text-slate-800">
+          <span className="ml-auto flex-shrink-0 border-2 border-slate-800 rounded-full px-3.5 py-1 text-[18px] leading-none font-black text-slate-800">
             {seriesTotal}'
           </span>
         </div>
@@ -385,17 +515,21 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         </div>
 
         {/* Fila de métricas inferior */}
-        <div className="flex-shrink-0 grid grid-cols-5 border-t-2 border-slate-400 pt-1">
+        <div className="flex-shrink-0 grid grid-cols-6 border-t-2 border-slate-400 pt-1">
           {[
-            ['Duración', `${seriesTotal}`],
-            ['Tipo', task.category || t('calendarView.notDefined')],
-            ['Nº Series', `${task.numberOfSeries ?? 0}`],
-            ['T/Serie', `${task.timePerSeries ?? 0}`],
-            ['Descanso', `${task.restBetweenSeries ?? 0}`],
-          ].map(([label, value], i) => (
-            <div key={label} className={`px-2 ${i > 0 ? 'border-l-2 border-slate-400' : ''}`}>
+            ['Tipo', task.category || t('calendarView.notDefined'), false],
+            ['Dimensiones', (task.dimensions?.length || task.dimensions?.width) ? `${task.dimensions?.length ?? '?'} x ${task.dimensions?.width ?? '?'} m` : '—', false],
+            ['Nº Series', `${task.numberOfSeries ?? 0}`, false],
+            ['T/Serie', `${task.timePerSeries ?? 0}`, false],
+            ['Descanso', `${task.restBetweenSeries ?? 0}'`, true],
+            ['Duración', `${seriesTotal}'`, true],
+          ].map(([label, value, withClock], i) => (
+            <div key={label as string} className={`px-2 ${i > 0 ? 'border-l-2 border-slate-400' : ''}`}>
               <p className="text-[11px] font-medium text-slate-500 leading-tight">{label}</p>
-              <p className="text-[15px] font-black text-slate-800 leading-tight truncate">{value}</p>
+              <p className="text-[15px] font-black text-slate-800 leading-tight truncate">
+                {withClock && <i className="fa-regular fa-clock mr-1 text-[13px] text-slate-500"></i>}
+                {value}
+              </p>
             </div>
           ))}
         </div>
@@ -465,11 +599,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <div className="flex flex-col gap-1">
                 {attendeeGroups.map(group => (
                   <div key={group.label} className="flex items-start gap-1.5">
-                    <span className="w-[62px] flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-emerald-600 pt-[3px]">{group.label}</span>
+                    <span className="w-[62px] flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-black pt-[3px]">{group.label}</span>
                     <div className="flex flex-wrap gap-1">
                       {group.players.map(player => (
                         <span key={player.id} className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight">
-                          {player.apodo || player.nombre}
+                          {formatPlayerName(player.apodo || player.nombre)}
                         </span>
                       ))}
                     </div>
@@ -484,7 +618,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
               <div className="flex flex-wrap gap-1">
                 {attendanceSummary.absentees.map(({ player, reason }) => (
                   <span key={player.id} className="text-[10px] font-bold text-red-700 bg-white border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight">
-                    {player.apodo || player.nombre} · {reason}
+                    {formatPlayerName(player.apodo || player.nombre)} · {reason}
                   </span>
                 ))}
               </div>
@@ -743,11 +877,11 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 ) : (
                   attendeeGroups.map(group => (
                     <div key={group.label} className="flex items-start gap-1.5">
-                      <span className="w-[58px] flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-emerald-500 pt-[3px]">{group.label}</span>
+                      <span className="w-[58px] flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-black pt-[3px]">{group.label}</span>
                       <div className="flex flex-wrap gap-1">
                         {group.players.map(player => (
                           <span key={player.id} className="px-1.5 py-0.5 rounded-lg bg-white border border-emerald-200 text-[11px] font-bold text-emerald-700">
-                            {player.apodo || player.nombre}
+                            {formatPlayerName(player.apodo || player.nombre)}
                           </span>
                         ))}
                       </div>
@@ -766,7 +900,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                 ) : (
                   attendanceSummary.absentees.map(({ player, reason }) => (
                     <span key={player.id} className="px-1.5 py-0.5 rounded-lg bg-white border border-red-200 text-[11px] font-bold text-red-600 flex items-center gap-1">
-                      {player.apodo || player.nombre}
+                      {formatPlayerName(player.apodo || player.nombre)}
                       <span className="text-red-400 font-black">· {reason}</span>
                     </span>
                   ))
@@ -921,9 +1055,28 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       )}
                     </div>
 
-                    {/* Series y tiempos */}
+                    {/* Dimensiones del campo + series y tiempos */}
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Series y Tiempos</p>
+                      <div className="grid grid-cols-2 gap-1">
+                        {([['length', 'Campo largo (m)'], ['width', 'Campo ancho (m)']] as const).map(([key, label]) => (
+                          <div key={key} className="flex flex-col">
+                            <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">{label}</label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={task.dimensions?.[key] ?? ''}
+                              placeholder="0"
+                              onChange={e => {
+                                const raw = e.target.value;
+                                const num = raw === '' ? undefined : Math.max(0, Number(raw));
+                                updateTask(task.id, { dimensions: { ...task.dimensions, [key]: num } });
+                              }}
+                              className="px-1 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 w-full"
+                            />
+                          </div>
+                        ))}
+                      </div>
                       <div className="grid grid-cols-3 gap-1">
                         <div className="flex flex-col">
                           <label className="text-[7px] font-bold text-slate-500 uppercase mb-0.5 truncate">Nº Series</label>
@@ -961,11 +1114,9 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                     {/* ROLES Técnicos */}
                     <div className="flex flex-col flex-1">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ROLES Técnicos</p>
-                      <textarea
-                        value={task.technicalRoles || ''}
-                        onChange={e => updateTask(task.id, { technicalRoles: e.target.value })}
-                        placeholder="Roles técnicos..."
-                        className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 flex-1 min-h-[40px]"
+                      <TechnicalRolesEditor
+                        value={task.technicalRoles}
+                        onChange={v => updateTask(task.id, { technicalRoles: v })}
                       />
                     </div>
                   </div>
@@ -1235,6 +1386,12 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                       <p className="text-[14px] font-bold text-white/40 uppercase mb-1">Descanso</p>
                       <p className="text-[20px] font-black">{fullscreenTask.restBetweenSeries ?? 0} min</p>
                     </div>
+                    {(fullscreenTask.dimensions?.length || fullscreenTask.dimensions?.width) && (
+                      <div className="rounded-xl border border-white/15 px-3 py-2 text-center col-span-3">
+                        <p className="text-[14px] font-bold text-white/40 uppercase mb-1">Campo (largo x ancho)</p>
+                        <p className="text-[20px] font-black">{fullscreenTask.dimensions?.length ?? '?'} x {fullscreenTask.dimensions?.width ?? '?'} m</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -226,7 +226,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           const pos = info.getValue();
           const style = positionStyles[pos] || positionStyles.Otros;
           return (
-            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 whitespace-nowrap">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-black whitespace-nowrap">
               <i className={`fa-solid ${style.icon} text-[10px] opacity-70 ${style.text}`}></i>
               {info.row.original.posicionJuego || pos}
             </span>

@@ -476,6 +476,13 @@ export const residenciaComedorAccesosService = createTableService<ResidenciaCome
 export const rpeRespuestasService = createTableService<RpeRespuesta>('rpe_respuestas');
 export const wellnessRespuestasService = createTableService<WellnessRespuesta>('wellness_respuestas');
 export const shareTokensService = createTableService<ShareToken>('share_tokens');
+export interface TareaStaffCatalogo {
+  id: string;
+  club_id: string;
+  tipo: 'tecnico' | 'rol';
+  nombre: string;
+}
+export const tareasStaffCatalogoService = createTableService<TareaStaffCatalogo>('tareas_staff_catalogo');
 export const objetivosIndividualesService = createTableService<ObjetivoIndividual>('objetivos_individuales');
 
 // Ejemplo de uso en un componente:

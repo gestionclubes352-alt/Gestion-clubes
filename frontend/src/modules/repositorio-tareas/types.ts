@@ -25,6 +25,12 @@ export type FieldStructure = 'campo-total' | 'ataque' | 'defensa' | 'libre';
 /** Fase de la sesión donde encaja la tarea */
 export type SessionPhase = 'Calentamiento' | 'Parte Principal' | 'Vuelta a la Calma';
 
+/** Dimensiones del espacio de la tarea, en metros */
+export interface TaskDimensions {
+  length?: number;
+  width?: number;
+}
+
 /** Material necesario para la tarea */
 export interface TaskMaterial {
   name: string;
@@ -51,6 +57,8 @@ export interface TrainingTask {
   designerSnapshot?: any[] | any[][];
   /** Estructura de campo activa al guardar el snapshot (por defecto 'campo-total' si no se especifica) */
   fieldStructure?: FieldStructure;
+  /** Dimensiones del espacio de juego en metros (largo x ancho) */
+  dimensions?: TaskDimensions;
   /** Fecha de creación (ISO) */
   createdAt: string;
   /** Fecha de última edición (ISO) */

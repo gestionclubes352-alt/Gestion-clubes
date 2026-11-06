@@ -138,7 +138,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
       className={`app-header-safe fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[var(--surface-0)]/95 backdrop-blur-xl border-b border-slate-200 dark:border-[var(--border-soft)] px-2 sm:px-3 md:px-4 lg:px-8 py-2 md:py-3 flex items-center justify-between gap-2 shadow-sm transition-colors duration-300 ${className}`}
     >
       {/* Lado izquierdo - Botón menú móvil */}
-      <div className="flex items-center gap-1.5 md:gap-4 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide">
+      <div className="flex flex-1 items-center gap-1.5 md:gap-4 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide">
                 {/* Botón de vista completa - solo desktop */}
                 <button
                   onClick={() => {
@@ -227,8 +227,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
         </div>
       </div>
 
-      {/* Lado derecho - AI Mode toggle + Toggle tema + Perfil */}
-      <div className="flex items-center gap-1 sm:gap-1.5 md:gap-3 flex-shrink-0">
+      {/* Centro - Filtro de equipos */}
+      <div className="flex items-center justify-center flex-shrink-0">
         {showTeamFilter && hasTeamOptions && (
           <div className="relative" ref={teamFilterRef}>
             <button
@@ -258,7 +258,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             </button>
 
             {isTeamFilterOpen && (
-              <div className="absolute right-0 top-full mt-2 w-[min(92vw,320px)] rounded-2xl border border-slate-200 dark:border-[var(--border-soft)] bg-white dark:bg-[var(--surface-1)] shadow-2xl overflow-hidden z-50 animate-fade-in">
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[min(92vw,320px)] rounded-2xl border border-slate-200 dark:border-[var(--border-soft)] bg-white dark:bg-[var(--surface-1)] shadow-2xl overflow-hidden z-50 animate-fade-in">
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-[var(--border-soft)] bg-slate-50/80 dark:bg-[var(--surface-2)]">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
@@ -323,7 +323,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             )}
           </div>
         )}
+      </div>
 
+      {/* Lado derecho - AI Mode toggle + Toggle tema + Perfil */}
+      <div className="flex flex-1 items-center justify-end gap-1 sm:gap-1.5 md:gap-3 min-w-0">
         {/* AI Mode Toggle */}
         {onToggleAIMode && (
           <button

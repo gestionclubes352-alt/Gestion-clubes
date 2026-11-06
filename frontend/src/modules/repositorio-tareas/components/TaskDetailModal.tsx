@@ -47,6 +47,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
         category: task.category,
         thumbnail: task.thumbnail,
         designerSnapshot: task.designerSnapshot,
+        dimensions: task.dimensions,
       });
       setPreviewUrl(task.thumbnail || '');
       setDesignerSnapshot(task.designerSnapshot);
@@ -63,6 +64,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
   if (!open) return null;
 
   const set = <K extends keyof typeof form>(key: K, val: (typeof form)[K]) => setForm(prev => ({ ...prev, [key]: val }));
+
+  const setDimension = (key: 'length' | 'width', raw: string) => {
+    const num = raw === '' ? undefined : Math.max(0, Number(raw));
+    setForm(prev => ({ ...prev, dimensions: { ...prev.dimensions, [key]: num } }));
+  };
 
   const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -197,6 +203,38 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
             </SearchableSelect>
           </div>
 
+          {/* Dimensiones */}
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block">
+              Dimensiones (m)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
+                value={form.dimensions?.length ?? ''}
+                onChange={e => setDimension('length', e.target.value)}
+                placeholder="Largo"
+                aria-label="Largo en metros"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+              <span className="text-slate-400 font-black">x</span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
+                value={form.dimensions?.width ?? ''}
+                onChange={e => setDimension('width', e.target.value)}
+                placeholder="Ancho"
+                aria-label="Ancho en metros"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+            </div>
+          </div>
+
           {/* Imagen/Diagrama */}
           <div>
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Imagen/Diagrama</label>
@@ -248,10 +286,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, open, onClose, 
             {imageMode === 'design' && (
               <div className="border-2 border-dashed border-emerald-300 rounded-xl p-4 bg-emerald-50">
                 <div className="flex flex-col items-center gap-3">
-                  <i className="fa-solid fa-paintbrush text-2xl text-emerald-600"></i>
+                  {previewUrl ? (
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={previewUrl}
+                      alt="Imagen de la tarea"
+                      className="w-full max-h-64 object-contain rounded-lg bg-white border border-emerald-200"
+                    />
+                  ) : (
+                    <i className="fa-solid fa-paintbrush text-2xl text-emerald-600"></i>
+                  )}
                   <div className="text-center">
                     <p className="text-xs font-bold text-emerald-700 mb-2">Diseñador de Tácticas</p>
-                    <p className="text-[10px] text-emerald-600 mb-3">Se abrirá el diseñador para crear tu diagrama</p>
+                    <p className="text-[10px] text-emerald-600 mb-3">
+                      {previewUrl ? 'Abre el diseñador para modificar tu diagrama' : 'Se abrirá el diseñador para crear tu diagrama'}
+                    </p>
                   </div>
                   <button
                     type="button"

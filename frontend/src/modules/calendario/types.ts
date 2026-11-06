@@ -22,6 +22,8 @@ export interface SessionTask {
   designerSnapshot?: DesignerItem[] | DesignerItem[][];
   /** Estructura de campo activa al guardar el snapshot, copiada de la tarea del repositorio */
   fieldStructure?: FieldStructure;
+  /** Dimensiones del espacio (largo x ancho, en metros), copiadas de la tarea del repositorio */
+  dimensions?: { length?: number; width?: number };
   numberOfSeries?: number;
   timePerSeries?: number;
   restBetweenSeries?: number;
