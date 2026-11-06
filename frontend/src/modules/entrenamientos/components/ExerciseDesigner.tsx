@@ -1,3 +1,4 @@
+import { PITCH_REFERENCE_WIDTH } from '../utils/pitchScale';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { DesignerItem, Exercise, GoalStyle } from '../types';
@@ -305,7 +306,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   const [isSelectedPanelOpen, setIsSelectedPanelOpen] = useState(false);
   const [activeStructure, setActiveStructure] = useState('libre');
   const [showPlayerNumbers, setShowPlayerNumbers] = useState(true);
-  const [orientationModeEnabled, setOrientationModeEnabled] = useState(true);
+  const [orientationModeEnabled, setOrientationModeEnabled] = useState(false);
   const [playerSource, setPlayerSource] = useState<'generico' | 'plantilla'>('generico');
   const [playerSize, setPlayerSize] = useState<SizePreset>('M');
   const [coneSize, setConeSize] = useState<SizePreset>('M');
@@ -1344,7 +1345,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     };
   };
   const canResizeItem = (item: DesignerItem) => item.type === 'zone' || item.type === 'goal';
-  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'coach' || item.type === 'goal';
+  const canOrientItem = (item: DesignerItem) => item.type?.startsWith('player-') || item.type === 'goal';
   const getPitchMeters = () =>
     (activeStructure === 'ataque' || activeStructure === 'defensa')
       ? { width: 68, height: 52.5 }
@@ -1364,6 +1365,20 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
 
     return `${Math.max(Math.min(260, availableWidth), Math.floor(width))}px`;
   }, [canvasSize.height, canvasSize.width, is3DView, pitchAspectValue]);
+  // Ancho real del campo en píxeles: los elementos (jugadores, material, texto...) se dibujan en un
+  // campo de referencia de PITCH_REFERENCE_WIDTH px y se escalan por este factor, de modo que su tamaño
+  // relativo al campo sea idéntico en el diseñador, la vista previa y el PDF.
+  const [pitchPxWidth, setPitchPxWidth] = useState(0);
+  useEffect(() => {
+    const node = pitchRef.current;
+    if (!node) return;
+    const update = () => setPitchPxWidth(prev => (prev === node.offsetWidth ? prev : node.offsetWidth));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [pitchCanvasWidth, is3DView, activeStructure]);
+  const pitchScale = pitchPxWidth > 0 ? pitchPxWidth / PITCH_REFERENCE_WIDTH : 1;
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   // El entrenador comparte tallas con los jugadores
   const isPlayerItem = (item?: DesignerItem | null) => !!item?.type?.startsWith('player-') || item?.type === 'coach';
@@ -2136,7 +2151,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       top: activeStructure === 'ataque' ? '10%' : '4%',
                       left: '4%',
                       width: '92%',
-                      height: activeStructure === 'campo-total' ? '92%' : '86%',
+                      height: activeStructure === 'campo-total' ? '92%' : activeStructure === 'ataque' ? '76%' : '86%',
                       overflow: 'visible',
                     }}
                     preserveAspectRatio="none"
@@ -2390,7 +2405,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       left: `${item.x}%`,
                       top: `${item.y}%`,
                       zIndex: item.zIndex,
-                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView && !item.type?.startsWith('player-') && item.type !== 'coach' ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${getEffectiveItemScale(item)})`.trim(),
+                      transform: `${item.type === 'zone' ? (is3DView ? 'translateZ(10px)' : '') : `translate(-50%, -50%) ${is3DView && !item.type?.startsWith('player-') && item.type !== 'coach' ? 'translateZ(18px)' : ''}`} rotate(${item.rotation}deg) scale(${getEffectiveItemScale(item) * (item.type === 'zone' || item.type === 'goal' ? 1 : pitchScale)})`.trim(),
                       transformStyle: 'preserve-3d',
                       width: item.type === 'goal' || item.type === 'zone' ? itemWidth : (item.width ? `${item.width}%` : 'auto'),
                       height: item.type === 'goal' || item.type === 'zone' ? itemHeight : (item.height ? `${item.height}%` : 'auto'),
@@ -2535,7 +2550,10 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                       );
                     })()}
                     {item.type === 'zone' ? (
-                      <div className={`relative w-full h-full border-[3px] border-dashed border-white/60 bg-white/20 shadow-inner group-hover:border-white transition-colors ${animationClass}`}>
+                      <div
+                        className={`relative w-full h-full border-dashed border-white/60 bg-white/20 shadow-inner group-hover:border-white transition-colors ${animationClass}`}
+                        style={{ borderWidth: `${3 * pitchScale}px` }}
+                      >
                         {showResizeHandles && (
                           <>
                             {resizeHandles.map(handle => (
@@ -2759,24 +2777,6 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
                         style={{ transform: 'translate(60%, 60%)' }}
                         title="Arrastra para girar el jugador"
                         aria-label="Girar jugador manualmente"
-                      >
-                        <i className="fa-solid fa-rotate-right text-sm"></i>
-                      </button>
-                    )}
-                    {!is3DView && item.type === 'coach' && orientationModeEnabled && isItemSelected && !item.locked && (
-                      <button
-                        type="button"
-                        data-orientation-handle="true"
-                        onPointerDown={(e) => {
-                          handleRotateStart(e, item);
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        className="absolute bottom-0 right-0 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#121212]/90 text-white shadow-lg transition-all hover:bg-[var(--accent)] hover:text-white"
-                        style={{ transform: 'translate(60%, 60%)' }}
-                        title="Arrastra para girar el entrenador"
-                        aria-label="Girar entrenador manualmente"
                       >
                         <i className="fa-solid fa-rotate-right text-sm"></i>
                       </button>

@@ -40,7 +40,7 @@ const AutoGrowTextarea: React.FC<{
   return <textarea ref={ref} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={className} rows={1} />;
 };
 const ADD_NEW = '__add__';
-const MIN_ROWS = 2; // filas visibles por defecto; el resto con "+ Seleccionar técnico"
+const MIN_ROWS = 1;// filas visibles por defecto; el resto con "+ Seleccionar técnico"
 
 const parseRoleLines = (text?: string): { staff: string; role: string }[] =>
   (text || '').split('\n').filter(l => l.trim()).map(l => {
@@ -1163,7 +1163,7 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
                         className="w-full resize-none overflow-hidden rounded-lg border border-slate-200 bg-white px-2 py-1 !text-[10px] leading-snug font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                       />
                     </div>
-                    <div className="flex flex-col flex-1 min-h-[110px]">
+                    <div className="flex flex-col flex-none mt-auto pt-16">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ROLES Técnicos</p>
                       <TechnicalRolesEditor
                         value={task.technicalRoles}
