@@ -631,8 +631,10 @@ ul, ol {
     padding-top: 3.5rem;
   }
 
-  /* Sidebar colapsado automáticamente */
-  aside {
+  /* Sidebar de navegación colapsado automáticamente.
+     Solo el sidebar principal (fixed); los paneles internos (diseñador,
+     pizarra, etc.) conservan su ancho para no quedar recortados. */
+  aside.fixed.left-0.top-0 {
     width: 72px;
   }
 
