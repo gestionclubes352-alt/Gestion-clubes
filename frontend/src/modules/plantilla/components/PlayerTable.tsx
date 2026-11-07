@@ -58,6 +58,23 @@ const getInitials = (name: string) => {
 const isImageUrl = (value: string): boolean =>
   /^(https?:\/\/|data:image\/|\/)/i.test(value);
 
+const DEFAULT_PLAYER_PHOTO = '/jugador-default.png';
+
+/** Foto del jugador; si falta o no carga, muestra la imagen por defecto. */
+const PlayerPhoto = ({ url, alt }: { url?: string | null; alt?: string }) => (
+  <img
+    loading="lazy"
+    decoding="async"
+    alt={alt ?? ''}
+    src={url && isImageUrl(url) ? url : DEFAULT_PLAYER_PHOTO}
+    onError={e => {
+      const img = e.currentTarget;
+      if (!img.src.endsWith(DEFAULT_PLAYER_PHOTO)) img.src = DEFAULT_PLAYER_PHOTO;
+    }}
+    className="w-full h-full object-cover"
+  />
+);
+
 const normalizeTeamLabel = (team: string) =>
   team
     .trim()
@@ -66,13 +83,13 @@ const normalizeTeamLabel = (team: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
-const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onBulkPhotoUpload, onRemoveBackgrounds, simplified }) => {
+const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSave, onDelete, clubId, onRemoveBackgrounds, simplified }) => {
   const { t, i18n } = useTranslation();
   const { isMobile } = useIsMobile();
   const [tileConfig] = useTileConfig();
   const isHuesca = clubId === 'escuela-huesca';
   const positionOrder = isHuesca ? huescaPositionOrder : defaultPositionOrder;
-  const [activeTab, setActiveTab] = useState<'mis' | 'rivales'>('mis');
+  const [activeTab] = useState<'mis' | 'rivales'>('mis');
   const [filterPosition, setFilterPosition] = useState('TODOS');
   const [filterClub, setFilterClub] = useState('TODOS');
   const [filterTeam, setFilterTeam] = useState('TODOS');
@@ -156,14 +173,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     });
   };
 
-  const switchTab = (tab: 'mis' | 'rivales') => {
-    setActiveTab(tab);
-    setFilterClub('TODOS');
-    if (tab === 'rivales') setFilterTeam('TODOS');
-    setFilterStatus('TODOS');
-    setFilterResidencia('TODOS');
-  };
-
   const isLoading = baseSquad.length === 0 && filterPosition === 'TODOS';
 
   const textCell = (val: string | number | undefined | null) =>
@@ -191,11 +200,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
           return (
             <div className={`w-9 h-9 rounded-xl overflow-hidden border-2 ${posStyle.border} bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-xs`}>
-              {isImageUrl(player.fotoUrl) ? (
-                <img loading="lazy" decoding="async" src={player.fotoUrl} className="w-full h-full object-cover" />
-              ) : (
-                <span>{getInitials(player.nombre)}</span>
-              )}
+              <PlayerPhoto url={player.fotoUrl} alt={player.nombre} />
             </div>
           );
         },
@@ -333,11 +338,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               className="group flex flex-col items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-2xl p-3 hover:shadow-lg hover:border-[var(--surface-3)] transition-all"
             >
               <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[var(--border-soft)] bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-sm">
-                {isImageUrl(player.fotoUrl) ? (
-                  <img loading="lazy" decoding="async" src={player.fotoUrl} className="w-full h-full object-cover" />
-                ) : (
-                  <span>{getInitials(player.nombre)}</span>
-                )}
+                <PlayerPhoto url={player.fotoUrl} alt={player.nombre} />
               </div>
               <span className="text-xs font-semibold text-[var(--text)] text-center leading-tight">{player.nombre}</span>
             </button>
@@ -354,32 +355,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
 
   return (
     <div className="flex flex-col gap-3 animate-fade-in">
-      {/* PESTAÑAS MIS PLANTILLAS / EQUIPOS RIVALES */}
-      <div className="hidden sm:flex flex-wrap items-center justify-center gap-2">
-        <button
-          onClick={() => switchTab('mis')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-            activeTab === 'mis'
-              ? 'bg-[var(--accent)] text-white shadow'
-              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-          }`}
-        >
-          <i className="fa-solid fa-shield-halved text-[10px]"></i>
-          Mis Plantillas
-        </button>
-        <button
-          onClick={() => switchTab('rivales')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-            activeTab === 'rivales'
-              ? 'bg-[#1976d2] text-white shadow'
-              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-          }`}
-        >
-          <i className="fa-solid fa-user-secret text-[10px]"></i>
-          Jugadores Rivales
-        </button>
-      </div>
-
       {/* FILTER BAR */}
       <div className="sticky top-0 z-30 bg-[var(--surface-0)]/90 backdrop-blur-xl border border-[var(--border-soft)] shadow-sm rounded-2xl p-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -517,6 +492,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             )}
           </div>
 
+          {/* REGISTROS + SELECTOR DE VISTA (juntos) */}
+          <div className="flex items-center gap-2 shrink-0">
           {/* STATS CARD COMPACTA */}
           <div className="flex items-center gap-2 bg-gradient-to-br from-[var(--surface-0)] to-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-3.5 py-2 shrink-0">
             <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white shadow-lg">
@@ -552,15 +529,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               <i className="fa-solid fa-grip text-sm"></i>
             </button>
           </div>
-          {onBulkPhotoUpload && (
-            <button
-              onClick={onBulkPhotoUpload}
-              className="inline-flex items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] hover:border-[var(--surface-3)] text-[var(--text)] px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all"
-            >
-              <i className="fa-solid fa-images text-[10px]"></i>
-              {t('bulkPhotoUpload.button')}
-            </button>
-          )}
+          </div>
           <button
             onClick={openNewPlayerCard}
             className={`inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] ${
@@ -591,6 +560,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           exportFilename="plantilla"
           loading={isLoading}
           skeletonRows={6}
+          maxHeight="calc(100vh - 340px)"
+          actionsAlignLeft
           emptyMessage={activeTab === 'rivales' ? 'Todavía no hay jugadores rivales dados de alta.' : t('playerTable.noPlayersFound')}
           emptyIcon={activeTab === 'rivales' ? 'fa-solid fa-user-secret' : 'fa-solid fa-futbol'}
           onRowClick={(player) => onEdit(player)}

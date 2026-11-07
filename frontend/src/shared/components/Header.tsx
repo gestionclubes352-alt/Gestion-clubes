@@ -233,28 +233,28 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
           <div className="relative" ref={teamFilterRef}>
             <button
               onClick={() => setIsTeamFilterOpen(prev => !prev)}
-              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-2.5 md:px-3 py-2 rounded-xl border transition-all duration-300 ${
+              className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-5 py-3 rounded-2xl border transition-all duration-300 ${
                 selectedTeams.length > 0
                   ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30 text-[var(--accent)]'
                   : 'bg-slate-50 dark:bg-[var(--surface-1)] border-slate-200 dark:border-[var(--border-soft)] text-slate-600 dark:text-slate-200 hover:border-[var(--accent)]/40'
               }`}
               title={t('header.teamFilter', 'Filtrar por equipo')}
             >
-              <i className="fa-solid fa-layer-group text-sm"></i>
-              <div className="hidden lg:flex flex-col items-start leading-none">
-                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+              <i className="fa-solid fa-layer-group text-lg"></i>
+              <div className="hidden lg:flex flex-col items-start leading-none gap-1">
+                <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   {t('header.teamFilter', 'Equipos')}
                 </span>
-                <span className="text-[10px] font-bold truncate max-w-[140px]">
+                <span className="text-sm font-bold truncate max-w-[180px]">
                   {activeTeamLabel}
                 </span>
               </div>
-              <span className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black ${
+              <span className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-xs font-black ${
                 selectedTeams.length > 0 ? 'bg-[var(--accent)] text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
               }`}>
                 {selectedTeams.length}
               </span>
-              <i className={`hidden sm:inline fa-solid fa-chevron-down text-[10px] transition-transform duration-200 ${isTeamFilterOpen ? 'rotate-180' : ''}`}></i>
+              <i className={`hidden sm:inline fa-solid fa-chevron-down text-xs transition-transform duration-200 ${isTeamFilterOpen ? 'rotate-180' : ''}`}></i>
             </button>
 
             {isTeamFilterOpen && (

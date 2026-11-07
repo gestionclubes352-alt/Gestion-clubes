@@ -1,0 +1,1618 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { CalendarEvent } from '../types';
+import type { CompetitionTeam } from '@modules/competicion';
+import type { Club } from '@modules/clubes/types';
+import type { Player } from '@modules/plantilla';
+import type { MatchReport } from '@modules/partidos/types';
+import SearchableSelect from '@shared/components/SearchableSelect';
+import MultiSelectFilter from '@shared/components/MultiSelectFilter';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
+import { db, localidadesService, instalacionesCamposService, objetivosIndividualesService } from '@shared/services/dataService';
+import type { Localidad, InstalacionCampo, ObjetivoIndividual } from '@shared/services/dataService';
+import { getPlayerSessionAttendance, hasRecordedAttendance, isSelectiveAttendanceSession } from '../utils/attendance';
+import { getFederationTeamLogo, normalizeFederationTeamName } from '@modules/competicion/data/teamLogos';
+
+interface GestionCalendarViewProps {
+  events: CalendarEvent[];
+  onCreateEvent?: (date?: Date) => void;
+  onClickEvent?: (event: CalendarEvent) => void;
+  onDeleteEvent?: (id: string | number) => void;
+  onSaveEvent?: (event: CalendarEvent) => void;
+  competitionTeams?: CompetitionTeam[];
+  clubes?: Club[];
+  players?: Player[];
+  ownClubId?: string;
+  showFilters?: boolean;
+}
+
+const OBJETIVO_EVENT_PREFIX = 'obj:';
+const isObjetivoEvent = (ev: { id: string | number }) => String(ev.id).startsWith(OBJETIVO_EVENT_PREFIX);
+const OBJETIVO_TIPO_LABEL: Record<string, string> = {
+  deportivo: 'Deportivo',
+  psicologico: 'Psicológico',
+  habitos: 'Hábitos',
+  academico: 'Académico',
+};
+const OBJETIVO_ESTADO_LABEL: Record<string, string> = { verde: 'Verde', naranja: 'Naranja', rojo: 'Rojo' };
+const OBJETIVO_ACCION_LABEL: Record<string, string> = {
+  reunion: 'Reunión',
+  video: 'Vídeo',
+  sesion_individual: 'Sesión individual',
+  sesion_colectiva: 'Sesión colectiva',
+  sesion_grupal: 'Sesión grupal',
+};
+
+const EVENT_BADGE_COLORS: Record<string, string> = {
+  Objetivo: 'bg-rose-100 text-rose-700 border-rose-200',
+  Entrenamiento: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  Partido: 'bg-red-100 text-red-700 border-red-200',
+  Reunión: 'bg-purple-100 text-purple-700 border-purple-200',
+  Otro: 'bg-gray-100 text-gray-700 border-gray-200',
+  Descanso: 'bg-green-100 text-green-700 border-green-200',
+  Actividad: 'bg-amber-100 text-amber-700 border-amber-200',
+};
+
+const EVENT_THICK_COLORS: Record<string, string> = {
+  Objetivo: 'bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-400',
+  Entrenamiento: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-400',
+  Partido: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-400',
+  Reunión: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-400',
+  Otro: 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-400',
+  Descanso: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-400',
+  Actividad: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-400',
+};
+
+const EVENT_DELETE_HOVER_COLORS: Record<string, { color: string; hoverBg: string }> = {
+  Entrenamiento: { color: 'rgb(52, 211, 153)', hoverBg: 'rgb(16, 185, 129)' },
+  Partido: { color: 'rgb(248, 113, 113)', hoverBg: 'rgb(239, 68, 68)' },
+  Reunión: { color: 'rgb(192, 132, 252)', hoverBg: 'rgb(147, 51, 234)' },
+  Otro: { color: 'rgb(156, 163, 175)', hoverBg: 'rgb(107, 114, 128)' },
+  Descanso: { color: 'rgb(74, 222, 128)', hoverBg: 'rgb(34, 197, 94)' },
+  Actividad: { color: 'rgb(251, 191, 36)', hoverBg: 'rgb(217, 119, 6)' },
+};
+
+const EVENT_DOT_COLORS: Record<string, string> = {
+  Objetivo: 'bg-rose-500',
+  Entrenamiento: 'bg-emerald-500',
+  Partido: 'bg-red-500',
+  Reunión: 'bg-purple-500',
+  Otro: 'bg-gray-500',
+  Descanso: 'bg-green-500',
+  Actividad: 'bg-amber-500',
+};
+
+// Paleta de colores por equipo: cada equipo distinto recibe un color estable,
+// asignado por hash del nombre, para diferenciar visualmente sus eventos en el calendario.
+const TEAM_COLOR_PALETTE: { thick: string; badge: string; dot: string; delColor: string; delHover: string }[] = [
+  { thick: 'bg-sky-100 text-sky-800 hover:bg-sky-200 border-sky-400', badge: 'bg-sky-100 text-sky-700 border-sky-200', dot: 'bg-sky-500', delColor: 'rgb(56,189,248)', delHover: 'rgb(2,132,199)' },
+  { thick: 'bg-violet-100 text-violet-800 hover:bg-violet-200 border-violet-400', badge: 'bg-violet-100 text-violet-700 border-violet-200', dot: 'bg-violet-500', delColor: 'rgb(167,139,250)', delHover: 'rgb(124,58,237)' },
+  { thick: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-400', badge: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500', delColor: 'rgb(251,146,60)', delHover: 'rgb(234,88,12)' },
+  { thick: 'bg-teal-100 text-teal-800 hover:bg-teal-200 border-teal-400', badge: 'bg-teal-100 text-teal-700 border-teal-200', dot: 'bg-teal-500', delColor: 'rgb(45,212,191)', delHover: 'rgb(13,148,136)' },
+  { thick: 'bg-pink-100 text-pink-800 hover:bg-pink-200 border-pink-400', badge: 'bg-pink-100 text-pink-700 border-pink-200', dot: 'bg-pink-500', delColor: 'rgb(244,114,182)', delHover: 'rgb(219,39,119)' },
+  { thick: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-400', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500', delColor: 'rgb(129,140,248)', delHover: 'rgb(79,70,229)' },
+  { thick: 'bg-lime-100 text-lime-800 hover:bg-lime-200 border-lime-400', badge: 'bg-lime-100 text-lime-700 border-lime-200', dot: 'bg-lime-500', delColor: 'rgb(163,230,53)', delHover: 'rgb(101,163,13)' },
+  { thick: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-cyan-400', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200', dot: 'bg-cyan-500', delColor: 'rgb(34,211,238)', delHover: 'rgb(8,145,178)' },
+  { thick: 'bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200 border-fuchsia-400', badge: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200', dot: 'bg-fuchsia-500', delColor: 'rgb(232,121,249)', delHover: 'rgb(192,38,211)' },
+  { thick: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-400', badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500', delColor: 'rgb(251,191,36)', delHover: 'rgb(217,119,6)' },
+];
+
+const hashTeamKey = (key: string): number => {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+};
+
+const getTeamColor = (teamKey: string | undefined) => {
+  if (!teamKey) return null;
+  return TEAM_COLOR_PALETTE[hashTeamKey(teamKey) % TEAM_COLOR_PALETTE.length];
+};
+
+const formatEventLabel = (time?: string, team?: string, fallbackTime = '--:--') => {
+  const hour = time || fallbackTime;
+  return team ? `${hour} - ${team}` : hour;
+};
+
+const getEventActivity = (event: CalendarEvent): string => {
+  if (event.type === 'Partido') {
+    return (event.competition || '').trim();
+  }
+
+  if (event.type === 'Sesión' || event.type === 'Entrenamiento') {
+    return (event.title || '').trim();
+  }
+
+  return '';
+};
+
+const normalizeTeamKey = (value?: string | number | null) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCreateEvent, onClickEvent, onDeleteEvent, onSaveEvent, competitionTeams = [], clubes = [], players = [], ownClubId, showFilters = true }) => {
+  const { t, i18n } = useTranslation();
+  const monthNames = t('calendarView.months', { returnObjects: true }) as string[];
+  const dayNames = t('calendarView.daysAbbr', { returnObjects: true }) as string[];
+
+  const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
+  const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
+  const clubLogoByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, logoUrl?: string) => {
+      if (!name || !logoUrl) return;
+      map.set(normalizeFederationTeamName(name), logoUrl);
+    };
+
+    clubes.forEach((club) => {
+      register(club.nombre, club.logoUrl || getFederationTeamLogo(club.nombre));
+    });
+    competitionTeams.forEach((team) => {
+      const logoUrl = team.clubId != null
+        ? clubLogoById.get(String(team.clubId))
+        : undefined;
+      register(team.nombre, logoUrl);
+      register(team.nombreEnFed, logoUrl);
+    });
+
+    return map;
+  }, [clubes, competitionTeams, clubLogoById]);
+  const clubNameByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    competitionTeams.forEach((team) => {
+      const teamName = team.equipo || team.nombre;
+      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
+      if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
+    });
+    return map;
+  }, [competitionTeams, clubNameById]);
+  const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
+    (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
+  const resolveClubLogo = (clubId?: string): string | undefined =>
+    clubId ? clubLogoById.get(String(clubId)) : undefined;
+  const resolveTeamLogo = (clubId?: string, ...teamNames: Array<string | undefined>): string | undefined => {
+    const clubLogo = resolveClubLogo(clubId);
+    if (clubLogo) return clubLogo;
+
+    for (const teamName of teamNames) {
+      if (!teamName) continue;
+      const normalizedName = normalizeFederationTeamName(teamName);
+      const logoUrl = clubLogoByTeamName.get(normalizedName);
+      if (logoUrl) return logoUrl;
+    }
+
+    return undefined;
+  };
+  const internalNameByFedName = useMemo(() => {
+    const map = new Map<string, string>();
+    competitionTeams.forEach((team) => {
+      const fedName = team.nombreEnFed?.trim().toLowerCase();
+      const internalName = (team.equipo || team.nombre || '').trim();
+      if (fedName && internalName) map.set(fedName, internalName);
+    });
+    return map;
+  }, [competitionTeams]);
+  const resolveTeamDisplayName = (teamName?: string): string => {
+    if (!teamName) return '';
+    return internalNameByFedName.get(teamName.trim().toLowerCase()) || teamName;
+  };
+
+  const findCompetitionTeamForSide = (teamName?: string, clubId?: string): CompetitionTeam | undefined => {
+    const key = normalizeTeamKey(teamName);
+    const matchesName = (team: CompetitionTeam) =>
+      [team.equipo, team.nombreEnFed, team.nombre].some(value => normalizeTeamKey(value) === key);
+
+    if (clubId) {
+      const teamsByClub = competitionTeams.filter(team => String(team.clubId ?? '') === String(clubId));
+      const exact = teamsByClub.find(matchesName) || (teamsByClub.length === 1 ? teamsByClub[0] : undefined);
+      if (exact) return exact;
+    }
+
+    return competitionTeams.find(matchesName);
+  };
+
+  const resolveMatchSideDisplay = (event: CalendarEvent, teamName?: string, clubId?: string) => {
+    const team = findCompetitionTeamForSide(teamName, clubId);
+    const rawName = teamName || '';
+    const clubName =
+      (clubId && clubNameById.get(String(clubId))) ||
+      resolveClubLabel(rawName, clubId) ||
+      team?.nombre ||
+      rawName;
+    const isOwnSide = !!ownClubId && !!clubId && String(clubId) === String(ownClubId);
+    const federationName =
+      team?.nombreEnFed && normalizeTeamKey(team.nombreEnFed) !== normalizeTeamKey(clubName)
+        ? team.nombreEnFed
+        : '';
+    const teamDisplayName =
+      (isOwnSide ? resolveTeamDisplayName(event.nombreInterno || event.team) : '') ||
+      team?.equipo ||
+      team?.etapa ||
+      federationName ||
+      resolveTeamDisplayName(rawName) ||
+      rawName;
+
+    return { clubName, teamName: teamDisplayName };
+  };
+  // Equipos propios del club: `competitionTeams` incluye también equipos rivales
+  // dados de alta para programar amistosos, así que hay que filtrar por clubId
+  // para quedarnos solo con los que son realmente del propio club.
+  const internalCompetitionTeams = useMemo(
+    () => competitionTeams.filter((team) => String(team.clubId ?? '') === String(ownClubId ?? '')),
+    [competitionTeams, ownClubId]
+  );
+  // Nombres de los equipos propios del club (los que aparecen en Competición), para
+  // detectar cuál de los dos lados de un partido es "nuestro" equipo sin importar si juega en casa o fuera.
+  // Mapa nombre normalizado -> nombre canónico, para que un mismo equipo interno
+  // siempre reciba la misma clave de color sin importar de qué campo del evento
+  // (team, nombreInterno, localTeam o visitorTeam) ni con qué mayúsculas/espacios venga.
+  const internalTeamCanonicalByName = useMemo(() => {
+    const map = new Map<string, string>();
+    internalCompetitionTeams.forEach((team) => {
+      const canonical = (team.equipo || team.nombre || '').trim();
+      if (canonical) map.set(canonical.toLowerCase(), canonical);
+    });
+    return map;
+  }, [internalCompetitionTeams]);
+  const getEventTeamKey = (ev: CalendarEvent): string | undefined => {
+    if (ev.type === 'Partido') {
+      const candidates = [
+        ev.team,
+        ev.nombreInterno,
+        resolveTeamDisplayName(ev.localTeam),
+        resolveTeamDisplayName(ev.visitorTeam),
+      ];
+      for (const candidate of candidates) {
+        const canonical = candidate && internalTeamCanonicalByName.get(candidate.trim().toLowerCase());
+        if (canonical) return canonical;
+      }
+      return resolveTeamDisplayName(ev.localTeam) || ev.localTeam || ev.team || undefined;
+    }
+    const canonical = ev.team && internalTeamCanonicalByName.get(ev.team.trim().toLowerCase());
+    return canonical || ev.team;
+  };
+
+  const teamAliasesByCompetitionTeamId = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    internalCompetitionTeams.forEach(team => {
+      const aliases = [team.id, team.equipo, team.nombre, team.nombreEnFed]
+        .map(normalizeTeamKey)
+        .filter(Boolean);
+      map.set(String(team.id), new Set(aliases));
+    });
+    return map;
+  }, [internalCompetitionTeams]);
+
+  const getPlayerTeamAliases = (player: Player) => {
+    const aliases = [player.equipoId, player.equipo, player.club]
+      .map(normalizeTeamKey)
+      .filter(Boolean);
+
+    if (player.equipoId) {
+      const teamAliases = teamAliasesByCompetitionTeamId.get(String(player.equipoId));
+      if (teamAliases) aliases.push(...teamAliases);
+    }
+
+    return new Set(aliases);
+  };
+
+  const getEventTeamAliases = (event: CalendarEvent) => {
+    const aliases = [
+      event.team,
+      event.nombreInterno,
+      event.localTeam,
+      event.visitorTeam,
+      getEventTeamKey(event),
+      resolveTeamDisplayName(event.team),
+      resolveTeamDisplayName(event.localTeam),
+      resolveTeamDisplayName(event.visitorTeam),
+    ]
+      .map(normalizeTeamKey)
+      .filter(Boolean);
+
+    return new Set(aliases);
+  };
+
+  const playerMatchesEventTeam = (event: CalendarEvent, player: Player) => {
+    const playerTeamAliases = getPlayerTeamAliases(player);
+    if (playerTeamAliases.size === 0) return true;
+
+    const eventTeamAliases = getEventTeamAliases(event);
+    if (eventTeamAliases.size === 0) return true;
+
+    return Array.from(playerTeamAliases).some(alias => eventTeamAliases.has(alias));
+  };
+
+  const samePlayerId = (a: string | number | undefined, b: string | number | undefined) =>
+    a !== undefined && b !== undefined && String(a) === String(b);
+
+  const reportHasParticipationData = (report: MatchReport) =>
+    (report.lineupPositions || []).some(pos => (pos.playerIds || []).length > 0) ||
+    (report.substitutions || []).some(sub => sub.playerInId !== undefined || sub.playerOutId !== undefined) ||
+    (report.matchGoals || []).some(goal => goal.playerId !== undefined) ||
+    (report.matchCards || []).some(card => card.playerId !== undefined) ||
+    (report.videoEvents || []).some(videoEvent => videoEvent.playerId !== undefined);
+
+  const playerParticipatesInMatchReport = (report: MatchReport, playerId: string | number) => {
+    if ((report.notConvocadoIds || []).some(id => samePlayerId(id, playerId))) return false;
+
+    return (
+      (report.lineupPositions || []).some(pos => (pos.playerIds || []).some(id => samePlayerId(id, playerId))) ||
+      (report.substitutions || []).some(sub => samePlayerId(sub.playerInId, playerId) || samePlayerId(sub.playerOutId, playerId)) ||
+      (report.matchGoals || []).some(goal => samePlayerId(goal.playerId, playerId)) ||
+      (report.matchCards || []).some(card => samePlayerId(card.playerId, playerId)) ||
+      (report.videoEvents || []).some(videoEvent => samePlayerId(videoEvent.playerId, playerId))
+    );
+  };
+
+  const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
+  const [matchReportsLoaded, setMatchReportsLoaded] = useState(false);
+  const matchReportById = useMemo(
+    () => new Map(matchReports.map(report => [String(report.id), report])),
+    [matchReports]
+  );
+
+  const playerParticipatesInEvent = (event: CalendarEvent, player: Player) => {
+    if (event.type === 'Partido') {
+      const report = matchReportById.get(String(event.id));
+      if (report) {
+        if ((report.notConvocadoIds || []).some(id => samePlayerId(id, player.id))) return false;
+        if (reportHasParticipationData(report)) return playerParticipatesInMatchReport(report, player.id);
+      }
+      return playerMatchesEventTeam(event, player);
+    }
+
+    if (hasRecordedAttendance(event)) {
+      const attendance = getPlayerSessionAttendance(event, player.id);
+      if (attendance.status !== undefined || isSelectiveAttendanceSession(event)) {
+        return attendance.counted && attendance.attended;
+      }
+    }
+
+    if (isSelectiveAttendanceSession(event)) {
+      return false;
+    }
+
+    return playerMatchesEventTeam(event, player);
+  };
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    return new Date();
+  });
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('week');
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+
+  const generateUUID = (): string => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  const handleDuplicateEvent = (ev: CalendarEvent) => {
+    if (!onSaveEvent) return;
+    const duplicated: CalendarEvent = {
+      ...ev,
+      id: generateUUID(),
+      tasks: [],
+      attendance: {},
+    };
+    onSaveEvent(duplicated);
+    onClickEvent?.(duplicated);
+  };
+
+  const handleEventDragStart = (e: React.DragEvent, ev: CalendarEvent) => {
+    setDraggedEvent(ev);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleEventDragEnd = () => {
+    setDraggedEvent(null);
+    setDragOverSlot(null);
+  };
+
+  const handleSlotDragOver = (e: React.DragEvent, slotKey: string) => {
+    if (!draggedEvent) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot(slotKey);
+  };
+
+  const handleSlotDragLeave = () => {
+    setDragOverSlot(null);
+  };
+
+  const handleSlotDrop = (e: React.DragEvent, date: Date, hour?: number) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+    if (!draggedEvent || !onSaveEvent) return;
+    const newDate = new Date(date);
+    const currentTime = parseEventTime(draggedEvent.time);
+    if (hour !== undefined) {
+      newDate.setHours(hour, currentTime?.minute ?? 0, 0, 0);
+    }
+    const newTime = hour !== undefined
+      ? `${String(hour).padStart(2, '0')}:${String(currentTime?.minute ?? 0).padStart(2, '0')}`
+      : draggedEvent.time;
+    const sameDay = draggedEvent.date instanceof Date
+      ? draggedEvent.date.toDateString() === newDate.toDateString()
+      : new Date(draggedEvent.date).toDateString() === newDate.toDateString();
+    if (!sameDay || newTime !== draggedEvent.time) {
+      onSaveEvent({ ...draggedEvent, date: newDate, time: newTime });
+    }
+    setDraggedEvent(null);
+  };
+
+  const [teamFilter, setTeamFilter] = useState<string[]>([]);
+  const [playerFilter, setPlayerFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>(['Partido', 'Sesión']);
+  const [activityFilter, setActivityFilter] = useState<string[]>([]);
+  const [monthFilter, setMonthFilter] = useState<string[]>([]);
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [localidadId, setLocalidadId] = useState<string[]>([]);
+  const [instalacionPrincipalId, setInstalacionPrincipalId] = useState<string[]>([]);
+  const [instalacionId, setInstalacionId] = useState<string[]>([]);
+  const [localidades, setLocalidades] = useState<Localidad[]>([]);
+  const [instalaciones, setInstalaciones] = useState<InstalacionCampo[]>([]);
+  const [filtersVisible, setFiltersVisible] = useState(true);
+  const [showObjetivos, setShowObjetivos] = useState(false);
+  const [objetivos, setObjetivos] = useState<ObjetivoIndividual[]>([]);
+  const [objetivosLoaded, setObjetivosLoaded] = useState(false);
+  const openEvent = (ev: CalendarEvent) => {
+    setSelectedEvent(ev);
+    if (!isObjetivoEvent(ev)) onClickEvent?.(ev);
+  };
+
+  const instalacionesPrincipales = useMemo(
+    () => instalaciones.filter(i => !i.parent_instalacion_id && (localidadId.length === 0 || (!!i.localidad_id && localidadId.includes(i.localidad_id)))),
+    [instalaciones, localidadId]
+  );
+  const camposDisponibles = useMemo(
+    () => instalaciones.filter(i => !!i.parent_instalacion_id && (instalacionPrincipalId.length === 0 || instalacionPrincipalId.includes(i.parent_instalacion_id as string))),
+    [instalaciones, instalacionPrincipalId]
+  );
+  const campoParentMap = useMemo(
+    () => new Map(instalaciones.filter(i => i.parent_instalacion_id).map(i => [i.id, i.parent_instalacion_id as string])),
+    [instalaciones]
+  );
+  const instalacionesById = useMemo(
+    () => new Map(instalaciones.map(i => [i.id, i])),
+    [instalaciones]
+  );
+  const getInstalacionYCampo = (ev: { instalacion_campo_id?: string }) => {
+    if (!ev.instalacion_campo_id) return { instalacionNombre: '', campoNombre: '' };
+    const seleccionado = instalacionesById.get(ev.instalacion_campo_id);
+    if (!seleccionado) return { instalacionNombre: '', campoNombre: '' };
+    if (seleccionado.parent_instalacion_id) {
+      const principal = instalacionesById.get(seleccionado.parent_instalacion_id);
+      return { instalacionNombre: principal?.nombre || '', campoNombre: seleccionado.nombre || '' };
+    }
+    return { instalacionNombre: seleccionado.nombre || '', campoNombre: '' };
+  };
+  const localidadesById = useMemo(() => new Map(localidades.map(l => [l.id, l])), [localidades]);
+  const resolveEventLocationLabel = (ev: CalendarEvent): string | null => {
+    const localidad = ev.localidad_id ? localidadesById.get(ev.localidad_id) : undefined;
+    const { instalacionNombre, campoNombre } = getInstalacionYCampo(ev);
+    const parts = [instalacionNombre, campoNombre, localidad?.nombre].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  };
+
+  useEffect(() => {
+    if (instalacionPrincipalId.length === 0) return;
+    setInstalacionId((prev) => {
+      const next = prev.filter((id) => instalacionPrincipalId.includes(campoParentMap.get(id) || ''));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [instalacionPrincipalId, campoParentMap]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const locs = await localidadesService.list();
+        const insts = await instalacionesCamposService.list();
+        if (locs) setLocalidades(locs as Localidad[]);
+        if (insts) setInstalaciones(insts as InstalacionCampo[]);
+      } catch (err) {
+        console.error('Error al cargar localidades e instalaciones:', err);
+      }
+    })();
+  }, []);
+
+  const availableTeams = useMemo(() => {
+    const teams = new Set<string>();
+    internalCompetitionTeams.forEach(team => {
+      const name = (team.equipo || team.nombre || '').trim();
+      if (name) teams.add(name);
+    });
+    return Array.from(teams).sort(compareEquipoNames);
+  }, [internalCompetitionTeams]);
+
+  const availablePlayers = useMemo(() => {
+    const selectedTeamKeys = new Set(teamFilter.map(normalizeTeamKey));
+    const selectedTeamIds = new Set<string>();
+    const selectedTeamNames = new Set<string>();
+
+    if (teamFilter.length > 0) {
+      selectedTeamKeys.forEach(key => selectedTeamNames.add(key));
+      internalCompetitionTeams.forEach(team => {
+        const teamNames = [team.equipo, team.nombre, team.nombreEnFed]
+          .map(normalizeTeamKey)
+          .filter(Boolean);
+
+        if (teamNames.some(name => selectedTeamKeys.has(name))) {
+          selectedTeamIds.add(String(team.id));
+          teamNames.forEach(name => selectedTeamNames.add(name));
+        }
+      });
+    }
+
+    return [...players]
+      .filter(player => player.nombre || player.apodo)
+      .filter(player => {
+        if (teamFilter.length === 0) return true;
+
+        const playerTeamId = player.equipoId ? String(player.equipoId) : '';
+        if (playerTeamId && selectedTeamIds.has(playerTeamId)) return true;
+
+        const playerTeamKey = normalizeTeamKey(player.equipo);
+        return Boolean(playerTeamKey && selectedTeamNames.has(playerTeamKey));
+      })
+      .sort((a, b) => (a.apodo || a.nombre).localeCompare(b.apodo || b.nombre));
+  }, [players, teamFilter, internalCompetitionTeams]);
+
+  useEffect(() => {
+    setPlayerFilter((prev) => {
+      const next = prev.filter((id) => availablePlayers.some(player => String(player.id) === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availablePlayers]);
+
+  useEffect(() => {
+    setTeamFilter((prev) => {
+      const next = prev.filter((v) => availableTeams.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availableTeams]);
+
+  useEffect(() => {
+    if (playerFilter.length === 0 || matchReportsLoaded) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await db.match_reports.get();
+        if (!cancelled) setMatchReports((data as MatchReport[]) || []);
+      } catch (err) {
+        console.error('No se pudieron cargar los informes de partido para el filtro de jugador', err);
+        if (!cancelled) setMatchReports([]);
+      } finally {
+        if (!cancelled) setMatchReportsLoaded(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [playerFilter, matchReportsLoaded]);
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    events.forEach(ev => { if (ev.type) types.add(ev.type); });
+    if (showObjetivos) types.add('Objetivo');
+    return Array.from(types).sort((a, b) => a.localeCompare(b));
+  }, [events, showObjetivos]);
+
+  const availableActivities = useMemo(() => {
+    const relevantTypes: string[] = typeFilter.filter((t) => t === 'Partido' || t === 'Sesión' || t === 'Entrenamiento');
+    if (relevantTypes.length === 0) {
+      return [];
+    }
+
+    const activities = new Set<string>();
+    events.forEach(ev => {
+      if (!ev.type || !relevantTypes.includes(ev.type)) return;
+      const activity = getEventActivity(ev);
+      if (activity) activities.add(activity);
+    });
+
+    return Array.from(activities).sort((a, b) => a.localeCompare(b));
+  }, [events, typeFilter]);
+
+  useEffect(() => {
+    setActivityFilter((prev) => {
+      const next = prev.filter((v) => availableActivities.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availableActivities]);
+
+  // Objetivos individuales: desactivados por defecto; al activar el botón se cargan y se
+  // muestran como eventos sintéticos (solo lectura) de todos los jugadores.
+  useEffect(() => {
+    if (!showObjetivos || objetivosLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await objetivosIndividualesService.list();
+        if (!cancelled) setObjetivos((data as ObjetivoIndividual[]) || []);
+      } catch (err) {
+        console.error('No se pudieron cargar los objetivos individuales', err);
+        if (!cancelled) setObjetivos([]);
+      } finally {
+        if (!cancelled) setObjetivosLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showObjetivos, objetivosLoaded]);
+
+  const objetivoEvents = useMemo<CalendarEvent[]>(() => {
+    if (!showObjetivos) return [];
+    const playersById = new Map(players.map(p => [String(p.id), p]));
+    const teamNameById = new Map(
+      internalCompetitionTeams.map(team => [String(team.id), (team.equipo || team.nombre || '').trim()])
+    );
+    const toDate = (fecha: string) => {
+      const [y, m, d] = String(fecha).slice(0, 10).split('-').map(Number);
+      return new Date(y, (m || 1) - 1, d || 1);
+    };
+    const result: CalendarEvent[] = [];
+    objetivos.forEach(o => {
+      if (!o.fecha) return;
+      const player = playersById.get(String(o.jugador_id));
+      const playerName = player ? (player.apodo || player.nombre) : 'Jugador';
+      const team = teamNameById.get(String(o.equipo_id)) || player?.equipo || undefined;
+      const tipo = OBJETIVO_TIPO_LABEL[o.tipo] || o.tipo;
+      const base = { type: 'Objetivo' as unknown as CalendarEvent['type'], time: '', team, jugadorId: String(o.jugador_id) };
+      result.push({
+        ...base,
+        id: `${OBJETIVO_EVENT_PREFIX}${o.id}`,
+        title: `🎯 ${playerName} · ${o.nombre_objetivo?.trim() || tipo}`,
+        date: toDate(o.fecha),
+        notes: [`Estado: ${OBJETIVO_ESTADO_LABEL[o.estado] || o.estado}`, o.detalle].filter(Boolean).join('\n'),
+      } as CalendarEvent);
+      (o.acciones || []).forEach(a => {
+        if (!a.fecha) return;
+        const esEval = a.categoria === 'evaluacion';
+        const label = esEval ? 'Evaluación' : (OBJETIVO_ACCION_LABEL[a.tipo || 'reunion'] || 'Acción');
+        result.push({
+          ...base,
+          id: `${OBJETIVO_EVENT_PREFIX}${o.id}:${a.id}`,
+          title: `🎯 ${playerName} · ${o.nombre_objetivo?.trim() || tipo} (${label})`,
+          date: toDate(a.fecha),
+          notes: [`Objetivo ${o.nombre_objetivo?.trim() || tipo}`, esEval && a.estado ? `Estado: ${OBJETIVO_ESTADO_LABEL[a.estado] || a.estado}` : '', a.detalle]
+            .filter(Boolean).join('\n'),
+        } as CalendarEvent);
+      });
+    });
+    return result;
+  }, [showObjetivos, objetivos, players, internalCompetitionTeams]);
+
+  const allEvents = useMemo(
+    () => (objetivoEvents.length > 0 ? [...events, ...objetivoEvents] : events),
+    [events, objetivoEvents]
+  );
+
+  const filteredEvents = useMemo(() => {
+    const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
+    const dateTo = filterDateTo ? new Date(filterDateTo) : null;
+
+    return allEvents.filter(ev => {
+      if (isObjetivoEvent(ev)) {
+        if (!typeFilter.includes('Objetivo')) return false;
+        if (playerFilter.length > 0 && !playerFilter.includes((ev as CalendarEvent & { jugadorId?: string }).jugadorId || '')) return false;
+        if (teamFilter.length > 0 && !(ev.team && teamFilter.includes(ev.team))) return false;
+        const od = ev.date instanceof Date ? ev.date : new Date(ev.date);
+        if (monthFilter.length > 0 && !monthFilter.includes(String(od.getMonth()))) return false;
+        if (dateFrom && od < dateFrom) return false;
+        if (dateTo) {
+          const end = new Date(dateTo);
+          end.setHours(23, 59, 59, 999);
+          if (od > end) return false;
+        }
+        return true;
+      }
+      if (!ev.type || !typeFilter.includes(ev.type)) return false;
+      if (activityFilter.length > 0 && !activityFilter.includes(getEventActivity(ev))) return false;
+      if (localidadId.length > 0 && (!ev.localidad_id || !localidadId.includes(ev.localidad_id))) return false;
+      if (instalacionPrincipalId.length > 0) {
+        const matchesPrincipal = (!!ev.instalacion_campo_id && instalacionPrincipalId.includes(ev.instalacion_campo_id))
+          || (ev.instalacion_campo_id ? instalacionPrincipalId.includes(campoParentMap.get(ev.instalacion_campo_id) || '') : false);
+        if (!matchesPrincipal) return false;
+      }
+      if (instalacionId.length > 0 && (!ev.instalacion_campo_id || !instalacionId.includes(ev.instalacion_campo_id))) return false;
+      if (teamFilter.length > 0) {
+        if (!teamFilter.includes(getEventTeamKey(ev))) return false;
+      }
+      if (playerFilter.length > 0) {
+        const selectedPlayers = players.filter(player => playerFilter.includes(String(player.id)));
+        if (selectedPlayers.length === 0 || !selectedPlayers.some(player => playerParticipatesInEvent(ev, player))) return false;
+      }
+      const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
+      if (monthFilter.length > 0 && !monthFilter.includes(String(d.getMonth()))) return false;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo) {
+        const dateToEnd = new Date(dateTo);
+        dateToEnd.setHours(23, 59, 59, 999);
+        if (d > dateToEnd) return false;
+      }
+      return true;
+    });
+  }, [allEvents, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById, localidadId, instalacionPrincipalId, instalacionId, campoParentMap]);
+
+  const teamColorLegend = useMemo(() => {
+    const keys = new Set<string>();
+    filteredEvents.forEach(ev => {
+      const key = getEventTeamKey(ev);
+      if (key) keys.add(key);
+    });
+    return Array.from(keys)
+      .sort((a, b) => a.localeCompare(b))
+      .map(key => ({ key, color: getTeamColor(key)! }));
+  }, [filteredEvents, competitionTeams]);
+
+  const eventsByDay = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {};
+    filteredEvents.forEach(ev => {
+      const d = ev.date instanceof Date ? ev.date : new Date(ev.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(ev);
+    });
+    return map;
+  }, [filteredEvents]);
+
+  const today = new Date();
+  const isToday = (date: Date) =>
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+
+  const weekStart = useMemo(() => {
+    const base = new Date(currentMonth);
+    const start = new Date(base);
+    start.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, [currentMonth]);
+
+  const scheduleDays = useMemo(() => {
+    if (viewMode === 'day') {
+      const d = new Date(currentMonth);
+      d.setHours(0, 0, 0, 0);
+      return [d];
+    }
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + index);
+      return d;
+    });
+    return days;
+  }, [weekStart, viewMode, currentMonth]);
+
+  const scheduleHours = useMemo(
+    () => Array.from({ length: 14 }, (_, index) => 9 + index),
+    []
+  );
+
+  const monthGridDays = useMemo(() => {
+    const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const gridStart = new Date(firstOfMonth);
+    gridStart.setDate(firstOfMonth.getDate() - ((firstOfMonth.getDay() + 6) % 7));
+    gridStart.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const d = new Date(gridStart);
+      d.setDate(gridStart.getDate() + index);
+      return d;
+    });
+  }, [currentMonth]);
+
+  const parseEventTime = (time?: string) => {
+    if (!time) return null;
+    const match = String(time).match(/^(\d{1,2})(?::(\d{2}))?/);
+    if (!match) return null;
+    const hour = Number(match[1]);
+    const minute = Number(match[2] || '0');
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+    return { hour, minute };
+  };
+
+  const teamsGridRows = useMemo(() => {
+    const names = availableTeams.length > 0 ? availableTeams : Array.from(teamColorLegend.map(t => t.key));
+    return names.length > 0 ? names : ['Sin equipo'];
+  }, [availableTeams, teamColorLegend]);
+
+  const renderTeamsGrid = () => {
+    const weekDays = Array.from({ length: 7 }, (_, index) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + index);
+      return d;
+    });
+
+    return (
+      <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="min-w-[1080px]">
+          <div
+            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
+            style={{ gridTemplateColumns: `160px repeat(7, minmax(0, 1fr))` }}
+          >
+            <div className="bg-white px-3 py-3"></div>
+            {weekDays.map((date) => (
+              <div key={date.toISOString()} className="bg-white px-3 py-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {dayNames[date.getDay()]}
+                </p>
+                <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  {date.getDate()}
+                </p>
+              </div>
+            ))}
+
+            {teamsGridRows.map((teamName) => {
+              const teamColor = getTeamColor(teamName);
+              return (
+                <React.Fragment key={teamName}>
+                  <div className="bg-white px-3 py-3 flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${teamColor?.dot || 'bg-slate-400'}`}></span>
+                    <span className="text-xs font-black text-slate-700 truncate" title={teamName}>{teamName}</span>
+                  </div>
+                  {weekDays.map((date) => {
+                    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                    const dayEvents = (eventsByDay[key] || []).filter(ev => getEventTeamKey(ev) === teamName);
+
+                    return (
+                      <div
+                        key={`${teamName}-${date.toISOString()}`}
+                        className={`min-h-16 bg-white p-1.5 flex flex-col gap-1 ${isToday(date) ? 'bg-red-50' : ''}`}
+                      >
+                        {dayEvents.map(ev => (
+                          <button
+                            key={ev.id}
+                            onClick={() => openEvent(ev)}
+                            title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                            className={`w-full text-left truncate rounded-lg px-1.5 py-1 text-[10px] font-bold border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro}`}
+                          >
+                            {formatEventLabel(ev.time, ev.title)}
+                          </button>
+                        ))}
+                        {dayEvents.length === 0 && onCreateEvent && (
+                          <button
+                            onClick={() => onCreateEvent(date)}
+                            className="w-full rounded-lg border border-dashed border-slate-200 text-[9px] font-bold text-slate-400 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                          >
+                            +
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMonthGrid = () => {
+    const monthIndex = currentMonth.getMonth();
+
+    return (
+      <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="min-w-[900px]">
+          <div
+            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
+            style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+          >
+            {dayNames.slice(1).concat(dayNames[0]).map((name) => (
+              <div key={name} className="bg-white px-3 py-2 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{name}</p>
+              </div>
+            ))}
+
+            {monthGridDays.map(date => {
+              const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+              const dayEvents = eventsByDay[key] || [];
+              const isCurrentMonth = date.getMonth() === monthIndex;
+              const visibleEvents = dayEvents.slice(0, 3);
+              const extraCount = dayEvents.length - visibleEvents.length;
+
+              const monthSlotKey = date.toISOString();
+              return (
+                <div
+                  key={date.toISOString()}
+                  onDragOver={(e) => handleSlotDragOver(e, monthSlotKey)}
+                  onDragLeave={handleSlotDragLeave}
+                  onDrop={(e) => handleSlotDrop(e, date)}
+                  className={`min-h-24 bg-white p-1.5 flex flex-col gap-1 transition-colors ${!isCurrentMonth ? 'bg-slate-50/60' : ''} ${isToday(date) ? 'bg-red-50' : ''} ${dragOverSlot === monthSlotKey ? 'bg-blue-100 ring-2 ring-inset ring-blue-400' : ''}`}
+                >
+                  <span className={`text-[11px] font-black self-end px-1 ${isToday(date) ? 'text-white bg-[var(--accent)] rounded-full w-5 h-5 flex items-center justify-center' : isCurrentMonth ? 'text-slate-700' : 'text-slate-300'}`}>
+                    {date.getDate()}
+                  </span>
+                  <div className="flex flex-col gap-0.5 overflow-hidden">
+                    {visibleEvents.map(ev => {
+                      const teamColor = getTeamColor(getEventTeamKey(ev));
+                      return (
+                        <div
+                          key={ev.id}
+                          role="button"
+                          tabIndex={0}
+                          draggable={Boolean(onSaveEvent) && !isObjetivoEvent(ev)}
+                          onDragStart={(e) => handleEventDragStart(e, ev)}
+                          onDragEnd={handleEventDragEnd}
+                          onClick={() => openEvent(ev)}
+                          title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                          className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
+                        >
+                          {isObjetivoEvent(ev) ? ev.title : formatEventLabel(ev.time, ev.team || ev.title)}
+                          {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
+                          <div className={`absolute top-0 right-0 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
+                            {onSaveEvent && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDuplicateEvent(ev);
+                                }}
+                                className="w-3.5 h-3.5 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                title={t('common.duplicate', 'Duplicar')}
+                              >
+                                <i className="fa-solid fa-copy" style={{ fontSize: '7px' }}></i>
+                              </button>
+                            )}
+                            {onDeleteEvent && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteEvent(ev.id);
+                                }}
+                                className="w-3.5 h-3.5 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                title={t('common.delete')}
+                              >
+                                <i className="fa-solid fa-xmark" style={{ fontSize: '8px' }}></i>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {extraCount > 0 && (
+                      <span className="text-[9px] font-bold text-slate-400 px-1">
+                        {t('calendarView.moreEvents', { count: extraCount })}
+                      </span>
+                    )}
+                    {dayEvents.length === 0 && onCreateEvent && isCurrentMonth && (
+                      <button
+                        onClick={() => onCreateEvent(date)}
+                        className="w-full rounded border border-dashed border-slate-200 text-[9px] font-bold text-slate-400 py-1 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderScheduleGrid = () => {
+    const scheduleEvents = scheduleDays.map(date => {
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      return { date, events: eventsByDay[key] || [] };
+    });
+
+    const dayCount = scheduleDays.length;
+
+    return (
+      <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className={dayCount === 1 ? 'min-w-[420px]' : 'min-w-[980px]'}>
+          <div
+            className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
+            style={{ gridTemplateColumns: `72px repeat(${dayCount}, minmax(0, 1fr))` }}
+          >
+            <div className="bg-white px-3 py-3"></div>
+            {scheduleEvents.map(({ date }) => (
+              <div key={date.toISOString()} className="bg-white px-3 py-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {dayNames[date.getDay()]}
+                </p>
+                <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                  {date.getDate()}
+                </p>
+              </div>
+            ))}
+
+            {scheduleHours.map(hour => (
+              <React.Fragment key={hour}>
+                <div className="bg-white px-2 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {String(hour).padStart(2, '0')}:00
+                </div>
+                {scheduleEvents.map(({ date, events: dayEvents }) => {
+                  const hourEvents = dayEvents.filter(ev => {
+                    const parsed = parseEventTime(ev.time);
+                    return parsed && parsed.hour === hour;
+                  });
+                  const compact = hourEvents.length > 1;
+
+                  const slotKey = `${date.toISOString()}-${hour}`;
+                  return (
+                    <div
+                      key={slotKey}
+                      onDragOver={(e) => handleSlotDragOver(e, slotKey)}
+                      onDragLeave={handleSlotDragLeave}
+                      onDrop={(e) => handleSlotDrop(e, date, hour)}
+                      className={`min-h-12 bg-white p-1.5 transition-colors ${isToday(date) ? 'bg-red-50' : ''} ${dragOverSlot === slotKey ? 'bg-blue-100 ring-2 ring-inset ring-blue-400' : ''}`}
+                    >
+                      <div className={hourEvents.length > 0 ? 'flex flex-row gap-1 items-stretch' : 'space-y-1'}>
+                        {hourEvents.map(ev => {
+                          const teamColor = getTeamColor(getEventTeamKey(ev));
+                          const isMatch = ev.type === 'Partido';
+                          const displayLocalTeam = resolveTeamDisplayName(ev.localTeam);
+                          const displayVisitorTeam = resolveTeamDisplayName(ev.visitorTeam);
+                          const localDisplay = resolveMatchSideDisplay(ev, ev.localTeam, ev.localTeamClubId);
+                          const visitorDisplay = resolveMatchSideDisplay(ev, ev.visitorTeam, ev.visitorTeamClubId);
+                          const localLogo = resolveTeamLogo(ev.localTeamClubId, ev.localTeam, displayLocalTeam);
+                          const visitorLogo = resolveTeamLogo(ev.visitorTeamClubId, ev.visitorTeam, displayVisitorTeam);
+
+                          return (
+                            <div
+                              key={ev.id}
+                              draggable={Boolean(onSaveEvent) && !isObjetivoEvent(ev)}
+                              onDragStart={(e) => handleEventDragStart(e, ev)}
+                              onDragEnd={handleEventDragEnd}
+                              onClick={() => openEvent(ev)}
+                              className={`relative group/ev flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
+                              title={isMatch
+                                ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
+                                : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                            >
+                              <div className={`absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
+                                {onSaveEvent && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDuplicateEvent(ev);
+                                    }}
+                                    className="w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                    title={t('common.duplicate', 'Duplicar')}
+                                  >
+                                    <i className="fa-solid fa-copy" style={{ fontSize: '8px' }}></i>
+                                  </button>
+                                )}
+                                {onDeleteEvent && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteEvent(ev.id);
+                                    }}
+                                    className="w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-current hover:bg-black/25 transition-all"
+                                    title={t('common.delete')}
+                                  >
+                                    <i className="fa-solid fa-xmark" style={{ fontSize: '9px' }}></i>
+                                  </button>
+                                )}
+                              </div>
+                              {isMatch ? (
+                                compact ? (
+                                  <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                                    <span className="text-[10px] font-black leading-none">{ev.time || '--:--'}</span>
+                                    {(ev.localTeam && ev.visitorTeam) ? (
+                                      <span className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
+                                        {localDisplay.teamName} <span className="opacity-60">vs</span> {visitorDisplay.teamName}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
+                                        {ev.title || ev.opponent || 'Partido'}
+                                      </span>
+                                    )}
+                                    {ev.score && (
+                                      <span className="text-[9px] font-black text-white bg-red-700 rounded px-1 leading-tight">
+                                        {ev.score}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="flex items-center gap-1 min-w-0 bg-white/60 rounded px-1.5 py-0.5 w-fit">
+                                      <i className="fa-solid fa-clock text-[9px] opacity-70 flex-shrink-0"></i>
+                                      <span className="text-[11px] font-black leading-none">{ev.time || '--:--'}</span>
+                                    </span>
+                                    {(ev.localTeam && ev.visitorTeam) ? (
+                                      <div className="flex items-center gap-1">
+                                        <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+                                          {localLogo ? (
+                                            <img loading="lazy" decoding="async" src={localLogo} alt="" className="h-6 w-6 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                          ) : (
+                                            <div className="h-6 w-6 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
+                                              <i className="fa-solid fa-shield-halved text-[9px] opacity-40"></i>
+                                            </div>
+                                          )}
+                                          <span className="block text-[8px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{localDisplay.clubName}</span>
+                                          <span className="block truncate w-full text-[10px] leading-tight">{localDisplay.teamName}</span>
+                                        </div>
+                                        <span className="flex-shrink-0 bg-red-600 text-white text-[9px] font-black leading-none px-1.5 py-1 rounded-full shadow-sm">VS</span>
+                                        <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+                                          {visitorLogo ? (
+                                            <img loading="lazy" decoding="async" src={visitorLogo} alt="" className="h-6 w-6 object-contain flex-shrink-0 mb-0.5 rounded-full bg-white shadow-sm ring-1 ring-black/5" />
+                                          ) : (
+                                            <div className="h-6 w-6 rounded-full bg-white/70 flex items-center justify-center mb-0.5 flex-shrink-0">
+                                              <i className="fa-solid fa-shield-halved text-[9px] opacity-40"></i>
+                                            </div>
+                                          )}
+                                          <span className="block text-[8px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{visitorDisplay.clubName}</span>
+                                          <span className="block truncate w-full text-[10px] leading-tight">{visitorDisplay.teamName}</span>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] font-semibold leading-tight truncate block">
+                                        {ev.title || ev.opponent || 'Partido'}
+                                      </span>
+                                    )}
+                                    {ev.score && (
+                                      <div className="text-[10px] font-black text-white bg-red-700 rounded-md py-0.5 text-center">
+                                        {ev.score}
+                                      </div>
+                                    )}
+                                  </>
+                                )
+                              ) : (
+                                compact ? (
+                                  <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                                    <span className="text-[10px] font-black leading-none">{ev.time || '--:--'}</span>
+                                    {ev.team && (
+                                      <span className="text-[9px] font-semibold leading-tight line-clamp-1 w-full">{ev.team}</span>
+                                    )}
+                                    {ev.title && (
+                                      <span className="text-[9px] leading-tight line-clamp-2 w-full opacity-90">{ev.title}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="truncate leading-tight block">
+                                    {formatEventLabel(ev.time, ev.team)} {ev.title}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          );
+                        })}
+                        {hourEvents.length === 0 && onCreateEvent && hour === 9 && (
+                          <button
+                            onClick={() => onCreateEvent(date)}
+                            className="w-full rounded-lg border border-dashed border-slate-300 text-[10px] font-bold text-slate-500 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                          >
+                            +
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="animate-fade-in flex h-full min-h-[calc(100vh-110px)] flex-col gap-4 pb-6">
+      {/* GESTION CALENDAR VIEW - VERSION 2.0 WITH FILTERS */}
+      <div className="sticky top-0 z-30 flex items-center gap-3 -mx-2 px-3 py-1 flex-wrap bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 border-b border-slate-200/70 shadow-sm">
+        {showFilters && (
+        <button
+          type="button"
+          onClick={() => setFiltersVisible((prev) => !prev)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all flex-shrink-0"
+          aria-expanded={filtersVisible}
+        >
+          <i className={`fa-solid ${filtersVisible ? 'fa-eye-slash' : 'fa-eye'} text-[11px]`}></i>
+          {filtersVisible ? t('calendarView.hideFilters', 'Ocultar filtros') : t('calendarView.showFilters', 'Mostrar filtros')}
+        </button>
+        )}
+        {showFilters && filtersVisible && (
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <MultiSelectFilter
+            value={teamFilter}
+            onChange={setTeamFilter}
+            allLabel={t('calendarView.filterAllTeams', 'Todos los equipos')}
+            options={availableTeams.map((team) => ({ value: team, label: team }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <MultiSelectFilter
+            value={playerFilter}
+            onChange={setPlayerFilter}
+            allLabel={t('calendarView.filterAllPlayers', 'Jugadores')}
+            options={availablePlayers.map((player) => ({
+              value: String(player.id),
+              label: `${player.dorsal ? `${player.dorsal} - ` : ''}${player.apodo || player.nombre}`,
+            }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <MultiSelectFilter
+            value={typeFilter}
+            onChange={(next) => {
+              setTypeFilter(next);
+              setActivityFilter([]);
+            }}
+            allLabel={t('calendarView.filterAllEvents', 'Todos los eventos')}
+            emptyMeansNone
+            options={availableTypes.map((type) => ({ value: type, label: type }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <MultiSelectFilter
+            value={activityFilter}
+            onChange={setActivityFilter}
+            disabled={availableActivities.length === 0}
+            allLabel={availableActivities.length === 0
+              ? t('calendarView.filterSelectEventType', 'Actividad')
+              : t('calendarView.filterAllActivities', 'Todas las actividades')}
+            options={availableActivities.map((activity) => ({ value: activity, label: activity }))}
+            className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 disabled:bg-slate-50 disabled:text-slate-400"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showObjetivos;
+              setShowObjetivos(next);
+              setTypeFilter((prev) => {
+                if (prev.length === 0) return prev;
+                return next
+                  ? (prev.includes('Objetivo') ? prev : [...prev, 'Objetivo'])
+                  : prev.filter((t) => t !== 'Objetivo');
+              });
+            }}
+            aria-pressed={showObjetivos}
+            title={showObjetivos ? 'Ocultar objetivos individuales' : 'Mostrar los objetivos individuales de todos los jugadores'}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold shadow-sm transition-all ${
+              showObjetivos
+                ? 'border-rose-400 bg-rose-500 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-rose-300 hover:text-rose-600'
+            }`}
+          >
+            <i className="fa-solid fa-bullseye text-[11px]"></i>
+            Objetivos individuales
+          </button>
+          <MultiSelectFilter
+            value={monthFilter}
+            onChange={setMonthFilter}
+            allLabel={t('calendarView.filterAllMonths', 'Todos los meses')}
+            options={monthNames.map((name, index) => ({ value: String(index), label: name }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <MultiSelectFilter
+            value={localidadId}
+            onChange={setLocalidadId}
+            allLabel="Todas las localidades"
+            options={localidades.map((loc) => ({ value: loc.id, label: loc.nombre }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <MultiSelectFilter
+            value={instalacionPrincipalId}
+            onChange={setInstalacionPrincipalId}
+            allLabel="Todas las instalaciones"
+            options={instalacionesPrincipales.map((inst) => ({ value: inst.id, label: inst.nombre }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <MultiSelectFilter
+            value={instalacionId}
+            onChange={setInstalacionId}
+            allLabel="Todos los campos"
+            options={camposDisponibles.map((campo) => ({ value: campo.id, label: campo.nombre }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
+          <div className="flex items-center gap-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateFrom', 'Desde')}:</label>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            />
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('calendarView.dateTo', 'Hasta')}:</label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+            />
+            {(filterDateFrom || filterDateTo || localidadId.length > 0 || instalacionPrincipalId.length > 0 || instalacionId.length > 0) && (
+              <button
+                type="button"
+                onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setLocalidadId([]); setInstalacionPrincipalId([]); setInstalacionId([]); }}
+                className="px-2 py-1 text-[9px] font-black text-red-600 hover:text-red-700 uppercase"
+              >
+                ✕ {t('calendarView.clearFilter', 'Limpiar')}
+              </button>
+            )}
+          </div>
+        </div>
+        )}
+      </div>
+
+
+      <div className="flex-1 w-full">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden">
+          <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-center gap-3">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-3">
+                <button
+                onClick={() => setCurrentMonth(prev => {
+                  if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+                  return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - (viewMode === 'day' ? 1 : 7));
+                })}
+                className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
+                aria-label="Anterior"
+              >
+                <i className="fa-solid fa-chevron-left text-sm"></i>
+              </button>
+  
+              <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
+                {viewMode === 'day'
+                  ? `${dayNames[currentMonth.getDay()]} ${currentMonth.getDate()} ${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
+                  : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+              </h4>
+            <button
+              onClick={() => setCurrentMonth(prev => {
+                if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
+                return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + (viewMode === 'day' ? 1 : 7));
+              })}
+              className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
+              aria-label="Siguiente"
+            >
+              <i className="fa-solid fa-chevron-right text-sm"></i>
+            </button>
+              </div>
+              <div className="mt-1 flex items-center justify-center gap-1">
+                <button
+                  onClick={() => setViewMode('month')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'month'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Mes
+                </button>
+                <button
+                  onClick={() => setViewMode('week')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'week'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Semana
+                </button>
+                <button
+                  onClick={() => setViewMode('day')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'day'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Día
+                </button>
+                <button
+                  onClick={() => setViewMode('teams')}
+                  className={`px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    viewMode === 'teams'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-500 hover:text-[var(--accent)]'
+                  }`}
+                >
+                  Equipos
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {viewMode === 'month' ? renderMonthGrid() : viewMode === 'teams' ? renderTeamsGrid() : renderScheduleGrid()}
+        </div>
+      </div>
+
+      {selectedEvent && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div
+            className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white shadow-2xl animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 p-6">
+              <div className="flex items-center gap-3">
+                <span className={`w-3 h-3 rounded-full ${EVENT_DOT_COLORS[selectedEvent.type] || EVENT_DOT_COLORS.Otro}`}></span>
+                <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${EVENT_BADGE_COLORS[selectedEvent.type] || EVENT_BADGE_COLORS.Otro}`}>
+                  {selectedEvent.type}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {onSaveEvent && !isObjetivoEvent(selectedEvent) && (
+                  <button
+                    onClick={() => {
+                      handleDuplicateEvent(selectedEvent);
+                      setSelectedEvent(null);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 transition-all hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                    title={t('common.duplicate', 'Duplicar')}
+                  >
+                    <i className="fa-solid fa-copy text-sm"></i>
+                  </button>
+                )}
+                {onDeleteEvent && !isObjetivoEvent(selectedEvent) && (
+                  <button
+                    onClick={() => {
+                      onDeleteEvent(selectedEvent.id);
+                      setSelectedEvent(null);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-400 transition-all hover:border-red-500 hover:bg-red-500 hover:text-white"
+                    title={t('calendarView.deleteEvent')}
+                  >
+                    <i className="fa-solid fa-trash-can text-sm"></i>
+                  </button>
+                )}
+                <button onClick={() => setSelectedEvent(null)} className="text-slate-400 transition-colors hover:text-slate-600">
+                  <i className="fa-solid fa-xmark text-lg"></i>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <h3 className="text-[var(--accent)] font-black text-xl uppercase tracking-tight">{selectedEvent.title}</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    <i className="fa-solid fa-calendar-day text-sm"></i>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('common.date')}</p>
+                    <p className="text-sm font-bold text-slate-700">
+                      {(selectedEvent.date instanceof Date ? selectedEvent.date : new Date(selectedEvent.date)).toLocaleDateString(i18n.language, {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    <i className="fa-solid fa-clock text-sm"></i>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('common.time')}</p>
+                    <p className="text-sm font-bold text-slate-700">{selectedEvent.time || t('calendarView.noTime')}</p>
+                  </div>
+                </div>
+                {(resolveEventLocationLabel(selectedEvent) || selectedEvent.location) && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                      <i className="fa-solid fa-location-dot text-sm"></i>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('common.location')}</p>
+                      <p className="text-sm font-bold text-slate-700">{resolveEventLocationLabel(selectedEvent) || selectedEvent.location}</p>
+                    </div>
+                  </div>
+                )}
+                {selectedEvent.type === 'Partido' ? (
+                  <>
+                    {(selectedEvent.localTeam && selectedEvent.visitorTeam) ? (
+                      (() => {
+                        const localDisplay = resolveMatchSideDisplay(selectedEvent, selectedEvent.localTeam, selectedEvent.localTeamClubId);
+                        const visitorDisplay = resolveMatchSideDisplay(selectedEvent, selectedEvent.visitorTeam, selectedEvent.visitorTeamClubId);
+                        const localLogo = resolveTeamLogo(selectedEvent.localTeamClubId, selectedEvent.localTeam, resolveTeamDisplayName(selectedEvent.localTeam));
+                        const visitorLogo = resolveTeamLogo(selectedEvent.visitorTeamClubId, selectedEvent.visitorTeam, resolveTeamDisplayName(selectedEvent.visitorTeam));
+                        const sameName = (side: { clubName: string; teamName: string }) =>
+                          !side.teamName || side.teamName.trim().toLowerCase() === side.clubName.trim().toLowerCase();
+                        return (
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                              <i className="fa-solid fa-futbol text-sm"></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.match', 'Partido')}</p>
+                              <div className="mt-1 space-y-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {localLogo && <img src={localLogo} alt="" className="h-5 w-5 flex-shrink-0 object-contain" />}
+                                  <span className="truncate text-sm font-bold text-slate-700">
+                                    {localDisplay.clubName}
+                                    {!sameName(localDisplay) && <span className="ml-1 text-slate-400 font-black">({localDisplay.teamName})</span>}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] font-black uppercase text-slate-300">vs</p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {visitorLogo && <img src={visitorLogo} alt="" className="h-5 w-5 flex-shrink-0 object-contain" />}
+                                  <span className="truncate text-sm font-bold text-slate-700">
+                                    {visitorDisplay.clubName}
+                                    {!sameName(visitorDisplay) && <span className="ml-1 text-slate-400 font-black">({visitorDisplay.teamName})</span>}
+                                  </span>
+                                </div>
+                              </div>
+                              {selectedEvent.score && (
+                                <p className="mt-1 text-base font-black text-[var(--accent)]">{selectedEvent.score}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : selectedEvent.opponent && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                          <i className="fa-solid fa-futbol text-sm"></i>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.opponent')}</p>
+                          <p className="text-sm font-bold text-slate-700">{selectedEvent.opponent}</p>
+                          {selectedEvent.score && (
+                            <p className="mt-1 text-base font-black text-[var(--accent)]">{selectedEvent.score}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {(() => {
+                      const validJornada = selectedEvent.jornada && selectedEvent.jornada.trim() && selectedEvent.jornada.trim() !== '-';
+                      if (!selectedEvent.competition && !validJornada) return null;
+                      return (
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                            <i className="fa-solid fa-trophy text-sm"></i>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('calendarView.competition', 'Competición')}</p>
+                            <p className="text-sm font-bold text-slate-700">
+                              {[selectedEvent.competition, validJornada ? `${t('calendarView.matchday', 'Jornada')} ${selectedEvent.jornada}` : null].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  selectedEvent.team && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                        <i className="fa-solid fa-shield-halved text-sm"></i>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('newEvent.team')}</p>
+                        <p className="text-sm font-bold text-slate-700">{selectedEvent.team}</p>
+                      </div>
+                    </div>
+                  )
+                )}
+                {selectedEvent.notes && (
+                  <div className="mt-2 rounded-xl bg-slate-50 p-4">
+                    <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('common.notes')}</p>
+                    <p className="text-sm text-slate-600">{selectedEvent.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+export default GestionCalendarView;

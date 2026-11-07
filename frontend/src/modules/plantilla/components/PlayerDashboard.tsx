@@ -36,10 +36,10 @@ export const DashboardWidget: React.FC<{ title: string; icon?: string; className
 );
 
 const Kpi: React.FC<{ label: string; value: React.ReactNode; hint?: string }> = ({ label, value, hint }) => (
-  <div className="bg-white border border-slate-200 rounded-2xl p-3 text-center">
-    <div className="text-2xl sm:text-3xl font-black text-[var(--accent)] tabular-nums leading-none">{value}</div>
-    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{label}</div>
-    {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
+  <div className="bg-white border border-slate-200 rounded-2xl px-3 py-4 text-center">
+    <div className="text-xl sm:text-2xl font-black text-[var(--accent)] tabular-nums leading-none">{value}</div>
+    <div className="text-xs font-black text-slate-500 uppercase tracking-widest mt-2">{label}</div>
+    {hint && <div className="text-xs text-slate-400 mt-0.5">{hint}</div>}
   </div>
 );
 
@@ -64,15 +64,15 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-xl sm:text-2xl font-black text-slate-800 uppercase truncate">{player.nombre || '—'}</h3>
             {player.dorsal !== undefined && player.dorsal !== null && (
-              <span className="bg-slate-900 text-white text-xs font-black rounded-md px-2 py-0.5 tabular-nums">#{player.dorsal}</span>
+              <span className="bg-slate-900 text-white text-sm font-black rounded-md px-2.5 py-0.5 tabular-nums">#{player.dorsal}</span>
             )}
-            <span className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${ESTADO_STYLE[estado] || ESTADO_STYLE.OTRO}`}>
+            <span className={`text-xs font-black uppercase tracking-widest rounded-full px-3 py-1 ${ESTADO_STYLE[estado] || ESTADO_STYLE.OTRO}`}>
               {estado}
             </span>
           </div>
-          {player.apodo && <p className="text-sm font-black text-[var(--accent)] uppercase">{player.apodo}</p>}
-          {subtitle && <p className="text-xs text-slate-500 font-semibold mt-1">{subtitle}</p>}
-          <p className="text-[11px] text-slate-400 mt-1">
+          {player.apodo && <p className="text-base font-black text-[var(--accent)] uppercase mt-0.5">{player.apodo}</p>}
+          {subtitle && <p className="text-base text-slate-600 font-semibold mt-1.5">{subtitle}</p>}
+          <p className="text-sm text-slate-500 font-medium mt-1">
             {[age !== undefined ? `${age} años` : null, player.club].filter(Boolean).join(' · ')}
           </p>
         </div>

@@ -382,7 +382,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [currentMonth, setCurrentMonth] = useState(() => {
     return new Date();
   });
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('week');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
@@ -902,6 +902,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     );
   };
 
+  const renderMiniCrest = (logo?: string) =>
+    logo ? (
+      <img loading="lazy" decoding="async" src={logo} alt="" className="h-3.5 w-3.5 object-contain flex-shrink-0 rounded-full bg-white ring-1 ring-black/5" />
+    ) : (
+      <span className="h-3.5 w-3.5 rounded-full bg-white/70 flex items-center justify-center flex-shrink-0">
+        <i className="fa-solid fa-shield-halved opacity-40" style={{ fontSize: '7px' }}></i>
+      </span>
+    );
+
   const renderMonthGrid = () => {
     const monthIndex = currentMonth.getMonth();
 
@@ -940,6 +949,11 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   <div className="flex flex-col gap-0.5 overflow-hidden">
                     {visibleEvents.map(ev => {
                       const teamColor = getTeamColor(getEventTeamKey(ev));
+                      const isMatchWithSides = ev.type === 'Partido' && Boolean(ev.localTeam && ev.visitorTeam);
+                      const monthLocalDisplay = isMatchWithSides ? resolveMatchSideDisplay(ev, ev.localTeam, ev.localTeamClubId) : undefined;
+                      const monthVisitorDisplay = isMatchWithSides ? resolveMatchSideDisplay(ev, ev.visitorTeam, ev.visitorTeamClubId) : undefined;
+                      const monthLocalLogo = isMatchWithSides ? resolveTeamLogo(ev.localTeamClubId, ev.localTeam, resolveTeamDisplayName(ev.localTeam)) : undefined;
+                      const monthVisitorLogo = isMatchWithSides ? resolveTeamLogo(ev.visitorTeamClubId, ev.visitorTeam, resolveTeamDisplayName(ev.visitorTeam)) : undefined;
                       return (
                         <div
                           key={ev.id}
@@ -952,8 +966,20 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                           className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                         >
-                          {isObjetivoEvent(ev) ? ev.title : formatEventLabel(ev.time, ev.team || ev.title)}
-                          {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
+                          {isMatchWithSides ? (
+                            <span className="flex items-center gap-1 min-w-0">
+                              <span className="flex-shrink-0 font-black">{ev.time || '--:--'}</span>
+                              {renderMiniCrest(monthLocalLogo)}
+                              <span className="truncate">{monthLocalDisplay?.teamName} - {monthVisitorDisplay?.teamName}</span>
+                              {renderMiniCrest(monthVisitorLogo)}
+                              {ev.score && <span className="flex-shrink-0 font-black text-white bg-red-700 rounded px-1 leading-tight">{ev.score}</span>}
+                            </span>
+                          ) : (
+                            <>
+                              {isObjetivoEvent(ev) ? ev.title : formatEventLabel(ev.time, ev.team || ev.title)}
+                              {(ev.type === 'Sesión' || ev.type === 'Entrenamiento') && ` ${t('calendarView.session')}`}
+                            </>
+                          )}
                           <div className={`absolute top-0 right-0 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
                             {onSaveEvent && (
                               <button
@@ -1348,23 +1374,36 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
       <div className="flex-1 w-full">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden">
-          <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between gap-3">
-            <button
-              onClick={() => setCurrentMonth(prev => {
-                if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
-                return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - (viewMode === 'day' ? 1 : 7));
-              })}
-              className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
-              aria-label="Anterior"
-            >
-              <i className="fa-solid fa-chevron-left text-sm"></i>
-            </button>
+          <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-center gap-3">
             <div className="text-center">
+              <div className="flex items-center justify-center gap-3">
+                <button
+                onClick={() => setCurrentMonth(prev => {
+                  if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+                  return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - (viewMode === 'day' ? 1 : 7));
+                })}
+                className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
+                aria-label="Anterior"
+              >
+                <i className="fa-solid fa-chevron-left text-sm"></i>
+              </button>
+  
               <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
                 {viewMode === 'day'
                   ? `${dayNames[currentMonth.getDay()]} ${currentMonth.getDate()} ${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
                   : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
               </h4>
+            <button
+              onClick={() => setCurrentMonth(prev => {
+                if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
+                return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + (viewMode === 'day' ? 1 : 7));
+              })}
+              className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
+              aria-label="Siguiente"
+            >
+              <i className="fa-solid fa-chevron-right text-sm"></i>
+            </button>
+              </div>
               <div className="mt-1 flex items-center justify-center gap-1">
                 <button
                   onClick={() => setViewMode('month')}
@@ -1408,16 +1447,6 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 </button>
               </div>
             </div>
-            <button
-              onClick={() => setCurrentMonth(prev => {
-                if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
-                return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + (viewMode === 'day' ? 1 : 7));
-              })}
-              className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
-              aria-label="Siguiente"
-            >
-              <i className="fa-solid fa-chevron-right text-sm"></i>
-            </button>
           </div>
 
           {viewMode === 'month' ? renderMonthGrid() : viewMode === 'teams' ? renderTeamsGrid() : renderScheduleGrid()}

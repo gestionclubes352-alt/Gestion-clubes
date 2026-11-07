@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Player } from '../types';
 import { getTileLines, type TileConfig, type TileFieldKey } from '../utils/tileConfig';
@@ -16,6 +16,8 @@ interface PlayerTileProps {
 const isImageUrl = (value?: string | null): value is string =>
   typeof value === 'string' && /^(https?:\/\/|data:image\/|\/)/i.test(value);
 
+const DEFAULT_PLAYER_PHOTO = '/jugador-default.png';
+
 const getInitials = (name: string) => {
   const parts = (name || '').split(' ').filter(Boolean);
   if (parts.length === 0) return 'NA';
@@ -32,8 +34,11 @@ const DEFAULT_LINE_CLASS = 'text-[8px] text-slate-300 uppercase leading-tight tr
 
 const PlayerTile: React.FC<PlayerTileProps> = ({ player, config, onClick, photoOverride, preview = false }) => {
   const { i18n } = useTranslation();
-  const photo = photoOverride !== undefined ? photoOverride : player.fotoUrl;
-  const hasPhoto = isImageUrl(photo);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const rawPhoto = photoOverride !== undefined ? photoOverride : player.fotoUrl;
+  // Sin foto (o si no carga) se muestra la imagen por defecto
+  const photo = isImageUrl(rawPhoto) && !photoFailed ? rawPhoto : DEFAULT_PLAYER_PHOTO;
+  const hasPhoto = true;
   const hasTransparentPhoto = /^data:image\/png|\.png(\?|$)/i.test(photo || '');
   const estadoColor = player.estado === 'LESIONADO' ? 'bg-red-500' : player.estado === 'OTRO' ? 'bg-amber-500' : 'bg-emerald-500';
 
@@ -60,6 +65,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({ player, config, onClick, photoO
             decoding="async"
             src={photo}
             alt={player.nombre}
+            onError={() => setPhotoFailed(true)}
             className={`w-full h-full transition-transform duration-500 ${preview ? '' : 'group-hover:scale-110'} ${hasTransparentPhoto ? 'object-contain object-bottom' : 'object-cover object-[50%_20%]'}`}
           />
         </div>

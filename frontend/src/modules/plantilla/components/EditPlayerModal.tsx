@@ -117,7 +117,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File|null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'edit' | 'tile'>('edit');
+  const [activeTab, setActiveTab] = useState<'edit' | 'tile'>('tile');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -594,8 +594,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
         {/* === PESTAÑAS: Editar ficha / Vista tile === */}
         <div className="flex gap-1 px-3 sm:px-4 pt-2 border-b border-slate-100 bg-slate-50" role="tablist">
           {([
-            { id: 'edit', icon: 'fa-pen-to-square', label: t('editPlayer.tabEdit', 'Editar') },
             { id: 'tile', icon: 'fa-id-badge', label: t('editPlayer.tabTile', 'Ficha jugador') },
+            { id: 'edit', icon: 'fa-pen-to-square', label: t('editPlayer.tabEdit', 'Editar') },
           ] as const).map(tab => (
             <button
               key={tab.id}
@@ -624,6 +624,11 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               matchStats={matchStats}
               attendance={{ total: attendanceStats.total, attended: attendanceStats.attended }}
             />
+            <div className="mt-4">
+              <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
+                <PlayerObjetivosSection playerId={String(player.id)} playerName={formData.apodo || formData.nombre} equipoId={player.equipoId} />
+              </Suspense>
+            </div>
           </div>
         )}
 

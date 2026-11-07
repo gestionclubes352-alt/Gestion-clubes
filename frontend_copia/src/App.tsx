@@ -1,0 +1,2081 @@
+// Force rebuild - v3 - CLEAN VERCEL CACHE
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
+
+// Auth
+import { useAuth } from '@context/AuthContext';
+import { useTeamFilter } from '@context/TeamFilterContext';
+import { useTheme } from '@context/ThemeContext';
+import { useUndoRedo } from '@context/UndoRedoContext';
+import useAppStateHistory from '@hooks/useAppStateHistory';
+import { LoginPage } from '@modules/auth';
+
+// Public Share Views
+import PublicShareView from '@modules/videoteca/components/PublicShareView';
+import PublicChannelView from '@modules/videoteca/components/PublicChannelView';
+
+// Shared
+import Sidebar from '@shared/components/Sidebar';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
+import { Header, BottomNav, HomeSectionsView } from '@shared/components';
+import { db, setActiveTeamId, clubesService, usuariosService, equiposService, plantillasService, eventosCalendarioService, personalService, competicionesService, calendarioCompeticionService } from '@shared/services/dataService';
+import type { Usuario, Club as DbClub, Equipo, Jugador, EventoCalendario, Personal, Competicion, CalendarioCompeticionPartido } from '@shared/services/dataService';
+import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
+import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES, HUESCA_JUVENIL_2627_COMPETITION_TEAMS } from '@shared/constants';
+
+// Modules - Plantilla
+import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
+import type { Player } from '@modules/plantilla';
+
+// Modules - Staff
+import { StaffTable, EditStaffModal } from '@modules/staff';
+import type { StaffMember } from '@modules/staff';
+
+// Modules - Usuarios
+import { UserTable, EditUserModal } from '@modules/usuarios';
+import type { User } from '@modules/usuarios';
+import { authService } from '@shared/services/authService';
+
+// Modules - Competicion
+import { CompetitionTable, LeagueTable, LeagueTableFullPage, CompetitionsConfigView } from '@modules/competicion';
+import type { CompetitionTeam } from '@modules/competicion';
+import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
+import { EquiposInternosView } from '@modules/equiposInternos';
+
+// Modules - Clubes
+import { ClubesTable } from '@modules/clubes';
+import type { Club } from '@modules/clubes';
+
+// Modules - Entrenamientos
+import { CampogramaGrid, NewCampogramaModal } from '@modules/entrenamientos';
+import type { Campograma } from '@modules/entrenamientos';
+
+// Modules - Repositorio de Tareas
+import { TaskRepositoryView } from '@modules/repositorio-tareas';
+
+// Modules - Tactica
+import { TacticalBoard, getInitialPositions, remapPlayersToFormation } from '@modules/tactica';
+import type { TacticalPosition } from '@modules/tactica';
+
+// Modules - Partidos
+// Import directo (no por el barrel) para que MatchReportView quede fuera del bundle inicial
+import LatestMatches from '@modules/partidos/components/LatestMatches';
+import type { Match } from '@modules/partidos';
+
+// Modules - Calendario
+import { CalendarView, NewEventModal, GestionCalendarView } from '@modules/calendario';
+import type { CalendarEvent, EventType } from '@modules/calendario';
+
+// Modules - Videoteca
+import { Videoteca } from '@modules/videoteca';
+
+// Modules - Medical
+import { InjuriesView, MedicalHistoryView, MedicalCheckupsView, RehabilitationView, FitnessView } from '@modules/medical';
+
+// Modules - Settings
+import { SettingsPage } from '@modules/settings';
+
+// Modules - Instalaciones
+import { InstalacionesView } from '@modules/instalaciones';
+
+// Modules - Residencia
+import {
+  HabitacionesView, JugadoresResiView, ComedorView,
+  ComedorFichajeView, ComedorLandingView, ComedorQrImprimirView,
+} from '@modules/residencia';
+
+// Modules - Mediciones
+import { RegistroDiarioView, AnalisisMedicionesView, FormularioPublicoView } from '@modules/mediciones';
+
+// Modules - Objetivos Individuales
+import { ObjetivosIndividualesView } from '@modules/objetivos';
+
+// Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
+// Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
+const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
+const ExerciseDesigner = React.lazy(() => import('@modules/entrenamientos/components/ExerciseDesigner'));
+const PizarraTactica = React.lazy(() => import('@modules/tactica/components/PizarraTactica'));
+const PintadoAcciones = React.lazy(() => import('@modules/pintado-acciones/components/PintadoAcciones'));
+const AIModeView = React.lazy(() => import('@modules/ai-mode/components/AIModeView'));
+
+// Error Boundary para capturar errores en componentes lazy
+class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback?: React.ReactNode }, { hasError: boolean; errorMsg?: string }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMsg: error?.message };
+  }
+  componentDidCatch(err: any, info: any) {
+    console.error('[ErrorBoundary] Error:', err);
+    console.error('[ErrorBoundary] Info:', info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || <div className="p-12 text-center space-y-4"><div className="text-4xl text-red-500">⚠️</div><p className="font-bold text-slate-700">Error al cargar el componente</p>{this.state.errorMsg && <p className="text-sm text-slate-500 max-w-md mx-auto break-words">{this.state.errorMsg}</p>}</div>;
+    }
+    return this.props.children;
+  }
+}
+
+
+
+// Mapeo de rutas a secciones para el Sidebar
+const ROUTE_TO_SECTION: Record<string, string> = {
+  '/plantillas': 'PLANTILLAS',
+  '/staff': 'PERSONAL',
+  '/objetivos': 'OBJETIVOS',
+  '/clubes': 'CLUBES',
+  '/equipos': 'EQUIPOS',
+  '/equipos-internos': 'EQUIPOS_INTERNOS',
+  '/campograma': 'CAMPOGRAMA',
+  '/disenador': 'DISEÑADOR',
+  '/pizarra': 'PIZARRA TÁCTICA',
+  '/calendario': 'CALENDARIO',
+  '/sesiones': 'SESIONES',
+  '/partidos': 'PARTIDOS',
+  '/videoteca': 'VIDEOTECA',
+  '/competicion': 'COMPETICIÓN',
+  '/competiciones': 'COMPETICIONES',
+  '/instalaciones': 'INSTALACIONES',
+  '/residencia/jugadores': 'RESI_JUGADORES',
+  '/residencia/habitaciones': 'RESI_HABITACIONES',
+  '/residencia/estado-habitaciones': 'RESI_ESTADO_HABITACIONES',
+  '/residencia/comidas': 'RESI_COMEDOR',
+  '/residencia/comedor': 'RESI_COMEDOR',
+  '/mediciones/registro': 'MEDICIONES_REGISTRO',
+  '/mediciones/analisis': 'MEDICIONES_ANALISIS',
+  '/lesiones': 'LESIONES',
+  '/historial-medico': 'HISTORIAL MÉDICO',
+  '/reconocimientos': 'RECONOCIMIENTOS',
+  '/rehabilitacion': 'REHABILITACIÓN',
+  '/rendimiento-fisico': 'RENDIMIENTO FÍSICO',
+  '/usuarios': 'USUARIOS',
+  '/repositorio-tareas': 'REPOSITORIO DE TAREAS',
+  '/pintado-acciones': 'PINTADO DE ACCIONES',
+  '/settings': 'CONFIGURACIÓN',
+  '/settings/datasources': 'FUENTE DE DATOS'
+};
+
+const SECTION_TO_ROUTE: Record<string, string> = {
+  'PLANTILLAS': '/plantillas',
+  'PERSONAL': '/staff',
+  'OBJETIVOS': '/objetivos',
+  'CLUBES': '/clubes',
+  'EQUIPOS': '/equipos',
+  'EQUIPOS_INTERNOS': '/equipos-internos',
+  'CAMPOGRAMA': '/campograma',
+  'DISEÑADOR': '/disenador',
+  'PIZARRA TÁCTICA': '/pizarra',
+  'CALENDARIO': '/calendario',
+  'SESIONES': '/sesiones',
+  'PARTIDOS': '/partidos',
+  'VIDEOTECA': '/videoteca',
+  'COMPETICIÓN': '/competicion',
+  'COMPETICIONES': '/competiciones',
+  'INSTALACIONES': '/instalaciones',
+  'RESI_JUGADORES': '/residencia/jugadores',
+  'RESI_HABITACIONES': '/residencia/habitaciones',
+  'RESI_ESTADO_HABITACIONES': '/residencia/estado-habitaciones',
+  'RESI_COMEDOR': '/residencia/comedor',
+  'MEDICIONES_REGISTRO': '/mediciones/registro',
+  'MEDICIONES_ANALISIS': '/mediciones/analisis',
+  'LESIONES': '/lesiones',
+  'HISTORIAL MÉDICO': '/historial-medico',
+  'RECONOCIMIENTOS': '/reconocimientos',
+  'REHABILITACIÓN': '/rehabilitacion',
+  'RENDIMIENTO FÍSICO': '/rendimiento-fisico',
+  'REPOSITORIO DE TAREAS': '/repositorio-tareas',
+  'PINTADO DE ACCIONES': '/pintado-acciones',
+  'USUARIOS': '/usuarios',
+  'CONFIGURACIÓN': '/settings',
+  'FUENTE DE DATOS': '/settings#datasources'
+};
+
+/** Vista de "Mis Datos" para el rol Jugador: abre directamente el detalle de su propia ficha. */
+const MisDatosView: React.FC<{ player?: Player; onOpen: (player: Player) => void }> = ({ player, onOpen }) => {
+  const { t } = useTranslation();
+  useEffect(() => {
+    if (player) onOpen(player);
+  }, [player, onOpen]);
+
+  if (!player) {
+    return (
+      <div className="py-16 text-center text-sm text-[var(--text-muted)]">
+        {t('playerTable.noPlayersFoundShort')}
+      </div>
+    );
+  }
+  return null;
+};
+
+const MatchReportLoadingScreen = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col h-full items-center justify-center py-40 gap-4">
+      <i className="fa-solid fa-spinner fa-spin text-5xl text-sport-primary"></i>
+      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('app.initSystem')}</span>
+    </div>
+  );
+};
+
+// Componente de nivel de módulo (no definido dentro de App) para que su identidad
+// se mantenga estable entre renders del padre: si se redefiniera dentro de App,
+// cada render de App montaría una instancia nueva y MatchReportView perdería su
+// estado interno (p.ej. la pestaña activa) cada vez, incluso al entrar en pantalla completa.
+const MatchReportWrapper: React.FC<{
+  filteredEventsList: CalendarEvent[];
+  currentTeamId?: string;
+  competitionTeams: CompetitionTeam[];
+  campogramasList?: Campograma[];
+  onSave: (event: CalendarEvent) => void | Promise<void>;
+  onDelete: (id: string | number) => void | Promise<void>;
+  onTeamCreated?: () => void;
+}> = ({ filteredEventsList, currentTeamId, competitionTeams, campogramasList = [], onSave, onDelete, onTeamCreated }) => {
+  const { t } = useTranslation();
+  const { matchId } = useParams<{ matchId: string }>();
+  const navigate = useNavigate();
+  const locState = useLocation().state as { from?: string } | null;
+
+  // Buscar en la lista filtrada (se recalcula cada render, pero no debe disparar el efecto de carga)
+  const match = filteredEventsList.find(e => String(e.id) === matchId);
+
+  const [loadedMatch, setLoadedMatch] = useState<CalendarEvent | null>(null);
+  const [matchLoading, setMatchLoading] = useState(!match);
+  const [matchLoadError, setMatchLoadError] = useState<string | null>(null);
+
+  // Si no está en la lista, cargar de la BD. Depende únicamente de matchId (estable),
+  // nunca de `match` (referencia inestable por venir de un .find() recalculado cada render)
+  // para evitar un bucle de renders/efectos.
+  useEffect(() => {
+    if (filteredEventsList.some(e => String(e.id) === matchId)) {
+      setMatchLoading(false);
+      return;
+    }
+
+    if (!matchId) {
+      setMatchLoadError('No match ID provided');
+      setMatchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMatchLoading(true);
+
+    eventosCalendarioService.getById(matchId)
+      .then(loaded => {
+        if (cancelled) return;
+        setLoadedMatch(eventRowToCalendarEvent(loaded));
+        setMatchLoadError(null);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        const errMsg = err instanceof Error ? err.message : 'Unknown error loading match';
+        console.error('[MatchReportWrapper] Error loading match:', err);
+        setMatchLoadError(errMsg);
+        setLoadedMatch(null);
+      })
+      .finally(() => {
+        if (!cancelled) setMatchLoading(false);
+      });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId]);
+
+  const displayMatch = match || loadedMatch;
+
+  if (!displayMatch && matchLoading) {
+    return <MatchReportLoadingScreen />;
+  }
+
+  if (matchLoadError || !displayMatch) {
+    return (
+      <div className="p-12 text-center space-y-4 max-w-md mx-auto">
+        <div className="text-4xl text-red-500">⚠️</div>
+        <p className="font-bold text-slate-700">{t('app.matchNotFound')}</p>
+        {matchLoadError && <p className="text-sm text-slate-500">{matchLoadError}</p>}
+        <button
+          onClick={() => navigate('/partidos')}
+          className="px-4 py-2 bg-sport-primary text-white rounded-lg text-sm font-bold"
+        >
+          Volver a Partidos
+        </button>
+      </div>
+    );
+  }
+
+  const backPath = locState?.from || '/partidos';
+  return (
+    <ErrorBoundary>
+      <React.Suspense fallback={<MatchReportLoadingScreen />}>
+        <MatchReportView
+          match={displayMatch}
+          onBack={() => navigate(backPath)}
+          ownClubId={currentTeamId || ''}
+          competitionTeams={competitionTeams}
+          campogramasList={campogramasList}
+          onSave={onSave}
+          onDelete={onDelete}
+          onTeamCreated={onTeamCreated}
+        />
+      </React.Suspense>
+    </ErrorBoundary>
+  );
+};
+
+const normalizeTeamName = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+const EXCLUDED_TEAM_FILTER_OPTIONS = new Set(['escuela huesca']);
+const containsTeamWords = (value: string | undefined, teamValue: string | undefined) => {
+  const source = normalizeTeamName(value || '');
+  const target = normalizeTeamName(teamValue || '');
+  if (!source || !target) return false;
+  return target.split(' ').every(word => source.includes(word));
+};
+const matchesSelectedTeamNames = (teamNames: Array<string | undefined>, selectedTeams: string[]) => {
+  if (!selectedTeams.length) return true;
+  const selected = new Set(selectedTeams.map(normalizeTeamName));
+  return teamNames.some(teamName =>
+    typeof teamName === 'string' &&
+    teamName.trim().length > 0 &&
+    selected.has(normalizeTeamName(teamName))
+  );
+};
+const matchesSelectedTeams = (teamName: string | undefined, selectedTeams: string[]) =>
+  matchesSelectedTeamNames([teamName], selectedTeams);
+
+const eventMatchesSelectedTeams = (event: CalendarEvent, selectedTeams: string[], competitionTeams: CompetitionTeam[]) => {
+  if (!selectedTeams.length) return true;
+
+  const directFields = [event.team, event.nombreInterno, event.localTeam, event.visitorTeam];
+  if (matchesSelectedTeamNames(directFields, selectedTeams)) return true;
+
+  const selected = new Set(selectedTeams.map(normalizeTeamName));
+  const eventTeamKeys = directFields.map(value => normalizeTeamName(value || '')).filter(Boolean);
+  const eventClubIds = [event.localTeamClubId, event.visitorTeamClubId].filter(Boolean).map(String);
+
+  return competitionTeams.some((team) => {
+    const internalName = team.equipo || team.nombre || '';
+    if (!selected.has(normalizeTeamName(internalName))) return false;
+
+    const aliases = [team.equipo, team.nombreEnFed, team.nombre]
+      .map(value => normalizeTeamName(value || ''))
+      .filter(Boolean);
+    const directAliasMatch = eventTeamKeys.some(key => aliases.includes(key));
+    if (directAliasMatch) return true;
+
+    const clubIdMatch = team.clubId != null && eventClubIds.includes(String(team.clubId));
+    if (!clubIdMatch) return false;
+
+    const etapa = team.etapa || internalName.split(' ')[0];
+    return (
+      containsTeamWords(event.competition, team.competicion) ||
+      containsTeamWords(event.competition, internalName) ||
+      containsTeamWords(event.competition, etapa)
+    );
+  });
+};
+
+const matchTeamAliases = (team: CompetitionTeam) =>
+  (team.nombreEnFed || team.equipo
+    ? [team.nombreEnFed, team.equipo, ...fallbackFederationAliasesForInternalTeam(team.equipo)]
+    : [team.nombre])
+    .map(value => normalizeTeamName(value || ''))
+    .filter(Boolean);
+
+const FALLBACK_FEDERATION_ALIASES_BY_INTERNAL_TEAM: Record<string, string[]> = {
+  'juvenil a': ['IPC LA ESCUELA'],
+  'cadete a': ['HUESCA-S.D. ESCUELA DE FUTBOL'],
+};
+
+const eventRowToCalendarEvent = (row: EventoCalendario): CalendarEvent => ({
+  id: row.id,
+  clubId: row.club_id || undefined,
+  title: row.title,
+  type: row.type,
+  date: new Date(row.date),
+  time: row.time || '',
+  team: row.team || undefined,
+  location: row.location || undefined,
+  localidad_id: row.localidad_id || undefined,
+  instalacion_campo_id: row.instalacion_campo_id || undefined,
+  notes: row.notes || undefined,
+  videoUrl: row.video_url || undefined,
+  docUrl: row.doc_url || undefined,
+  staffRoles: row.staff_roles || undefined,
+  competition: row.competition || undefined,
+  jornada: row.jornada || undefined,
+  sessionNumber: row.session_number ?? undefined,
+  localTeam: row.local_team || undefined,
+  visitorTeam: row.visitor_team || undefined,
+  localTeamClubId: row.local_team_club_id || undefined,
+  visitorTeamClubId: row.visitor_team_club_id || undefined,
+  opponent: row.opponent || undefined,
+  score: row.score || undefined,
+  status: row.status as CalendarEvent['status'] | undefined,
+  nombreInterno: row.nombre_interno || undefined,
+  tasks: (row.tasks as CalendarEvent['tasks']) || [],
+  attendance: (row.attendance as CalendarEvent['attendance']) || {},
+});
+
+const calendarEventToRow = (event: CalendarEvent): EventoCalendario => ({
+  id: event.id,
+  club_id: event.clubId || null,
+  title: event.title || 'Sin título',
+  type: event.type,
+  date: event.date instanceof Date ? event.date.toISOString() : event.date,
+  time: event.time || null,
+  team: event.team || null,
+  location: event.location || null,
+  localidad_id: event.localidad_id || null,
+  instalacion_campo_id: event.instalacion_campo_id || null,
+  notes: event.notes || null,
+  video_url: event.videoUrl || null,
+  doc_url: event.docUrl || null,
+  staff_roles: event.staffRoles || null,
+  competition: event.competition || null,
+  jornada: event.jornada || null,
+  session_number: event.sessionNumber ?? null,
+  local_team: event.localTeam || null,
+  visitor_team: event.visitorTeam || null,
+  local_team_club_id: event.localTeamClubId || null,
+  visitor_team_club_id: event.visitorTeamClubId || null,
+  opponent: event.opponent || null,
+  score: event.score || null,
+  status: event.status || null,
+  nombre_interno: event.nombreInterno || null,
+  tasks: Array.isArray(event.tasks) ? event.tasks : [],
+  attendance: (event.attendance && typeof event.attendance === 'object') ? event.attendance : {},
+});
+
+function fallbackFederationAliasesForInternalTeam(teamName: string | undefined): string[] {
+  return FALLBACK_FEDERATION_ALIASES_BY_INTERNAL_TEAM[normalizeTeamName(teamName || '')] || [];
+}
+
+const sideMatchesInternalTeamName = (sideName: string | undefined, internalTeamName: string | undefined) => {
+  const side = normalizeTeamName(sideName || '');
+  if (!side) return false;
+  return [internalTeamName, ...fallbackFederationAliasesForInternalTeam(internalTeamName)]
+    .map(value => normalizeTeamName(value || ''))
+    .filter(Boolean)
+    .includes(side);
+};
+
+const sideMatchesTeam = (sideName: string | undefined, team: CompetitionTeam) => {
+  const side = normalizeTeamName(sideName || '');
+  if (!side) return false;
+  return matchTeamAliases(team).some(alias => alias === side);
+};
+
+const App: React.FC = () => {
+  const { t } = useTranslation();
+  const { user, perfil, loading: authLoading, perfilLoading, signOut, refreshPerfil } = useAuth();
+  const location = useLocation();
+
+  // Rutas públicas que no requieren autenticación
+  const isPublicRoute = location.pathname.startsWith('/share/')
+    || location.pathname.startsWith('/public-channel/')
+    || location.pathname === '/mediciones/formulario-publico'
+    || location.pathname === '/comedor'
+    || location.pathname.startsWith('/comedor/');
+
+  // If on a public route, skip auth gate
+  if (isPublicRoute && !authLoading) {
+    return (
+      <Routes>
+        <Route path="/share/:token" element={<PublicShareView />} />
+        <Route path="/public-channel/:token" element={<PublicChannelView />} />
+        <Route path="/mediciones/formulario-publico" element={<FormularioPublicoView />} />
+        <Route path="/comedor" element={<ComedorLandingView />} />
+        <Route path="/comedor/:token" element={<ComedorFichajeView />} />
+      </Routes>
+    );
+  }
+
+  // Gate de autenticación: sin sesión → LoginPage; sesión sin perfil activo → pantalla de espera.
+  if (authLoading || (user && perfilLoading)) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center gap-4 bg-slate-950">
+        <i className="fa-solid fa-spinner fa-spin text-5xl text-sport-primary"></i>
+        <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{t('app.loading')}</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  if (!perfil || perfil.estado !== 'Activo') {
+    return <PendingApprovalScreen userName={perfil?.nombre || ''} userEmail={user.email || ''} onLogout={() => signOut()} onRefresh={refreshPerfil} />;
+  }
+
+  return <MainLayout onLogout={() => signOut()} teamName="" />;
+};
+
+// ============================================================================
+// PANTALLA DE APROBACIÓN PENDIENTE
+// ============================================================================
+const PendingApprovalScreen: React.FC<{ userName: string; userEmail: string; onLogout: () => void; onRefresh: () => Promise<void> }> = ({ userName, userEmail, onLogout, onRefresh }) => {
+  const { t } = useTranslation();
+  const [isChecking, setIsChecking] = React.useState(false);
+  const [checkMessage, setCheckMessage] = React.useState<string | null>(null);
+
+  const handleCheck = async () => {
+    setIsChecking(true);
+    setCheckMessage(null);
+    try {
+      await onRefresh();
+      // Si después del refresh sigue mostrándose esta pantalla, significa que sigue pendiente
+      setCheckMessage(t('pending.stillPending'));
+    } catch {
+      setCheckMessage(t('pending.verifyError'));
+    }
+    setIsChecking(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <img src="/logo.svg" alt={t('app.name')} className="h-12 w-auto max-w-full mx-auto mb-4 brightness-0 invert" />
+        </div>
+
+        <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-black/30 border border-slate-700/50 p-8 text-center">
+          <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-amber-500/20">
+            <i className="fa-solid fa-hourglass-half text-4xl text-amber-400"></i>
+          </div>
+
+          <h1 className="text-xl font-black text-slate-100 uppercase tracking-tight mb-2">
+            {t('pending.title')}
+          </h1>
+
+          <p className="text-sm text-slate-400 mb-6">
+            {t('pending.greeting')} <span className="font-bold text-slate-200">{userName}</span>, {t('pending.accountCreatedOk')}
+            {t('pending.adminApproval')}
+          </p>
+
+          <div className="bg-slate-700/50 rounded-2xl p-4 mb-6 border border-slate-600/50 space-y-2">
+            <div className="flex items-center justify-center gap-3 text-sm text-slate-300">
+              <i className="fa-solid fa-envelope text-slate-500"></i>
+              <span className="font-bold">{userEmail}</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-xs text-amber-400">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span className="font-bold uppercase tracking-widest">{t('pending.statusPending')}</span>
+            </div>
+          </div>
+
+          {checkMessage && (
+            <div className="mb-4 p-3 bg-blue-900/30 border border-blue-800/50 rounded-xl">
+              <span className="text-xs font-bold text-blue-300">{checkMessage}</span>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <button
+              onClick={handleCheck}
+              disabled={isChecking}
+              className="w-full py-3.5 rounded-2xl bg-sport-primary text-white font-black text-[11px] uppercase tracking-[0.2em] hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl"
+            >
+              {isChecking ? (
+                <><i className="fa-solid fa-spinner fa-spin"></i> {t('pending.verifying')}</>
+              ) : (
+                <><i className="fa-solid fa-rotate"></i> {t('pending.checkStatus')}</>
+              )}
+            </button>
+
+            <button
+              onClick={onLogout}
+              className="w-full py-3 rounded-2xl border-2 border-slate-600 text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-700/50 transition-all"
+            >
+              <i className="fa-solid fa-right-from-bracket mr-2"></i>
+              {t('header.logout')}
+            </button>
+          </div>
+        </div>
+
+        <p className="text-center mt-6 text-[9px] font-bold text-slate-600 uppercase tracking-[0.3em]">
+          {t('app.version')}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// LAYOUT PRINCIPAL (contenido original de App, ahora protegido)
+// ============================================================================
+
+interface MainLayoutProps {
+  onLogout: () => void;
+  teamName: string;
+}
+
+const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
+    const { t } = useTranslation();
+    const { perfil } = useAuth();
+    const { selectedTeams, setSelectedTeams } = useTeamFilter();
+    const { isDark } = useTheme();
+    const userRole = perfil?.rol ?? 'Tecnico';
+    // Pantalla completa
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    useEffect(() => {
+      const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+      document.addEventListener('fullscreenchange', onChange);
+      return () => document.removeEventListener('fullscreenchange', onChange);
+    }, []);
+    const handleFullscreen = () => {
+      const elem = document.documentElement;
+      if (!document.fullscreenElement) {
+        elem.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    };
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Club activo: se resuelve directamente desde perfil.club_id (tabla `usuarios`),
+  // ya no desde un catálogo estático de equipos demo.
+  const [currentTeam, setCurrentTeam] = useState<{ id: string; name: string } | null>(null);
+  const [clubLoadError, setClubLoadError] = useState<string | null>(null);
+  const [clubRetryToken, setClubRetryToken] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    if (!perfil?.club_id) {
+      setCurrentTeam(null);
+      setClubLoadError('no-club');
+      return;
+    }
+    setClubLoadError(null);
+    clubesService.getById(perfil.club_id)
+      .then(club => { if (!cancelled) { setCurrentTeam({ id: club.id, name: club.nombre }); setClubLoadError(null); } })
+      .catch(err => {
+        console.error('[App] Error cargando club activo:', err);
+        if (!cancelled) { setCurrentTeam(null); setClubLoadError('fetch-error'); }
+      });
+    return () => { cancelled = true; };
+  }, [perfil?.club_id, clubRetryToken]);
+
+  // Resetear el estado y recargar datos al cambiar de club
+  useEffect(() => {
+    if (currentTeam) {
+      setSquadList([]);
+      setUsersList([]);
+      setPersonalList([]);
+      setCompetitionTeams([]);
+      setClubesList([]);
+      setCampogramasList([]);
+      setEventsList([]);
+      setCompeticionesList([]);
+      setCompetitionCalendarList([]);
+      setActiveCampograma(null);
+      setIsLoadingCore(true);
+      setIsLoadingExtra(true);
+      fetchData();
+    }
+  }, [currentTeam?.id]);
+
+  // Derivar la sección activa de la URL
+  const activeSection = useMemo(() => {
+    const path = location.pathname;
+    if (path === '/') return userRole === 'Jugador' ? 'CALENDARIO' : 'INICIO';
+    // Buscar coincidencia exacta primero
+    if (ROUTE_TO_SECTION[path]) return ROUTE_TO_SECTION[path];
+    // Buscar por prefijo (para rutas como /partidos/:id)
+    const baseRoute = Object.keys(ROUTE_TO_SECTION).find(route => 
+      route !== '/' && path.startsWith(route)
+    );
+    return baseRoute ? ROUTE_TO_SECTION[baseRoute] : 'CALENDARIO';
+  }, [location.pathname]);
+
+  const handleSectionChange = (section: string) => {
+    if (section === 'INICIO' || (section === 'CALENDARIO' && userRole === 'Jugador')) {
+      navigate('/');
+      return;
+    }
+    const route = SECTION_TO_ROUTE[section];
+    if (route) navigate(route);
+  };
+
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Personal | null>(null);
+  const [isNewStaff, setIsNewStaff] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [modalDefaultType, setModalDefaultType] = useState<EventType | null>(null);
+  const [newModalInitialDate, setNewModalInitialDate] = useState<Date | null>(null);
+  const [showNewCampModal, setShowNewCampModal] = useState(false);
+  const [activeCampograma, setActiveCampograma] = useState<Campograma | null>(null);
+
+  const [squadList, setSquadList] = useState<Player[]>([]);
+  const [usersList, setUsersList] = useState<User[]>([]);
+  const [personalList, setPersonalList] = useState<Personal[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>([]);
+  const [clubesList, setClubesList] = useState<Club[]>([]);
+  const [campogramasList, setCampogramasList] = useState<Campograma[]>([]);
+  const [eventsList, setEventsList] = useState<CalendarEvent[]>([]);
+  const [competicionesList, setCompeticionesList] = useState<Competicion[]>([]);
+  const [competitionCalendarList, setCompetitionCalendarList] = useState<CalendarioCompeticionPartido[]>([]);
+  // isLoadingCore: datos "ligeros" que necesita /plantillas (plantillas + equipos + clubes).
+  // isLoadingExtra: el resto de tablas (usuarios, personal, eventos, competiciones, calendario de competición).
+  // Se separan para que las rutas ligeras (p.ej. /plantillas) no esperen a que termine todo lo demás.
+  const [isLoadingCore, setIsLoadingCore] = useState(true);
+  const [isLoadingExtra, setIsLoadingExtra] = useState(true);
+  // Alias de compatibilidad: true mientras cualquiera de los dos grupos esté cargando.
+  const isLoading = isLoadingCore || isLoadingExtra;
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved === 'true';
+  });
+  const [showStatus, setShowStatus] = useState<string | null>(null);
+
+  // Rastrear historial de cambios en el estado principal
+  const { setOnStateRestore } = useUndoRedo();
+
+  // Configurar callback para restaurar estado
+  useEffect(() => {
+    setOnStateRestore((state: any) => {
+      if (state.squadList) setSquadList(state.squadList);
+      if (state.usersList) setUsersList(state.usersList);
+      if (state.personalList) setPersonalList(state.personalList);
+      if (state.competitionTeams) setCompetitionTeams(state.competitionTeams);
+      if (state.clubesList) setClubesList(state.clubesList);
+      if (state.campogramasList) setCampogramasList(state.campogramasList);
+      if (state.eventsList) setEventsList(state.eventsList);
+    });
+  }, [setOnStateRestore]);
+
+  // Rastrear cambios de estado para historial
+  useAppStateHistory({
+    squadList,
+    usersList,
+    personalList,
+    competitionTeams,
+    clubesList,
+    campogramasList,
+    eventsList,
+  });
+
+  const teamFilterOptions = useMemo(() => {
+    const ownCompetitionTeamNames = competitionTeams
+      .filter(team => !currentTeam?.id || String(team.clubId ?? '') === String(currentTeam.id))
+      .map(team => team.equipo || team.nombre);
+    const ownSquadTeamNames = squadList
+      .filter(player => !currentTeam?.id || String(player.clubId ?? '') === String(currentTeam.id) || (!player.clubId && player.club === currentTeam.name))
+      .map(player => player.equipo);
+    const ownCampogramaTeamNames = campogramasList
+      .filter(campograma => !currentTeam?.id || String(campograma.clubId ?? '') === String(currentTeam.id) || (!campograma.clubId && campograma.club === currentTeam.name))
+      .map(campograma => campograma.equipo);
+    const values = [
+      ...ownCompetitionTeamNames,
+      ...ownSquadTeamNames,
+      ...ownCampogramaTeamNames,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(value => value.trim())
+      .filter(value => !EXCLUDED_TEAM_FILTER_OPTIONS.has(normalizeTeamName(value)));
+    return Array.from(new Set(values)).sort(compareEquipoNames);
+  }, [competitionTeams, squadList, campogramasList, currentTeam]);
+
+  useEffect(() => {
+    if (selectedTeams.length === 0) return;
+    const allowed = new Set(teamFilterOptions.map(normalizeTeamName));
+    const next = selectedTeams.filter(team => allowed.has(normalizeTeamName(team)));
+    if (next.length !== selectedTeams.length) {
+      setSelectedTeams(next);
+    }
+  }, [selectedTeams, setSelectedTeams, teamFilterOptions]);
+
+  useEffect(() => {
+    if (!activeCampograma) return;
+    if (matchesSelectedTeams(activeCampograma.equipo, selectedTeams)) return;
+    setActiveCampograma(null);
+  }, [activeCampograma, selectedTeams]);
+
+  const legacyMatchesList = useMemo(() => {
+    return eventsList
+      .filter(e => e.type === 'Partido')
+      .map(e => ({
+        id: e.id,
+        competition: e.competition || 'Tercera Federaci�n',
+        date: e.date instanceof Date ? e.date.toISOString() : String(e.date),
+        opponent: e.opponent || 'Rival',
+        status: e.status || 'Upcoming',
+        score: e.score,
+        jornada: e.jornada,
+        localTeam: e.localTeam,
+        visitorTeam: e.visitorTeam,
+        localTeamClubId: e.localTeamClubId,
+        visitorTeamClubId: e.visitorTeamClubId,
+        time: e.time,
+        location: e.location,
+        localidad_id: e.localidad_id,
+        instalacion_campo_id: e.instalacion_campo_id,
+        nombreInterno: e.nombreInterno,
+        team: e.team
+      } as Match));
+  }, [eventsList]);
+
+  // FUNCI�N CR�TICA: Hidrata los datos para que las fechas sean objetos Date
+  const hydrateData = (data: any[]) => {
+    return data.map(item => {
+      if (item.date) {
+        return { ...item, date: new Date(item.date) };
+      }
+      return item;
+    });
+  };
+
+  const normalizePlayerId = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
+  const canonicalizePlayer = (player: Player, fallbackId?: string | number): Player => {
+    const dni = normalizePlayerId(String(player.dni || ''));
+    const baseId = fallbackId !== undefined && fallbackId !== null && String(fallbackId).trim() !== ''
+      ? String(fallbackId)
+      : String(player.id ?? '');
+    // El id es un UUID de la tabla `plantillas`; el DNI se guarda aparte en su propia columna.
+    const finalId = baseId || crypto.randomUUID();
+    return {
+      ...player,
+      id: finalId,
+      dni: dni || undefined,
+    };
+  };
+
+  const mergeWithConstants = (dbData: any[] = [], constantData: any[] = [], deletedIds: string[] = []) => {
+    const map = new Map();
+    constantData.forEach(item => {
+      const idStr = String(item.id);
+      if (!deletedIds.includes(idStr)) map.set(idStr, item);
+    });
+    dbData.forEach(item => {
+      const idStr = String(item.id);
+      if (!deletedIds.includes(idStr)) map.set(idStr, item);
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const idA = String(a.id);
+      const idB = String(b.id);
+      const numA = Number(idA);
+      const numB = Number(idB);
+      if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numB - numA;
+      return idB.localeCompare(idA);
+    });
+  };
+
+  const isCurrentCompetitionSeason = (season?: string | null) => {
+    if (!season) return false;
+    const normalized = season.replace(/\s/g, '').replace(/-/g, '/');
+    return normalized === '26/27' || normalized === '2026/2027';
+  };
+
+  // ── Fetchers individuales ────────────────────────────────────────────────
+  // fetchData original se dividió en fetchers por tabla para que cada ruta pueda
+  // pedir solo lo que necesita (p.ej. /plantillas no debería esperar a usuarios,
+  // personal, eventos, competiciones o calendario de competición). fetchData()
+  // se mantiene como wrapper que llama a todos, para no romper los call-sites
+  // existentes que hacen `await fetchData()` tras un CRUD.
+
+  // Equipos + Clubes: se cargan juntos porque el mapeo de jugadores (fetchSquad)
+  // necesita ambos como lookup. Devuelve los datos crudos y mapeados para poder
+  // reutilizarlos sin volver a pedirlos a la BD.
+  const fetchTeamsAndClubes = async () => {
+    const [ctRes, clRes] = await Promise.all([
+      equiposService.list(),
+      clubesService.list(),
+    ]);
+
+    const ctFallback = currentTeam?.id === 'cd-derio'
+      ? [...INITIAL_COMPETITION_TEAMS]
+      : currentTeam?.id === 'escuela-huesca'
+        ? [...HUESCA_JUVENIL_2627_COMPETITION_TEAMS]
+        : [];
+    const mappedTeamsRaw: CompetitionTeam[] = (ctRes || []).map((e: Equipo): CompetitionTeam => ({
+      id: e.id,
+      clubId: e.club_id,
+      nombre: e.nombre,
+      estadio: e.estadio || '',
+      localidad: e.localidad || '',
+      logoUrl: e.logo_url || getFederationTeamLogo(e.nombre_en_fed) || getFederationTeamLogo(e.nombre) || undefined,
+      equipo: e.sub_equipo,
+      nombreEnFed: e.nombre_en_fed,
+      etapa: e.categoria,
+      competicion: e.competicion,
+      temporada: e.temporada,
+      enlace: e.enlace,
+    }));
+    const mappedTeams = currentTeam?.id === 'escuela-huesca'
+      ? mappedTeamsRaw.filter(team => isCurrentCompetitionSeason(team.temporada))
+      : mappedTeamsRaw;
+    const finalTeams = mergeWithConstants(mappedTeams, ctFallback, []);
+    setCompetitionTeams(finalTeams);
+
+    const clFallback = currentTeam?.id === 'escuela-huesca' ? [...HUESCA_CLUBES] : [];
+    const mappedClubes: Club[] = (clRes || []).map((c: DbClub): Club => ({
+      id: c.id,
+      nombre: c.nombre,
+      logoUrl: c.escudo_url || getFederationTeamLogo(c.nombre) || undefined,
+      localidad: c.ciudad,
+    }));
+    const finalClubes = mergeWithConstants(mappedClubes, clFallback, []);
+    setClubesList(finalClubes);
+
+    return { ctRes: (ctRes || []) as Equipo[], clRes: (clRes || []) as DbClub[], finalTeams, finalClubes };
+  };
+
+  // Plantillas: necesita el lookup de equipos/clubes para derivar nombres. Si no se le
+  // pasan ya cargados (p.ej. desde fetchData, que los pide en paralelo), los pide él mismo.
+  const fetchSquad = async (teamsAndClubes?: { ctRes: Equipo[]; clRes: DbClub[] }) => {
+    const [pRes, resolvedTeamsAndClubes] = await Promise.all([
+      plantillasService.list(),
+      teamsAndClubes ? Promise.resolve(teamsAndClubes) : fetchTeamsAndClubes(),
+    ]);
+    const { ctRes, clRes } = resolvedTeamsAndClubes;
+
+    // Lookups (equipo_id -> equipo, club_id -> club) para derivar nombres en jugadores
+    const equiposById = new Map((ctRes || []).map((e: Equipo) => [String(e.id), e]));
+    const clubesByIdForSquad = new Map((clRes || []).map((c: DbClub) => [String(c.id), c]));
+
+    // Usar datos Huesca como fallback solo para escuela-huesca
+    const squadFallback = currentTeam?.id === 'escuela-huesca'
+      ? [...HUESCA_CADETE_A_PLAYERS, ...HUESCA_JUVENIL_A_PLAYERS]
+      : [];
+    const mappedSquad: Player[] = (pRes || []).map((p: Jugador): Player => {
+      const equipoRow = equiposById.get(String(p.equipo_id));
+      const clubRow = equipoRow ? clubesByIdForSquad.get(String(equipoRow.club_id)) : undefined;
+      const clubIdFallback = equipoRow?.club_id || currentTeam?.id || '';
+      // Fallback para equipoFallback: si el equipo no existe, intentar obtenerlo de otros equipos cargados
+      const equipoFallback = !equipoRow ? (ctRes || []).find(e => String(e.id) === String(p.equipo_id)) : undefined;
+      // Log para diagnosticar jugadores que no se muestran
+      if (!equipoRow) {
+        console.warn(`[DEBUG] Jugador "${p.nombre}" con equipo_id "${p.equipo_id}" no encontrado en equipos. equipoFallback:`, equipoFallback?.nombre);
+      }
+      return {
+        id: p.id,
+        fotoUrl: p.foto_url || '',
+        competicion: equipoRow?.competicion || equipoFallback?.competicion || '',
+        club: clubRow?.nombre || currentTeam?.name || '',
+        equipo: equipoRow?.sub_equipo || equipoRow?.nombre || equipoFallback?.sub_equipo || equipoFallback?.nombre || '',
+        dorsal: p.dorsal ?? undefined,
+        nombre: p.nombre,
+        apodo: p.apodo,
+        posicion: p.posicion,
+        posicionJuego: p.posicion_juego || '',
+        perfil: (p.perfil || 'D') as Player['perfil'],
+        descripcion: p.descripcion,
+        ataque: p.ataque,
+        defensa: p.defensa,
+        persona: p.persona,
+        observaciones: p.observaciones,
+        fechaNacimiento: p.fecha_nacimiento,
+        partidosJugados: p.partidos_jugados,
+        minutos: p.minutos,
+        titular: p.titular,
+        goles: p.goles,
+        ratingTecnica: p.rating_tecnica,
+        ratingTactica: p.rating_tactica,
+        ratingCondicional: p.rating_condicional,
+        ratingPsicologico: p.rating_psicologico,
+        ratingHumano: p.rating_humano,
+        estado: p.estado,
+        residencia: p.residencia ?? false,
+        etapa: p.etapa,
+        enlace: p.enlace,
+        nombrePila: p.nombre_pila,
+        primerApellido: p.primer_apellido,
+        segundoApellido: p.segundo_apellido,
+        dni: p.dni,
+        telefono: p.telefono,
+        correo: p.correo,
+        temporada: p.temporada,
+        clubId: clubIdFallback,
+        equipoId: p.equipo_id,
+        nombreCompleto: p.nombre_completo,
+        anioNacimiento: p.anio_nacimiento,
+        nombreTutor: p.nombre_tutor,
+        correoTutor: p.correo_tutor,
+        telefonoTutor: p.telefono_tutor,
+      };
+    });
+    setSquadList(mergeWithConstants(mappedSquad, squadFallback, []));
+  };
+
+  const fetchCampogramas = async () => {
+    const cRes = await db.campogramas.get();
+    setCampogramasList(cRes.data || []);
+  };
+
+  const fetchEvents = async () => {
+    const eRes = await eventosCalendarioService.list();
+    // Eventos solo desde la BD (cada club tiene sus propios eventos aislados)
+    setEventsList((eRes || []).map(eventRowToCalendarEvent));
+  };
+
+  const fetchUsers = async () => {
+    const uRes = await usuariosService.list();
+    const users: User[] = (uRes || []).map((u: Usuario): User => ({
+      id: u.id,
+      nombre: u.nombre,
+      email: u.email,
+      rol: u.rol,
+      estado: u.estado,
+      departamento: u.rol === 'Tecnico' ? 'Personal' : 'Directiva',
+      clubId: u.club_id ?? undefined,
+      equipoId: u.equipo_id ?? undefined,
+      recordar: u.recordar ?? undefined,
+    }));
+    setUsersList(users);
+  };
+
+  const fetchPersonal = async () => {
+    const persRes = await personalService.list();
+    setPersonalList((persRes as Personal[]) || []);
+  };
+
+  const fetchCompeticiones = async () => {
+    const compRes = await competicionesService.list();
+    setCompeticionesList((compRes || []) as Competicion[]);
+  };
+
+  const fetchCalendarioCompeticion = async () => {
+    const calCompRes = await calendarioCompeticionService.list();
+    setCompetitionCalendarList((calCompRes || []) as CalendarioCompeticionPartido[]);
+  };
+
+  // "Core": lo mínimo que necesita /plantillas (plantillas + equipos + clubes).
+  const fetchCoreData = async () => {
+    const teamsAndClubes = await fetchTeamsAndClubes();
+    await fetchSquad(teamsAndClubes);
+  };
+
+  // "Extra": el resto de tablas, no bloquean el render de rutas ligeras como /plantillas.
+  const fetchExtraData = async () => {
+    await Promise.all([
+      fetchCampogramas(),
+      fetchUsers(),
+      fetchEvents(),
+      fetchPersonal(),
+      fetchCompeticiones(),
+      fetchCalendarioCompeticion(),
+    ]);
+  };
+
+  const fetchData = async (forceSync = false) => {
+    if (forceSync) setIsSyncing(true);
+
+    try {
+      // Se lanzan en paralelo (igual que antes), pero se resuelven de forma independiente:
+      // el grupo "core" (plantillas/equipos/clubes) marca isLoadingCore=false en cuanto termina,
+      // sin esperar a que termine el grupo "extra", para que /plantillas pueda renderizar antes.
+      const corePromise = fetchCoreData().finally(() => setIsLoadingCore(false));
+      const extraPromise = fetchExtraData().finally(() => setIsLoadingExtra(false));
+      await Promise.all([corePromise, extraPromise]);
+
+      if (forceSync) {
+        setShowStatus("Sincronizaci�n completa");
+        setTimeout(() => setShowStatus(null), 2500);
+      }
+    } catch (err) {
+      console.error("Error cargando datos:", err);
+      setShowStatus("Error de conexi�n");
+    } finally {
+      setIsLoadingCore(false);
+      setIsLoadingExtra(false);
+      setIsSyncing(false);
+    }
+  };
+
+  // Cargar datos cuando el equipo esté establecido
+  // (Ya gestionado en el useEffect unificado de arriba)
+
+  const handleSaveEvent = async (event: CalendarEvent) => {
+    const eventId = String(event.id);
+    // Estampar siempre el club activo para garantizar aislamiento por equipo
+    const eventWithClub: CalendarEvent = {
+      ...event,
+      team: event.team || currentTeam?.name || '',
+      clubId: currentTeam?.id || event.clubId || '',
+    };
+    // Guardamos el estado previo para poder revertir el update optimista si el guardado falla.
+    let previousEvent: CalendarEvent | undefined;
+    let wasNew = false;
+    setEventsList(prev => {
+      previousEvent = prev.find(e => String(e.id) === eventId);
+      wasNew = !previousEvent;
+      if (previousEvent) return prev.map(e => String(e.id) === eventId ? eventWithClub : e);
+      return [eventWithClub, ...prev];
+    });
+
+    setEditingEvent(null);
+    setShowNewModal(false);
+    setShowStatus("Guardando...");
+
+    try {
+      const row = calendarEventToRow(eventWithClub);
+
+      // Validar que el evento tiene los campos requeridos
+      if (!row.id) throw new Error('El evento debe tener un ID');
+      if (!row.title) throw new Error('El evento debe tener un título');
+      if (!row.date) throw new Error('El evento debe tener una fecha');
+      if (!row.type) throw new Error('El evento debe tener un tipo');
+
+      await eventosCalendarioService.upsert(row);
+      setShowStatus("Guardado correctamente");
+      setTimeout(() => setShowStatus(null), 2000);
+    } catch (err) {
+      console.error("Error guardando evento:", err);
+      console.error("Evento que falló:", eventWithClub);
+      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+      // El guardado falló de verdad: revertir el estado optimista para no mostrar
+      // un evento que en realidad no se ha persistido en la BD.
+      setEventsList(prev => {
+        if (wasNew) return prev.filter(e => String(e.id) !== eventId);
+        return previousEvent ? prev.map(e => String(e.id) === eventId ? previousEvent! : e) : prev;
+      });
+      setShowStatus(null);
+      alert(`No se pudo guardar el evento "${eventWithClub.title}".\n\nError: ${errorMsg}\n\nEl evento no se ha guardado, vuelve a intentarlo.`);
+    }
+  };
+
+  const handleSaveEventAndViewReport = async (event: CalendarEvent) => {
+    const openedFromCalendar = location.pathname === '/calendario';
+    await handleSaveEvent(event);
+    if (openedFromCalendar) {
+      navigate('/calendario');
+    } else if (event.type === 'Partido') {
+      navigate(`/partidos/${event.id}`);
+    }
+  };
+
+  const handleCalendarEventClick = (event: CalendarEvent) => {
+    if (event.type === 'Entrenamiento' || event.type === 'Sesión') {
+      navigate('/sesiones', { state: { openEventId: event.id, from: location.pathname } });
+    } else if (event.type === 'Partido') {
+      navigate(`/partidos/${event.id}`, { state: { from: '/calendario' } });
+    } else {
+      setEditingEvent(event);
+    }
+  };
+
+  const handleAssignPlayer = async (posId: string, playerId: string | number) => {
+    if (!activeCampograma) return;
+    const updatedPositions = (activeCampograma.positions || []).map(pos => {
+      if (pos.id === posId) {
+        const playerIds = pos.playerIds || [];
+        if (playerIds.includes(playerId)) return pos;
+        return { ...pos, playerIds: [...playerIds, playerId].slice(-3) };
+      }
+      return pos;
+    });
+    const updatedCamp = { ...activeCampograma, positions: updatedPositions, jugadoresCount: updatedPositions.reduce((acc, pos) => acc + (pos.playerIds?.length || 0), 0) };
+    setActiveCampograma(updatedCamp);
+    setCampogramasList(prev => prev.map(c => c.id === updatedCamp.id ? updatedCamp : c));
+    await db.campogramas.upsert(updatedCamp);
+  };
+
+  const handleRemovePlayer = async (posId: string, playerId: string | number) => {
+    if (!activeCampograma) return;
+    const updatedPositions = (activeCampograma.positions || []).map(pos => {
+      if (pos.id === posId) return { ...pos, playerIds: (pos.playerIds || []).filter(id => id !== playerId) };
+      return pos;
+    });
+    const updatedCamp = { ...activeCampograma, positions: updatedPositions, jugadoresCount: updatedPositions.reduce((acc, pos) => acc + (pos.playerIds?.length || 0), 0) };
+    setActiveCampograma(updatedCamp);
+    setCampogramasList(prev => prev.map(c => c.id === updatedCamp.id ? updatedCamp : c));
+    await db.campogramas.upsert(updatedCamp);
+  };
+
+  const handleChangeFormation = async (newForm: string) => {
+    if (!activeCampograma) return;
+    const nextPositions = getInitialPositions(newForm);
+    const remapped = remapPlayersToFormation(activeCampograma.positions || [], nextPositions, 3);
+    const updatedCamp = { ...activeCampograma, formacion: newForm, positions: remapped };
+    setActiveCampograma(updatedCamp);
+    setCampogramasList(prev => prev.map(c => c.id === updatedCamp.id ? updatedCamp : c));
+    await db.campogramas.upsert(updatedCamp);
+  };
+
+  const handleDeleteEvent = async (id: string | number) => {
+    const idStr = String(id);
+    if (!window.confirm("�Eliminar definitivamente?")) return;
+    setEventsList(prev => prev.filter(e => String(e.id) !== idStr));
+    try {
+      await eventosCalendarioService.remove(idStr);
+    } catch (err) {
+      console.error("Error eliminando evento:", err);
+    }
+  };
+
+  const handleGlobalSave = async () => {
+    setIsSyncing(true);
+    setShowStatus("Sincronizando...");
+    try {
+      await fetchData(true);
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setShowStatus(null), 2000);
+    }
+  };
+
+  const handleViewMatchReport = (matchId: string) => {
+    navigate(`/partidos/${matchId}`);
+  };
+
+  const filteredSquadList = useMemo(() => {
+    const base = perfil?.rol === 'Jugador'
+      ? squadList.filter(player => String(player.id) === String(perfil.jugador_id))
+      : squadList;
+    return base.filter(player => matchesSelectedTeams(player.equipo, selectedTeams));
+  }, [squadList, selectedTeams, perfil]);
+
+  const currentClubSquadList = useMemo(
+    () => currentTeam
+      ? squadList.filter(player => String(player.clubId ?? '') === String(currentTeam.id) || (!player.clubId && player.club === currentTeam.name))
+      : squadList,
+    [squadList, currentTeam]
+  );
+
+  const filteredCurrentClubSquadList = useMemo(
+    () => currentClubSquadList.filter(player => matchesSelectedTeams(player.equipo, selectedTeams)),
+    [currentClubSquadList, selectedTeams]
+  );
+
+  const filteredUsersList = useMemo(
+    () => usersList.filter(user => matchesSelectedTeams((user as any).equipo, selectedTeams)),
+    [usersList, selectedTeams]
+  );
+
+  const filteredCompetitionTeams = useMemo(
+    () => competitionTeams.filter(team => matchesSelectedTeams(team.equipo, selectedTeams)),
+    [competitionTeams, selectedTeams]
+  );
+
+  // Equipos del propio club: excluye equipos rivales de otros clubes.
+  const misClubCompetitionTeams = useMemo(
+    () => competitionTeams.filter(team => String(team.clubId ?? '') === String(currentTeam?.id ?? '')),
+    [competitionTeams, currentTeam?.id]
+  );
+
+  const filteredMisClubCompetitionTeams = useMemo(
+    () => misClubCompetitionTeams.filter(team => matchesSelectedTeams(team.equipo || team.nombre, selectedTeams)),
+    [misClubCompetitionTeams, selectedTeams]
+  );
+
+  const filteredPersonalList = useMemo(() => {
+    if (!selectedTeams.length) return personalList;
+    const selected = new Set(selectedTeams.map(normalizeTeamName));
+    return personalList.filter(member => {
+      const equipoIds = (member as any).equipo_ids;
+      if (!Array.isArray(equipoIds) || equipoIds.length === 0) return false;
+      return equipoIds.some((id: string | number) => {
+        const team = competitionTeams.find(item => String(item.id) === String(id));
+        if (!team) return false;
+        return selected.has(normalizeTeamName(team.equipo || team.nombre || ''));
+      });
+    });
+  }, [personalList, selectedTeams, competitionTeams]);
+
+  // Equipos del propio club (p.ej. para asignar personal): excluye equipos rivales de otros clubes.
+  const ownClubCompetitionTeams = useMemo(
+    () => misClubCompetitionTeams
+      .map(team => ({ id: String(team.id), nombre: team.equipo ? `${team.nombre} - ${team.equipo}` : team.nombre })),
+    [misClubCompetitionTeams]
+  );
+
+  const filteredCampogramasList = useMemo(
+    () => campogramasList.filter(campograma => matchesSelectedTeams(campograma.equipo, selectedTeams)),
+    [campogramasList, selectedTeams]
+  );
+
+  const filteredEventsList = useMemo(
+    () => eventsList.filter(event => eventMatchesSelectedTeams(event, selectedTeams, competitionTeams)),
+    [eventsList, selectedTeams, competitionTeams]
+  );
+
+  // Un jugador solo debe ver los eventos de su propio equipo, nunca los del resto de la plantilla.
+  const playerEventsList = useMemo(() => {
+    const player = perfil?.rol === 'Jugador' ? squadList.find(p => String(p.id) === String(perfil.jugador_id)) : undefined;
+    if (!player) return filteredEventsList;
+    return filteredEventsList.filter(event => eventMatchesSelectedTeams(event, [player.equipo].filter(Boolean) as string[], competitionTeams));
+  }, [filteredEventsList, perfil, squadList, competitionTeams]);
+
+  const competitionsById = useMemo(
+    () => new Map(competicionesList.map(competition => [String(competition.id), competition])),
+    [competicionesList]
+  );
+
+  const clubIdByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    const register = (name?: string | null, clubId?: string | number | null) => {
+      if (!name || clubId == null) return;
+      map.set(normalizeTeamName(name), String(clubId));
+    };
+
+    clubesList.forEach(club => register(club.nombre, club.id));
+    competitionTeams.forEach(team => {
+      register(team.nombre, team.clubId);
+      register(team.nombreEnFed, team.clubId);
+    });
+
+    return map;
+  }, [clubesList, competitionTeams]);
+
+  const ownCompetitionTeams = useMemo(
+    () => currentTeam
+      ? competitionTeams.filter(team => String(team.clubId ?? '') === String(currentTeam.id))
+      : competitionTeams,
+    [competitionTeams, currentTeam?.id]
+  );
+
+  const knownOwnInternalTeamNames = useMemo(() => {
+    const names = [
+      ...ownCompetitionTeams.map(team => team.equipo || team.nombre),
+      ...currentClubSquadList.map(player => player.equipo),
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(value => value.trim());
+    return Array.from(new Set(names));
+  }, [ownCompetitionTeams, currentClubSquadList]);
+
+  const matchIdentity = (match: Pick<Match, 'competition' | 'date' | 'localTeam' | 'visitorTeam' | 'jornada'>) =>
+    [
+      normalizeTeamName(match.competition || ''),
+      String(match.date || '').slice(0, 10),
+      normalizeTeamName(match.localTeam || ''),
+      normalizeTeamName(match.visitorTeam || ''),
+      normalizeTeamName(match.jornada || ''),
+    ].join('|');
+
+  const buildCompetitionCalendarMatches = (teamsFilter: string[]) => {
+    const selectedTeams = teamsFilter;
+    const selected = new Set(selectedTeams.map(normalizeTeamName));
+    const rows: Match[] = [];
+
+    competitionCalendarList.forEach(row => {
+      const competition = competitionsById.get(String(row.competicion_id));
+      const competitionName = competition?.nombre || 'Liga';
+      const matchingTeams = ownCompetitionTeams.filter(team => {
+        return sideMatchesTeam(row.equipo_local, team) || sideMatchesTeam(row.equipo_visitante, team);
+      });
+      const matchingInternalNames = new Map<string, { id: string; internalName: string; isLocal: boolean }>();
+
+      matchingTeams.forEach(team => {
+        const internalName = team.equipo || team.nombre || '';
+        if (selected.size > 0 && !selected.has(normalizeTeamName(internalName))) return;
+        matchingInternalNames.set(normalizeTeamName(internalName), {
+          id: String(team.id),
+          internalName,
+          isLocal: sideMatchesTeam(row.equipo_local, team),
+        });
+      });
+
+      const fallbackTeamNames = selected.size > 0 ? selectedTeams : knownOwnInternalTeamNames;
+      fallbackTeamNames.forEach(internalName => {
+        const normalizedInternalName = normalizeTeamName(internalName);
+        if (!normalizedInternalName || matchingInternalNames.has(normalizedInternalName)) return;
+
+        const isLocal = sideMatchesInternalTeamName(row.equipo_local, internalName);
+        const isVisitor = sideMatchesInternalTeamName(row.equipo_visitante, internalName);
+        if (!isLocal && !isVisitor) return;
+
+        matchingInternalNames.set(normalizedInternalName, {
+          id: `fallback-${normalizedInternalName}`,
+          internalName,
+          isLocal,
+        });
+      });
+
+      Array.from(matchingInternalNames.values()).forEach(({ id, internalName, isLocal }) => {
+        rows.push({
+          id: `competition-calendar:${row.id}:${id}`,
+          competition: competitionName,
+          date: row.fecha,
+          opponent: isLocal ? row.equipo_visitante : row.equipo_local,
+          status: row.resultado ? 'Finished' : 'Upcoming',
+          score: row.resultado || undefined,
+          jornada: String(row.jornada),
+          localTeam: row.equipo_local,
+          visitorTeam: row.equipo_visitante,
+          localTeamClubId: clubIdByTeamName.get(normalizeTeamName(row.equipo_local)),
+          visitorTeamClubId: clubIdByTeamName.get(normalizeTeamName(row.equipo_visitante)),
+          time: '',
+          location: '',
+          nombreInterno: internalName,
+          team: internalName,
+          readonly: true,
+        });
+      });
+    });
+
+    return rows;
+  };
+
+  const competitionCalendarMatchesList = useMemo(
+    () => buildCompetitionCalendarMatches(selectedTeams),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [competitionCalendarList, competitionsById, ownCompetitionTeams, selectedTeams, knownOwnInternalTeamNames, clubIdByTeamName]
+  );
+
+  // Partidos de TODOS los equipos del club, sin aplicar el selector de equipos.
+  const allCompetitionCalendarMatchesList = useMemo(
+    () => buildCompetitionCalendarMatches([]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [competitionCalendarList, competitionsById, ownCompetitionTeams, knownOwnInternalTeamNames, clubIdByTeamName]
+  );
+
+  const buildMatchesList = (events: typeof eventsList, calendarMatches: Match[]) => {
+    const eventMatches = events
+      .filter(e => e.type === 'Partido')
+      .map(e => ({
+        id: e.id,
+        competition: e.competition || 'Tercera Federaciï¿½n',
+        date: e.date instanceof Date ? e.date.toISOString() : String(e.date),
+        opponent: e.opponent || 'Rival',
+        status: e.status || 'Upcoming',
+        score: e.score,
+        jornada: e.jornada,
+        localTeam: e.localTeam,
+        visitorTeam: e.visitorTeam,
+        localTeamClubId: e.localTeamClubId,
+        visitorTeamClubId: e.visitorTeamClubId,
+        time: e.time,
+        location: e.location,
+        localidad_id: e.localidad_id,
+        instalacion_campo_id: e.instalacion_campo_id,
+        nombreInterno: e.nombreInterno,
+        team: e.team
+      } as Match));
+    const eventMatchKeys = new Set(eventMatches.map(matchIdentity));
+    const derivedMatches = calendarMatches.filter(match => !eventMatchKeys.has(matchIdentity(match)));
+    return [...eventMatches, ...derivedMatches];
+  };
+
+  const filteredMatchesList = useMemo(
+    () => buildMatchesList(filteredEventsList, competitionCalendarMatchesList),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredEventsList, competitionCalendarMatchesList]
+  );
+
+  // Todos los partidos de todos los equipos (un jugador solo ve los de su equipo).
+  const allTeamsMatchesList = useMemo(
+    () => perfil?.rol === 'Jugador'
+      ? filteredMatchesList
+      : buildMatchesList(eventsList, allCompetitionCalendarMatchesList),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [perfil?.rol, filteredMatchesList, eventsList, allCompetitionCalendarMatchesList]
+  );
+
+  // Componente de carga
+  const LoadingScreen = () => (
+    <div className="flex flex-col h-full items-center justify-center py-40 gap-4">
+      <i className="fa-solid fa-spinner fa-spin text-5xl text-sport-primary"></i>
+      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{t('app.initSystem')}</span>
+    </div>
+  );
+
+  // Pantalla de error cuando no se puede resolver el club activo (evita spinner infinito)
+  const ClubErrorScreen = () => (
+    <div className="flex flex-col h-full items-center justify-center py-40 gap-4 text-center px-4">
+      <i className="fa-solid fa-triangle-exclamation text-5xl text-amber-500"></i>
+      <span className="text-sm font-bold text-slate-300 max-w-md">
+        {clubLoadError === 'no-club'
+          ? 'Tu usuario no tiene ningún club asignado. Contacta con un administrador.'
+          : 'No se ha podido cargar el club activo. Comprueba tu conexión e inténtalo de nuevo.'}
+      </span>
+      <button
+        onClick={() => setClubRetryToken(prev => prev + 1)}
+        className="px-4 py-2 rounded-xl bg-sport-primary text-white text-xs font-black uppercase tracking-widest"
+      >
+        Reintentar
+      </button>
+    </div>
+  );
+
+  // Determinar qué partes del shell global ocultar según la vista
+  const isMatchReportView = location.pathname.match(/^\/partidos\/[^/]+$/);
+  const isSettingsView = location.pathname.startsWith('/settings');
+  const isPizarraView = location.pathname === '/pizarra';
+  const isPintadoAccionesView = location.pathname === '/pintado-acciones';
+  const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView || userRole !== 'Jugador';
+  const hideShellHeader = isMatchReportView || isSettingsView;
+
+  // Margen dinámico según estado del sidebar
+  return (
+    <div className={`flex min-h-screen w-full overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'}`}>
+      {/* Menú lateral: solo como drawer en móvil/tablet (en escritorio se navega desde el header) */}
+      {!hideShellSidebar && (
+        <Sidebar
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          isCollapsed={false}
+          userRole={userRole}
+        />
+      )}
+
+      {/* Botón pantalla completa: en móvil taparía la cabecera, y el header ya tiene el suyo */}
+      <button
+        onClick={handleFullscreen}
+        className="hidden lg:block fixed top-4 right-4 z-50 bg-white border border-slate-200 shadow-md rounded-full p-2 hover:bg-slate-100 transition"
+        title={isFullscreen ? t('app.exitFullscreen') : t('app.fullscreen')}
+      >
+        {isFullscreen ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13H5v4m0 0v-4m0 4h4m6-6h4V5m0 0v4m0-4h-4" /></svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9V5h4m0 0v4m0-4h-4m-6 6v4H5m0 0v-4m0 4h4" /></svg>
+        )}
+      </button>
+      <main className={`flex-1 min-w-0 flex flex-col overflow-y-auto ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'} transition-all duration-300 ${!hideShellHeader ? 'app-header-offset' : ''} ${!hideShellSidebar ? 'lg:ml-70' : ''}`}>
+        {!hideShellHeader && (
+          <Header
+            onMenuClick={() => setIsSidebarOpen(true)}
+            showMenuButton={!isAIMode}
+            isAIMode={isAIMode}
+            onToggleAIMode={userRole === 'Jugador' ? undefined : () => setIsAIMode(!isAIMode)}
+            onLogout={onLogout}
+            teamOptions={teamFilterOptions}
+            className={!hideShellSidebar ? 'lg:left-70' : ''}
+            showTeamFilter={userRole !== 'Jugador'}
+            showBrand={hideShellSidebar}
+          />
+        )}
+        {isAIMode && userRole !== 'Jugador' ? (
+          <React.Suspense fallback={<LoadingScreen />}>
+          <AIModeView
+            context={{
+              players: filteredSquadList,
+              staff: filteredUsersList.filter(u => u.departamento === 'Personal') as any[],
+              events: filteredEventsList,
+              teams: filteredCompetitionTeams,
+              injuries: [] as any[],
+              medicalRecords: [] as any[],
+              medicalCheckups: [] as any[],
+              rehabPrograms: [] as any[],
+              fitnessProfiles: [] as any[],
+              campogramas: filteredCampogramasList as any[],
+            }}
+          />
+          </React.Suspense>
+        ) : (
+        <>
+        {/* pb-24 hasta lg: la bottom nav es visible por debajo de 1024px y taparía el contenido */}
+        <div className={`flex-1 min-h-0 overflow-y-auto w-full ${!hideShellSidebar ? 'px-3 pt-3 pb-24 sm:px-4 md:px-6 md:pt-4 lg:px-12 lg:pt-6 lg:pb-10 pb-safe-nav' : ''} scrollbar-hide`}>
+          {clubLoadError ? <ClubErrorScreen /> : isLoadingCore ? <LoadingScreen /> : (
+            <React.Suspense fallback={<LoadingScreen />}>
+            {userRole === 'Jugador' ? (
+            <Routes>
+              <Route path="/" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <GestionCalendarView events={playerEventsList} players={filteredCurrentClubSquadList} onCreateEvent={() => {}} onClickEvent={handleCalendarEventClick} onDeleteEvent={() => {}} onSaveEvent={async () => {}} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} showFilters={false} />
+              } />
+              <Route path="/plantillas" element={
+                <MisDatosView player={filteredSquadList[0]} onOpen={setEditingPlayer} />
+              } />
+              <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
+              <Route path="/mediciones/analisis" element={<AnalisisMedicionesView />} />
+              <Route path="/videoteca" element={isLoadingExtra ? <LoadingScreen /> : <Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
+              <Route path="/competicion" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} myTeamName={currentTeam?.name} hideTeamFilter />
+              } />
+              <Route path="/calendario" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            ) : (
+            <Routes>
+              <Route path="/" element={<HomeSectionsView />} />
+              <Route path="/plantillas" element={
+                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                  try {
+                    if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
+                    const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });
+                    if (!toSave.id) throw new Error('No se pudo generar un ID válido para el jugador');
+                    await db.players.upsert(toSave);
+                    setSquadList(prev => {
+                      const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id));
+                      if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl);
+                      return [toSave, ...prev];
+                    });
+                    console.log('✓ Jugador guardado:', toSave);
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : 'Error desconocido al guardar el jugador';
+                    console.error('✗ Error guardando jugador:', msg);
+                    alert(`Error al guardar: ${msg}`);
+                  }
+                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchSquad(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
+              } />
+              <Route path="/staff" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <StaffTable
+                  staff={filteredPersonalList}
+                  onEdit={staff => { setIsNewStaff(false); setEditingStaff(staff); }}
+                  onDelete={async id => { try { await personalService.remove(id); await fetchPersonal(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                  onCreate={() => { const newStaff: Personal = { id: crypto.randomUUID(), nombre: '', cargo: '', club_id: currentTeam?.id || '', telefono: undefined, dni: undefined, foto_url: undefined }; setIsNewStaff(true); setEditingStaff(newStaff); }}
+                  clubes={clubesList}
+                  userClubId={perfil?.club_id || currentTeam?.id || ''}
+                  userRole={userRole}
+                />
+              } />
+              <Route path="/objetivos" element={
+                <ObjetivosIndividualesView
+                  equipos={misClubCompetitionTeams.map(team => ({ id: String(team.id), nombre: team.nombre }))}
+                />
+              } />
+              <Route path="/clubes" element={
+                <ClubesTable
+                  clubes={clubesList}
+                  clubId={currentTeam?.id || ''}
+                  onEdit={async c => {
+                    const exists = clubesList.some(existing => String(existing.id) === String(c.id));
+                    const payload = { nombre: c.nombre, escudo_url: c.logoUrl || '', ciudad: c.localidad || undefined };
+                    try {
+                      if (exists) await clubesService.update(c.id, payload);
+                      else await clubesService.create(payload);
+                      await fetchTeamsAndClubes();
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : 'Error al guardar el club');
+                    }
+                  }}
+                  onDelete={async id => {
+                    try { await clubesService.remove(id); await fetchTeamsAndClubes(); }
+                    catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el club'); }
+                  }}
+                />
+              } />
+              <Route path="/equipos" element={
+                <CompetitionTable
+                  teams={filteredCompetitionTeams}
+                  clubes={clubesList}
+                  clubId={currentTeam?.id || ''}
+                  onEdit={async t => {
+                    const exists = competitionTeams.some(existing => String(existing.id) === String(t.id));
+                    const payload = {
+                      club_id: t.clubId ? String(t.clubId) : undefined,
+                      nombre: t.nombre,
+                      categoria: t.etapa || undefined,
+                      competicion: t.competicion || undefined,
+                      logo_url: t.logoUrl || '',
+                      sub_equipo: t.equipo || undefined,
+                      nombre_en_fed: t.nombreEnFed || undefined,
+                      estadio: t.estadio || '',
+                      localidad: t.localidad || '',
+                      enlace: t.enlace || undefined,
+                    };
+                    try {
+                      if (exists) await equiposService.update(t.id, payload);
+                      else await equiposService.create(payload);
+                      await fetchCoreData();
+                    } catch (e) {
+                      const message = (e as { message?: string } | null)?.message;
+                      alert(message || 'Error al guardar el equipo');
+                    }
+                  }}
+                  onDelete={async id => {
+                    const affected = squadList.filter(p => String(p.equipoId ?? '') === String(id)).length;
+                    const warning = affected > 0
+                      ? `Este equipo tiene ${affected} jugador${affected === 1 ? '' : 'es'} en su plantilla. Al eliminarlo se borrarán también esos jugadores de forma permanente. ¿Continuar?`
+                      : '¿Eliminar este equipo?';
+                    if (!window.confirm(warning)) return;
+                    try {
+                      await equiposService.remove(id);
+                      await fetchCoreData();
+                      setShowStatus('Equipo eliminado correctamente');
+                      setTimeout(() => setShowStatus(null), 2000);
+                    }
+                    catch (e) {
+                      const errorMsg = e instanceof Error ? e.message : 'Error al eliminar el equipo';
+                      console.error('Error eliminando equipo:', e);
+                      alert(errorMsg);
+                    }
+                  }}
+                />
+              } />
+              <Route path="/equipos-internos" element={
+                <EquiposInternosView
+                  equipos={filteredMisClubCompetitionTeams}
+                  clubId={currentTeam?.id || ''}
+                  onEdit={async t => {
+                    const exists = competitionTeams.some(existing => String(existing.id) === String(t.id));
+                    const payload = {
+                      club_id: currentTeam?.id ? String(currentTeam.id) : undefined,
+                      nombre: t.nombre,
+                      categoria: t.etapa || undefined,
+                      logo_url: t.logoUrl || '',
+                      sub_equipo: t.equipo || undefined,
+                      nombre_en_fed: t.nombreEnFed || undefined,
+                      estadio: t.estadio || '',
+                      localidad: t.localidad || '',
+                      enlace: t.enlace || undefined,
+                    };
+                    try {
+                      if (exists) await equiposService.update(t.id, payload);
+                      else await equiposService.create(payload);
+                      await fetchCoreData();
+                    } catch (e) {
+                      const message = (e as { message?: string } | null)?.message;
+                      alert(message || 'Error al guardar el equipo');
+                    }
+                  }}
+                  onDelete={async id => {
+                    const affected = squadList.filter(p => String(p.equipoId ?? '') === String(id)).length;
+                    const warning = affected > 0
+                      ? `Este equipo tiene ${affected} jugador${affected === 1 ? '' : 'es'} en su plantilla. Al eliminarlo se borrarán también esos jugadores de forma permanente. ¿Continuar?`
+                      : '¿Eliminar este equipo?';
+                    if (!window.confirm(warning)) return;
+                    try { await equiposService.remove(id); await fetchCoreData(); }
+                    catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el equipo'); }
+                  }}
+                />
+              } />
+              <Route path="/campograma" element={
+                activeCampograma ? (
+                  <div className="space-y-6 animate-fade-in">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setActiveCampograma(null)} className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-sport-primary transition-all"><i className="fa-solid fa-arrow-left"></i></button>
+                        <div><h3 className="text-xl md:text-2xl font-black text-sport-primary uppercase tracking-tighter leading-none">{activeCampograma.nombre}</h3><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{activeCampograma.equipo} - {activeCampograma.formacion}</p></div>
+                      </div>
+                    </div>
+                    <TacticalBoard
+                      formacion={activeCampograma.formacion}
+                      positions={activeCampograma.positions || []}
+                      squad={filteredCurrentClubSquadList}
+                      notConvocadoIds={[]}
+                      onAssignPlayer={handleAssignPlayer}
+                      onRemovePlayer={handleRemovePlayer}
+                      onChangeFormation={handleChangeFormation}
+                      onToggleConvocado={() => {}}
+                      onPlayerSelect={(player) => setEditingPlayer(player)}
+                      showStarterBadge={false}
+                      showConvocadoControl={false}
+                      mainTeamName={activeCampograma.equipo}
+                      isCampograma={true}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                      <h3 className="text-3xl font-black text-sport-primary uppercase tracking-tighter">{t('app.campogramas')}</h3>
+                      <button onClick={() => setShowNewCampModal(true)} className="w-full md:w-auto bg-sport-primary text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl"><i className="fa-solid fa-plus text-lg"></i> {t('app.new')}</button>
+                    </div>
+                    <CampogramaGrid campogramas={filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name))} onSelect={setActiveCampograma} onDelete={async id => { await db.campogramas.delete(id); await fetchCampogramas(); }} />
+                  </div>
+                )
+              } />
+              <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} allSquad={currentClubSquadList} />} />
+              <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
+              <Route path="/pintado-acciones" element={<PintadoAcciones ownClubId={currentTeam?.id || ''} />} />
+              <Route path="/sesiones" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <CalendarView events={filteredEventsList} squad={filteredCurrentClubSquadList} onSaveEvent={handleSaveEvent} onDeleteEvent={handleDeleteEvent} onEditEvent={setEditingEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+              } />
+              <Route path="/calendario" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+              } />
+              <Route path="/partidos" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <LatestMatches
+                  matches={allTeamsMatchesList}
+                  onSave={async () => { }}
+                  onDelete={handleDeleteEvent}
+                  onEdit={(m) => handleViewMatchReport(String(m.id))}
+                  onClickMatch={(m) => handleViewMatchReport(String(m.id))}
+                  onCreate={() => {
+                    setModalDefaultType('Partido');
+                    setShowNewModal(true);
+                  }}
+                  competitionTeams={competitionTeams}
+                  clubes={clubesList}
+                  ownClubId={currentTeam?.id}
+                  onSelectPlayer={(playerId) => {
+                    const player = squadList.find(p => String(p.id) === playerId);
+                    if (player) setEditingPlayer(player);
+                  }}
+                />
+              } />
+              <Route path="/partidos/:matchId" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <MatchReportWrapper
+                  filteredEventsList={filteredEventsList}
+                  currentTeamId={currentTeam?.id}
+                  competitionTeams={competitionTeams}
+                  campogramasList={campogramasList}
+                  onSave={handleSaveEvent}
+                  onDelete={handleDeleteEvent}
+                  onTeamCreated={fetchCoreData}
+                />
+              } />
+              <Route path="/videoteca" element={isLoadingExtra ? <LoadingScreen /> : <Videoteca matches={filteredMatchesList} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} />} />
+              <Route path="/competicion" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+              } />
+              <Route path="/tabla-clasificacion" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <LeagueTableFullPage teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} />
+              } />
+              <Route path="/competiciones" element={
+                isLoadingExtra ? <LoadingScreen /> :
+                <CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={() => Promise.all([fetchCompeticiones(), fetchCalendarioCompeticion(), fetchTeamsAndClubes()])} />
+              } />
+              <Route path="/instalaciones" element={<InstalacionesView />} />
+              <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
+              <Route path="/residencia/habitaciones" element={<HabitacionesView />} />
+              <Route path="/residencia/estado-habitaciones" element={<HabitacionesView />} />
+              <Route path="/residencia/comidas" element={<ComedorView />} />
+              <Route path="/residencia/comedor" element={<ComedorView />} />
+              <Route path="/residencia/comedor/qr" element={<ComedorQrImprimirView />} />
+              <Route path="/mediciones/registro" element={<RegistroDiarioView />} />
+              <Route path="/mediciones/analisis" element={<AnalisisMedicionesView />} />
+              <Route path="/lesiones" element={<InjuriesView />} />
+              <Route path="/historial-medico" element={<MedicalHistoryView />} />
+              <Route path="/reconocimientos" element={<MedicalCheckupsView />} />
+              <Route path="/rehabilitacion" element={<RehabilitationView />} />
+              <Route path="/rendimiento-fisico" element={<FitnessView />} />
+              <Route path="/repositorio-tareas" element={<TaskRepositoryView />} />
+              <Route path="/usuarios" element={userRole !== 'Tecnico'
+                ? (isLoadingExtra ? <LoadingScreen /> : <UserTable
+                    users={usersList}
+                    onEdit={setEditingUser}
+                    onDelete={async id => { try { await usuariosService.remove(id); await fetchUsers(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar'); } }}
+                    onCreate={() => { setIsNewUser(true); setEditingUser({ id: crypto.randomUUID(), nombre: '', email: '', rol: 'Tecnico', estado: 'Activo', departamento: 'Personal' } as User); }}
+                    onApprove={async (user, rol) => { try { await usuariosService.update(user.id, { rol, estado: 'Activo' }); await fetchUsers(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al aprobar'); } }}
+                    onReject={async (user) => { try { await usuariosService.update(user.id, { estado: 'Inactivo' }); await fetchUsers(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al rechazar'); } }}
+                    onRefresh={fetchUsers}
+                  />)
+                : <Navigate to="/" replace />
+              } />
+              <Route path="/settings" element={userRole === 'Responsable' || userRole === 'Administrador' ? <SettingsPage /> : <Navigate to="/" replace />} />
+              <Route path="*" element={<div className="p-20 text-center uppercase font-black text-slate-300">{t('app.pageNotFound')}</div>} />
+            </Routes>
+            )}
+            </React.Suspense>
+          )}
+        </div>
+        </>
+        )}
+      </main>
+
+      {/* Navegación inferior: acceso rápido a las secciones en móvil/tablet */}
+      {!hideShellSidebar && !isAIMode && (
+        <BottomNav
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          userRole={userRole}
+        />
+      )}
+
+      {editingPlayer && <EditPlayerModal
+        player={editingPlayer}
+        clubId={currentTeam?.id || ''}
+        equipos={competitionTeams}
+        events={filteredEventsList}
+        matches={filteredMatchesList}
+        clubes={clubesList}
+        readOnly={userRole === 'Jugador'}
+        onClose={() => setEditingPlayer(null)}
+        onSave={async (p, originalId) => {
+          const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '', competicion: p.competicion || '' }, originalId);
+          if (!toSave.clubId) { alert('Selecciona un club antes de guardar.'); return; }
+          if (!toSave.equipoId) { alert('Selecciona un equipo antes de guardar.'); return; }
+          // Validar que el equipo exista
+          const equipoValido = competitionTeams.some(eq => String(eq.id) === String(toSave.equipoId));
+          if (!equipoValido) { alert('El equipo seleccionado no existe. Por favor, selecciona un equipo válido.'); return; }
+          const dorsalDuplicado = squadList.some(existing =>
+            String(existing.id) !== String(toSave.id) &&
+            String(existing.equipoId) === String(toSave.equipoId) &&
+            existing.dorsal !== undefined && existing.dorsal !== null &&
+            Number(existing.dorsal) === Number(toSave.dorsal)
+          );
+          if (toSave.dorsal !== undefined && toSave.dorsal !== null && dorsalDuplicado) {
+            alert(`El dorsal ${toSave.dorsal} ya está asignado a otro jugador de este equipo. Elige un dorsal distinto.`);
+            return;
+          }
+          const payload = {
+            id: String(toSave.id),
+            equipo_id: String(toSave.equipoId),
+            foto_url: toSave.fotoUrl || '',
+            dorsal: toSave.dorsal,
+            nombre: toSave.nombre,
+            posicion: toSave.posicion as Jugador['posicion'],
+            posicion_juego: toSave.posicionJuego || undefined,
+            perfil: toSave.perfil as Jugador['perfil'],
+            fecha_nacimiento: toSave.fechaNacimiento || undefined,
+            apodo: toSave.apodo,
+            estado: toSave.estado,
+            residencia: toSave.residencia ?? false,
+            otra_demarcacion: toSave.otraDemarcacion,
+            otra_posicion: toSave.otraPosicion,
+            descripcion: toSave.descripcion,
+            ataque: toSave.ataque,
+            defensa: toSave.defensa,
+            persona: toSave.persona,
+            observaciones: toSave.observaciones,
+            rating_tecnica: toSave.ratingTecnica,
+            rating_tactica: toSave.ratingTactica,
+            rating_condicional: toSave.ratingCondicional,
+            rating_psicologico: toSave.ratingPsicologico,
+            rating_humano: toSave.ratingHumano,
+            partidos_jugados: toSave.partidosJugados,
+            minutos: toSave.minutos,
+            titular: toSave.titular,
+            goles: toSave.goles,
+            dni: toSave.dni,
+            telefono: toSave.telefono,
+            correo: toSave.correo,
+            nombre_pila: toSave.nombrePila,
+            primer_apellido: toSave.primerApellido,
+            segundo_apellido: toSave.segundoApellido,
+            nombre_completo: toSave.nombreCompleto,
+            anio_nacimiento: toSave.anioNacimiento,
+            etapa: toSave.etapa,
+            enlace: toSave.enlace,
+            temporada: toSave.temporada,
+            nombre_tutor: toSave.nombreTutor,
+            correo_tutor: toSave.correoTutor,
+            telefono_tutor: toSave.telefonoTutor,
+          };
+          try {
+            console.log('[App.tsx] Guardando jugador:', { nombre: toSave.nombre, equipoId: toSave.equipoId, equipo: toSave.equipo, club: toSave.club, playerId: toSave.id });
+            const exists = squadList.some(existing => String(existing.id) === String(toSave.id));
+            if (exists) await plantillasService.update(String(toSave.id), payload);
+            else await plantillasService.create(payload);
+            console.log('[App.tsx] Jugador guardado exitosamente');
+            setSquadList(prev => {
+              const idx = prev.findIndex(pl => String(pl.id) === String(toSave.id));
+              console.log('[App.tsx] Actualizando squadList:', { existe: idx >= 0, toSaveId: toSave.id, prevLength: prev.length });
+              if (idx >= 0) return prev.map(pl => String(pl.id) === String(toSave.id) ? toSave : pl);
+              const result = [toSave, ...prev];
+              console.log('[App.tsx] Nuevo jugador agregado. Nuevo length:', result.length);
+              return result;
+            });
+            setEditingPlayer(null);
+            console.log('[App.tsx] Modal cerrado, llamando fetchSquad...');
+            await fetchSquad();
+          } catch (e) {
+            console.error('[App.tsx] Error al guardar jugador:', e);
+            const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+            if (msg && msg.includes('plantillas_equipo_id_dorsal_key')) {
+              alert(`El dorsal ${toSave.dorsal} ya está asignado a otro jugador de este equipo. Elige un dorsal distinto.`);
+            } else {
+              alert(msg || 'Error al guardar el jugador');
+            }
+          }
+        }}
+      />}
+      {showBulkPhotoUpload && <BulkPhotoUpload
+        squad={squadList}
+        clubId={currentTeam?.id || ''}
+        onClose={() => setShowBulkPhotoUpload(false)}
+        onUploaded={async (playerId, fotoUrl) => {
+          await plantillasService.update(String(playerId), { foto_url: fotoUrl });
+          setSquadList(prev => prev.map(pl => String(pl.id) === String(playerId) ? { ...pl, fotoUrl } : pl));
+        }}
+      />}
+      {editingUser && <EditUserModal user={editingUser} isNew={isNewUser} clubId={currentTeam?.id || ''} equipos={filteredMisClubCompetitionTeams} isAdmin={perfil?.rol === 'Administrador'} onClose={() => { setEditingUser(null); setIsNewUser(false); }} onSave={async (u, password) => {
+        if (isNewUser) {
+          try {
+            const result = await authService.createAuthUser(u.email, password || '', u.nombre, {
+              rol: u.rol as 'Administrador' | 'Responsable' | 'Tecnico' | 'Jugador',
+              estado: u.estado as 'Activo' | 'Inactivo' | 'Pendiente',
+              clubId: u.clubId || currentTeam?.id || null,
+              equipoId: u.equipoId || null,
+            });
+            if (!result.success) {
+              alert(result.error || 'No se pudo crear el usuario.');
+              return;
+            }
+            if (u.recordar && result.uid) {
+              await usuariosService.update(result.uid, { recordar: u.recordar });
+            }
+            await fetchUsers();
+            setEditingUser(null); setIsNewUser(false);
+          } catch (e) {
+            alert(e instanceof Error ? e.message : 'Error al crear el usuario');
+          }
+          return;
+        }
+        try {
+          await usuariosService.update(u.id, {
+            nombre: u.nombre,
+            email: u.email,
+            rol: u.rol as Usuario['rol'],
+            estado: u.estado as Usuario['estado'],
+            club_id: u.clubId || currentTeam?.id || null,
+            equipo_id: u.equipoId || null,
+            recordar: u.recordar || null,
+          });
+          if (password) {
+            const pwResult = await authService.setUserPassword(String(u.id), password);
+            if (!pwResult.success) {
+              alert(pwResult.error || 'No se pudo actualizar la contraseña.');
+              return;
+            }
+          }
+          await fetchUsers();
+          setEditingUser(null); setIsNewUser(false);
+        } catch (e) {
+          const message = e instanceof Error ? e.message : (e as { message?: string })?.message;
+          alert(message || 'Error al guardar el usuario');
+        }
+      }} />}
+      {editingStaff && <EditStaffModal staff={editingStaff} isNew={isNewStaff} clubId={currentTeam?.id || ''} equipos={ownClubCompetitionTeams} onClose={() => { setEditingStaff(null); setIsNewStaff(false); }} onSave={async (s) => {
+        try {
+          const validateAndPrepare = (staff: Personal) => {
+            if (!staff.nombre || !staff.nombre.trim()) {
+              throw new Error('El nombre es requerido');
+            }
+            return {
+              ...staff,
+              nombre: staff.nombre.trim(),
+              cargo: s.cargo || '',
+              telefono: s.telefono || undefined,
+              dni: s.dni || undefined,
+              email: (s as any).email || undefined,
+              equipo_ids: (s as any).equipo_ids || undefined,
+              foto_url: s.foto_url || undefined,
+              club_id: s.club_id || currentTeam?.id || '',
+            };
+          };
+
+          const preparedData = validateAndPrepare(s);
+
+          if (isNewStaff) {
+            await personalService.create(preparedData);
+          } else {
+            await personalService.update(s.id, preparedData);
+          }
+          await fetchPersonal();
+          setEditingStaff(null);
+          setIsNewStaff(false);
+        } catch (e) {
+          console.error('Error guardando personal:', e);
+          alert(e instanceof Error ? e.message : 'Error al guardar el personal');
+        }
+      }} />}
+      {editingEvent && <NewEventModal editEvent={editingEvent} onClose={() => setEditingEvent(null)} onSave={handleSaveEventAndViewReport} onDelete={handleDeleteEvent} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchCoreData} />}
+      {showNewModal && <NewEventModal initialDate={newModalInitialDate ?? new Date()} defaultType={modalDefaultType} onClose={() => { setShowNewModal(false); setModalDefaultType(null); setNewModalInitialDate(null); }} onSave={handleSaveEventAndViewReport} competitionTeams={competitionTeams} ownClubId={currentTeam?.id} onTeamCreated={fetchCoreData} />}
+      {showNewCampModal && <NewCampogramaModal onClose={() => setShowNewCampModal(false)} clubName={currentTeam?.name || ''} equipos={[...new Set(competitionTeams.map(t => t.equipo || t.nombre).filter(Boolean))]} onCreate={async d => { const newCamp: Campograma = { id: crypto.randomUUID(), ...d, jugadoresCount: 0, positions: getInitialPositions(d.formacion), club: currentTeam?.name || '', clubId: currentTeam?.id || '' }; await db.campogramas.upsert(newCamp); await fetchCampogramas(); setActiveCampograma(newCamp); setShowNewCampModal(false); }} />}
+      {showStatus && <div className="fixed left-1/2 -translate-x-1/2 bg-sport-primary text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-widest shadow-2xl z-1000 border border-red-400/30 animate-fade-in text-center bottom-24 lg:bottom-10">{showStatus}</div>}
+
+    </div>
+  );
+};
+
+export default App;

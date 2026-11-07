@@ -24,6 +24,8 @@ interface StaffTableProps {
 
 const columnHelper = createColumnHelper<Personal>();
 
+const DEFAULT_PHOTO = '/jugador-default.png';
+
 const getInitials = (name: string): string => {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0) return '?';
@@ -62,14 +64,19 @@ const StaffTable: React.FC<StaffTableProps> = ({ staff, onEdit, onDelete, onCrea
       cell: ({ row }) => {
         const member = row.original;
         const hasImage = member.foto_url && /^(https?:\/\/|data:image\/|\/)/i.test(member.foto_url);
-        const initials = getInitials(member.nombre);
         return (
           <div className="w-9 h-9 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center font-semibold text-sm border border-slate-100 overflow-hidden">
-            {hasImage ? (
-              <img loading="lazy" decoding="async" src={member.foto_url} alt={member.nombre} className="w-full h-full object-cover" />
-            ) : (
-              <span>{initials}</span>
-            )}
+            <img
+              loading="lazy"
+              decoding="async"
+              src={hasImage ? member.foto_url : DEFAULT_PHOTO}
+              alt={member.nombre}
+              onError={e => {
+                const img = e.currentTarget;
+                if (!img.src.endsWith(DEFAULT_PHOTO)) img.src = DEFAULT_PHOTO;
+              }}
+              className="w-full h-full object-cover"
+            />
           </div>
         );
       },

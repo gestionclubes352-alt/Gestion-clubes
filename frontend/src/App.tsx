@@ -1360,7 +1360,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       normalizeTeamName(match.jornada || ''),
     ].join('|');
 
-  const competitionCalendarMatchesList = useMemo(() => {
+  const buildCompetitionCalendarMatches = (teamsFilter: string[]) => {
+    const selectedTeams = teamsFilter;
     const selected = new Set(selectedTeams.map(normalizeTeamName));
     const rows: Match[] = [];
 
@@ -1421,10 +1422,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     });
 
     return rows;
-  }, [competitionCalendarList, competitionsById, ownCompetitionTeams, selectedTeams, knownOwnInternalTeamNames, clubIdByTeamName]);
+  };
 
-  const filteredMatchesList = useMemo(() => {
-    const eventMatches = filteredEventsList
+  const competitionCalendarMatchesList = useMemo(
+    () => buildCompetitionCalendarMatches(selectedTeams),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [competitionCalendarList, competitionsById, ownCompetitionTeams, selectedTeams, knownOwnInternalTeamNames, clubIdByTeamName]
+  );
+
+  const buildMatchesList = (events: typeof eventsList, calendarMatches: Match[]) => {
+    const eventMatches = events
       .filter(e => e.type === 'Partido')
       .map(e => ({
         id: e.id,
@@ -1446,9 +1453,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         team: e.team
       } as Match));
     const eventMatchKeys = new Set(eventMatches.map(matchIdentity));
-    const derivedMatches = competitionCalendarMatchesList.filter(match => !eventMatchKeys.has(matchIdentity(match)));
+    const derivedMatches = calendarMatches.filter(match => !eventMatchKeys.has(matchIdentity(match)));
     return [...eventMatches, ...derivedMatches];
-  }, [filteredEventsList, competitionCalendarMatchesList]);
+  };
+
+  const filteredMatchesList = useMemo(
+    () => buildMatchesList(filteredEventsList, competitionCalendarMatchesList),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredEventsList, competitionCalendarMatchesList]
+  );
 
   // Componente de carga
   const LoadingScreen = () => (

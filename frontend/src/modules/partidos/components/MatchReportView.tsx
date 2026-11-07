@@ -210,6 +210,11 @@ function findTeamByName<T>(teams: T[], wantedNames: string[], getName: (t: T) =>
   return partial || null;
 }
 
+// Columnas mínimas de `plantillas` para la alineación (evita traer datos personales y campos pesados)
+const SQUAD_COLUMNS = 'id,equipo_id,foto_url,dorsal,nombre,apodo,posicion,posicion_juego,perfil,estado';
+// Caché de plantillas en memoria (por sesión de navegador)
+const squadCache = new Map<string, Player[]>();
+
 const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClubId, competitionTeams = [], campogramasList = [], onSave, onDelete, onTeamCreated }) => {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(() => {
@@ -1272,46 +1277,26 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   }, [ownTeams, match.team, match.localTeam, match.visitorTeam, match.opponent, ownEquipoId]);
 
   // Carga la plantilla real del equipo propio (Supabase) para la pestaña Alineación
-  // Incluye también jugadores de otros equipos del club para convocatorias multi-equipo
+  // Incluye también jugadores de otros equipos del club para convocatorias multi-equipo.
+  // Optimizado: solo las columnas necesarias, UNA sola consulta (`in`) para todos los equipos,
+  // y caché en memoria para que reabrir un partido pinte la plantilla al instante.
   useEffect(() => {
     if (!ownEquipoId || !ownTeams.length) return;
+    let cancelled = false;
+    const allIds = ownTeams.map(t => t.id);
+    const cacheKey = `${ownEquipoId}|${allIds.join(',')}`;
+    const cached = squadCache.get(cacheKey);
+    if (cached) { setSquad(cached); setSquadLoaded(true); }
     (async () => {
       try {
-        // Lanzar ya las plantillas de otros equipos del club, en paralelo con la principal
-        const otherEquipoIds = ownTeams.filter(t => t.id !== ownEquipoId).map(t => t.id);
-        const othersPromise = Promise.all(otherEquipoIds.map(async (equipoId): Promise<Player[]> => {
-          try {
-            const rows = await plantillasService.list({ equipo_id: equipoId });
-            const teamName = ownTeams.find(t => t.id === equipoId)?.nombre || '';
-            return rows.map((p): Player => ({
-              id: p.id,
-              fotoUrl: p.foto_url || '',
-              competicion: '',
-              club: '',
-              equipo: teamName,
-              dorsal: p.dorsal ?? 0,
-              nombre: p.nombre,
-              apodo: p.apodo,
-              posicion: p.posicion,
-              posicionJuego: p.posicion_juego || '',
-              perfil: (p.perfil || 'D') as Player['perfil'],
-              estado: p.estado,
-            }));
-          } catch (err) {
-            console.warn(`No se pudo cargar plantilla del equipo ${equipoId}:`, err);
-            return [];
-          }
-        }));
-
-        // Cargar plantilla del equipo principal
-        const mainRows = await plantillasService.list({ equipo_id: ownEquipoId });
-        const mainTeam = ownTeams.find(t => t.id === ownEquipoId);
-        const mainMapped: Player[] = mainRows.map((p): Player => ({
+        const rows = await plantillasService.list({ equipo_id: allIds }, SQUAD_COLUMNS);
+        const teamName = (id: string) => ownTeams.find(t => t.id === id)?.nombre || '';
+        const combined = rows.map((p): Player => ({
           id: p.id,
           fotoUrl: p.foto_url || '',
           competicion: '',
           club: '',
-          equipo: mainTeam?.nombre || '',
+          equipo: teamName(p.equipo_id),
           dorsal: p.dorsal ?? 0,
           nombre: p.nombre,
           apodo: p.apodo,
@@ -1319,23 +1304,18 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           posicionJuego: p.posicion_juego || '',
           perfil: (p.perfil || 'D') as Player['perfil'],
           estado: p.estado,
-          equipoId: ownEquipoId,
-        }));
-
-        const byDorsal = (a: Player, b: Player) => (a.dorsal ?? 999) - (b.dorsal ?? 999);
-        // Mostrar ya la plantilla principal sin esperar al resto de equipos
-        if (mainMapped.length > 0) setSquad([...mainMapped].sort(byDorsal));
-
-        const results = await othersPromise;
-
-        const combined = [...mainMapped, ...results.flat()];
-        if (combined.length > 0) setSquad(combined.sort(byDorsal));
+          equipoId: p.equipo_id,
+        })).sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999));
+        if (cancelled) return;
+        squadCache.set(cacheKey, combined);
+        if (combined.length > 0) setSquad(combined);
       } catch (err) {
         console.error('No se pudo cargar la plantilla propia', err);
       } finally {
-        setSquadLoaded(true);
+        if (!cancelled) setSquadLoaded(true);
       }
     })();
+    return () => { cancelled = true; };
   }, [ownEquipoId, ownTeams]);
 
   // Carga la plantilla del equipo visitante para mostrar en ALINEACIÓN

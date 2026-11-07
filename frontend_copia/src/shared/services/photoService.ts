@@ -1,0 +1,67 @@
+/**
+ * @fileoverview Subida de fotos (jugadores, equipos, clubes) a Supabase Storage.
+ * Sustituye la versión anterior sobre Firebase Storage.
+ * Requiere un bucket público llamado `club-media` en el proyecto de Supabase.
+ */
+
+import { supabase } from './supabaseClient';
+import { optimizeImageFile, type ImagePreset } from './imageOptimizer';
+
+const BUCKET = 'club-media';
+// Bucket dedicado a vídeos de partido (creado en 062_match_video_originals.sql):
+// público, sin restricción de mime type de imagen como `club-media`.
+const VIDEO_BUCKET = 'match-video-originals';
+
+async function uploadToStorage(path: string, file: File, bucket: string = BUCKET): Promise<string> {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/**
+ * Sube la imagen reducida. La extensión se toma del fichero ya optimizado para que
+ * el tipo del objeto en Storage coincida con su contenido real.
+ */
+async function uploadOptimized(pathPrefix: string, name: string, file: File, preset: ImagePreset): Promise<string> {
+  const optimized = await optimizeImageFile(file, preset);
+  const ext = optimized.name.split('.').pop() || 'jpg';
+  return uploadToStorage(`${pathPrefix}/${name}.${ext}`, optimized);
+}
+
+export async function uploadPlayerPhoto(file: File, playerId: string, clubId: string): Promise<string> {
+  return uploadOptimized(`clubs/${clubId}/players/${playerId}`, 'profile', file, 'photo');
+}
+
+export async function uploadTeamLogo(file: File, teamId: string, clubId: string): Promise<string> {
+  return uploadOptimized(`clubs/${clubId}/teams/${teamId}`, 'logo', file, 'logo');
+}
+
+export async function uploadClubLogo(file: File, clubEntityId: string, clubId: string): Promise<string> {
+  return uploadOptimized(`clubs/${clubId}/clubes/${clubEntityId}`, 'logo', file, 'logo');
+}
+
+export async function uploadTaskThumbnail(file: File, taskId: string): Promise<string> {
+  return uploadOptimized(`tasks/${taskId}`, 'thumbnail', file, 'thumbnail');
+}
+
+export async function uploadMatchReportFile(file: File, matchId: string | number): Promise<string> {
+  const ext = file.name.split('.').pop() || 'bin';
+  return uploadToStorage(`matches/${matchId}/reports/${crypto.randomUUID()}.${ext}`, file);
+}
+
+export async function uploadMatchVideo(file: File, matchId: string | number, targetField: string = 'videoUrl'): Promise<string> {
+  const ext = file.name.split('.').pop() || 'mp4';
+  return uploadToStorage(`${matchId}/${targetField}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
+}
+
+export async function uploadMatchPlanVideo(file: File, matchId: string | number, section: 'ataque' | 'defensa' | 'transiciones'): Promise<string> {
+  const ext = file.name.split('.').pop() || 'mp4';
+  const fieldMap: { [key: string]: string } = {
+    'ataque': 'planVideoUrl',
+    'defensa': 'planVideoUrl',
+    'transiciones': 'planVideoUrl'
+  };
+  const field = fieldMap[section] || 'planVideoUrl';
+  return uploadToStorage(`${matchId}/${field}/${crypto.randomUUID()}.${ext}`, file, VIDEO_BUCKET);
+}

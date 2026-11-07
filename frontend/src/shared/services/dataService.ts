@@ -8,16 +8,22 @@ import { supabase } from './supabaseClient';
 
 function createTableService<T extends { id: string | number }>(tableName: string) {
   return {
-    async list(filters?: Record<string, unknown>) {
-      let query = supabase.from(tableName).select('*');
+    /**
+     * `filters`: valor escalar → `eq`; array → `in`.
+     * `columns`: lista de columnas a traer (por defecto `*`). Úsalo en listados pesados.
+     */
+    async list(filters?: Record<string, unknown>, columns?: string) {
+      let query = supabase.from(tableName).select(columns || '*');
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          query = query.eq(key, value as string | number | boolean);
+          query = Array.isArray(value)
+            ? query.in(key, value as (string | number)[])
+            : query.eq(key, value as string | number | boolean);
         }
       }
       const { data, error } = await query;
       if (error) throw error;
-      return data as T[];
+      return data as unknown as T[];
     },
 
     async getById(id: string | number) {

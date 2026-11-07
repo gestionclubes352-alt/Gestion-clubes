@@ -82,6 +82,8 @@ export interface DataTableProps<T> {
   stickyHeader?: boolean;
   /** Max height for scrollable body (e.g., '500px') */
   maxHeight?: string;
+  /** Place the toolbar buttons (export / mode toggle) next to the search box instead of at the right edge */
+  actionsAlignLeft?: boolean;
   /** Footer content below table */
   footer?: React.ReactNode;
   /** Allow toggling between basic and advanced mode. Default: true when searchable or exportable */
@@ -299,6 +301,7 @@ function DataTable<T extends Record<string, any>>({
   cellTextClassName = 'text-[13px]',
   stickyHeader = false,
   maxHeight,
+  actionsAlignLeft = false,
   footer,
   allowModeToggle,
   defaultMode = 'advanced',
@@ -505,7 +508,7 @@ function DataTable<T extends Record<string, any>>({
             </span>
           )}
 
-          <div className="flex items-center gap-2 sm:ml-auto">
+          <div className={`flex items-center gap-2 ${actionsAlignLeft ? '' : 'sm:ml-auto'}`}>
             {isAdvanced && exportable && (
               <button
                 onClick={() => exportToCsv(table, exportFilename)}
@@ -519,6 +522,12 @@ function DataTable<T extends Record<string, any>>({
             )}
             {toolbarRight}
             {ModeToggle}
+            {actionsAlignLeft && !loading && table.getFilteredRowModel().rows.length > 0 && (
+              <span className="ml-2 text-xs text-slate-400 whitespace-nowrap">
+                <span className="font-semibold text-slate-600 tabular-nums">{table.getFilteredRowModel().rows.length}</span>{' '}
+                registro{table.getFilteredRowModel().rows.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -595,7 +604,7 @@ function DataTable<T extends Record<string, any>>({
       </TableScrollContainer>
 
       {/* ROWS SUMMARY */}
-      {!loading && <RowsSummary table={table} />}
+      {!loading && !actionsAlignLeft && <RowsSummary table={table} />}
 
       {/* FOOTER */}
       {footer}
