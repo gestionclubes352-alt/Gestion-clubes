@@ -16,10 +16,6 @@ const CampogramaGrid: React.FC<CampogramaGridProps> = ({ campogramas, onSelect, 
           onClick={() => onSelect(camp)}
           className="group bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all relative cursor-pointer overflow-hidden"
         >
-          <div className="absolute top-6 left-6 bg-[var(--accent)] text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
-            {camp.formacion}
-          </div>
-
           <button 
             onClick={(e) => {
               e.stopPropagation();

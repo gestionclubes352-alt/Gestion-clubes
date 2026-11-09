@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Player } from '../types';
+import { encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 
 interface SquadListProps {
   squad: Player[];
@@ -30,6 +31,7 @@ const SquadList: React.FC<SquadListProps> = ({ squad }) => {
                 <img loading="lazy" decoding="async" 
                   src={player.fotoUrl} 
                   alt={player.nombre}
+                  style={encuadreStyle(getFotoEncuadre(player))}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100"
                 />
               )}

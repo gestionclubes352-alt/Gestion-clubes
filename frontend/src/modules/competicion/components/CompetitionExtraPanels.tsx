@@ -194,9 +194,9 @@ export const ActasPanel: React.FC<ActasDataProps> = ({ clubId, equipo }) => {
           >
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{r.acta.date || fmtDate(r.date)}</span>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{r.jornada}</span>
-            <span className={`truncate text-right text-sm ${ownSideOf(r) === 'home' ? 'font-black text-[#c8102e]' : 'font-semibold text-slate-700'}`}>{r.acta.homeTeam.name}</span>
+            <span className={`truncate text-right text-sm ${ownSideOf(r) === 'home' ? 'font-black text-[#9f1239]' : 'font-semibold text-slate-700'}`}>{r.acta.homeTeam.name}</span>
             <span className="rounded-md bg-slate-800 px-2 py-1 text-center text-sm font-black tabular-nums text-white">{r.acta.score}</span>
-            <span className={`truncate text-sm ${ownSideOf(r) === 'away' ? 'font-black text-[#c8102e]' : 'font-semibold text-slate-700'}`}>{r.acta.awayTeam.name}</span>
+            <span className={`truncate text-sm ${ownSideOf(r) === 'away' ? 'font-black text-[#9f1239]' : 'font-semibold text-slate-700'}`}>{r.acta.awayTeam.name}</span>
           </button>
         ))}
       </div>
@@ -261,13 +261,13 @@ export const SancionesPanel: React.FC<ActasDataProps> = ({ clubId, equipo }) => 
       {sanciones.length > 0 && (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-xs">
+            <table className="w-auto text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
                 <tr>
                   <th className="px-4 py-2">Jugador</th>
-                  <th className="px-2 py-2">Equipo</th>
-                  <th className="px-2 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />Amarillas</span></th>
-                  <th className="px-2 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" /><CardIcon kind="red" className="w-2 h-3" />Doble amarilla</span></th>
+                  <th className="px-3 py-2">Equipo</th>
+                  <th className="px-3 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />Amarillas</span></th>
+                  <th className="px-3 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" /><CardIcon kind="red" className="w-2 h-3" />Doble amarilla</span></th>
                   <th className="px-4 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="red" className="w-2 h-3" />Rojas</span></th>
                 </tr>
               </thead>
@@ -275,9 +275,9 @@ export const SancionesPanel: React.FC<ActasDataProps> = ({ clubId, equipo }) => 
                 {sanciones.map(s => (
                   <tr key={`${s.team}|${s.player}`} className="border-t border-slate-100">
                     <td className="px-4 py-2 font-bold text-slate-700">{s.player}</td>
-                    <td className="px-2 py-2 text-slate-500">{s.team}</td>
-                    <td className="px-2 py-2 text-center tabular-nums"><span className="rounded bg-yellow-100 px-2 py-0.5 font-black text-yellow-700">{s.yellows}</span></td>
-                    <td className="px-2 py-2 text-center tabular-nums">{s.doubleYellows || '—'}</td>
+                    <td className="px-3 py-2 text-slate-500">{s.team}</td>
+                    <td className="px-3 py-2 text-center tabular-nums"><span className="rounded bg-yellow-100 px-2 py-0.5 font-black text-yellow-700">{s.yellows}</span></td>
+                    <td className="px-3 py-2 text-center tabular-nums">{s.doubleYellows || '—'}</td>
                     <td className="px-4 py-2 text-center tabular-nums">{s.reds ? <span className="rounded bg-red-100 px-2 py-0.5 font-black text-red-700">{s.reds}</span> : '—'}</td>
                   </tr>
                 ))}

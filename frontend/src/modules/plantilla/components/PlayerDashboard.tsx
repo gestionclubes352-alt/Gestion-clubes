@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Player } from '../types';
 import { calculatePlayerAge } from '../utils/tileConfig';
+import { encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 import { BallIcon, CardIcon, GoalIcons } from '@shared/components/MatchIcons';
 
 /** Participación del jugador en un partido (fila de actas federativas). */
@@ -233,7 +234,8 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
           <img
             src={isImageUrl(photoUrl) ? photoUrl : DEFAULT_PLAYER_PHOTO}
             alt={player.nombre}
-            className="w-full h-full object-cover object-[50%_20%]"
+            style={encuadreStyle(getFotoEncuadre(player))}
+            className="w-full h-full object-cover"
           />
         </div>
         <div className="min-w-0 flex-1">
@@ -419,7 +421,12 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
                   </tr>
                 </thead>
                 <tbody>
-                  {matchLog.map(m => (
+                  {[...matchLog].sort((a, b) => {
+                    const ja = parseInt(String(a.jornada ?? '').replace(/\D/g, ''), 10);
+                    const jb = parseInt(String(b.jornada ?? '').replace(/\D/g, ''), 10);
+                    if (!isNaN(ja) && !isNaN(jb) && ja !== jb) return ja - jb;
+                    return String(a.fecha).localeCompare(String(b.fecha));
+                  }).map(m => (
                     <tr key={m.fed_match_id} className="border-t border-slate-200 text-slate-700">
                       <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">{formatBirthDate(m.fecha) ?? m.fecha}</td>
                       <td className="py-1.5 pr-2">{m.jornada || '–'}</td>

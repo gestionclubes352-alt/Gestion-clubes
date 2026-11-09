@@ -338,6 +338,11 @@ const normalizeTeamName = (value: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
+/** Compara nombres de competición ignorando mayúsculas, tildes y puntuación ("LIGA NACIONAL JUVENIL, Grupo 6" = "Liga Nacional Juvenil Grupo 6"). */
+const sameCompetitionName = (a: string | undefined, b: string | undefined) => {
+  const clean = (v?: string) => normalizeTeamName(v || '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  return !!clean(a) && clean(a) === clean(b);
+};
 const EXCLUDED_TEAM_FILTER_OPTIONS = new Set(['escuela huesca']);
 const containsTeamWords = (value: string | undefined, teamValue: string | undefined) => {
   const source = normalizeTeamName(value || '');
@@ -972,6 +977,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       return {
         id: p.id,
         fotoUrl: p.foto_url || '',
+        fotoZoom: p.foto_zoom ?? undefined,
+        fotoPosX: p.foto_pos_x ?? undefined,
+        fotoPosY: p.foto_pos_y ?? undefined,
         competicion: equipoRow?.competicion || equipoFallback?.competicion || '',
         club: clubRow?.nombre || currentTeam?.name || '',
         equipo: equipoRow?.sub_equipo || equipoRow?.nombre || equipoFallback?.sub_equipo || equipoFallback?.nombre || '',
@@ -1389,6 +1397,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       const competition = competitionsById.get(String(row.competicion_id));
       const competitionName = competition?.nombre || 'Liga';
       const matchingTeams = ownCompetitionTeams.filter(team => {
+        // Varios equipos internos comparten nombre federativo (p.ej. "Ipc la Escuela" = Juvenil A, Cadete C, Alevín A/B):
+        // el calendario solo se atribuye al equipo cuya competición es la de esa fila.
+        if (team.competicion && !sameCompetitionName(team.competicion, competitionName)) return false;
         return sideMatchesTeam(row.equipo_local, team) || sideMatchesTeam(row.equipo_visitante, team);
       });
       const matchingInternalNames = new Map<string, { id: string; internalName: string; isLocal: boolean }>();
@@ -1472,9 +1483,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
         nombreInterno: e.nombreInterno,
         team: e.team
       } as Match));
+    // Si el evento aún no tiene resultado pero el calendario federativo sí, se hereda el resultado.
+    const calendarByKey = new Map(calendarMatches.map(m => [matchIdentity(m), m] as const));
+    const mergedEventMatches = eventMatches.map(m => {
+      const hasResult = m.status === 'Finished' && m.score;
+      if (hasResult) return m;
+      const cal = calendarByKey.get(matchIdentity(m));
+      if (cal && cal.status === 'Finished' && cal.score) {
+        return { ...m, status: 'Finished' as const, score: cal.score };
+      }
+      return m;
+    });
     const eventMatchKeys = new Set(eventMatches.map(matchIdentity));
     const derivedMatches = calendarMatches.filter(match => !eventMatchKeys.has(matchIdentity(match)));
-    return [...eventMatches, ...derivedMatches];
+    return [...mergedEventMatches, ...derivedMatches];
   };
 
   const filteredMatchesList = useMemo(
@@ -1639,7 +1661,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlantillasView squad={filteredSquadList} campogramas={campogramasView} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                <PlantillasView squad={filteredSquadList.filter(p => !p.clubId || String(p.clubId) === String(currentTeam?.id || ''))} campogramas={campogramasView} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
                     if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
                     const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });
@@ -1840,7 +1862,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/competiciones" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} onDataChanged={() => Promise.all([fetchCompeticiones(), fetchCalendarioCompeticion(), fetchTeamsAndClubes()])} />
+                <CompetitionsConfigView misEquipos={filteredMisClubCompetitionTeams} equiposInternosClub={misClubCompetitionTeams}onDataChanged={() => Promise.all([fetchCompeticiones(), fetchCalendarioCompeticion(), fetchTeamsAndClubes()])} />
               } />
               <Route path="/instalaciones" element={<InstalacionesView />} />
               <Route path="/residencia/jugadores" element={<JugadoresResiView />} />
@@ -1919,6 +1941,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             id: String(toSave.id),
             equipo_id: String(toSave.equipoId),
             foto_url: toSave.fotoUrl || '',
+            foto_zoom: toSave.fotoZoom ?? 1,
+            foto_pos_x: toSave.fotoPosX ?? 50,
+            foto_pos_y: toSave.fotoPosY ?? 20,
             dorsal: toSave.dorsal,
             nombre: toSave.nombre,
             posicion: toSave.posicion as Jugador['posicion'],

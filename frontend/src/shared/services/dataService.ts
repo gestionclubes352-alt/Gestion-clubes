@@ -87,6 +87,9 @@ export interface Jugador { // tabla `plantillas`
   id: string;
   equipo_id: string;
   foto_url: string;
+  foto_zoom?: number;
+  foto_pos_x?: number;
+  foto_pos_y?: number;
   dorsal: number;
   nombre: string;
   posicion: 'Portero' | 'Defensa' | 'Medio' | 'Delantero';

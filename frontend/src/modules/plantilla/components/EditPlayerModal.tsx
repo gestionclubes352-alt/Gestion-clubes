@@ -15,6 +15,7 @@ import { supabase } from '@shared/services/supabaseClient';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import PlayerDashboard from './PlayerDashboard';
+import { ENCUADRE_DEFAULT, ZOOM_MAX, ZOOM_MIN, encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 
 const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
 const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
@@ -728,7 +729,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                     <img loading="lazy" decoding="async"
                       src={preview}
                       alt="Preview"
-                      className="w-full h-full object-cover object-[50%_20%] group-hover:opacity-75 transition-opacity"
+                      style={encuadreStyle(getFotoEncuadre(formData))}
+                      className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
                     />
                   ) : (
                     <>
@@ -746,6 +748,33 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 </div>
                 )}
               </div>
+              {/* Encuadre de la foto: zoom y posición (se guardan con la ficha) */}
+              {preview && !readOnly && (() => {
+                const enc = getFotoEncuadre(formData);
+                const setEnc = (key: 'fotoZoom' | 'fotoPosX' | 'fotoPosY', value: number) => handleChange(key, value);
+                const sliders: { label: string; key: 'fotoZoom' | 'fotoPosX' | 'fotoPosY'; min: number; max: number; step: number; value: number }[] = [
+                  { label: t('editPlayer.photoZoom', 'Zoom'), key: 'fotoZoom', min: ZOOM_MIN, max: ZOOM_MAX, step: 0.05, value: enc.zoom },
+                  { label: t('editPlayer.photoX', 'Horizontal'), key: 'fotoPosX', min: 0, max: 100, step: 1, value: enc.posX },
+                  { label: t('editPlayer.photoY', 'Vertical'), key: 'fotoPosY', min: 0, max: 100, step: 1, value: enc.posY },
+                ];
+                return (
+                  <div className="w-28 flex flex-col gap-1.5">
+                    {sliders.map(s => (
+                      <label key={s.key} className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{s.label}</span>
+                        <input type="range" min={s.min} max={s.max} step={s.step} value={s.value}
+                          onChange={e => setEnc(s.key, Number(e.target.value))}
+                          className="w-full accent-[var(--accent)]" />
+                      </label>
+                    ))}
+                    <button type="button"
+                      onClick={() => { setEnc('fotoZoom', ENCUADRE_DEFAULT.zoom); setEnc('fotoPosX', ENCUADRE_DEFAULT.posX); setEnc('fotoPosY', ENCUADRE_DEFAULT.posY); }}
+                      className="text-[9px] font-bold text-slate-500 hover:text-[var(--accent)] uppercase tracking-widest text-left">
+                      {t('editPlayer.photoReset', 'Restablecer')}
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Datos básicos al lado de la foto */}
@@ -941,47 +970,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               </SearchableSelect>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.concretePosition', 'Posición Concreta')}</label>
-              <SearchableSelect
-                value={formData.otraDemarcacion || ''}
-                onChange={(e) => handleChange('otraDemarcacion' as keyof Player, e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-              >
-                <option value="">–</option>
-                {isHuesca ? (
-                  <>
-                    <option value="Portero">Portero</option>
-                    <option value="Lateral Dcho">Lateral Dcho</option>
-                    <option value="Lateral Izdo">Lateral Izdo</option>
-                    <option value="Central Dcho">Central Dcho</option>
-                    <option value="Central Izdo">Central Izdo</option>
-                    <option value="Pivote">Pivote</option>
-                    <option value="Media punta">Media punta</option>
-                    <option value="Interior Dcho">Interior Dcho</option>
-                    <option value="Interior Izdo">Interior Izdo</option>
-                    <option value="Extremo Dcho">Extremo Dcho</option>
-                    <option value="Extremo Izdo">Extremo Izdo</option>
-                    <option value="Delantero">Delantero</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="Portero">{t('players.goalkeeper')}</option>
-                    <option value="Lateral Dcho">Lateral Dcho</option>
-                    <option value="Lateral Izdo">Lateral Izdo</option>
-                    <option value="Central Dcho">Central Dcho</option>
-                    <option value="Central Izdo">Central Izdo</option>
-                    <option value="Pivote">Pivote</option>
-                    <option value="Media punta">Media punta</option>
-                    <option value="Interior Dcho">Interior Dcho</option>
-                    <option value="Interior Izdo">Interior Izdo</option>
-                    <option value="Extremo Dcho">Extremo Dcho</option>
-                    <option value="Extremo Izdo">Extremo Izdo</option>
-                    <option value="Delantero">{t('players.forward')}</option>
-                  </>
-                )}
-              </SearchableSelect>
-            </div>
-            <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.otherPosition', 'Otra Posición')}</label>
               <SearchableSelect
                 value={formData.posicionJuego || ''}
@@ -993,29 +981,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 <option value="Defensa">{t('players.defender')}</option>
                 <option value="Medio">{t('players.midfielder')}</option>
                 <option value="Delantero">{t('players.forward')}</option>
-              </SearchableSelect>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{t('editPlayer.concreteOtherPosition', 'Otra Posición Concreta')}</label>
-              <SearchableSelect
-                value={formData.otraPosicion || ''}
-                onChange={(e) => handleChange('otraPosicion' as keyof Player, e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none font-black text-slate-900 appearance-none cursor-pointer"
-              >
-                <option value="">–</option>
-                <option value="Portero">Portero</option>
-                <option value="Lateral Dcho">Lateral Dcho</option>
-                <option value="Lateral Izdo">Lateral Izdo</option>
-                <option value="Central Dcho">Central Dcho</option>
-                <option value="Central Izdo">Central Izdo</option>
-                <option value="Medio centro 6">Medio centro 6</option>
-                <option value="Medio centro 8">Medio centro 8</option>
-                <option value="Interior Dcho">Interior Dcho</option>
-                <option value="Interior Izdo">Interior Izdo</option>
-                <option value="Extremo Dcho">Extremo Dcho</option>
-                <option value="Extremo Izdo">Extremo Izdo</option>
-                <option value="Media punta">Media punta</option>
-                <option value="Delantero">Delantero</option>
               </SearchableSelect>
             </div>
           </div>

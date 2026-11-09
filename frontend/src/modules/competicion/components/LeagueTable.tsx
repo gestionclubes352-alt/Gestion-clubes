@@ -14,7 +14,7 @@ import { getFederationTeamLogo } from '../data/teamLogos';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import GlobalCompetitionsView, { isOwnTeamInCompetition } from './GlobalCompetitionsView';
-import { HorariosPanel, ActasPanel, SancionesPanel, useActas, ownSideOf, norm, type ActaRow } from './CompetitionExtraPanels';
+import { HorariosPanel, SancionesPanel, useActas, ownSideOf, norm, type ActaRow } from './CompetitionExtraPanels';
 import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
 
 interface StandingTeam {
@@ -258,6 +258,10 @@ const normalizeTeam = (name: string) => name
   .replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-z0-9]/g, '');
 
+// Las jornadas de partidos propios vienen como "J6"; Number("J6") es NaN.
+const parseJornada = (value: number | string | undefined | null): number =>
+  parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+
 const normalizeTeamLabel = (team: string) =>
   team
     .trim()
@@ -286,8 +290,8 @@ const HUESCA_COMPETITIONS: ReadonlyArray<{ id: string; name: string; etapa: (typ
 const HUESCA_OWN_TEAM_REGEX = /ipc la escuela|huesca international|internacional huesca|huesca-s\.d\. escuela de futbol/i;
 
 /** Clave de enfrentamiento tolerante a sufijos de equipo B/C entre comillas (ej. E.F.B. Ejea "A" == E.F.B. EJEA). */
-const resultPairingKey = (jornada: number, local: string, visitante: string) =>
-  `${Number(jornada)}|${normalizeTeam(local.replace(/"[^"]*"/g, ''))}|${normalizeTeam(visitante.replace(/"[^"]*"/g, ''))}`;
+const resultPairingKey = (jornada: number, local?: string | null, visitante?: string | null) =>
+  `${Number(jornada)}|${normalizeTeam((local || '').replace(/"[^"]*"/g, ''))}|${normalizeTeam((visitante || '').replace(/"[^"]*"/g, ''))}`;
 
 /** Resultados federativos (todos los partidos jugados de la competición) indexados por enfrentamiento. */
 const buildFederationResultsLookup = (standingsKey: string): Map<string, string> => {
@@ -475,7 +479,7 @@ const isMyTeamName = (name: string, myTeam: string): boolean => {
 const TeamName: React.FC<{ name: string; myTeam?: string; isMine?: boolean; className?: string }> = ({ name, myTeam = '', isMine: forcedMine, className = '' }) => {
   const isMine = forcedMine ?? isMyTeamName(name, myTeam);
   return (
-    <span className={`${className} ${isMine ? '!text-[#c8102e] !font-black !tracking-wide' : ''}`}>
+    <span className={`${className} ${isMine ? '!text-[#9f1239] !font-black !tracking-wide' : ''}`}>
       {name}
     </span>
   );
@@ -500,57 +504,57 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false) =
   const cols = [
     columnHelper.accessor('pos', {
       header: '#',
-      size: dense ? 30 : 52,
+      size: dense ? 30 : 36,
       cell: info => <div className={`${dense ? 'w-5 h-5' : 'w-6 h-6'} rounded-lg flex items-center justify-center text-xs font-bold mx-auto bg-slate-50 text-slate-400`}>{info.getValue()}</div>,
     }),
     columnHelper.accessor('team', {
       header: 'Equipo',
       cell: info => (
         <div className="flex items-center gap-1.5 min-w-0">
-          <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} size={dense ? 'w-5 h-5' : 'w-7 h-7'} />
-          <TeamName name={info.getValue()} isMine={isOwn(info.getValue())} className="text-sm font-medium text-slate-700 truncate" />
+          <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} size={dense ? "w-5 h-5" : "w-5 h-5"} />
+          <TeamName name={info.getValue()} isMine={isOwn(info.getValue())} className="text-xs font-medium text-slate-700 truncate" />
         </div>
       ),
     }),
     columnHelper.accessor('points', {
       header: 'Pts',
-      size: dense ? 30 : 55,
-      cell: info => <span className="text-sm font-bold tabular-nums text-slate-700">{info.getValue()}</span>,
+      size: dense ? 30 : 40,
+      cell: info => <span className="text-xs font-bold tabular-nums text-slate-700">{info.getValue()}</span>,
     }),
     columnHelper.accessor('played', {
       header: 'J',
-      size: dense ? 30 : 50,
-      cell: info => <span className="text-sm text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
+      size: dense ? 30 : 34,
+      cell: info => <span className="text-xs text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
     }),
     columnHelper.accessor('won', {
       header: 'G',
-      size: dense ? 30 : 50,
-      cell: info => <span className="text-sm text-emerald-600 font-semibold tabular-nums">{info.getValue()}</span>,
+      size: dense ? 30 : 34,
+      cell: info => <span className="text-xs text-emerald-600 font-semibold tabular-nums">{info.getValue()}</span>,
     }),
     columnHelper.accessor('drawn', {
       header: 'E',
-      size: dense ? 30 : 50,
-      cell: info => <span className="text-sm text-amber-500 font-semibold tabular-nums">{info.getValue()}</span>,
+      size: dense ? 30 : 34,
+      cell: info => <span className="text-xs text-amber-500 font-semibold tabular-nums">{info.getValue()}</span>,
     }),
     columnHelper.accessor('lost', {
       header: 'P',
-      size: dense ? 30 : 50,
-      cell: info => <span className="text-sm text-red-400 font-semibold tabular-nums">{info.getValue()}</span>,
+      size: dense ? 30 : 34,
+      cell: info => <span className="text-xs text-red-400 font-semibold tabular-nums">{info.getValue()}</span>,
     }),
     columnHelper.accessor('goalsFor', {
       header: 'GF',
-      size: dense ? 30 : 50,
-      cell: info => <span className="text-sm text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
+      size: dense ? 30 : 34,
+      cell: info => <span className="text-xs text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
     }),
     columnHelper.accessor('goalsAgainst', {
       header: 'GC',
-      size: dense ? 30 : 50,
-      cell: info => <span className="text-sm text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
+      size: dense ? 30 : 34,
+      cell: info => <span className="text-xs text-slate-500 font-medium tabular-nums">{info.getValue()}</span>,
     }),
     columnHelper.display({
       id: 'goalDiff',
       header: 'DG',
-      size: dense ? 30 : 55,
+      size: dense ? 30 : 40,
       cell: ({ row }) => {
         const dg = row.original.goalsFor - row.original.goalsAgainst;
         return <span className={`text-sm font-semibold tabular-nums ${dg > 0 ? 'text-emerald-600' : dg < 0 ? 'text-red-400' : 'text-slate-400'}`}>{dg > 0 ? `+${dg}` : dg}</span>;
@@ -559,7 +563,7 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false) =
     columnHelper.display({
       id: 'form',
       header: 'Últimos',
-      size: 140,
+      size: 110,
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
@@ -574,7 +578,7 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false) =
     columnHelper.display({
       id: 'lastResult',
       header: 'Resultado',
-      size: 90,
+      size: 70,
       enableSorting: false,
       cell: ({ row }) => {
         // Simulación: mostrar el resultado del último partido
@@ -595,7 +599,9 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false) =
 const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName, hideTeamFilter = false, forcedSection, hideSectionTabs = false }) => {
   const [useAI, setUseAI] = useState(true);
   const [sectionState, setActiveSection] = useState<CompetitionSection>('clasificacion');
-  const activeSection: CompetitionSection = forcedSection ?? sectionState;
+  const rawSection: CompetitionSection = forcedSection ?? sectionState;
+  // "Actas" se fusionó con "Resultados": cada partido con acta tiene su botón Acta.
+  const activeSection: CompetitionSection = rawSection === 'actas' ? 'resultados' : rawSection;
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
   const [selectedEquipo, setSelectedEquipo] = useState<string>('TODOS');
 
@@ -793,7 +799,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     const clubMatchByPairing = new Map<string, (typeof matches)[number]>();
     matches.forEach(m => {
       if (!m.localTeam || !m.visitorTeam) return;
-      clubMatchByPairing.set(`${Number(m.jornada)}|${normalizeTeam(m.localTeam)}|${normalizeTeam(m.visitorTeam)}`, m);
+      clubMatchByPairing.set(`${parseJornada(m.jornada)}|${normalizeTeam(m.localTeam)}|${normalizeTeam(m.visitorTeam)}`, m);
     });
 
     const federationResults = buildFederationResultsLookup(standingsKey);
@@ -804,7 +810,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
           `${Number(match.jornada)}|${normalizeTeam(match.equipo_local)}|${normalizeTeam(match.equipo_visitante)}`
         );
         const clubScore = clubMatch?.status === 'Finished' && clubMatch.score ? clubMatch.score : undefined;
-        const resultado = match.resultado
+        // 'vs' es el marcador de "sin jugar": no debe impedir usar el resultado federativo.
+        const dbResult = match.resultado && match.resultado.trim() !== 'vs' ? match.resultado : undefined;
+        const resultado = dbResult
           || clubScore
           || federationResults.get(resultPairingKey(match.jornada, match.equipo_local, match.equipo_visitante));
         return {
@@ -819,11 +827,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         };
       })
       : matches.map(match => ({
-        jornada: Number(match.jornada),
+        jornada: parseJornada(match.jornada),
         fecha: match.date,
         local: match.localTeam,
         visitante: match.visitorTeam,
-        resultado: match.score || 'vs',
+        resultado: match.score || federationResults.get(resultPairingKey(parseJornada(match.jornada), match.localTeam, match.visitorTeam)) || 'vs',
         hora: match.time,
         campo: match.location,
         status: match.status,
@@ -835,8 +843,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       if (!Number.isFinite(jornada)) return;
       const localName = normalizeTeam(match.local);
       const visitorName = normalizeTeam(match.visitante);
+      // Los partidos propios usan el nombre interno ("Primer Equipo"), que no figura en la clasificación federativa.
+      const localInCompetition = competitionTeams.has(localName) || isInternalTeamName(match.local) || ownTeamAliases.has(localName);
+      const visitorInCompetition = competitionTeams.has(visitorName) || isInternalTeamName(match.visitante) || ownTeamAliases.has(visitorName);
       const belongsToCompetition = hasFullCompetition
-        ? competitionTeams.has(localName) && competitionTeams.has(visitorName)
+        ? localInCompetition && visitorInCompetition
         : ownTeamAliases.has(localName) || ownTeamAliases.has(visitorName);
       if (!belongsToCompetition) return;
       const key = `${jornada}|${match.fecha}|${normalizeTeam(match.local)}|${normalizeTeam(match.visitante)}`;
@@ -890,7 +901,21 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     ? HUESCA_COMPETITION_BY_TEAM[standingsKey.slice('escuela-huesca::'.length)]
     : undefined;
 
+  // Vista "Todos los equipos" de Huesca: agrega las competiciones de todos los equipos internos
+  const isHuescaAllTeams = standingsKey === 'escuela-huesca';
+  const allHuescaCompetitions = useMemo(
+    () => Array.from(new Set(Object.values(HUESCA_COMPETITION_BY_TEAM))),
+    []
+  );
+
   const scorersData = useMemo<ScorerRow[]>(() => {
+    if (isHuescaAllTeams) {
+      return allHuescaCompetitions
+        .flatMap(comp => FEDERATION_SCORERS_BY_COMPETITION[comp] || [])
+        .filter(row => /huesca/i.test(row.equipo))
+        .sort((a, b) => b.goles - a.goles)
+        .map((row, i) => ({ ...row, pos: i + 1 }));
+    }
     if (federationCompetition) {
       return (FEDERATION_SCORERS_BY_COMPETITION[federationCompetition] || []).map((row, i) => ({ ...row, pos: i + 1 }));
     }
@@ -909,9 +934,16 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         goles: Math.max(4, 18 - i - (row.pos % 4)),
         partidos: row.played,
       }));
-  }, [standings, currentClubId, standingsKey, isPreseasonTable, isHuescaCurrentSeason, federationCompetition]);
+  }, [standings, currentClubId, standingsKey, isPreseasonTable, isHuescaCurrentSeason, federationCompetition, isHuescaAllTeams, allHuescaCompetitions]);
 
   const keepersData = useMemo<Array<{ pos: number; portero: string; equipo: string; imbatido: number; encajados?: number; partidos?: number }>>(() => {
+    if (isHuescaAllTeams) {
+      return allHuescaCompetitions
+        .flatMap(comp => FEDERATION_KEEPERS_BY_COMPETITION[comp] || [])
+        .filter(row => /huesca/i.test(row.equipo))
+        .sort((a, b) => b.imbatido - a.imbatido)
+        .map((row, i) => ({ ...row, pos: i + 1 }));
+    }
     if (federationCompetition) {
       return (FEDERATION_KEEPERS_BY_COMPETITION[federationCompetition] || []).map((row, i) => ({ ...row, pos: i + 1 }));
     }
@@ -926,7 +958,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         imbatido: Math.max(2, 11 - i),
         encajados: row.goalsAgainst,
       }));
-  }, [standings, isPreseasonTable, isHuescaCurrentSeason, federationCompetition]);
+  }, [standings, isPreseasonTable, isHuescaCurrentSeason, federationCompetition, isHuescaAllTeams, allHuescaCompetitions]);
 
   // La vista Global agrupa todas las competiciones del club (datos federativos de Huesca);
   // no se ofrece al rol Jugador (hideTeamFilter) ni a otros clubes.
@@ -934,8 +966,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   const sectionTabs: Array<{ id: CompetitionSection; label: string; icon: string }> = [
     ...(showGlobalTab ? [{ id: 'global' as CompetitionSection, label: 'Global', icon: 'fa-globe' }] : []),
     { id: 'horarios', label: 'Horarios', icon: 'fa-clock' },
-    { id: 'resultados', label: 'Resultados', icon: 'fa-list-check' },
-    { id: 'actas', label: 'Actas', icon: 'fa-clipboard-list' },
+    { id: 'resultados', label: 'Resultados y Actas', icon: 'fa-list-check' },
     { id: 'clasificacion', label: 'Clasificación', icon: 'fa-trophy' },
     { id: 'sanciones', label: 'Sanciones', icon: 'fa-square' },
     { id: 'calendario', label: 'Calendario', icon: 'fa-calendar-days' },
@@ -1177,7 +1208,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             </a>
           </div>
 
-          <div className="bg-white p-2 sm:p-3">
+          <div className="bg-white p-2 sm:p-3 max-w-4xl">
             <DataTable<StandingTeam>
               data={federationDisplayStandings}
               columns={columns}
@@ -1186,7 +1217,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               emptyMessage="No hay datos de clasificación"
               emptyIcon="fa-solid fa-trophy"
               rowClassName={(row) =>
-                isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#c8102e]/10 hover:bg-[#c8102e]/15 border-l-4 border-[#c8102e]' : ''
+                isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#9f1239]/10 hover:bg-[#9f1239]/15 border-l-4 border-[#9f1239]' : ''
               }
               hideToolbar
             />
@@ -1247,7 +1278,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                             cellTextClassName="text-[11px] [&_span]:!text-[11px]"
                             emptyMessage="No hay datos de clasificación"
                             emptyIcon="fa-solid fa-trophy"
-                            rowClassName={(row) => isOwn(row.team) ? '!bg-[#c8102e]/20 hover:!bg-[#c8102e]/25 border-l-4 border-[#c8102e] shadow-[inset_0_0_0_1px_rgba(200,16,46,0.35)]' : ''}
+                            rowClassName={(row) => isOwn(row.team) ? '!bg-[#9f1239]/20 hover:!bg-[#9f1239]/25 border-l-4 border-[#9f1239] shadow-[inset_0_0_0_1px_rgba(159,18,57,0.35)]' : ''}
                             hideToolbar
                           />
                         </div>
@@ -1262,22 +1293,23 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'clasificacion' && !federationStandingsUrl && standingsKey !== 'escuela-huesca' && (
-        <DataTable<StandingTeam>
-          data={standings}
-          columns={columns}
-          sortable
-          compact
-          emptyMessage="No hay datos de clasificación"
-          emptyIcon="fa-solid fa-trophy"
-          rowClassName={(row) =>
-            isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#c8102e]/10 hover:bg-[#c8102e]/15 border-l-4 border-[#c8102e]' : ''
-          }
-          hideToolbar
-        />
+        <div className="max-w-4xl">
+          <DataTable<StandingTeam>
+            data={standings}
+            columns={columns}
+            sortable
+            compact
+            emptyMessage="No hay datos de clasificación"
+            emptyIcon="fa-solid fa-trophy"
+            rowClassName={(row) =>
+              isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#9f1239]/10 hover:bg-[#9f1239]/15 border-l-4 border-[#9f1239]' : ''
+            }
+            hideToolbar
+          />
+        </div>
       )}
 
       {activeSection === 'horarios' && <HorariosPanel matches={matches} equipo={effectiveSelectedEquipo} />}
-      {activeSection === 'actas' && <ActasPanel clubId={currentClubId} equipo={effectiveSelectedEquipo} />}
       {activeSection === 'sanciones' && <SancionesPanel clubId={currentClubId} equipo={effectiveSelectedEquipo} />}
 
       {activeSection === 'calendario' && federationCalendarUrl && (
@@ -1347,7 +1379,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               </button>
             </div>
           )}
-          <div className="grid gap-2">
+          <div className="mx-auto grid w-full max-w-3xl gap-1.5">
             {resultsData.map((match, index) => {
               const matchTime = match.hora;
               const matchLocation = match.campo;
@@ -1363,7 +1395,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{matchDate}</span>
                     </div>
                   )}
-                  <div className={`grid gap-3 rounded-xl border bg-white px-3 py-3 md:grid-cols-[90px_minmax(0,1fr)_minmax(150px,210px)_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#c8102e]/50 bg-[#c8102e]/10 ring-1 ring-inset ring-[#c8102e]/40' : 'border-slate-100'}`}>
+                  <div className={`grid gap-2 rounded-lg border bg-white px-2.5 py-1.5 md:grid-cols-[64px_minmax(0,1fr)_96px_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#9f1239]/50 bg-[#9f1239]/10 ring-1 ring-inset ring-[#9f1239]/40' : 'border-slate-100'}`}>
                     <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
                       <span>J{match.jornada}</span>
                       <span>{matchDate}</span>
@@ -1372,10 +1404,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                       <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
                       <TeamCrest name={match.local} size="w-7 h-7" />
                     </div>
-                    <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-3 md:py-0">
+                    <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-2 md:py-0">
                       {activeSection === 'resultados' ? (
                         <>
-                          <span className={`rounded-md px-3 py-1.5 text-base font-black uppercase tabular-nums ${match.resultado === 'vs' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-white'}`}>
+                          <span className={`rounded-md px-2 py-0.5 text-sm font-black uppercase tabular-nums ${match.resultado === 'vs' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-white'}`}>
                             {match.resultado === 'vs' ? 'Sin jugar' : match.resultado}
                           </span>
                           {(() => {
@@ -1384,7 +1416,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                               <button
                                 type="button"
                                 onClick={() => setOpenActaId(acta.id)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 transition-colors hover:border-[#c8102e]/50 hover:text-[#c8102e]"
+                                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-600 transition-colors hover:border-[#c8102e]/50 hover:text-[#c8102e]"
                               >
                                 <i className="fa-solid fa-clipboard-list text-[9px]"></i>Acta
                               </button>
@@ -1412,14 +1444,14 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'goleadores' && (
-        <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
+        <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden max-w-2xl">
           {scorersData.length === 0 && (
             <div className="px-4 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">
               Sin goleadores hasta el inicio de la temporada
             </div>
           )}
           {scorersData.map((row) => (
-            <div key={row.pos} className={`grid grid-cols-[44px_1fr_auto_90px] items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-b-0 ${isMyTeamName(row.equipo, highlightedTeamName) ? 'border-l-4 border-[#c8102e] bg-[#c8102e]/10' : ''}`}>
+            <div key={row.pos} className={`grid grid-cols-[28px_1fr_auto_64px] items-center gap-2 px-3 py-1.5 border-b border-slate-50 last:border-b-0 ${isMyTeamName(row.equipo, highlightedTeamName) ? 'border-l-4 border-[#9f1239] bg-[#9f1239]/10' : ''}`}>
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.jugador}</p>
@@ -1436,14 +1468,14 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'porteros' && (
-        <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
+        <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden max-w-2xl">
           {keepersData.length === 0 && (
             <div className="px-4 py-10 text-center text-xs font-bold text-slate-300 uppercase tracking-widest">
               Sin porteros destacados hasta el inicio de la temporada
             </div>
           )}
           {keepersData.map((row) => (
-            <div key={row.pos} className={`grid grid-cols-[44px_1fr_auto] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 ${isMyTeamName(row.equipo, highlightedTeamName) ? 'border-l-4 border-[#c8102e] bg-[#c8102e]/10' : ''}`}>
+            <div key={row.pos} className={`grid grid-cols-[28px_1fr_auto] items-center gap-2 px-3 py-1.5 border-b border-slate-50 last:border-b-0 ${isMyTeamName(row.equipo, highlightedTeamName) ? 'border-l-4 border-[#9f1239] bg-[#9f1239]/10' : ''}`}>
               <span className="text-sm font-black text-slate-400">{row.pos}</span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.portero}</p>
@@ -1464,19 +1496,19 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
 
       {activeSection === 'cruzada' && (
         <TableScrollContainer className="rounded-2xl border border-slate-100 bg-white">
-          <table className="min-w-[1600px] w-full">
+          <table className="min-w-[640px] w-full">
             <thead>
               <tr className="bg-slate-50">
-                <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-2">Equipo</th>
+                <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 px-2 py-1">Equipo</th>
                 {activeCompetitionStandings.map((team) => (
-                  <th key={`head-${team.pos}`} className="text-center text-[10px] font-black text-slate-400 px-2 py-2">{team.pos}</th>
+                  <th key={`head-${team.pos}`} className="text-center text-[10px] font-black text-slate-400 px-0.5 py-1">{team.pos}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {activeCompetitionStandings.map((team, rowIndex) => (
-                <tr key={`row-${team.pos}`} className={`border-t border-slate-50 ${isMyTeamName(team.team, highlightedTeamName) ? 'bg-[#c8102e]/10' : ''}`}>
-                  <td className={`px-3 py-2 whitespace-nowrap ${isMyTeamName(team.team, highlightedTeamName) ? 'border-l-4 border-[#c8102e] bg-[#c8102e]/10' : ''}`}><TeamName name={team.team} myTeam={highlightedTeamName} className="text-[11px] font-semibold text-slate-700" /></td>
+                <tr key={`row-${team.pos}`} className={`border-t border-slate-50 ${isMyTeamName(team.team, highlightedTeamName) ? 'bg-[#9f1239]/10' : ''}`}>
+                  <td className={`px-2 py-1 whitespace-nowrap ${isMyTeamName(team.team, highlightedTeamName) ? 'border-l-4 border-[#9f1239] bg-[#9f1239]/10' : ''}`}><TeamName name={team.team} myTeam={highlightedTeamName} className="text-[11px] font-semibold text-slate-700" /></td>
                   {activeCompetitionStandings.map((rival, colIndex) => {
                     if (rowIndex === colIndex) {
                       return <td key={`cell-${team.pos}-${rival.pos}`} className="text-center text-[10px] text-slate-300">-</td>;

@@ -803,6 +803,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return start;
   }, [currentMonth]);
 
+  const weekRangeLabel = useMemo(() => {
+    const end = new Date(weekStart);
+    end.setDate(weekStart.getDate() + 6);
+    const startPart = `${weekStart.getDate()}${weekStart.getMonth() === end.getMonth() ? '' : ` ${monthNames[weekStart.getMonth()]}`}`;
+    const endPart = `${end.getDate()} ${monthNames[end.getMonth()]} ${end.getFullYear()}`;
+    return `${startPart} – ${endPart}`;
+  }, [weekStart, monthNames]);
+
   const scheduleDays = useMemo(() => {
     if (viewMode === 'day') {
       const d = new Date(currentMonth);
@@ -1046,9 +1054,17 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                       );
                     })}
                     {extraCount > 0 && (
-                      <span className="text-[9px] font-bold text-slate-400 px-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentMonth(new Date(date));
+                          setViewMode('day');
+                        }}
+                        className="text-left text-[9px] font-bold text-slate-500 px-1 hover:text-[var(--accent)] hover:underline cursor-pointer"
+                      >
                         {t('calendarView.moreEvents', { count: extraCount })}
-                      </span>
+                      </button>
                     )}
                     {dayEvents.length === 0 && onCreateEvent && isCurrentMonth && (
                       <button
@@ -1432,23 +1448,34 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - (viewMode === 'day' ? 1 : 7));
                 })}
                 className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
-                aria-label="Anterior"
+                aria-label={viewMode === 'week' ? 'Semana anterior' : 'Anterior'}
+                title={viewMode === 'week' ? 'Semana anterior' : 'Anterior'}
               >
                 <i className="fa-solid fa-chevron-left text-sm"></i>
               </button>
-  
-              <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
-                {viewMode === 'day'
-                  ? `${dayNames[currentMonth.getDay()]} ${currentMonth.getDate()} ${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
-                  : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
-              </h4>
+
+              <div className="flex flex-col items-center">
+                <h4 className="text-[var(--accent)] font-black text-base md:text-lg uppercase tracking-wider">
+                  {viewMode === 'day'
+                    ? `${dayNames[currentMonth.getDay()]} ${currentMonth.getDate()} ${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`
+                    : viewMode === 'week'
+                      ? weekRangeLabel
+                      : `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+                </h4>
+                {viewMode === 'week' && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                  </span>
+                )}
+              </div>
             <button
               onClick={() => setCurrentMonth(prev => {
                 if (viewMode === 'month') return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
                 return new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + (viewMode === 'day' ? 1 : 7));
               })}
               className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
-              aria-label="Siguiente"
+              aria-label={viewMode === 'week' ? 'Semana siguiente' : 'Siguiente'}
+              title={viewMode === 'week' ? 'Semana siguiente' : 'Siguiente'}
             >
               <i className="fa-solid fa-chevron-right text-sm"></i>
             </button>

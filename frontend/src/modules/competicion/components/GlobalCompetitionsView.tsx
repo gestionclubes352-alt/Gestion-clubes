@@ -101,7 +101,8 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
   const isInternal = (team: string) =>
     isMine(team) ||
     (!!row.compId && isOwnTeamInCompetition(row.compId, team)) ||
-    /^(primerequipo|filial|juvenil[a-d]|cadete[a-d]|infantil[a-d]|alevin[a-d])$/.test(normalizeName(team));
+    /^(primerequipo|filial|juvenil[a-d]|cadete[a-d]|infantil[a-d]|alevin[a-d])$/.test(normalizeName(team)) ||
+    /^(ipclaescuela|huescasdescueladefutbol)/.test(normalizeName(team));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -133,9 +134,9 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
 
   const matchLine = (r: FederationResultRow, key: string) => (
     <div key={key} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-slate-50 px-3 py-1.5 text-xs">
-      <span className={`text-right ${isInternal(r[1]) ? 'font-black text-[#8c1d40]' : 'text-slate-700'}`}>{r[1]}</span>
+      <span className={`text-right ${isInternal(r[1]) ? 'font-black text-[#9f1239]' : 'text-slate-700'}`}>{r[1]}</span>
       <span className="min-w-[44px] rounded bg-slate-100 px-2 py-0.5 text-center font-black text-slate-800">{r[3]}</span>
-      <span className={isInternal(r[2]) ? 'font-black text-[#8c1d40]' : 'text-slate-700'}>{r[2]}</span>
+      <span className={isInternal(r[2]) ? 'font-black text-[#9f1239]' : 'text-slate-700'}>{r[2]}</span>
     </div>
   );
 
@@ -190,9 +191,9 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
                 </thead>
                 <tbody>
                   {standings.map(s => (
-                    <tr key={s.team} className={`border-b border-slate-50 ${isInternal(s.team) ? 'bg-[#8c1d40]/15 font-black text-[#8c1d40]' : ''}`}>
-                      <td className={`px-3 py-1.5 ${isInternal(s.team) ? 'border-l-4 border-[#8c1d40] text-[#8c1d40]' : 'text-slate-400'}`}>{s.pos}</td>
-                      <td className={`px-3 py-1.5 ${isInternal(s.team) ? 'text-[#8c1d40]' : 'text-slate-800'}`}>{s.team}</td>
+                    <tr key={s.team} className={`border-b border-slate-50 ${isInternal(s.team) ? 'bg-[#9f1239]/15 font-black text-[#9f1239]' : ''}`}>
+                      <td className={`px-3 py-1.5 ${isInternal(s.team) ? 'border-l-4 border-[#9f1239] text-[#9f1239]' : 'text-slate-400'}`}>{s.pos}</td>
+                      <td className={`px-3 py-1.5 ${isInternal(s.team) ? 'text-[#9f1239]' : 'text-slate-800'}`}>{s.team}</td>
                       <td className="px-2 py-1.5 text-center">{s.played}</td>
                       <td className="px-2 py-1.5 text-center">{s.won}</td>
                       <td className="px-2 py-1.5 text-center">{s.drawn}</td>
@@ -303,7 +304,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1000px] border-collapse text-left text-[10px] leading-tight">
+        <table className="w-full min-w-[1000px] border-collapse text-left text-xs leading-tight">
           <thead>
             <tr className="border-b border-slate-100 bg-white text-[9px] font-black uppercase tracking-widest text-slate-400">
               <th className="px-2 py-1 w-10">#</th>
@@ -349,18 +350,18 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                       const portal = row.compId ? federationPortalUrl(row.compId) : null;
                       return (
                         <tr key={`${row.competition}|${row.clubLabel}`} className="border-b border-slate-50 hover:bg-slate-50/70">
-                          <td className="px-2 py-0.5 text-slate-400">{counter}</td>
-                          <td className="px-2 py-0.5 text-[10px] font-bold text-slate-600">ARAGÓN</td>
-                          <td className="px-2 py-0.5 text-slate-600">Masculino</td>
-                          <td className="px-2 py-0.5 text-slate-600">{row.etapa}</td>
-                          <td className="px-2 py-0.5 text-slate-700">{row.competition}</td>
+                          <td className="px-2 py-0.5 text-xs text-slate-400">{counter}</td>
+                          <td className="px-2 py-0.5 text-[11px] font-bold text-slate-500">ARAGÓN</td>
+                          <td className="px-2 py-0.5 text-xs font-medium text-slate-700">Masculino</td>
+                          <td className="px-2 py-0.5 text-xs font-medium text-slate-700">{row.etapa}</td>
+                          <td className="px-2 py-0.5 text-xs font-medium text-slate-700">{row.competition}</td>
                           <td className="px-2 py-0.5">
-                            <span className="inline-block rounded-md bg-[#c8102e]/10 px-1.5 py-0 text-[10px] font-bold text-slate-800">
+                            <span className="inline-block rounded-md bg-[#c8102e]/10 px-1.5 py-0 text-xs font-semibold text-slate-800">
                               {row.clubLabel}
                             </span>
                           </td>
-                          <td className="px-2 py-0.5 text-center text-slate-600">{nEquipos ?? '—'}</td>
-                          <td className="px-2 py-0.5 text-center text-slate-600">{jornada ? `J${jornada}` : '—'}</td>
+                          <td className="px-2 py-0.5 text-center text-xs font-medium text-slate-700">{nEquipos ?? '—'}</td>
+                          <td className="px-2 py-0.5 text-center text-xs font-medium text-slate-700">{jornada ? `J${jornada}` : '—'}</td>
                           <td className="px-1 py-0.5 text-center">
                             <ActionButton
                               icon="fa-trophy"

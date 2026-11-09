@@ -66,21 +66,6 @@ const NewCampogramaModal: React.FC<NewCampogramaModalProps> = ({ onClose, onCrea
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Sistema Táctico (Formación)</label>
-            <div className="grid grid-cols-3 gap-2">
-              {['1-3-4-3', '1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-3-5-2', '1-5-3-2', '1-4-5-1'].map(sys => (
-                <button
-                  key={sys}
-                  type="button"
-                  onClick={() => setFormData({...formData, formacion: sys})}
-                  className={`py-3 rounded-xl text-[11px] font-black transition-all border ${formData.formacion === sys ? 'bg-[var(--accent)] border-[var(--accent)] text-white shadow-lg scale-105' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'}`}
-                >
-                  {sys}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="p-4 sm:p-8 bg-slate-50 border-t border-slate-100 flex gap-3 sm:gap-4">

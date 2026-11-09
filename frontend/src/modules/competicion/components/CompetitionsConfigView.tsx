@@ -22,13 +22,30 @@ interface CompetitionConfig {
 interface CompetitionsConfigViewProps {
   /** Equipos propios del club (con nombreEnFed) para resaltar el equipo correcto en cada calendario de competición. */
   misEquipos?: CompetitionTeam[];
+  /** Equipos internos del club (los mismos que muestra la vista "Equipos internos"), sin filtrar por selector de equipos. */
+  equiposInternosClub?: CompetitionTeam[];
   /** Notifica al resto de la app (App.tsx) que se ha creado un club/equipo nuevo, para que refresquen sus propios listados. */
   onDataChanged?: () => void;
 }
 
 const COMPETITION_TYPE_OPTIONS: Competicion['tipo'][] = ['Liga', 'Copa', 'Amistoso', 'Torneo'];
 
-const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [], onDataChanged }) => {
+const normalizarTexto = (s: string) =>
+  (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+/** Orden por etapas: senior, juvenil, cadete, infantil, alevín, benjamín, resto. */
+const etapaRank = (texto: string): number => {
+  const t = normalizarTexto(texto);
+  if (/primer equipo|senior|rfef|filial|regional preferente/.test(t)) return 0;
+  if (/juvenil/.test(t)) return 1;
+  if (/cadete/.test(t)) return 2;
+  if (/infantil/.test(t)) return 3;
+  if (/alevin/.test(t)) return 4;
+  if (/benjamin/.test(t)) return 5;
+  return 6;
+};
+
+const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEquipos = [], equiposInternosClub, onDataChanged }) => {
   const { t } = useTranslation();
   const { perfil } = useAuth();
   const [competiciones, setCompeticiones] = useState<Competicion[]>([]);
@@ -46,12 +63,15 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [calendarioCompeticion, setCalendarioCompeticion] = useState<Competicion | null>(null);
   const [equiposSelectorOpen, setEquiposSelectorOpen] = useState(false);
   const [competicionSeleccionada, setCompeticionSeleccionada] = useState<Competicion | null>(null);
-  const [equiposInternas, setEquiposInternas] = useState<CompetitionTeam[]>([]);
+  const [equiposInternasCargadas, setEquiposInternas] = useState<CompetitionTeam[]>([]);
+  // Preferimos los equipos internos que ya resuelve App.tsx (idénticos a la vista "Equipos internos").
+  const equiposInternas = equiposInternosClub && equiposInternosClub.length > 0 ? equiposInternosClub : equiposInternasCargadas;
   const [todosLosEquipos, setTodosLosEquipos] = useState<CompetitionTeam[]>([]);
   const [equiposCompeticionActual, setEquiposCompeticionActual] = useState<EquipoRef[]>([]);
   const [loadingEquiposCompeticion, setLoadingEquiposCompeticion] = useState(false);
   const [equiposSelectorError, setEquiposSelectorError] = useState<string | null>(null);
   const [equiposPorCompeticion, setEquiposPorCompeticion] = useState<Map<string, number>>(new Map());
+  const [equipoIdsPorCompeticion, setEquipoIdsPorCompeticion] = useState<Map<string, string[]>>(new Map());
   const formRef = useRef<HTMLDivElement | null>(null);
 
   // Cargar configuraciones desde Supabase
@@ -76,16 +96,19 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
 
       // Cargar el conteo de equipos para cada competición
       const counts = new Map<string, number>();
+      const ids = new Map<string, string[]>();
       await Promise.all(competicionesData.map(async comp => {
         try {
           const teams = await competicionEquiposService.getTeamsByCompeticion(comp.id);
           counts.set(comp.id, teams.length);
+          ids.set(comp.id, teams.filter(t => t.equipoId).map(t => String(t.equipoId)));
         } catch (err) {
           console.error(`Error loading teams for competition ${comp.id}:`, err);
           counts.set(comp.id, 0);
         }
       }));
       setEquiposPorCompeticion(counts);
+      setEquipoIdsPorCompeticion(ids);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cargar datos';
       setError(errorMsg);
@@ -175,16 +198,19 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
 
       // Cargar el conteo de equipos para cada competición
       const counts = new Map<string, number>();
+      const ids = new Map<string, string[]>();
       for (const comp of data) {
         try {
           const teams = await competicionEquiposService.getTeamsByCompeticion(comp.id);
           counts.set(comp.id, teams.length);
+          ids.set(comp.id, teams.filter(t => t.equipoId).map(t => String(t.equipoId)));
         } catch (err) {
           console.error(`Error loading teams for competition ${comp.id}:`, err);
           counts.set(comp.id, 0);
         }
       }
       setEquiposPorCompeticion(counts);
+      setEquipoIdsPorCompeticion(ids);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cargar competiciones';
       setError(errorMsg);
@@ -445,7 +471,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <option value="">-- Seleccionar equipo --</option>
                 {equiposInternas.map(equipo => (
                   <option key={equipo.id} value={equipo.id}>
-                    {equipo.equipo || equipo.etapa || equipo.nombre}
+                    {equipo.nombre}
                   </option>
                 ))}
               </SearchableSelect>
@@ -495,9 +521,10 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
             {/* Encabezado */}
             <div
               className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-              style={{ gridTemplateColumns: '2fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
+              style={{ gridTemplateColumns: '2fr 1fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
             >
               <div className="px-6 py-4">Competición</div>
+              <div className="px-3 py-4 text-center">Equipo interno</div>
               <div className="px-3 py-4 text-center">Tipo</div>
               <div className="px-3 py-4 text-center">Partes</div>
               <div className="px-3 py-4 text-center">Min/Parte</div>
@@ -518,14 +545,31 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <span className="text-sm font-bold uppercase tracking-widest">Sin competiciones</span>
               </div>
             ) : (
-              competiciones.map(comp => (
+              [...competiciones].sort((a, b) => {
+                const info = (c: Competicion) => {
+                  const ids = new Set(equipoIdsPorCompeticion.get(c.id) || []);
+                  const equipo = equiposInternas.filter(e => ids.has(String(e.id))).map(e => e.nombre).join(' ');
+                  const rank = Math.min(etapaRank(equipo), etapaRank(c.nombre));
+                  return { rank, equipo: normalizarTexto(equipo), nombre: normalizarTexto(c.nombre) };
+                };
+                const ia = info(a);
+                const ib = info(b);
+                return ia.rank - ib.rank || ia.equipo.localeCompare(ib.equipo) || ia.nombre.localeCompare(ib.nombre);
+              }).map(comp => (
                 <div
                   key={comp.id}
                   className="grid items-center border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '2fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
+                  style={{ gridTemplateColumns: '2fr 1fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
                 >
                   <div className="px-6 py-4">
                     <span className="font-semibold text-slate-800">{comp.nombre}</span>
+                  </div>
+                  <div className="px-3 py-4 text-center text-sm font-semibold text-slate-700">
+                    {(() => {
+                      const idsComp = new Set(equipoIdsPorCompeticion.get(comp.id) || []);
+                      const nombres = equiposInternas.filter(e => idsComp.has(String(e.id))).map(e => e.nombre);
+                      return nombres.length ? nombres.join(', ') : <span className="text-slate-300">—</span>;
+                    })()}
                   </div>
                   <div className="px-3 py-4 text-center">
                     <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wide">

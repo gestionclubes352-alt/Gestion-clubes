@@ -16,9 +16,9 @@ import ActaMatchSheet from './ActaMatchSheet';
 import ConvocatoriaSheet from './ConvocatoriaSheet';
 import EquipoSelect from '@shared/components/EquipoSelect';
 import PlayerStatsCharts from './PlayerStatsCharts';
-import SystemMinutesCharts from './SystemMinutesCharts';
 import { validateVideoFile, formatFileSize, type YouTubeUploadProgress } from '@shared/services/youtubeUploadService';
 import { useYouTubeUpload } from '@context/YouTubeUploadContext';
+import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
 import { uploadMatchReportFile, uploadMatchVideo, uploadClubLogo, uploadMatchPlanVideo } from '@shared/services/photoService';
 import ShareButton from './ShareButton';
 import { createShareLink, copyShareUrlToClipboard, getShareUrl } from '@shared/services/shareService';
@@ -224,7 +224,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(() => {
     const tabFromUrl = new URLSearchParams(window.location.search).get('tab');
-    return tabFromUrl && ['INFO PARTIDO', 'PLAN DE PARTIDO', 'CONVOCATORIA', 'ACTA', 'DATOS PARTIDO', 'EVENTOS', 'VIDEOTECA'].includes(tabFromUrl) ? tabFromUrl : 'PLAN DE PARTIDO';
+    return tabFromUrl && ['INFO PARTIDO', 'PLAN DE PARTIDO', 'CONVOCATORIA', 'ACTA', 'DATOS PARTIDO', 'EVENTOS', 'VIDEOTECA'].includes(tabFromUrl) ? tabFromUrl : 'INFO PARTIDO';
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -346,6 +346,31 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   }, [competitionTeams, clubNameById]);
   const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
+  const resolveTeamCrest = (teamName: string, clubId?: string): string | undefined => {
+    const byId = clubId ? clubs.find(c => String(c.id) === String(clubId)) : undefined;
+    if (byId?.escudo_url) return byId.escudo_url;
+    const compTeam: any = competitionTeams.find(t => (t.equipo || t.nombre) === teamName);
+    if (compTeam?.logoUrl) return compTeam.logoUrl;
+    const byTeamClub = compTeam?.clubId != null ? clubs.find(c => String(c.id) === String(compTeam.clubId)) : undefined;
+    return byTeamClub?.escudo_url || undefined;
+  };
+  // Escudos de la federación: los del acta federativa (si existe) y, si no, el catálogo local.
+  const [actaCrests, setActaCrests] = useState<{ home?: string; away?: string }>({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const row: any = await eventosCalendarioService.getById(match.id);
+        const acta = row?.acta_fed;
+        if (!cancelled && acta) {
+          setActaCrests({ home: acta.homeTeam?.logoUrl || undefined, away: acta.awayTeam?.logoUrl || undefined });
+        }
+      } catch { /* sin acta: se usa el catálogo */ }
+    })();
+    return () => { cancelled = true; };
+  }, [match.id]);
+  const resolveCrestWithFed = (teamName: string, clubId: string | undefined, actaLogo?: string) =>
+    resolveTeamCrest(teamName, clubId) || actaLogo || getFederationTeamLogo(teamName) || getFederationTeamLogo(resolveClubLabel(teamName, clubId));
   const localClubLabel = resolveClubLabel(match.localTeam, match.localTeamClubId);
   const visitorClubLabel = resolveClubLabel(match.visitorTeam, match.visitorTeamClubId);
 
@@ -541,7 +566,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [collapsedRivalBlocks, setCollapsedRivalBlocks] = useState<Set<string>>(new Set());
   const [collapsedRivalSections, setCollapsedRivalSections] = useState<Set<string>>(new Set());
   const [expandedAbpCard, setExpandedAbpCard] = useState<{ section: AbpSection; id: string; label: string } | null>(null);
-  const [expandedFormation, setExpandedFormation] = useState<{ type: 'initial' | 'window'; id?: string } | null>(null);
 
   // Ficha del jugador (modal embebido)
   const [selectedPlayerForModal, setSelectedPlayerForModal] = useState<Player | null>(null);
@@ -763,58 +787,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     return resolveFieldCollisions(raw, 16 / 9);
   }, [onPitchPlayers, currentLineupPositions]);
 
-  // Agrupa los eventos de substitutionSnapshots por minuto: todo lo que ocurre
-  // en la misma "ventana" (varias sustituciones y/o un cambio de sistema
-  // registrados juntos) se consolida en una única foto del campo + un
-  // resumen de texto, en vez de una imagen por cada evento individual.
-  const windowSnapshots = useMemo(() => {
-    const order: number[] = [];
-    const groups = new Map<number, typeof substitutionSnapshots>();
-    substitutionSnapshots.forEach(entry => {
-      if (!groups.has(entry.minute)) {
-        order.push(entry.minute);
-        groups.set(entry.minute, []);
-      }
-      groups.get(entry.minute)!.push(entry);
-    });
-
-    return order.map(minute => {
-      const entries = groups.get(minute)!;
-      const subs = entries.filter(e => e.kind === 'sub').map(e => e.sub!);
-      const formationChange = entries.filter(e => e.kind === 'formation').map(e => e.change!).pop();
-      const positions = entries[entries.length - 1].positions;
-      const incomingIds = subs.map(s => s.playerInId).filter((id): id is string | number => id !== undefined);
-      return { id: `window-${minute}`, minute, positions, subs, formationChange, incomingIds };
-    });
-  }, [substitutionSnapshots]);
-
-  const renderWindowSummary = (win: (typeof windowSnapshots)[number]) => (
-    <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center leading-relaxed">
-      <span className="block text-[var(--text-strong)]">{win.minute}'</span>
-      {win.formationChange && (
-        <span className="block text-[var(--accent)]">{t('tactics.formation')} {win.formationChange.formation}</span>
-      )}
-      {win.subs.map(sub => (
-        <span key={sub.id} className="block">
-          <span className="text-emerald-500">{t('matchReport.matchEvents.playerInLabel')} {getPlayerLabel(sub.playerInId)}</span>
-          {' / '}
-          <span className="text-red-500">{t('matchReport.matchEvents.playerOutLabel')} {getPlayerLabel(sub.playerOutId)}</span>
-        </span>
-      ))}
-    </p>
-  );
-
-  const handleDeleteWindow = (win: (typeof windowSnapshots)[number]) => {
-    if (!confirm(t('matchReport.matchEvents.confirmDeleteWindow'))) return;
-    const next = {
-      ...report,
-      substitutions: (report.substitutions || []).filter(s => s.minute !== win.minute),
-      formationChanges: (report.formationChanges || []).filter(c => c.minute !== win.minute),
-    };
-    setReport(next);
-    persistReport(next);
-  };
-
   const renderPitchDiagram = (
     positionsList: TacticalPosition[],
     highlightInIds?: Array<string | number> | string | number,
@@ -1021,41 +993,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     playerIntervalsMap.forEach((interval, key) => map.set(key, Math.min(Math.max(0, interval.end - interval.start), MATCH_DURATION_MINUTES)));
     return map;
   }, [playerIntervalsMap]);
-
-  // Ventanas de sistema/formación durante el partido: desde el sistema inicial
-  // hasta el primer cambio de sistema, y así sucesivamente hasta el final.
-  const formationWindows = useMemo(() => {
-    const changes = [...(report.formationChanges || [])].sort((a, b) => a.minute - b.minute);
-    const marks = [{ minute: 0, formation: report.formation || '1-4-3-3' }, ...changes.map(c => ({ minute: c.minute, formation: c.formation }))];
-    return marks
-      .map((mark, i) => ({
-        formation: mark.formation,
-        start: mark.minute,
-        end: i + 1 < marks.length ? marks[i + 1].minute : MATCH_DURATION_MINUTES
-      }))
-      .filter(w => w.end > w.start);
-  }, [report.formation, report.formationChanges]);
-
-  // Minutos jugados por sistema (apartados Gráficas y Datos Partido): a nivel
-  // colectivo (cuánto tiempo estuvo el equipo en cada sistema) y a nivel
-  // individual (cuántos de esos minutos jugó cada jugador convocado).
-  const systemMinutesStats = useMemo(() => {
-    const collective = new Map<string, number>();
-    const individual = new Map<string, Map<string, number>>();
-
-    formationWindows.forEach(win => {
-      collective.set(win.formation, (collective.get(win.formation) ?? 0) + (win.end - win.start));
-      playerIntervalsMap.forEach((interval, playerId) => {
-        const overlap = Math.min(interval.end, win.end) - Math.max(interval.start, win.start);
-        if (overlap <= 0) return;
-        if (!individual.has(win.formation)) individual.set(win.formation, new Map());
-        const byPlayer = individual.get(win.formation)!;
-        byPlayer.set(playerId, (byPlayer.get(playerId) ?? 0) + overlap);
-      });
-    });
-
-    return { collective, individual };
-  }, [formationWindows, playerIntervalsMap]);
 
   const goalsByPlayer = useMemo(() => {
     const map = new Map<string, number>();
@@ -1703,7 +1640,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             {/* Campo de Fútbol */}
             <div className="lg:col-span-2 flex flex-col justify-center items-center">
-              <label className="text-xs font-black text-[var(--text-muted)] uppercase mb-3 tracking-widest text-center">{t('tactics.formation')}</label>
               <div className="w-full flex justify-center" style={{ paddingBottom: '260px' }}>
                 <div style={{ transform: 'scale(1.75)', transformOrigin: 'top' }}>
                   {renderEditablePitchDiagram(
@@ -1720,26 +1656,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
             {/* Controles */}
             <div className="lg:col-span-3 space-y-6 overflow-y-auto max-h-[600px]">
-              {/* Cambiar Sistema */}
-              <div>
-                <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-3 tracking-widest">{t('tactics.formation')}</label>
-                <div className="flex gap-2 flex-wrap">
-                  {['1-3-4-3', '1-4-3-3', '1-4-4-2', '1-4-2-3-1', '1-5-3-2'].map(f => (
-                    <button
-                      key={f}
-                      onClick={() => handleChangeFormation(f)}
-                      className={`px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
-                        report.formation === f
-                          ? 'bg-[var(--accent)] text-white shadow-lg'
-                          : 'bg-[var(--surface-1)] text-[var(--text-strong)] hover:bg-[var(--border-soft)]'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Minuto */}
               <div>
                 <label className="block text-xs font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">{t('matchReport.matchEvents.minute')}</label>
@@ -1926,7 +1842,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
         {/* Campo Interactivo - Centro */}
         <div className="flex justify-center flex-col h-fit">
-          {/* Botón Sistema y Posiciones */}
+          {/* Botón Posiciones */}
           <button
             onClick={() => {
               const current = report.lineupPositions && report.lineupPositions.length > 0
@@ -1938,7 +1854,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             }}
             className="mb-3 px-4 py-2 bg-sport-primary hover:bg-sport-primary-dark text-white rounded-lg font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all self-center"
           >
-            <i className="fa-solid fa-sliders"></i>Sistema y Posiciones
+            <i className="fa-solid fa-sliders"></i>Posiciones
           </button>
 
           <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border-4 border-white/10 shadow-lg" style={{ backgroundColor: '#1e8449' }}>
@@ -4249,26 +4165,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
               </div>
             </div>
           </div>
-          {canEdit && (
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase mb-2 tracking-widest">
-                  <i className="fa-solid fa-diagram-project mr-2"></i>Sistema
-                </label>
-                <select
-                  value={report.formation || '1-4-3-3'}
-                  onChange={(e) => handleChangeFormation(e.target.value)}
-                  className="w-full bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[var(--text-strong)] focus:outline-none focus:border-[var(--accent)]"
-                >
-                  <option value="1-3-4-3">1-3-4-3</option>
-                  <option value="1-4-4-2">1-4-4-2</option>
-                  <option value="1-4-3-3">1-4-3-3</option>
-                  <option value="1-4-2-3-1">1-4-2-3-1</option>
-                  <option value="1-5-3-2">1-5-3-2</option>
-                </select>
-              </div>
-            </div>
-          )}
         </div>
         <div className="flex-1 overflow-auto">
           {currentSquad.length > 0 ? (
@@ -4332,57 +4228,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           {renderInteractiveFieldForEvents()}
         </div>
 
-
-        <div>
-          <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
-            <i className="fa-solid fa-images text-[var(--accent)]"></i>{t('matchReport.matchEvents.systemAfterSubstitutions')}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            <div
-              onClick={() => setExpandedFormation({ type: 'initial' })}
-              className="relative group cursor-pointer rounded-lg overflow-hidden transition-all hover:shadow-lg hover:scale-105"
-              role="button"
-              tabIndex={0}
-            >
-              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 text-center">
-                {t('matchReport.generalData.startingXI')} · {report.formation || '1-4-3-3'}
-              </p>
-              <div className="relative">
-                {renderPitchDiagram(report.lineupPositions && report.lineupPositions.length > 0 ? report.lineupPositions : getInitialPositions(report.formation || '1-4-3-3'))}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <i className="fa-solid fa-expand text-white text-lg drop-shadow-lg"></i>
-                </div>
-              </div>
-            </div>
-            {windowSnapshots.map(win => (
-              <div
-                key={win.id}
-                onClick={() => setExpandedFormation({ type: 'window', id: win.id })}
-                className="relative group cursor-pointer rounded-lg overflow-hidden transition-all hover:shadow-lg hover:scale-105"
-                role="button"
-                tabIndex={0}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteWindow(win);
-                  }}
-                  title={t('common.delete')}
-                  className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-white dark:bg-[#1a1a1a] border border-[var(--border-soft)] text-[var(--text-muted)] hover:text-red-500 hover:border-red-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow"
-                >
-                  <i className="fa-solid fa-trash-can text-[10px]"></i>
-                </button>
-                {renderWindowSummary(win)}
-                <div className="relative">
-                  {renderPitchDiagram(win.positions, win.incomingIds)}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <i className="fa-solid fa-expand text-white text-lg drop-shadow-lg"></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-strong)] mb-4 flex items-center gap-2">
@@ -4698,14 +4543,21 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           {[
             { label: 'Fecha', value: match.date ? new Date(match.date).toLocaleDateString('es-ES') : '' },
             { label: 'Hora', value: match.time },
-            { label: 'Local', value: match.localTeam },
-            { label: 'Visitante', value: match.visitorTeam },
             { label: 'Campo', value: match.location },
             { label: 'Competición', value: [match.competition, match.jornada].filter(Boolean).join(' · ') },
-          ].map(item => (
+            { label: 'Local', value: match.localTeam, crest: resolveCrestWithFed(match.localTeam, match.localTeamClubId, actaCrests.home) },
+            { label: 'Visitante', value: match.visitorTeam, crest: resolveCrestWithFed(match.visitorTeam, match.visitorTeamClubId, actaCrests.away) },
+          ].map((item: { label: string; value?: string; crest?: string }) => (
             <div key={item.label} className="bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4">
               <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">{item.label}</div>
-              <div className="text-sm font-bold text-[var(--text)] break-words">{item.value || '—'}</div>
+              <div className="text-sm font-bold text-[var(--text)] break-words flex items-center gap-3">
+                {(item.label === 'Local' || item.label === 'Visitante') && (
+                  item.crest
+                    ? <img src={item.crest} alt="" className="w-8 h-8 object-contain shrink-0" />
+                    : <i className="fa-solid fa-shield-halved text-[var(--text-muted)] text-2xl shrink-0"></i>
+                )}
+                <span>{item.value || '—'}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -5819,11 +5671,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           <div className="w-full lg:w-auto lg:flex-1 order-1 lg:order-2 flex justify-center">
             <div className="w-full max-w-lg">
               <h4 className="text-base font-black text-[var(--text-muted)] uppercase tracking-widest mb-4 flex items-center gap-2 justify-center">
-                <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.initialSystem')} · {report.formation || '1-4-3-3'}
+                <i className="fa-solid fa-border-all"></i> {t('matchReport.generalData.startingXI')}
               </h4>
               <div
                 className="cursor-pointer transition-transform hover:scale-[1.02]"
-                onClick={() => setPitchDiagramPreview({ label: `${t('matchReport.generalData.initialSystem')} · ${report.formation || '1-4-3-3'}`, positions })}
+                onClick={() => setPitchDiagramPreview({ label: t('matchReport.generalData.startingXI'), positions })}
               >
                 {renderPitchDiagram(positions, undefined, 1.6, true)}
               </div>
@@ -5884,25 +5736,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           </div>
         </div>
 
-        {windowSnapshots.length > 0 && (
-          <div className="border-t border-[var(--border-soft)] pt-6">
-            <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-2 justify-center">
-              <i className="fa-solid fa-images"></i> {t('matchReport.matchEvents.systemAfterSubstitutions')}
-            </h4>
-            <div className="flex flex-wrap justify-center gap-8">
-              {windowSnapshots.map(win => (
-                <div
-                  key={win.id}
-                  className="w-56 shrink-0 cursor-pointer transition-transform hover:scale-[1.02]"
-                  onClick={() => setPitchDiagramPreview({ label: `${win.minute}' · ${t('matchReport.matchEvents.systemAfterSubstitutions')}`, positions: win.positions, highlightIds: win.incomingIds })}
-                >
-                  {renderWindowSummary(win)}
-                  {renderPitchDiagram(win.positions, win.incomingIds)}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
       </div>
     );
@@ -5912,7 +5745,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const startingIds = new Set(startingXIEntries.map(({ player }) => String(player.id)));
     const notConvocadoIds = new Set((report.notConvocadoIds || []).map(String));
 
+    // Solo jugadores del equipo del partido (la plantilla trae también otras categorías del club);
+    // se conservan siempre los que han participado (titulares/convocados con datos) aunque sean de otro equipo.
+    const isOwnTeamPlayer = (p: Player) => {
+      const eq = (p as { equipoId?: string | number }).equipoId;
+      return !ownEquipoId || eq === undefined || eq === null || String(eq) === String(ownEquipoId) || startingIds.has(String(p.id));
+    };
+
     const allRows = squad
+      .filter(isOwnTeamPlayer)
       .slice()
       .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999))
       .map(player => {
@@ -5931,16 +5772,40 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const substitutes = allRows.filter(r => !r.isStarter && !r.isNotConvocado);
     const notConvocados = allRows.filter(r => r.isNotConvocado);
 
-    const systemRows = Array.from(systemMinutesStats.collective.entries())
-      .map(([formation, minutes]) => ({
-        formation,
-        minutes,
-        players: Array.from(systemMinutesStats.individual.get(formation)?.entries() ?? [])
-          .map(([playerId, playerMinutes]) => ({ player: squad.find(p => String(p.id) === playerId), minutes: playerMinutes }))
-          .filter((r): r is { player: Player; minutes: number } => !!r.player)
-          .sort((a, b) => b.minutes - a.minutes)
-      }))
-      .sort((a, b) => b.minutes - a.minutes);
+    const renderAbsenceTable = (rows: typeof allRows, title: string, className: string) => (
+      <div className="space-y-3">
+        <h3 className={`text-xs font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
+          {title} ({rows.length})
+        </h3>
+        {rows.length === 0 ? (
+          <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
+        ) : (
+          <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
+            <table className="w-full text-[9px]">
+              <thead>
+                <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
+                  <th className="px-3 py-3 text-left">#</th>
+                  <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
+                  <th className="px-3 py-3 text-left">Motivo de ausencia</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-soft)]">
+                {rows.map(({ player }) => {
+                  const reason = (report.notConvocadoReasons || {})[String(player.id)];
+                  return (
+                    <tr key={player.id} className="text-[var(--text-strong)]">
+                      <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
+                      <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
+                      <td className="px-3 py-2 font-bold">{reason ? String(reason) : <span className="text-[var(--text-muted)]">-</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableScrollContainer>
+        )}
+      </div>
+    );
 
     const renderTable = (rows: typeof allRows, title: string, className: string) => (
       <div className="space-y-3">
@@ -6001,101 +5866,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <div className="space-y-8">
               {renderTable(starters, 'Titulares', 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400')}
               {renderTable(substitutes, 'Suplentes', 'bg-amber-500/20 text-amber-600 dark:text-amber-400')}
-              {renderTable(notConvocados, 'No Convocados', 'bg-slate-500/20 text-slate-600 dark:text-slate-400')}
+              {renderAbsenceTable(notConvocados, 'No Convocados', 'bg-slate-500/20 text-slate-600 dark:text-slate-400')}
             </div>
           )}
-        </div>
-
-        {systemRows.length > 0 && (
-          <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
-              <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
-                <i className="fa-solid fa-diagram-project text-red-500"></i> {t('matchReport.playerStats.systemMinutesTitle')}
-              </div>
-            </div>
-            <div className="space-y-8">
-              {systemRows.map(({ formation, minutes, players }) => (
-                <div key={formation} className="space-y-3">
-                  <h3 className="text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400">
-                    {formation} — {minutes}' {t('matchReport.playerStats.totalMinutes')}
-                  </h3>
-                  <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
-                    <table className="w-full text-[9px]">
-                      <thead>
-                        <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
-                          <th className="px-3 py-3 text-left">#</th>
-                          <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
-                          <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-soft)]">
-                        {players.map(({ player, minutes: playerMinutes }) => (
-                          <tr key={player.id} className="text-[var(--text-strong)]">
-                            <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
-                            <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
-                            <td className="px-3 py-2 text-center font-bold">{playerMinutes}'</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </TableScrollContainer>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-6">
-            <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
-              <i className="fa-solid fa-users text-blue-500"></i> Minutos por Equipo y Sistema
-            </div>
-          </div>
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-sm font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                {match.localTeam}
-              </h3>
-              {systemRows.length > 0 ? (
-                <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
-                  <table className="w-full text-[9px]">
-                    <thead>
-                      <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[7px] font-black tracking-widest">
-                        <th className="px-3 py-3 text-left">#</th>
-                        <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
-                        {systemRows.map(({ formation }) => (
-                          <th key={formation} className="px-3 py-3 text-center">{formation}</th>
-                        ))}
-                        <th className="px-3 py-3 text-center">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--border-soft)]">
-                      {convocadoPlayers.map(player => {
-                        const key = String(player.id);
-                        return (
-                          <tr key={player.id} className="text-[var(--text-strong)]">
-                            <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
-                            <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
-                            {systemRows.map(({ formation }) => {
-                              const playerSystemMinutes = systemMinutesStats.individual.get(formation)?.get(key) ?? 0;
-                              return (
-                                <td key={formation} className="px-3 py-2 text-center font-bold">
-                                  {playerSystemMinutes > 0 ? `${playerSystemMinutes}'` : '-'}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-2 text-center font-bold">{playerMinutesMap.get(key) ?? 0}'</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </TableScrollContainer>
-              ) : (
-                <p className="text-xs font-bold text-[var(--text-muted)] px-3">No hay sistemas registrados</p>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Gráficas Section */}
@@ -6140,18 +5913,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                       posicion: p.posicion
                     } as Jugador]))}
                   />
-                  <div className="pt-6 border-t border-[var(--border-soft)]">
-                    <SystemMinutesCharts
-                      stats={systemMinutesStats}
-                      squadById={new Map(squad.map(p => [String(p.id), {
-                        id: p.id,
-                        nombre: p.nombre,
-                        apodo: p.apodo,
-                        dorsal: p.dorsal,
-                        posicion: p.posicion
-                      } as Jugador]))}
-                    />
-                  </div>
                   <div className="pt-6 border-t border-[var(--border-soft)]">
                     <MatchEventsRegistry
                       matchGoals={report.matchGoals}
@@ -6212,9 +5973,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           ) : (
             <>
               <PlayerStatsCharts rows={rows} squadById={squadById} />
-              <div className="pt-6 border-t border-[var(--border-soft)]">
-                <SystemMinutesCharts stats={systemMinutesStats} squadById={squadById} />
-              </div>
             </>
           )}
         </div>
@@ -6855,74 +6613,6 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         </div>
       )}
 
-      {/* Modal para formaciones ampliadas */}
-      {expandedFormation && (
-        <div className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[var(--surface-0)] rounded-3xl border border-[var(--border-soft)] shadow-2xl w-full max-w-5xl max-h-[90dvh] flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--border-soft)] bg-[var(--surface-1)] shrink-0">
-              <h2 className="text-lg font-black uppercase tracking-widest text-[var(--text-strong)]">
-                {expandedFormation.type === 'initial'
-                  ? `${t('matchReport.generalData.startingXI')} · ${report.formation || '1-4-3-3'}`
-                  : windowSnapshots.find(w => w.id === expandedFormation.id)?.minute
-                  ? `${windowSnapshots.find(w => w.id === expandedFormation.id)?.minute}' - ${t('matchReport.matchEvents.systemAfterSubstitutions')}`
-                  : 'Formación'}
-              </h2>
-              <button
-                onClick={() => setExpandedFormation(null)}
-                className="w-10 h-10 rounded-lg bg-[var(--surface-0)] hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-muted)] transition-all"
-              >
-                <i className="fa-solid fa-xmark text-lg"></i>
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center justify-center gap-6">
-              {expandedFormation.type === 'initial' ? (
-                <>
-                  <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '600px' }}>
-                    <div className="w-full max-w-3xl h-full">
-                      {renderPitchDiagram(
-                        report.lineupPositions && report.lineupPositions.length > 0
-                          ? report.lineupPositions
-                          : getInitialPositions(report.formation || '1-4-3-3')
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {windowSnapshots.find(w => w.id === expandedFormation.id) && (
-                    <>
-                      <div className="w-full">
-                        {renderWindowSummary(windowSnapshots.find(w => w.id === expandedFormation.id)!)}
-                      </div>
-                      <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '600px' }}>
-                        <div className="w-full max-w-3xl h-full">
-                          {renderPitchDiagram(
-                            windowSnapshots.find(w => w.id === expandedFormation.id)!.positions,
-                            windowSnapshots.find(w => w.id === expandedFormation.id)!.incomingIds
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-8 py-6 border-t border-[var(--border-soft)] bg-[var(--surface-1)] flex justify-end gap-3 shrink-0">
-              <button
-                onClick={() => setExpandedFormation(null)}
-                className="px-6 py-3 rounded-xl bg-[var(--surface-0)] hover:bg-[var(--surface-2)] text-[var(--text)] font-black text-[10px] uppercase tracking-widest transition-all"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

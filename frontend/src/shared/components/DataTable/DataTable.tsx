@@ -28,6 +28,8 @@ export interface DataTableAction<T> {
 }
 
 export interface DataTableProps<T> {
+  /** Muestra un botón para ver la tabla a pantalla completa */
+  fullscreenable?: boolean;
   /** Data array to render */
   data: T[];
   /** TanStack column definitions */
@@ -320,9 +322,23 @@ function DataTable<T extends Record<string, any>>({
   defaultMode = 'advanced',
   defaultSorting = [],
   fit = false,
+  fullscreenable = false,
 }: DataTableProps<T>) {
   // Inject animations on mount
   useEffect(() => { injectStyles(); }, []);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen]);
 
   const hasAdvancedFeatures = searchable || exportable || paginated;
   const showModeToggle = allowModeToggle ?? hasAdvancedFeatures;
@@ -446,8 +462,8 @@ function DataTable<T extends Record<string, any>>({
   }, [rowSelection]);
 
   const showToolbar = !hideToolbar && (searchable || exportable || toolbarLeft || toolbarRight || showModeToggle);
-  const py = fit ? 'py-1' : compact ? 'py-2' : 'py-2 sm:py-2.5';
-  const px = fit ? 'px-1.5' : compact ? 'px-3 sm:px-4' : 'px-3 sm:px-5';
+  const py = fit ? 'py-1' : compact ? 'py-1.5' : 'py-1.5 sm:py-2';
+  const px = fit ? 'px-1.5' : compact ? 'px-2 sm:px-2.5' : 'px-2 sm:px-3';
 
   // Results count badge
   const filteredCount = searchable ? table.getFilteredRowModel().rows.length : data.length;
@@ -485,7 +501,9 @@ function DataTable<T extends Record<string, any>>({
   ) : null;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
+    <div className={isFullscreen
+      ? 'fixed inset-0 z-[200] flex flex-col bg-white overflow-hidden'
+      : 'bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden'}>
       {/* TOOLBAR */}
       {showToolbar && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-3 border-b border-[var(--border-soft)] bg-[var(--surface-1)] dt-toolbar-enter">
@@ -535,6 +553,17 @@ function DataTable<T extends Record<string, any>>({
               </button>
             )}
             {toolbarRight}
+            {fullscreenable && (
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(v => !v)}
+                title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}
+                aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                className="inline-flex items-center justify-center w-9 h-9 text-[var(--text-muted)] bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg hover:bg-[var(--surface-2)] hover:text-[var(--text)] transition-all"
+              >
+                <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-xs`}></i>
+              </button>
+            )}
             {ModeToggle}
             {actionsAlignLeft && !loading && table.getFilteredRowModel().rows.length > 0 && (
               <span className="ml-2 text-xs text-slate-400 whitespace-nowrap">
@@ -550,7 +579,7 @@ function DataTable<T extends Record<string, any>>({
       <ScrollWrapper
         fit={fit}
         bodyClassName="overflow-y-auto"
-        bodyStyle={{ maxHeight: maxHeight ?? '640px' }}
+        bodyStyle={{ maxHeight: isFullscreen ? 'calc(100vh - 120px)' : (maxHeight ?? '640px') }}
       >
         <table className={`w-full ${fit ? 'table-fixed' : ''}`} role="table">
           <thead className={`${stickyHeader ? 'sticky top-0 z-10 bg-[var(--surface-1)]' : ''}`}>

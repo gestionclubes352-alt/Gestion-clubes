@@ -9,6 +9,7 @@ import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { Player } from '../types';
 import PlayerTile from './PlayerTile';
 import { useTileConfig } from '../utils/tileConfig';
+import { encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 
 interface PlayerTableProps {
   squad: Player[];
@@ -62,7 +63,7 @@ const isImageUrl = (value: string): boolean =>
 const DEFAULT_PLAYER_PHOTO = '/jugador-default.png';
 
 /** Foto del jugador; si falta o no carga, muestra la imagen por defecto. */
-const PlayerPhoto = ({ url, alt }: { url?: string | null; alt?: string }) => (
+const PlayerPhoto = ({ url, alt, player }: { url?: string | null; alt?: string; player?: Player }) => (
   <img
     loading="lazy"
     decoding="async"
@@ -72,6 +73,7 @@ const PlayerPhoto = ({ url, alt }: { url?: string | null; alt?: string }) => (
       const img = e.currentTarget;
       if (!img.src.endsWith(DEFAULT_PLAYER_PHOTO)) img.src = DEFAULT_PLAYER_PHOTO;
     }}
+    style={encuadreStyle(getFotoEncuadre(player))}
     className="w-full h-full object-cover"
   />
 );
@@ -203,7 +205,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       // 1. Dorsal
       columnHelper.accessor('dorsal', {
         header: t('playerTable.dorsal', 'Dorsal'),
-        size: 70,
+        size: 52,
         cell: info => (
           <span className="bg-slate-900 text-white font-semibold px-2 py-0.5 rounded-md text-[11px] min-w-7 inline-block text-center tabular-nums">
             {info.getValue()}
@@ -214,13 +216,13 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       columnHelper.display({
         id: 'foto',
         header: t('playerTable.photo', 'Foto'),
-        size: 56,
+        size: 44,
         cell: ({ row }) => {
           const player = row.original;
           const posStyle = positionStyles[player.posicion] || positionStyles.Otros;
           return (
             <div className={`w-9 h-9 rounded-xl overflow-hidden border-2 ${posStyle.border} bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-xs`}>
-              <PlayerPhoto url={player.fotoUrl} alt={player.nombre} />
+              <PlayerPhoto url={player.fotoUrl} alt={player.nombre} player={player} />
             </div>
           );
         },
@@ -229,13 +231,13 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       // 3. Nombre
       columnHelper.accessor('nombre', {
         header: t('playerTable.name', 'Nombre'),
-        size: 180,
+        size: 160,
         cell: info => <span className="text-slate-600 text-xs whitespace-nowrap">{info.getValue()}</span>,
       }),
       // 4. Apodo
       columnHelper.accessor('apodo', {
         header: t('playerTable.nickname'),
-        size: 120,
+        size: 90,
         cell: info => {
           const val = info.getValue();
           if (!val) return <span className="text-slate-300">—</span>;
@@ -246,10 +248,23 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           );
         },
       }),
+      // 4b. Residencia
+      columnHelper.accessor('residencia', {
+        header: t('playerTable.residencia', 'Residencia'),
+        size: 80,
+        cell: info => {
+          const val = info.getValue();
+          return (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${val ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+              {val ? 'SI' : 'NO'}
+            </span>
+          );
+        },
+      }),
       // 5. Posición
       columnHelper.accessor('posicion', {
         header: isHuesca ? t('editPlayer.demarcation', 'Demarcación') : t('common.position'),
-        size: 130,
+        size: 100,
         cell: info => {
           const pos = info.getValue();
           const style = positionStyles[pos] || positionStyles.Otros;
@@ -264,7 +279,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       // 7. Perfil
       columnHelper.accessor('perfil', {
         header: t('playerTable.profile'),
-        size: 70,
+        size: 52,
         cell: info => (
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
             {info.getValue()}
@@ -274,7 +289,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       // 8. Fecha de nacimiento
       columnHelper.accessor('fechaNacimiento', {
         header: t('playerTable.birthDate', 'F. Nacimiento'),
-        size: 120,
+        size: 86,
         cell: info => textCell(info.getValue()),
       }),
       // 8b. Año de nacimiento (usa el campo año; si falta, lo deduce de la fecha)
@@ -283,20 +298,20 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         {
           id: 'anioNacimiento',
           header: t('playerTable.birthYear', 'Año'),
-          size: 80,
+          size: 52,
           cell: info => textCell(info.getValue() ? String(info.getValue()) : ''),
         }
       ),
       // 11. Equipo
       columnHelper.accessor('equipo', {
         header: t('playerTable.team'),
-        size: 130,
+        size: 96,
         cell: info => textCell(info.getValue()),
       }),
       // 12. Estado
       columnHelper.accessor('estado', {
         header: t('playerTable.status', 'Estado'),
-        size: 100,
+        size: 76,
         cell: info => {
           const val = info.getValue();
           if (!val) return <span className="text-slate-300">—</span>;
@@ -316,7 +331,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         columnHelper.accessor(row => (matchTotals.get(String(row.id)) ?? EMPTY_TOTALS).pj ? c.get(matchTotals.get(String(row.id))!) : null, {
           id: c.id,
           header: c.header,
-          size: 70,
+          size: 48,
           cell: info => {
             const v = info.getValue();
             return v == null
@@ -325,23 +340,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           },
         })
       )),
-      columnHelper.accessor('telefono', {
-        header: t('playerTable.phone', 'Teléfono'),
-        size: 110,
-        cell: info => textCell(info.getValue()),
-      }),
-      columnHelper.accessor('residencia', {
-        header: t('playerTable.residencia', 'Residencia'),
-        size: 100,
-        cell: info => {
-          const val = info.getValue();
-          return (
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${val ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-              {val ? 'SI' : 'NO'}
-            </span>
-          );
-        },
-      }),
     ];
     return allColumns;
   }, [t, isHuesca, matchTotals]);
@@ -377,7 +375,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               className="group flex flex-col items-center gap-2 bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-2xl p-3 hover:shadow-lg hover:border-[var(--surface-3)] transition-all"
             >
               <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[var(--border-soft)] bg-slate-50 flex items-center justify-center text-slate-600 font-semibold text-sm">
-                <PlayerPhoto url={player.fotoUrl} alt={player.nombre} />
+                <PlayerPhoto url={player.fotoUrl} alt={player.nombre} player={player} />
               </div>
               <span className="text-xs font-semibold text-[var(--text)] text-center leading-tight">{player.nombre}</span>
             </button>
@@ -397,28 +395,29 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       {/* FILTER BAR */}
       <div className="sticky top-0 z-30 bg-[var(--surface-0)]/90 backdrop-blur-xl border border-[var(--border-soft)] shadow-sm rounded-2xl p-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-          <div className="flex flex-wrap items-center gap-2 flex-1">
-            <div className="hidden sm:contents">
-            {/* Grupo de equipos (a la izquierda) */}
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            {/* Grupo de equipos: una sola fila en todos los dispositivos (scroll horizontal si no caben) */}
             {availableTeams.length > 1 && (
-              <>
-                {['TODOS', ...availableTeams].map((team) => (
-                  <button
-                    key={`team-btn-${team}`}
-                    onClick={() => setFilterTeam(team)}
-                    className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
-                      filterTeam === team
-                        ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
-                        : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
-                    }`}
-                  >
-                    {team === 'TODOS' ? t('playerTable.all') : team}
-                  </button>
-                ))}
-                <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
-              </>
+              <div className="w-full min-w-0 overflow-x-auto pb-1">
+                <div className="flex flex-nowrap items-center gap-1.5 w-max">
+                  {['TODOS', ...availableTeams].map((team) => (
+                    <button
+                      key={`team-btn-${team}`}
+                      onClick={() => setFilterTeam(team)}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-tight whitespace-nowrap border transition-all ${
+                        filterTeam === team
+                          ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
+                          : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
+                      }`}
+                    >
+                      {team === 'TODOS' ? t('playerTable.all') : team}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
+            <div className="hidden sm:contents">
             {['TODOS', ...positionOrder].map((pos) => (
               <button
                 key={pos}
@@ -566,27 +565,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
 
             </div>
 
-            {/* Filtro de equipos - Select (solo móvil; en escritorio se usan los botones de la izquierda) */}
-            {availableTeams.length > 1 && (
-              <select
-                value={filterTeam}
-                onChange={(e) => setFilterTeam(e.target.value)}
-                className="sm:hidden px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border border-[var(--border-soft)] bg-[var(--surface-0)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--surface-3)] transition-all appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundSize: '1.2em 1.2em',
-                  paddingRight: '1.8rem',
-                }}
-              >
-                {['TODOS', ...availableTeams].map((team) => (
-                  <option key={`team-${team}`} value={team}>
-                    {team === 'TODOS' ? t('playerTable.allTeams', 'Todos los equipos') : team}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
           <button
@@ -609,6 +587,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           data={tableData}
           columns={columns}
           actions={actions}
+          fit
+          fullscreenable
           searchable
           searchPlaceholder={t('playerTable.searchPlaceholder')}
           sortable

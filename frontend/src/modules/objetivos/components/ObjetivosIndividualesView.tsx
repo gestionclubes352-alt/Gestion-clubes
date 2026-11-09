@@ -200,7 +200,7 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
                 key={`team-btn-${team}`}
                 type="button"
                 onClick={() => setFiltroEquipo(value)}
-                className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
+                className={`px-1.5 py-2 rounded-xl text-[9px] font-semibold uppercase tracking-tight whitespace-nowrap border transition-all ${
                   filtroEquipo === value
                     ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
                     : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'

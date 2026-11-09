@@ -3,6 +3,10 @@
 export interface Player {
   id: number | string;
   fotoUrl: string;
+  /** Encuadre de la foto: zoom (1–3) y posición en % (x, y). Por defecto 1 / 50 / 20. */
+  fotoZoom?: number;
+  fotoPosX?: number;
+  fotoPosY?: number;
   competicion: string;
   club: string;
   equipo: string;

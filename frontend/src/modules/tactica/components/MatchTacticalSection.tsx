@@ -144,7 +144,7 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-black uppercase text-slate-900 dark:text-white">
-              Sistema de Cambios Tácticos
+              Cambios Tácticos
             </h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
               {opponent} — {matchScore}
@@ -211,7 +211,7 @@ const MatchTacticalSection: React.FC<MatchTacticalSectionProps> = ({
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase text-slate-700 dark:text-slate-300">
             <i className="fa-solid fa-diagram-project mr-2" />
-            Sistema tras cada cambio
+            Campo tras cada cambio
           </h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {changes.map((change) => {

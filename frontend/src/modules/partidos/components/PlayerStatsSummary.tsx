@@ -5,7 +5,6 @@ import { db, plantillasService, getTeamConfig } from '@shared/services/dataServi
 import type { Jugador } from '@shared/services/dataService';
 import type { CompetitionTeam } from '@modules/competicion';
 import PlayerStatsCharts from './PlayerStatsCharts';
-import SystemsDataSummary from './SystemsDataSummary';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { BallIcon, CardIcon, StatCount } from '@shared/components/MatchIcons';
@@ -158,7 +157,7 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
   const [matchFilter, setMatchFilter] = useState<string[]>([]);
-  const [view, setView] = useState<'TABLE' | 'CHARTS' | 'SYSTEMS'>('TABLE');
+  const [view, setView] = useState<'TABLE' | 'CHARTS'>('TABLE');
 
   // Solo nuestros propios equipos (por clubId), no los rivales del catálogo de la competición.
   const ownCompetitionTeams = useMemo(
@@ -368,20 +367,12 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
               >
                 <i className="fa-solid fa-chart-simple"></i> {t('playerStatsSummary.viewCharts')}
               </button>
-              <button
-                onClick={() => setView('SYSTEMS')}
-                className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${view === 'SYSTEMS' ? 'bg-white text-sport-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <i className="fa-solid fa-diagram-project"></i> {t('playerStatsSummary.viewSystems')}
-              </button>
             </div>
           </div>
         </div>
 
         {isLoading ? (
           <p className="text-xs font-bold text-slate-400">{t('playerStatsSummary.loading')}</p>
-        ) : view === 'SYSTEMS' ? (
-          <SystemsDataSummary matches={filteredMatches} reports={reports} squadById={squadById} />
         ) : view === 'CHARTS' ? (
           <PlayerStatsCharts rows={rows} squadById={squadById} />
         ) : rows.length === 0 ? (

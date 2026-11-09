@@ -42,13 +42,13 @@ const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campog
             role="tab"
             aria-selected={section === tab.id}
             onClick={() => setSection(tab.id)}
-            className={`inline-flex h-10 items-center gap-2 rounded-full border-2 px-5 text-sm font-semibold transition-all ${
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border-2 px-3 text-xs font-semibold whitespace-nowrap transition-all ${
               section === tab.id
                 ? 'border-blue-600 bg-blue-600 text-white shadow'
                 : 'border-blue-400 bg-white text-slate-700 hover:bg-blue-50'
             }`}
           >
-            <i className={`fa-solid ${tab.icon} text-xs`}></i>
+            <i className={`fa-solid ${tab.icon} text-[10px]`}></i>
             {tab.label}
           </button>
         ))}
