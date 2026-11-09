@@ -19,7 +19,7 @@ const VERSION_KEY = 'menu-visibility-version';
  * cada vez que se añadan o eliminen ítems para forzar el reset
  * del caché de localStorage en los navegadores de los usuarios.
  */
-const MENU_VERSION = 26;
+const MENU_VERSION = 27;
 
 /** Definición de cada elemento de menú con su sección padre */
 export interface MenuItemDef {
@@ -38,6 +38,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   // Gestión
   { id: 'CALENDARIO', labelKey: 'sidebar.calendarLabel', icon: 'fa-calendar', section: 'management' },
   { id: 'PLANTILLAS', labelKey: 'sidebar.squadsLabel', icon: 'fa-users', section: 'management' },
+  { id: 'JUGADORES', labelKey: 'sidebar.playersLabel', icon: 'fa-shirt', section: 'management' },
   { id: 'CAMPOGRAMA', labelKey: 'sidebar.fieldDiagramLabel', icon: 'fa-diagram-project', section: 'management' },
   { id: 'PERSONAL', labelKey: 'sidebar.technicalStaffLabel', icon: 'fa-user-tie', section: 'management' },
   { id: 'OBJETIVOS', labelKey: 'sidebar.objectivesLabel', icon: 'fa-bullseye', section: 'management' },

@@ -690,6 +690,12 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 attended: attendanceStats.attended,
                 absences: attendanceStats.absences,
                 reasons: attendanceStats.absenceReasons,
+                byScope: [
+                  { label: 'Equipo', ...attendanceStats.team },
+                  { label: 'Grupales', ...attendanceStats.group },
+                  { label: 'Individuales', ...attendanceStats.individual },
+                ],
+                byTeam: attendanceStats.byTeam,
               }}
             />
             <div className="mt-4">

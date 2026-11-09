@@ -91,6 +91,9 @@ import { RegistroDiarioView, AnalisisMedicionesView, FormularioPublicoView } fro
 // Modules - Objetivos Individuales
 import { ObjetivosIndividualesView } from '@modules/objetivos';
 
+// Modules - Jugadores (vista global con estadísticas)
+import { JugadoresView } from '@modules/jugadores';
+
 // Vistas pesadas (informe de partido, diseñador, pizarra, AI Mode): se cargan bajo demanda.
 // Sin esto todo su código viajaba en el bundle inicial, penalizando el arranque en móvil.
 const MatchReportView = React.lazy(() => import('@modules/partidos/components/MatchReportView'));
@@ -125,6 +128,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallbac
 // Mapeo de rutas a secciones para el Sidebar
 const ROUTE_TO_SECTION: Record<string, string> = {
   '/plantillas': 'PLANTILLAS',
+  '/jugadores': 'JUGADORES',
   '/staff': 'PERSONAL',
   '/objetivos': 'OBJETIVOS',
   '/clubes': 'CLUBES',
@@ -161,6 +165,7 @@ const ROUTE_TO_SECTION: Record<string, string> = {
 
 const SECTION_TO_ROUTE: Record<string, string> = {
   'PLANTILLAS': '/plantillas',
+  'JUGADORES': '/jugadores',
   'PERSONAL': '/staff',
   'OBJETIVOS': '/objetivos',
   'CLUBES': '/clubes',
@@ -1652,6 +1657,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     alert(`Error al guardar: ${msg}`);
                   }
                 }} onDelete={async id => { try { await plantillasService.remove(id); await fetchSquad(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} /></PlantillasView>
+              } />
+              <Route path="/jugadores" element={
+                <JugadoresView players={filteredSquadList} onOpen={setEditingPlayer} />
               } />
               <Route path="/staff" element={
                 isLoadingExtra ? <LoadingScreen /> :

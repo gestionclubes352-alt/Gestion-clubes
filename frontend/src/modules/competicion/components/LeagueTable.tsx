@@ -662,6 +662,22 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     return map;
   }, [actaRows, effectiveSelectedEquipo]);
 
+  // Búsqueda tolerante: exacta por jornada+rival y, si falla, por coincidencia parcial del nombre
+  // (la clasificación y el acta suelen escribir distinto el mismo rival: comillas, "C.D.", sufijos…).
+  const findActaForMatch = (jornada: number | string, local: string, visitante: string): ActaRow | undefined => {
+    const j = parseInt(String(jornada).replace(/\D/g, ''), 10);
+    if (!Number.isFinite(j)) return undefined;
+    const exact = actaByMatch.get(`${j}|${norm(local)}`) ?? actaByMatch.get(`${j}|${norm(visitante)}`);
+    if (exact) return exact;
+    const wanted = [norm(local), norm(visitante)].filter(n => n.length >= 5);
+    for (const [key, row] of actaByMatch) {
+      const [kj, kRival] = key.split('|');
+      if (Number(kj) !== j || kRival.length < 5) continue;
+      if (wanted.some(w => w.includes(kRival) || kRival.includes(w))) return row;
+    }
+    return undefined;
+  };
+
   // Equipos filtrados por sub-equipo seleccionado
   const filteredTeams = useMemo(() => {
     if (effectiveSelectedEquipo === 'TODOS' || !hasMultipleEquipos) return teams;
@@ -1363,7 +1379,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                             {match.resultado === 'vs' ? 'Sin jugar' : match.resultado}
                           </span>
                           {(() => {
-                            const acta = actaByMatch.get(`${match.jornada}|${norm(match.local)}`) ?? actaByMatch.get(`${match.jornada}|${norm(match.visitante)}`);
+                            const acta = findActaForMatch(match.jornada, match.local, match.visitante);
                             return acta ? (
                               <button
                                 type="button"
