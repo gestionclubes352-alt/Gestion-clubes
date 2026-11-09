@@ -1006,8 +1006,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const playerMinutesMap = useMemo(() => {
     const map = new Map<string, number>();
     playerIntervalsMap.forEach((interval, key) => map.set(key, Math.min(Math.max(0, interval.end - interval.start), MATCH_DURATION_MINUTES)));
+    // Minutos introducidos a mano (por dorsal) tienen prioridad
+    const manual = report.manualMinutes || {};
+    if (Object.keys(manual).length > 0) {
+      (squad as any[]).forEach(p => {
+        const m = manual[String(p.dorsal)];
+        if (m !== undefined && p.dorsal != null && p.dorsal !== '') map.set(String(p.id), m);
+      });
+    }
     return map;
-  }, [playerIntervalsMap, MATCH_DURATION_MINUTES]);
+  }, [playerIntervalsMap, MATCH_DURATION_MINUTES, report.manualMinutes, squad]);
 
   const goalsByPlayer = useMemo(() => {
     const map = new Map<string, number>();
@@ -4516,7 +4524,15 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         )}
 
         {actaFull ? (
-          <ActaMatchSheet key={configuredMinutes ?? 'auto'} acta={actaFull} ownSide={detectOwnSide(actaFull, squad)} configuredMinutes={configuredMinutes} />
+          <ActaMatchSheet key={configuredMinutes ?? 'auto'} acta={actaFull} ownSide={detectOwnSide(actaFull, squad)} configuredMinutes={configuredMinutes}
+            manualMinutes={report.manualMinutes || {}}
+            onChangeMinutes={(dorsal, minutes) => {
+              const cur = { ...(report.manualMinutes || {}) };
+              if (minutes == null) delete cur[String(dorsal)]; else cur[String(dorsal)] = minutes;
+              const next = { ...report, manualMinutes: cur };
+              setReport(next);
+              persistReport(next);
+            }} />
         ) : !hasActaData ? (
           <p className="text-xs text-[var(--text-muted)]">{actaState.loading ? 'Cargando acta…' : 'Este partido aún no tiene acta en la base de datos federativa (se publica cuando se disputa y se cierra).'}</p>
         ) : (
