@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FEDERATION_STANDINGS_BY_COMPETITION } from '../data/federationStandings';
+import { ActasPanel } from './CompetitionExtraPanels';
 import { FEDERATION_RESULTS_BY_COMPETITION, type FederationResultRow } from '../data/federationResults';
 
 export type GlobalTargetSection = 'clasificacion' | 'calendario' | 'resultados';
@@ -9,9 +10,11 @@ interface GlobalCompetitionsViewProps {
   onNavigate?: (equipo: string, section: GlobalTargetSection) => void;
   /** Sub-equipo seleccionado en los chips de filtro; 'TODOS' (o vacío) no filtra. */
   equipoFilter?: string;
+  /** Club activo (para cargar las actas). */
+  clubId?: string;
 }
 
-type ModalKind = 'clasificacion' | 'horarios' | 'resultados' | 'calendario' | 'portal';
+type ModalKind = 'clasificacion' | 'horarios' | 'resultados' | 'calendario' | 'actas';
 
 type Etapa = 'Senior' | 'Juvenil' | 'Cadete' | 'Infantil' | 'Alevín';
 
@@ -53,13 +56,6 @@ const GLOBAL_ROWS: GlobalRow[] = [
   { etapa: 'Alevín', competition: 'Segunda Alevín Grupo 5 - Zaragoza', compId: '23183372-22-23442812', equipo: 'Alevín A', clubLabel: 'Ipc la Escuela - Alevín A' },
 ];
 
-const federationPortalUrl = (compId: string): string | null => {
-  const m = /^(\d+)-(\d+)-(\d+)$/.exec(compId);
-  if (!m) return null;
-  const [, competicion, temporada, grupo] = m;
-  return `https://www.futbolaragon.com/pnfg/NPcd/NFG_CmpJornada?cod_primaria=1000120&CodCompeticion=${competicion}&CodGrupo=${grupo}&CodTemporada=${temporada}&cod_agrupacion=&CodJornada=1&Sch_Tipo_Juego=1`;
-};
-
 const ActionButton: React.FC<{
   icon: string;
   label: string;
@@ -90,9 +86,8 @@ export const isOwnTeamInCompetition = (compId: string, team: string): boolean =>
   return GLOBAL_ROWS.some(r => r.compId === compId && normalizeName(federationClubName(r.clubLabel)) === t);
 };
 
-const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () => void }> = ({ row, kind, onClose }) => {
+const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; clubId?: string; onClose: () => void }> = ({ row, kind, clubId, onClose }) => {
   const [tab, setTab] = useState<ModalKind>(kind);
-  const portal = row.compId ? federationPortalUrl(row.compId) : null;
   const standings = row.compId ? FEDERATION_STANDINGS_BY_COMPETITION[row.compId] ?? [] : [];
   const results = row.compId ? FEDERATION_RESULTS_BY_COMPETITION[row.compId] ?? [] : [];
   const mine = normalizeName(federationClubName(row.clubLabel));
@@ -127,7 +122,7 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
     { id: 'resultados', label: 'Resultados' },
     { id: 'horarios', label: 'Horarios' },
     { id: 'calendario', label: 'Calendario' },
-    { id: 'portal', label: 'Portal' },
+    { id: 'actas', label: 'Actas' },
   ];
 
   const empty = (msg: string) => <p className="py-10 text-center text-sm font-semibold text-slate-400">{msg}</p>;
@@ -232,37 +227,23 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
                   </div>
                 ))}
                 <p className="mt-3 text-[11px] text-slate-400">
-                  Los horarios de los próximos partidos se consultan en la pestaña Portal.
+                  Los horarios de los próximos partidos se consultan en el portal de la federación.
                 </p>
               </div>
             ))}
 
-          {tab === 'portal' &&
-            (portal ? (
-              <div className="flex h-[60vh] flex-col">
-                <iframe
-                  title="Portal de la federación"
-                  src={portal}
-                  className="w-full flex-1 border-0"
-                  referrerPolicy="no-referrer"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                />
-                <p className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400">
-                  Si el portal no se muestra (la federación puede bloquear su incrustación),{' '}
-                  <a href={portal} target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-600 underline">
-                    ábrelo en otra pestaña
-                  </a>
-                  .
-                </p>
-              </div>
-            ) : empty('Esta competición no tiene portal federativo.'))}
+          {tab === 'actas' && (
+            <div className="p-3">
+              <ActasPanel clubId={clubId} equipo={row.equipo} />
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavigate, equipoFilter }) => {
+const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavigate, equipoFilter, clubId }) => {
   const [collapsed, setCollapsed] = useState<Set<Etapa>>(new Set());
   const [modal, setModal] = useState<{ row: GlobalRow; kind: ModalKind } | null>(null);
 
@@ -318,8 +299,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
               <th className="px-0.5 py-1 text-center">Clasif.</th>
               <th className="px-0.5 py-1 text-center">Horarios</th>
               <th className="px-0.5 py-1 text-center">Result.</th>
-              <th className="px-0.5 py-1 text-center">Calend.</th>
-              <th className="px-0.5 py-1 text-center">Portal</th>
+              <th className="px-0.5 py-1 text-center">Actas</th>
             </tr>
           </thead>
           <tbody>
@@ -328,7 +308,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
               return (
                 <React.Fragment key={etapa}>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
-                    <td colSpan={13} className="px-1.5 py-0.5">
+                    <td colSpan={12} className="px-1.5 py-0.5">
                       <button
                         type="button"
                         onClick={() => toggle(etapa)}
@@ -347,7 +327,6 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                       const standings = row.compId ? FEDERATION_STANDINGS_BY_COMPETITION[row.compId] : undefined;
                       const nEquipos = standings?.length;
                       const jornada = standings?.length ? Math.max(...standings.map(s => s.played)) : undefined;
-                      const portal = row.compId ? federationPortalUrl(row.compId) : null;
                       return (
                         <tr key={`${row.competition}|${row.clubLabel}`} className="border-b border-slate-50 hover:bg-slate-50/70">
                           <td className="px-1.5 py-0.5 text-xs text-slate-400">{counter}</td>
@@ -389,19 +368,10 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                           </td>
                           <td className="px-0.5 py-0.5 text-center">
                             <ActionButton
-                              icon="fa-calendar-days"
-                              label="Calendario"
-                              tone="border-indigo-400 text-indigo-500"
-                              onClick={() => setModal({ row, kind: 'calendario' })}
-                            />
-                          </td>
-                          <td className="px-0.5 py-0.5 text-center">
-                            <ActionButton
-                              icon="fa-arrow-up-right-from-square"
-                              label="Abrir en el portal de la federación"
+                              icon="fa-file-lines"
+                              label="Actas"
                               tone="border-emerald-500 text-emerald-600"
-                              disabled={!portal}
-                              onClick={() => setModal({ row, kind: 'portal' })}
+                              onClick={() => setModal({ row, kind: 'actas' })}
                             />
                           </td>
                         </tr>
@@ -413,7 +383,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
           </tbody>
         </table>
       </div>
-      {modal && <CompetitionModal row={modal.row} kind={modal.kind} onClose={() => setModal(null)} />}
+      {modal && <CompetitionModal row={modal.row} kind={modal.kind} clubId={clubId} onClose={() => setModal(null)} />}
     </section>
   );
 };

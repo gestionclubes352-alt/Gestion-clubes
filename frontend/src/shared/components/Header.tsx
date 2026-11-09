@@ -178,9 +178,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
               decoding="async"
               className="w-8 h-8 md:w-9 md:h-9 object-contain drop-shadow-sm"
             />
-            <span className="hidden sm:inline text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-100 tracking-tight uppercase">
-              {clubName}
-            </span>
           </button>
         )}
 

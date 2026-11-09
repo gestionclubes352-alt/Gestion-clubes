@@ -3,13 +3,14 @@ import type { Player } from '../types';
 import SquadAnalytics from './SquadAnalytics';
 
 export type CompetitionTab = 'actas' | 'clasificacion' | 'resultados' | 'horarios' | 'calendario';
-type PlantillaSection = 'lista' | 'campogramas' | 'graficas' | 'dashboard' | CompetitionTab;
+type PlantillaSection = 'lista' | 'campogramas' | 'objetivos' | 'graficas' | 'dashboard' | CompetitionTab;
 
 const TABS: Array<{ id: PlantillaSection; label: string; icon: string }> = [
   { id: 'lista', label: 'Listado', icon: 'fa-list' },
   { id: 'campogramas', label: 'Campogramas', icon: 'fa-futbol' },
-  { id: 'graficas', label: 'Gráficas', icon: 'fa-chart-line' },
+  { id: 'objetivos', label: 'Objetivos', icon: 'fa-bullseye' },
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-column' },
+  { id: 'graficas', label: 'Gráficas', icon: 'fa-chart-line' },
   { id: 'clasificacion', label: 'Clasificaciones', icon: 'fa-trophy' },
   { id: 'resultados', label: 'Resultados y Actas', icon: 'fa-list-check' },
   { id: 'horarios', label: 'Horarios', icon: 'fa-clock' },
@@ -24,12 +25,14 @@ interface PlantillasViewProps {
   children: React.ReactNode;
   /** Vista de campogramas. */
   campogramas?: React.ReactNode;
+  /** Vista de objetivos individuales. */
+  objetivos?: React.ReactNode;
   /** Renderiza la sección de competición (actas, clasificación, resultados, horarios, calendario). */
   renderCompetition?: (section: CompetitionTab) => React.ReactNode;
 }
 
 /** Contenedor de Plantillas con botones internos: Listado · Gráficas · Dashboard · Actas · Clasificaciones · Resultados · Horarios · Calendario. */
-const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campogramas, renderCompetition }) => {
+const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campogramas, objetivos, renderCompetition }) => {
   const [section, setSection] = useState<PlantillaSection>('lista');
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -85,6 +88,7 @@ const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campog
 
       {section === 'lista' && children}
       {section === 'campogramas' && campogramas}
+      {section === 'objetivos' && objetivos}
       {(section === 'graficas' || section === 'dashboard') && <SquadAnalytics squad={squad} mode={section} classification={section === 'dashboard' ? renderCompetition?.('clasificacion') : undefined} />}
       {COMPETITION_TABS.includes(section) && renderCompetition?.(section as CompetitionTab)}
     </div>

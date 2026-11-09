@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { teamRank } from './CompetitionExtraPanels';
 import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '../../../shared/components/DataTable';
 import type { CompetitionTeam, OfficialStandingRow } from '../types';
@@ -58,6 +59,8 @@ interface ScorerRow {
   pos: number;
   jugador: string;
   equipo: string;
+  /** Nombre interno del equipo del club (ej. "Cadete A"); si existe se muestra en lugar del federativo. */
+  equipoLabel?: string;
   goles: number;
   partidos?: number;
 }
@@ -99,17 +102,16 @@ const HUESCA_JUVENIL_2627_STANDINGS: OfficialStandingRow[] = [
   { pos: 5, team: 'EBRO-C.D.', points: 12, played: 7, won: 3, drawn: 3, lost: 1, goalsFor: 13, goalsAgainst: 11, form: 'WDDLW' },
   { pos: 6, team: 'MONTECARLO-U.D.', points: 11, played: 7, won: 3, drawn: 2, lost: 2, goalsFor: 15, goalsAgainst: 13, form: 'DWDLL' },
   { pos: 7, team: 'RACING CLUB ZARAGOZA', points: 11, played: 7, won: 3, drawn: 2, lost: 2, goalsFor: 12, goalsAgainst: 12, form: 'DWDWL' },
-  { pos: 8, team: 'HUESCA-S.D.', points: 10, played: 7, won: 3, drawn: 1, lost: 3, goalsFor: 15, goalsAgainst: 15, form: 'WWLLW' },
-  { pos: 9, team: 'ESTADIO MIRALBUENO EL OLIVAR', points: 10, played: 7, won: 3, drawn: 1, lost: 3, goalsFor: 14, goalsAgainst: 14, form: 'LLWDW' },
-  { pos: 10, team: 'LA LITERA-ESCUELA DEP.', points: 10, played: 7, won: 3, drawn: 1, lost: 3, goalsFor: 11, goalsAgainst: 13, form: 'DWWLW' },
-  { pos: 11, team: 'IPC LA ESCUELA', points: 9, played: 7, won: 2, drawn: 3, lost: 2, goalsFor: 14, goalsAgainst: 10, form: 'DDLDW' },
-  { pos: 12, team: 'HERNAN CORTES JUNQUERA-C.F.', points: 9, played: 7, won: 3, drawn: 0, lost: 4, goalsFor: 11, goalsAgainst: 10, form: 'WLWWL' },
-  { pos: 13, team: 'FRAGA-FUTBOL BASE', points: 8, played: 7, won: 2, drawn: 2, lost: 3, goalsFor: 9, goalsAgainst: 13, form: 'DLWDL' },
-  { pos: 14, team: 'SANTO DOMINGO JUVENTUD C.F.', points: 8, played: 7, won: 2, drawn: 2, lost: 3, goalsFor: 8, goalsAgainst: 12, form: 'LDLWL' },
-  { pos: 15, team: 'BALSAS PICARRAL-U.D.', points: 8, played: 7, won: 2, drawn: 2, lost: 3, goalsFor: 6, goalsAgainst: 10, form: 'LDLDW' },
-  { pos: 16, team: 'OLIVER-C.D.', points: 6, played: 7, won: 2, drawn: 0, lost: 5, goalsFor: 7, goalsAgainst: 13, form: 'LLLWL' },
-  { pos: 17, team: 'E.F.B. EJEA', points: 3, played: 7, won: 1, drawn: 0, lost: 6, goalsFor: 8, goalsAgainst: 17, form: 'LLLLL' },
-  { pos: 18, team: 'CALAMOCHA-C.F.', points: 0, played: 7, won: 0, drawn: 0, lost: 7, goalsFor: 6, goalsAgainst: 33, form: 'LLLLL' },
+  { pos: 8, team: 'ESTADIO MIRALBUENO EL OLIVAR', points: 10, played: 7, won: 3, drawn: 1, lost: 3, goalsFor: 14, goalsAgainst: 14, form: 'LLWDW' },
+  { pos: 9, team: 'LA LITERA-ESCUELA DEP.', points: 10, played: 7, won: 3, drawn: 1, lost: 3, goalsFor: 11, goalsAgainst: 13, form: 'DWWLW' },
+  { pos: 10, team: 'IPC LA ESCUELA', points: 9, played: 7, won: 2, drawn: 3, lost: 2, goalsFor: 14, goalsAgainst: 10, form: 'DDLDW' },
+  { pos: 11, team: 'HERNAN CORTES JUNQUERA-C.F.', points: 9, played: 7, won: 3, drawn: 0, lost: 4, goalsFor: 11, goalsAgainst: 10, form: 'WLWWL' },
+  { pos: 12, team: 'FRAGA-FUTBOL BASE', points: 8, played: 7, won: 2, drawn: 2, lost: 3, goalsFor: 9, goalsAgainst: 13, form: 'DLWDL' },
+  { pos: 13, team: 'SANTO DOMINGO JUVENTUD C.F.', points: 8, played: 7, won: 2, drawn: 2, lost: 3, goalsFor: 8, goalsAgainst: 12, form: 'LDLWL' },
+  { pos: 14, team: 'BALSAS PICARRAL-U.D.', points: 8, played: 7, won: 2, drawn: 2, lost: 3, goalsFor: 6, goalsAgainst: 10, form: 'LDLDW' },
+  { pos: 15, team: 'OLIVER-C.D.', points: 6, played: 7, won: 2, drawn: 0, lost: 5, goalsFor: 7, goalsAgainst: 13, form: 'LLLWL' },
+  { pos: 16, team: 'E.F.B. EJEA', points: 3, played: 7, won: 1, drawn: 0, lost: 6, goalsFor: 8, goalsAgainst: 17, form: 'LLLLL' },
+  { pos: 17, team: 'CALAMOCHA-C.F.', points: 0, played: 7, won: 0, drawn: 0, lost: 7, goalsFor: 6, goalsAgainst: 33, form: 'LLLLL' },
 ];
 
 const HUESCA_JUVENIL_2627_FIXTURES = {
@@ -119,7 +121,6 @@ const HUESCA_JUVENIL_2627_FIXTURES = {
     { jornada: 1, fecha: '06/09/2026', local: 'RACING CLUB ZARAGOZA', visitante: 'SANTO DOMINGO JUVENTUD C.F.', resultado: 'vs' },
     { jornada: 1, fecha: '06/09/2026', local: 'HERNAN CORTES JUNQUERA-C.F.', visitante: 'FRAGA-FUTBOL BASE', resultado: 'vs' },
     { jornada: 1, fecha: '06/09/2026', local: 'SAN GREGORIO ARRABAL-C.D.', visitante: 'IPC LA ESCUELA', resultado: 'vs' },
-    { jornada: 1, fecha: '06/09/2026', local: 'REAL ZARAGOZA S.A.D.', visitante: 'HUESCA-S.D.', resultado: 'vs' },
     { jornada: 1, fecha: '06/09/2026', local: 'STADIUM CASABLANCA-C.D.', visitante: 'EBRO-C.D.', resultado: 'vs' },
     { jornada: 1, fecha: '06/09/2026', local: 'OLIVER-C.D.', visitante: 'MONTECARLO-U.D.', resultado: 'vs' },
     { jornada: 1, fecha: '06/09/2026', local: 'LA LITERA-ESCUELA DEP.', visitante: 'BALSAS PICARRAL-U.D.', resultado: 'vs' },
@@ -129,7 +130,6 @@ const HUESCA_JUVENIL_2627_FIXTURES = {
     { jornada: 18, fecha: '24/01/2027', local: 'SANTO DOMINGO JUVENTUD C.F.', visitante: 'RACING CLUB ZARAGOZA', resultado: 'vs' },
     { jornada: 18, fecha: '24/01/2027', local: 'FRAGA-FUTBOL BASE', visitante: 'HERNAN CORTES JUNQUERA-C.F.', resultado: 'vs' },
     { jornada: 18, fecha: '24/01/2027', local: 'IPC LA ESCUELA', visitante: 'SAN GREGORIO ARRABAL-C.D.', resultado: 'vs' },
-    { jornada: 18, fecha: '24/01/2027', local: 'HUESCA-S.D.', visitante: 'REAL ZARAGOZA S.A.D.', resultado: 'vs' },
     { jornada: 18, fecha: '24/01/2027', local: 'EBRO-C.D.', visitante: 'STADIUM CASABLANCA-C.D.', resultado: 'vs' },
     { jornada: 18, fecha: '24/01/2027', local: 'CALAMOCHA-C.F.', visitante: 'E.F.B. EJEA', resultado: 'vs' },
     { jornada: 18, fecha: '24/01/2027', local: 'MONTECARLO-U.D.', visitante: 'OLIVER-C.D.', resultado: 'vs' },
@@ -175,32 +175,30 @@ const OFFICIAL_STANDINGS_BY_CLUB: Record<string, ReadonlyArray<OfficialStandingR
     { pos: 10, team: 'IPC LA ESCUELA', points: 29, played: 21, won: 9, drawn: 2, lost: 10 },
     { pos: 11, team: 'BALSAS PICARRAL-U.D.', points: 26, played: 21, won: 7, drawn: 5, lost: 9 },
     { pos: 12, team: 'SAN GREGORIO ARRABAL-C.D.', points: 26, played: 21, won: 8, drawn: 2, lost: 11 },
-    { pos: 13, team: 'HUESCA-S.D.', points: 25, played: 20, won: 7, drawn: 4, lost: 9 },
-    { pos: 14, team: 'UNION LA JOTA VADORREY-C.D.', points: 25, played: 21, won: 6, drawn: 7, lost: 8 },
-    { pos: 15, team: 'ESTADIO MIRALBUENO EL OLIVAR', points: 19, played: 21, won: 4, drawn: 7, lost: 10 },
-    { pos: 16, team: 'TERUEL-C.D.', points: 19, played: 20, won: 5, drawn: 4, lost: 11 },
-    { pos: 17, team: 'SAN AGUSTIN-C.D.', points: 18, played: 21, won: 4, drawn: 6, lost: 11 },
-    { pos: 18, team: 'CALATAYUD-EFB', points: 6, played: 20, won: 2, drawn: 0, lost: 18 },
+    { pos: 13, team: 'UNION LA JOTA VADORREY-C.D.', points: 25, played: 21, won: 6, drawn: 7, lost: 8 },
+    { pos: 14, team: 'ESTADIO MIRALBUENO EL OLIVAR', points: 19, played: 21, won: 4, drawn: 7, lost: 10 },
+    { pos: 15, team: 'TERUEL-C.D.', points: 19, played: 20, won: 5, drawn: 4, lost: 11 },
+    { pos: 16, team: 'SAN AGUSTIN-C.D.', points: 18, played: 21, won: 4, drawn: 6, lost: 11 },
+    { pos: 17, team: 'CALATAYUD-EFB', points: 6, played: 20, won: 2, drawn: 0, lost: 18 },
   ],
   'escuela-huesca::Cadete A': [
     { pos: 1,  team: 'REAL ZARAGOZA S.A.D.', points: 55, played: 21, won: 18, drawn: 1, lost: 2 },
-    { pos: 2,  team: 'HUESCA-S.D.', points: 52, played: 21, won: 17, drawn: 1, lost: 3 },
-    { pos: 3,  team: 'RACING CLUB ZARAGOZA', points: 52, played: 21, won: 16, drawn: 4, lost: 1 },
-    { pos: 4,  team: 'SANTO DOMINGO JUVENTUD C.F.', points: 49, played: 21, won: 15, drawn: 4, lost: 2 },
-    { pos: 5,  team: 'MONTECARLO-U.D.', points: 38, played: 20, won: 12, drawn: 2, lost: 6 },
-    { pos: 6,  team: 'OLIVER-C.D.', points: 34, played: 19, won: 10, drawn: 4, lost: 5 },
-    { pos: 7,  team: 'BALSAS PICARRAL-U.D.', points: 29, played: 20, won: 8, drawn: 5, lost: 7 },
-    { pos: 8,  team: 'STADIUM CASABLANCA-C.D.', points: 29, played: 20, won: 8, drawn: 5, lost: 7 },
-    { pos: 9,  team: 'HERNAN CORTES JUNQUERA-C.F.', points: 28, played: 20, won: 7, drawn: 7, lost: 6 },
-    { pos: 10, team: 'SAN AGUSTIN-C.D.', points: 27, played: 21, won: 9, drawn: 0, lost: 12 },
-    { pos: 11, team: 'HUESCA-S.D. ESCUELA DE FUTBOL', points: 25, played: 20, won: 7, drawn: 4, lost: 9 },
-    { pos: 12, team: 'AMISTAD-U.D.', points: 23, played: 20, won: 6, drawn: 5, lost: 9 },
-    { pos: 13, team: 'BINEFAR-FUTBOL BASE', points: 22, played: 20, won: 6, drawn: 4, lost: 10 },
-    { pos: 14, team: 'ESTADIO MIRALBUENO EL OLIVAR', points: 22, played: 20, won: 6, drawn: 4, lost: 10 },
-    { pos: 15, team: 'FRAGA-FÚTBOL BASE', points: 16, played: 21, won: 5, drawn: 1, lost: 15 },
-    { pos: 16, team: 'CUARTE-C.D.', points: 9, played: 20, won: 3, drawn: 0, lost: 17 },
-    { pos: 17, team: 'CALATAYUD-EFB', points: 7, played: 21, won: 2, drawn: 1, lost: 18 },
-    { pos: 18, team: 'MONZÓN FÚTBOL BASE - AT. AHP Guarvi', points: 6, played: 20, won: 2, drawn: 0, lost: 18 },
+    { pos: 2,  team: 'RACING CLUB ZARAGOZA', points: 52, played: 21, won: 16, drawn: 4, lost: 1 },
+    { pos: 3,  team: 'SANTO DOMINGO JUVENTUD C.F.', points: 49, played: 21, won: 15, drawn: 4, lost: 2 },
+    { pos: 4,  team: 'MONTECARLO-U.D.', points: 38, played: 20, won: 12, drawn: 2, lost: 6 },
+    { pos: 5,  team: 'OLIVER-C.D.', points: 34, played: 19, won: 10, drawn: 4, lost: 5 },
+    { pos: 6,  team: 'BALSAS PICARRAL-U.D.', points: 29, played: 20, won: 8, drawn: 5, lost: 7 },
+    { pos: 7,  team: 'STADIUM CASABLANCA-C.D.', points: 29, played: 20, won: 8, drawn: 5, lost: 7 },
+    { pos: 8,  team: 'HERNAN CORTES JUNQUERA-C.F.', points: 28, played: 20, won: 7, drawn: 7, lost: 6 },
+    { pos: 9, team: 'SAN AGUSTIN-C.D.', points: 27, played: 21, won: 9, drawn: 0, lost: 12 },
+    { pos: 10, team: 'HUESCA-S.D. ESCUELA DE FUTBOL', points: 25, played: 20, won: 7, drawn: 4, lost: 9 },
+    { pos: 11, team: 'AMISTAD-U.D.', points: 23, played: 20, won: 6, drawn: 5, lost: 9 },
+    { pos: 12, team: 'BINEFAR-FUTBOL BASE', points: 22, played: 20, won: 6, drawn: 4, lost: 10 },
+    { pos: 13, team: 'ESTADIO MIRALBUENO EL OLIVAR', points: 22, played: 20, won: 6, drawn: 4, lost: 10 },
+    { pos: 14, team: 'FRAGA-FÚTBOL BASE', points: 16, played: 21, won: 5, drawn: 1, lost: 15 },
+    { pos: 15, team: 'CUARTE-C.D.', points: 9, played: 20, won: 3, drawn: 0, lost: 17 },
+    { pos: 16, team: 'CALATAYUD-EFB', points: 7, played: 21, won: 2, drawn: 1, lost: 18 },
+    { pos: 17, team: 'MONZÓN FÚTBOL BASE - AT. AHP Guarvi', points: 6, played: 20, won: 2, drawn: 0, lost: 18 },
   ],
 };
 
@@ -314,6 +312,22 @@ const HUESCA_COMPETITIONS: ReadonlyArray<{ id: string; name: string; etapa: (typ
   { id: '23596848-22-23596900', name: 'Segunda Alevín Fútbol 8 Grupo 2 - Huesca Occidental', etapa: 'Alevín' },
 ];
 const HUESCA_OWN_TEAM_REGEX = /ipc la escuela|huesca international|internacional huesca|huesca-s\.d\. escuela de futbol/i;
+
+/** Competición federativa → nombre interno del equipo del club (ej. "Cadete A"). */
+const HUESCA_INTERNAL_NAME_BY_COMPETITION: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  Object.entries(HUESCA_COMPETITION_BY_TEAM).forEach(([team, comp]) => {
+    if (map[comp]) return;
+    map[comp] = team.replace(/\b\w/g, c => c.toUpperCase()).replace(/^Alevin/, 'Alevín');
+  });
+  return map;
+})();
+
+/** Sustituye el nombre federativo de nuestros equipos por su nombre interno. */
+const withInternalTeamName = <T extends { equipo: string }>(rows: T[], competitionId: string): Array<T & { equipoLabel?: string }> => {
+  const internal = HUESCA_INTERNAL_NAME_BY_COMPETITION[competitionId];
+  return rows.map(r => (internal && HUESCA_OWN_TEAM_REGEX.test(r.equipo) ? { ...r, equipoLabel: internal } : r));
+};
 
 /** Clave de enfrentamiento tolerante a sufijos de equipo B/C entre comillas (ej. E.F.B. Ejea "A" == E.F.B. EJEA). */
 const resultPairingKey = (jornada: number, local?: string | null, visitante?: string | null) =>
@@ -629,6 +643,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   // "Actas" se fusionó con "Resultados": cada partido con acta tiene su botón Acta.
   const activeSection: CompetitionSection = rawSection === 'actas' ? 'resultados' : rawSection;
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
+  const [groupBy, setGroupBy] = useState<'fecha' | 'jornada'>('fecha');
   const [selectedEquipo, setSelectedEquipo] = useState<string>('TODOS');
 
   // Obtener el club activo para aislar datos por club. `clubId` (club real de Supabase) tiene
@@ -872,9 +887,12 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       // Los partidos propios usan el nombre interno ("Primer Equipo"), que no figura en la clasificación federativa.
       const localInCompetition = competitionTeams.has(localName) || isInternalTeamName(match.local) || ownTeamAliases.has(localName);
       const visitorInCompetition = competitionTeams.has(visitorName) || isInternalTeamName(match.visitante) || ownTeamAliases.has(visitorName);
+      // Un partido de nuestro propio equipo siempre se muestra, aunque el rival esté excluido de la clasificación.
+      const involvesOwnTeam = ownTeamAliases.has(localName) || ownTeamAliases.has(visitorName)
+        || isInternalTeamName(match.local) || isInternalTeamName(match.visitante);
       const belongsToCompetition = hasFullCompetition
-        ? localInCompetition && visitorInCompetition
-        : ownTeamAliases.has(localName) || ownTeamAliases.has(visitorName);
+        ? (localInCompetition && visitorInCompetition) || involvesOwnTeam
+        : involvesOwnTeam;
       if (!belongsToCompetition) return;
       const key = `${jornada}|${match.fecha}|${normalizeTeam(match.local)}|${normalizeTeam(match.visitante)}`;
       uniqueMatches.set(key, {
@@ -922,6 +940,57 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     });
   }, [federationCalendarData, standings, resultsLeg, isHuescaCurrentSeason, isPreseasonTable]);
 
+  // Orden de visualización: por fecha (por defecto) o por jornada.
+  const displayData = useMemo<CalendarDisplayMatch[]>(() => {
+    const dateKey = (v?: string | null) => {
+      const f = formatMatchDate(v);
+      const m = f.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      return m ? `${m[3]}${m[2]}${m[1]}` : '99999999';
+    };
+    const list = [...resultsData];
+    const rank = (m: CalendarDisplayMatch) => teamRank(m.local, m.visitante);
+    if (groupBy === 'fecha') {
+      list.sort((a, b) => dateKey(a.fecha).localeCompare(dateKey(b.fecha)) || rank(a) - rank(b) || a.jornada - b.jornada);
+    } else {
+      list.sort((a, b) => a.jornada - b.jornada || dateKey(a.fecha).localeCompare(dateKey(b.fecha)) || rank(a) - rank(b));
+    }
+    return list;
+  }, [resultsData, groupBy]);
+
+  // Partido que marca "esta semana": el primero desde el lunes actual (o el último si ya pasó todo).
+  const thisWeekMatch = useMemo<CalendarDisplayMatch | null>(() => {
+    const now = new Date();
+    const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    const monKey = `${mon.getFullYear()}${String(mon.getMonth() + 1).padStart(2, '0')}${String(mon.getDate()).padStart(2, '0')}`;
+    const keyOf = (v?: string | null) => {
+      const m = formatMatchDate(v).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      return m ? `${m[3]}${m[2]}${m[1]}` : null;
+    };
+    let best: CalendarDisplayMatch | null = null;
+    let bestKey = '';
+    let last: CalendarDisplayMatch | null = null;
+    let lastKey = '';
+    resultsData.forEach(m => {
+      const k = keyOf(m.fecha);
+      if (!k) return;
+      if (k >= monKey && (!best || k < bestKey)) { best = m; bestKey = k; }
+      if (!last || k > lastKey) { last = m; lastKey = k; }
+    });
+    return best ?? last;
+  }, [resultsData]);
+
+  const scrollToThisWeek = React.useCallback(() => {
+    document.getElementById('results-this-week')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Al abrir resultados, ir automáticamente a la semana actual.
+  useEffect(() => {
+    if (activeSection !== 'resultados' || !thisWeekMatch) return;
+    const t = setTimeout(scrollToThisWeek, 150);
+    return () => clearTimeout(t);
+  }, [activeSection, thisWeekMatch, scrollToThisWeek]);
+
   // Competición federativa del equipo interno de Huesca seleccionado (para goleadores/porteros reales)
   const federationCompetition = standingsKey.startsWith('escuela-huesca::')
     ? HUESCA_COMPETITION_BY_TEAM[standingsKey.slice('escuela-huesca::'.length)]
@@ -937,13 +1006,13 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   const scorersData = useMemo<ScorerRow[]>(() => {
     if (isHuescaAllTeams) {
       return allHuescaCompetitions
-        .flatMap(comp => FEDERATION_SCORERS_BY_COMPETITION[comp] || [])
-        .filter(row => /huesca/i.test(row.equipo))
+        .flatMap(comp => withInternalTeamName(FEDERATION_SCORERS_BY_COMPETITION[comp] || [], comp))
+        .filter(row => HUESCA_OWN_TEAM_REGEX.test(row.equipo))
         .sort((a, b) => b.goles - a.goles)
         .map((row, i) => ({ ...row, pos: i + 1 }));
     }
     if (federationCompetition) {
-      return (FEDERATION_SCORERS_BY_COMPETITION[federationCompetition] || []).map((row, i) => ({ ...row, pos: i + 1 }));
+      return withInternalTeamName(FEDERATION_SCORERS_BY_COMPETITION[federationCompetition] || [], federationCompetition).map((row, i) => ({ ...row, pos: i + 1 }));
     }
     if (isPreseasonTable || isHuescaCurrentSeason) return [];
     const clubScorers = OFFICIAL_SCORERS_BY_CLUB[standingsKey] || OFFICIAL_SCORERS_BY_CLUB[currentClubId];
@@ -962,16 +1031,16 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       }));
   }, [standings, currentClubId, standingsKey, isPreseasonTable, isHuescaCurrentSeason, federationCompetition, isHuescaAllTeams, allHuescaCompetitions]);
 
-  const keepersData = useMemo<Array<{ pos: number; portero: string; equipo: string; imbatido: number; encajados?: number; partidos?: number }>>(() => {
+  const keepersData = useMemo<Array<{ pos: number; portero: string; equipo: string; equipoLabel?: string; imbatido: number; encajados?: number; partidos?: number }>>(() => {
     if (isHuescaAllTeams) {
       return allHuescaCompetitions
-        .flatMap(comp => FEDERATION_KEEPERS_BY_COMPETITION[comp] || [])
-        .filter(row => /huesca/i.test(row.equipo))
+        .flatMap(comp => withInternalTeamName(FEDERATION_KEEPERS_BY_COMPETITION[comp] || [], comp))
+        .filter(row => HUESCA_OWN_TEAM_REGEX.test(row.equipo))
         .sort((a, b) => b.imbatido - a.imbatido)
         .map((row, i) => ({ ...row, pos: i + 1 }));
     }
     if (federationCompetition) {
-      return (FEDERATION_KEEPERS_BY_COMPETITION[federationCompetition] || []).map((row, i) => ({ ...row, pos: i + 1 }));
+      return withInternalTeamName(FEDERATION_KEEPERS_BY_COMPETITION[federationCompetition] || [], federationCompetition).map((row, i) => ({ ...row, pos: i + 1 }));
     }
     if (isPreseasonTable || isHuescaCurrentSeason) return [];
     return [...standings]
@@ -995,7 +1064,6 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     { id: 'resultados', label: 'Resultados y Actas', icon: 'fa-list-check' },
     { id: 'clasificacion', label: 'Clasificación', icon: 'fa-trophy' },
     { id: 'sanciones', label: 'Sanciones', icon: 'fa-square' },
-    { id: 'calendario', label: 'Calendario', icon: 'fa-calendar-days' },
     { id: 'goleadores', label: 'Goleadores', icon: 'fa-futbol' },
     { id: 'porteros', label: 'Porteros', icon: 'fa-hand' },
     { id: 'cruzada', label: 'Cruzada', icon: 'fa-table-cells-large' },
@@ -1091,6 +1159,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         {filterAndTabs}
         <GlobalCompetitionsView
           equipoFilter={selectedEquipo}
+          clubId={currentClubId}
           onNavigate={(equipo, section) => {
             setSelectedEquipo(equipo);
             setActiveSection(section);
@@ -1251,8 +1320,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                 }
                 hideToolbar
               />
+              <div className="mt-4"><StandingsCharts part="teams" rows={federationDisplayStandings} isOwn={name => isMyTeamName(name, highlightedTeamName)} /></div>
             </div>
-            <StandingsCharts rows={federationDisplayStandings} isOwn={name => isMyTeamName(name, highlightedTeamName)} />
+            <StandingsCharts part="players" rows={federationDisplayStandings} isOwn={name => isMyTeamName(name, highlightedTeamName)} />
           </div>
 
           <p className="border-t border-slate-100 px-5 py-3 text-[11px] font-semibold text-slate-400">
@@ -1340,8 +1410,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               }
               hideToolbar
             />
+            <div className="mt-4"><StandingsCharts part="teams" rows={standings} isOwn={name => isMyTeamName(name, highlightedTeamName)} /></div>
           </div>
-          <StandingsCharts rows={standings} isOwn={name => isMyTeamName(name, highlightedTeamName)} />
+          <StandingsCharts part="players" rows={standings} isOwn={name => isMyTeamName(name, highlightedTeamName)} />
         </div>
       )}
 
@@ -1415,26 +1486,63 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               </button>
             </div>
           )}
+          <div className="sticky top-0 z-30 mx-auto flex w-full max-w-3xl items-center justify-end gap-2 bg-white/95 py-2 backdrop-blur">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Agrupar por</span>
+            {(['fecha', 'jornada'] as const).map(opt => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setGroupBy(opt)}
+                className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
+                  groupBy === opt ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={scrollToThisWeek}
+              disabled={!thisWeekMatch}
+              className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700 transition-all hover:bg-blue-100 disabled:opacity-50"
+            >
+              Esta semana
+            </button>
+          </div>
           <div className="mx-auto grid w-full max-w-3xl gap-1.5">
-            {resultsData.map((match, index) => {
+            {displayData.map((match, index) => {
               const matchTime = formatMatchTime(match.hora);
               const matchLocation = match.campo;
               const matchDate = formatMatchDate(match.fecha);
               const isPrimaryMatch = isMyTeamName(match.local, highlightedTeamName) || isMyTeamName(match.visitante, highlightedTeamName);
-              const previousMatch = index > 0 ? resultsData[index - 1] : undefined;
-              const showJornadaHeader = !previousMatch || previousMatch.jornada !== match.jornada;
+              const previousMatch = index > 0 ? displayData[index - 1] : undefined;
+              const showJornadaHeader = !previousMatch || (groupBy === 'fecha'
+                ? formatMatchDate(previousMatch.fecha) !== matchDate
+                : previousMatch.jornada !== match.jornada);
               return (
                 <React.Fragment key={`${match.jornada}-${match.fecha}-${match.local}-${match.visitante}`}>
                   {showJornadaHeader && (
-                    <div className="flex items-center gap-3 pt-3 first:pt-0">
-                      <span className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">Jornada {match.jornada}</span>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{matchDate}</span>
+                    <div
+                      id={thisWeekMatch && (groupBy === 'fecha'
+                        ? formatMatchDate(thisWeekMatch.fecha) === matchDate
+                        : thisWeekMatch.jornada === match.jornada) ? 'results-this-week' : undefined}
+                      className="flex scroll-mt-24 items-center gap-3 pt-3 first:pt-0"
+                    >
+                      <span className="rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">
+                        {groupBy === 'fecha' ? (matchDate || 'Sin fecha') : `Jornada ${match.jornada}`}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {groupBy === 'fecha' ? '' : matchDate}
+                      </span>
                     </div>
                   )}
                   <div className={`grid gap-2 rounded-lg border bg-white px-2.5 py-1.5 md:grid-cols-[64px_minmax(0,1fr)_96px_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#9f1239]/50 bg-[#9f1239]/10 ring-1 ring-inset ring-[#9f1239]/40' : 'border-slate-100'}`}>
                     <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
                       <span className="whitespace-nowrap">J{match.jornada}</span>
                       <span className="whitespace-nowrap">{matchDate}</span>
+                      {activeSection === 'resultados' && matchTime && (
+                        <span className="whitespace-nowrap text-slate-500"><i className="fa-regular fa-clock mr-1 text-[9px]"></i>{matchTime}</span>
+                      )}
                     </div>
                     <div className="flex min-w-0 items-center justify-end gap-2 text-right">
                       <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
@@ -1493,7 +1601,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.jugador}</p>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <TeamCrest name={row.equipo} size="w-5 h-5" />
-                  <TeamName name={row.equipo} myTeam={highlightedTeamName} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                  <TeamName name={row.equipoLabel || row.equipo} myTeam={highlightedTeamName} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
                 </div>
               </div>
               <span className="text-[11px] font-bold text-slate-500 tabular-nums whitespace-nowrap">{row.partidos !== undefined ? `${row.partidos} PJ` : ''}</span>
@@ -1517,7 +1625,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                 <p className="text-sm font-semibold text-slate-700 truncate">{row.portero}</p>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <TeamCrest name={row.equipo} size="w-5 h-5" />
-                  <TeamName name={row.equipo} myTeam={highlightedTeamName} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
+                  <TeamName name={row.equipoLabel || row.equipo} myTeam={highlightedTeamName} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" />
                 </div>
               </div>
               <div className="text-right">

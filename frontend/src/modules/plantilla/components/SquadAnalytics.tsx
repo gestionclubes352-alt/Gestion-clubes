@@ -8,6 +8,7 @@ import { TIPOS_OBJETIVO } from '../../objetivos/types';
 import { eventosCalendarioService } from '@shared/services/dataService';
 import type { ActaPartido } from '@shared/services/rfefActasService';
 import { norm } from '../../competicion/components/CompetitionExtraPanels';
+import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
 
 interface SquadAnalyticsProps {
   squad: Player[];
@@ -30,6 +31,15 @@ const ageOf = (p: Player): number | null => {
   }
   if (p.anioNacimiento) return currentYear - p.anioNacimiento;
   return null;
+};
+
+// Orden de categorías de mayor a menor (Primer equipo primero, Prebenjamín último)
+const TEAM_LEVELS = ['primer equipo', 'senior', 'juvenil', 'cadete', 'infantil', 'alevin', 'benjamin', 'prebenjamin'];
+const teamLevel = (equipo: string): number => {
+  const n = equipo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  // 'prebenjamin' contiene 'benjamin': se comprueba de más específico a menos
+  const idx = [...TEAM_LEVELS].reverse().findIndex(l => n.includes(l));
+  return idx === -1 ? TEAM_LEVELS.length : TEAM_LEVELS.length - 1 - idx;
 };
 
 const countBy = <T,>(items: T[], key: (i: T) => string): Array<{ label: string; value: number }> => {
@@ -191,7 +201,7 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
         <span className="ml-auto text-[9px] font-semibold normal-case tracking-normal text-slate-400">Pulsa una columna para ordenar</span>
       </h3>
       <div className="max-h-[70vh] overflow-auto">
-        <table className="w-full min-w-[720px] text-left text-[10px]">
+        <table className="w-full min-w-[720px] text-left text-[10px]!">
           <thead className="sticky top-0 z-10 bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
             <tr>
               <th className="w-8 px-3 py-2 text-right">#</th>
@@ -248,6 +258,7 @@ interface PlayedMatch { id: string; date: string; team: string; jornada: string;
 /** Desglose de partidos jugados (actas federativas) de los equipos mostrados. */
 const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
   const [rows, setRows] = useState<PlayedMatch[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     eventosCalendarioService
@@ -278,7 +289,7 @@ const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
       ph = g.homeScore; pa = g.awayScore;
       return { text: `${g.player} ${g.minute}'`, mine: gSide === side };
     }).filter(g => side === null || g.mine).map(g => g.text);
-    return { m, result, scorers };
+    return { m, result, scorers, side };
   });
 
   return (
@@ -291,7 +302,7 @@ const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
         <p className="px-3 py-3 text-[10px] text-slate-400">Sin partidos jugados con acta</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-[10px]">
+          <table className="w-full min-w-[720px] text-left text-[10px]!">
             <thead className="bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
               <tr>
                 <th className="px-3 py-2">Fecha</th>
@@ -302,11 +313,13 @@ const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
                 <th className="px-2 py-2">Visitante</th>
                 <th className="px-2 py-2 text-center">G/E/P</th>
                 <th className="px-2 py-2">Goleadores</th>
+                <th className="px-2 py-2 text-center">Acta</th>
               </tr>
             </thead>
             <tbody>
-              {view.map(({ m, result, scorers }) => (
-                <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
+              {view.map(({ m, result, scorers, side }) => (
+                <React.Fragment key={m.id}>
+                <tr className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="whitespace-nowrap px-3 py-1 text-slate-500">{m.acta.date || m.date}</td>
                   <td className="px-2 py-1 text-slate-500">{m.jornada || m.acta.jornada}</td>
                   <td className="px-2 py-1 font-bold text-slate-700">{m.team}</td>
@@ -315,7 +328,25 @@ const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
                   <td className="px-2 py-1 text-slate-700">{m.acta.awayTeam.name}</td>
                   <td className={`px-2 py-1 text-center font-black ${result === 'G' ? 'text-emerald-600' : result === 'P' ? 'text-red-600' : 'text-amber-500'}`}>{result ?? '—'}</td>
                   <td className="px-2 py-1 text-slate-500">{scorers.join(', ') || '—'}</td>
+                  <td className="px-2 py-1 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(openId === m.id ? null : m.id)}
+                      title={openId === m.id ? 'Ocultar acta' : 'Ver acta'}
+                      className={`rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-wider transition-colors ${openId === m.id ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'}`}
+                    >
+                      <i className="fa-solid fa-file-lines mr-1"></i>Acta
+                    </button>
+                  </td>
                 </tr>
+                {openId === m.id && (
+                  <tr className="border-t border-slate-100 bg-slate-50">
+                    <td colSpan={9} className="p-3">
+                      <ActaMatchSheet acta={m.acta} ownSide={side} />
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -325,7 +356,17 @@ const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
   );
 };
 
-const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, classification }) => {
+const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: allSquad, mode, classification }) => {
+  // Dashboard individual de un equipo (null = todos los equipos de la selección).
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const rawSquad = useMemo(
+    () => (teamFilter ? allSquad.filter(p => (p.equipo || 'Sin equipo') === teamFilter) : allSquad),
+    [allSquad, teamFilter],
+  );
+  useEffect(() => {
+    if (teamFilter && !allSquad.some(p => (p.equipo || 'Sin equipo') === teamFilter)) setTeamFilter(null);
+  }, [allSquad, teamFilter]);
+
   // Partidos, minutos y goles salen de las actas federativas (estadisticas_partido_jugador).
   const [matchTotals, setMatchTotals] = useState<Map<string, MatchTotals>>(new Map());
   useEffect(() => {
@@ -393,7 +434,7 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
           goles: ps.reduce((a, p) => a + (p.goles ?? 0), 0),
           minutos: ps.reduce((a, p) => a + (p.minutos ?? 0), 0),
         }))
-        .sort((a, b) => a.equipo.localeCompare(b.equipo, 'es', { numeric: true })),
+        .sort((a, b) => teamLevel(a.equipo) - teamLevel(b.equipo) || a.equipo.localeCompare(b.equipo, 'es', { numeric: true })),
       topGoles: [...squad].filter(p => (p.goles ?? 0) > 0).sort((a, b) => (b.goles ?? 0) - (a.goles ?? 0)).slice(0, RANKING_LIMIT),
       topMinutos: [...squad].filter(p => (p.minutos ?? 0) > 0).sort((a, b) => (b.minutos ?? 0) - (a.minutos ?? 0)).slice(0, RANKING_LIMIT),
     };
@@ -472,6 +513,18 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
 
   return (
     <div className="space-y-4 px-1 pb-24">
+      {teamFilter && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTeamFilter(null)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            <i className="fa-solid fa-arrow-left text-[10px]"></i>Todos los equipos
+          </button>
+          <span className="text-sm font-black text-slate-700">Dashboard · {teamFilter}</span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
         <Kpi label="Jugadores" value={stats.total} icon="fa-users" />
         <Kpi label="Aptos" value={stats.aptos} icon="fa-circle-check" tone="bg-emerald-600" />
@@ -496,18 +549,32 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
             <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
               <tr>
                 <th className="px-4 py-2">Equipo</th>
+                {!teamFilter && <th className="px-2 py-2">Dashboard</th>}
                 <th className="px-2 py-2 text-right">Jugadores</th>
                 <th className="px-2 py-2 text-right">Aptos</th>
                 <th className="px-2 py-2 text-right">Lesionados</th>
                 <th className="px-2 py-2 text-right">Edad media</th>
                 <th className="px-2 py-2 text-right"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />Goles</span></th>
-                <th className="px-4 py-2 text-right">Minutos</th>
+                <th className="px-2 py-2 text-right">Minutos</th>
               </tr>
             </thead>
             <tbody>
               {stats.teams.map(t => (
                 <tr key={t.equipo} className={`border-t border-slate-100 ${t.jugadores > MAX_JUGADORES_EQUIPO ? 'bg-red-50' : ''}`}>
                   <td className="px-4 py-2 font-bold text-slate-700">{t.equipo}</td>
+                  {!teamFilter && (
+                    <td className="px-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setTeamFilter(t.equipo)}
+                        title={`Ver dashboard de ${t.equipo}`}
+                        aria-label={`Ver dashboard de ${t.equipo}`}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-full border-2 border-blue-400 bg-white px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-blue-50"
+                      >
+                        <i className="fa-solid fa-chart-column text-[10px]"></i>Dashboard
+                      </button>
+                    </td>
+                  )}
                   <td className={`px-2 py-2 text-right tabular-nums ${t.jugadores > MAX_JUGADORES_EQUIPO ? 'font-black text-red-600' : ''}`}>
                     {t.jugadores}
                     {t.duplicados.length > 0 && (
@@ -520,7 +587,7 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
                   <td className="px-2 py-2 text-right tabular-nums text-red-600">{t.lesionados}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{t.edad ? t.edad.toFixed(1) : '—'}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{t.goles}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{t.minutos.toLocaleString('es')}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">{t.minutos.toLocaleString('es')}</td>
                 </tr>
               ))}
             </tbody>

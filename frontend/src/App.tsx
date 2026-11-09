@@ -1314,20 +1314,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [campogramasList, selectedTeams]
   );
 
-  // Si el equipo ya tiene un campograma asignado, se abre directamente el campo
-  // (salvo que el usuario haya vuelto explícitamente al listado).
-  const [campogramaListMode, setCampogramaListMode] = useState(false);
-  const ownCampogramas = useMemo(
-    () => filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name)),
-    [filteredCampogramasList, currentTeam]
-  );
+  // Al entrar en Campograma se muestra siempre el listado de todos los campogramas.
+  const [, setCampogramaListMode] = useState(false);
   useEffect(() => {
-    setCampogramaListMode(false);
-  }, [selectedTeams]);
-  useEffect(() => {
-    if (activeCampograma || campogramaListMode || ownCampogramas.length === 0) return;
-    setActiveCampograma(ownCampogramas[0]);
-  }, [activeCampograma, campogramaListMode, ownCampogramas]);
+    if (location.pathname === '/campograma') setActiveCampograma(null);
+  }, [location.pathname]);
 
   const filteredEventsList = useMemo(
     () => eventsList.filter(event => eventMatchesSelectedTeams(event, selectedTeams, competitionTeams)),
@@ -1661,7 +1652,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlantillasView squad={filteredSquadList.filter(p => !p.clubId || String(p.clubId) === String(currentTeam?.id || ''))} campogramas={campogramasView} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                <PlantillasView objetivos={<ObjetivosIndividualesView equipos={misClubCompetitionTeams.map(team => ({ id: String(team.id), nombre: team.nombre }))} />} squad={filteredSquadList.filter(p => !p.clubId || String(p.clubId) === String(currentTeam?.id || ''))} campogramas={campogramasView} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
                     if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
                     const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });

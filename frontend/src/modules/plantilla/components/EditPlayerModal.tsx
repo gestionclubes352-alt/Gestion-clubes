@@ -14,7 +14,7 @@ import { db } from '@shared/services/dataService';
 import { supabase } from '@shared/services/supabaseClient';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SearchableSelect from '@shared/components/SearchableSelect';
-import PlayerDashboard from './PlayerDashboard';
+import PlayerDashboard, { PlayerHeader } from './PlayerDashboard';
 import { ENCUADRE_DEFAULT, ZOOM_MAX, ZOOM_MIN, encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 
 const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
@@ -22,6 +22,7 @@ const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
 const PlayerVideosSection = lazy(() => import('./PlayerVideosSection'));
 const PlayerMedicionesSection = lazy(() => import('./PlayerMedicionesSection'));
 const PlayerObjetivosSection = lazy(() => import('./PlayerObjetivosSection'));
+const PlayerCalendarSection = lazy(() => import('./PlayerCalendarSection'));
 
 interface EditPlayerModalProps {
   player: Player;
@@ -140,6 +141,22 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const tileRef = useRef<HTMLDivElement>(null);
+  const pdfHeaderRef = useRef<HTMLDivElement>(null);
+
+  // Eventos del calendario del equipo del jugador (para la sección CALENDARIO).
+  const ownTeamEvents = useMemo(() => {
+    const keys = new Set(
+      [player.equipoId, player.equipo]
+        .filter((v): v is string => v !== undefined && v !== null && String(v).trim().length > 0)
+        .map(normalizeTeamKey),
+    );
+    equipos.forEach((team) => {
+      if (keys.has(normalizeTeamKey(team.id))) {
+        [team.equipo, team.nombre, team.nombreEnFed].forEach((v) => { if (v) keys.add(normalizeTeamKey(v)); });
+      }
+    });
+    return (events || []).filter((ev) => keys.size === 0 || !ev.team || keys.has(normalizeTeamKey(ev.team)));
+  }, [events, equipos, player.equipoId, player.equipo]);
 
   const attendanceStats = useMemo(() => {
     const pid = String(player.id);
@@ -161,7 +178,16 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
       return teamNameByKey.get(normalizeTeamKey(raw)) || raw;
     };
 
-    const stats = (events || []).filter(hasRecordedAttendance).reduce((acc, session) => {
+    // Solo cuentan las sesiones del equipo del jugador (no las de otros equipos donde haya entrenado).
+    const ownTeamKeys = new Set(
+      [player.equipoId, player.equipo]
+        .filter((v): v is string => v !== undefined && v !== null && String(v).trim().length > 0)
+        .map((v) => normalizeTeamKey(resolveSessionTeam(String(v)))),
+    );
+    const isOwnTeamSession = (session: { team?: string }) =>
+      ownTeamKeys.size === 0 || ownTeamKeys.has(normalizeTeamKey(resolveSessionTeam(session.team)));
+
+    const stats = (events || []).filter(hasRecordedAttendance).filter(isOwnTeamSession).reduce((acc, session) => {
       const sessionTeam = resolveSessionTeam(session.team);
       const teamKey = normalizeTeamKey(sessionTeam) || 'sin-equipo';
       const teamStats = acc.byTeam[teamKey] ?? {
@@ -217,7 +243,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
       ...stats,
       byTeam: Object.values(stats.byTeam).sort((a, b) => b.scheduled - a.scheduled || a.team.localeCompare(b.team)),
     };
-  }, [equipos, events, player.id]);
+  }, [equipos, events, player.id, player.equipo, player.equipoId]);
 
   // Datos de partido reales, calculados a partir de las actas registradas (no editables a mano).
   const [matchReports, setMatchReports] = useState<MatchReport[]>([]);
@@ -262,6 +288,43 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     })();
     return () => { cancelled = true; };
   }, [player.equipoId, formData.equipoId]);
+
+  // Partidos del jugador en todos los equipos (puede jugar con varios).
+  const [allTeamRows, setAllTeamRows] = useState<{ equipo_id: string | null; fed_match_id: number; titular: boolean; minutos: number; goles: number }[]>([]);
+  useEffect(() => {
+    if (!player.id) { setAllTeamRows([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('estadisticas_partido_jugador')
+          .select('equipo_id, fed_match_id, titular, minutos, goles')
+          .eq('jugador_id', String(player.id));
+        if (error) throw error;
+        if (!cancelled) setAllTeamRows((data ?? []) as typeof allTeamRows);
+      } catch (err) {
+        console.error('No se pudieron cargar los partidos por equipo', err);
+        if (!cancelled) setAllTeamRows([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [player.id]);
+
+  const matchesByTeam = useMemo(() => {
+    const map = new Map<string, { team: string; convocado: number; jugados: number; titular: number; minutos: number; goles: number }>();
+    allTeamRows.forEach(r => {
+      const key = String(r.equipo_id ?? '');
+      const team = equipos.find(t => String(t.id) === key)?.nombre || 'Sin equipo';
+      const e = map.get(key) ?? { team, convocado: 0, jugados: 0, titular: 0, minutos: 0, goles: 0 };
+      e.convocado += 1;
+      if (r.titular || r.minutos > 0) e.jugados += 1;
+      if (r.titular) e.titular += 1;
+      e.minutos += r.minutos || 0;
+      e.goles += r.goles || 0;
+      map.set(key, e);
+    });
+    return [...map.values()].sort((a, b) => b.jugados - a.jugados);
+  }, [allTeamRows, equipos]);
 
   // Muestra gráficas detalladas solo si hay datos y el usuario las quiere ver
   useEffect(() => {
@@ -589,48 +652,75 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     const target = activeTab === 'tile' ? tileRef.current : exportRef.current;
     if (!target) return;
 
-    const prevMaxHeight = target.style.maxHeight;
-    const prevOverflow = target.style.overflow;
-    const prevFlex = target.style.flex;
+    const header = pdfHeaderRef.current;
+    const prev = {
+      maxHeight: target.style.maxHeight,
+      overflow: target.style.overflow,
+      flex: target.style.flex,
+      headerDisplay: header?.style.display ?? '',
+    };
     target.style.maxHeight = 'none';
     target.style.overflow = 'visible';
     target.style.flex = 'none';
+    if (header && activeTab === 'tile') header.style.display = 'block';
 
-    let canvas: HTMLCanvasElement;
     try {
-      canvas = await html2canvas(target, {
+      const canvas = await html2canvas(target, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: target.scrollWidth,
+        windowHeight: target.scrollHeight,
       });
-    } finally {
-      target.style.maxHeight = prevMaxHeight;
-      target.style.overflow = prevOverflow;
-      target.style.flex = prevFlex;
-    }
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let position = 0;
-    let heightLeft = imgHeight;
+      let imgWidth = pageWidth;
+      let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+      // La ficha del jugador (pestaña dashboard) debe caber en una sola hoja: se reduce para ajustarla.
+      if (activeTab === 'tile') {
+        const margin = 16;
+        const maxW = pageWidth - margin * 2;
+        const maxH = pageHeight - margin * 2;
+        const ratio = Math.min(maxW / imgWidth, maxH / imgHeight, 1);
+        imgWidth *= ratio;
+        imgHeight *= ratio;
+        pdf.addImage(imgData, 'JPEG', (pageWidth - imgWidth) / 2, margin, imgWidth, imgHeight);
+        const safe = (formData.nombre || 'jugador').replace(/\s+/g, '_');
+        pdf.save(`ficha_${safe}.pdf`);
+        return;
+      }
 
-    while (heightLeft > 0) {
-      position -= pageHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      let position = 0;
+      let heightLeft = imgHeight;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
-    }
 
-    const safeName = (formData.nombre || 'jugador').replace(/\s+/g, '_');
-    pdf.save(`ficha_${safeName}.pdf`);
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const safeName = (formData.nombre || 'jugador').replace(/\s+/g, '_');
+      pdf.save(`ficha_${safeName}.pdf`);
+    } catch (err) {
+      console.error('Error al exportar la ficha a PDF', err);
+      alert('No se pudo generar el PDF. Revisa la consola para más detalle.');
+    } finally {
+      target.style.maxHeight = prev.maxHeight;
+      target.style.overflow = prev.overflow;
+      target.style.flex = prev.flex;
+      if (header) header.style.display = prev.headerDisplay;
+    }
   };
 
   const triggerFileInput = () => {
@@ -639,52 +729,89 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 bg-black/50 z-100 flex items-end sm:items-center justify-center p-0 sm:p-1"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div ref={modalRef} className={`bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col transition-all duration-300 ${isFullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-5xl max-h-[95dvh] sm:max-h-[85dvh]'}`}>
-        <div className="p-3 sm:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div>
-            <h3 className="text-[var(--accent)] font-black text-lg sm:text-xl uppercase tracking-tighter">{t('editPlayer.title')}</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 hidden sm:block">{t('editPlayer.cloudSync')}</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <i className="fa-solid fa-xmark text-lg"></i>
-          </button>
-        </div>
-
-        {/* === PESTAÑAS: Editar ficha / Vista tile === */}
-        <div className="flex gap-1 px-3 sm:px-4 pt-2 border-b border-slate-100 bg-slate-50" role="tablist">
-          {([
-            { id: 'tile', icon: 'fa-id-badge', label: t('editPlayer.tabTile', 'Ficha jugador') },
-            { id: 'edit', icon: 'fa-pen-to-square', label: t('editPlayer.tabEdit', 'Editar') },
-          ] as const).map(tab => (
+      <div ref={modalRef} className={`bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-fade-in text-slate-800 flex flex-col transition-all duration-300 ${isFullscreen ? 'w-full h-full max-w-none max-h-none rounded-none' : 'w-full max-w-5xl max-h-[98dvh] sm:max-h-[98dvh] sm:h-[98dvh]'}`}>
+        <div className="px-3 sm:px-4 py-1.5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <PlayerHeader
+            player={formData}
+            photoUrl={preview}
+            extra={
+              <div className="flex gap-1 ml-2" role="tablist">
+                {([
+                  { id: 'tile', icon: 'fa-id-badge', label: t('editPlayer.tabTile', 'Ficha jugador') },
+                  { id: 'edit', icon: 'fa-pen-to-square', label: t('editPlayer.tabEdit', 'Editar') },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-full border transition-colors ${
+                      activeTab === tab.id
+                        ? 'text-[var(--accent)] border-[var(--accent)] bg-white'
+                        : 'text-slate-400 border-transparent hover:text-slate-600'
+                    }`}
+                  >
+                    <i className={`fa-solid ${tab.icon} mr-1.5`}></i>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            }
+          />
+          {/* === BOTONES DE ACCIÓN (iconos, arriba a la derecha) === */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
-              key={tab.id}
               type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-t-xl border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'text-[var(--accent)] border-[var(--accent)] bg-white'
-                  : 'text-slate-400 border-transparent hover:text-slate-600'
-              }`}
+              onClick={toggleFullscreen}
+              className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 bg-white hover:bg-slate-50 transition-colors"
+              title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
+              aria-label={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
             >
-              <i className={`fa-solid ${tab.icon} mr-2`}></i>
-              {tab.label}
+              <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'} text-sm`}></i>
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={exportPlayerProfile}
+              className="w-8 h-8 flex items-center justify-center border border-[var(--accent)]/20 rounded-lg text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors"
+              title={t('editPlayer.exportPdf', 'Exportar PDF')}
+              aria-label={t('editPlayer.exportPdf', 'Exportar PDF')}
+            >
+              <i className="fa-solid fa-file-pdf text-sm"></i>
+            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                disabled={isSaving || !formData.nombre?.trim()}
+                onClick={handleSave}
+                className="w-8 h-8 flex items-center justify-center bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-dark)] transition-all shadow-md shadow-[var(--accent)]/20 disabled:opacity-70"
+                title={isSaving ? t('editPlayer.saving') : t('editPlayer.saveChanges')}
+                aria-label={t('editPlayer.saveChanges')}
+              >
+                <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} text-sm`}></i>
+              </button>
+            )}
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors" aria-label="Cerrar">
+              <i className="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
         </div>
 
         {/* === PESTAÑA FICHA JUGADOR: dashboard del jugador === */}
         {activeTab === 'tile' && (
           <div className="p-2 sm:p-3 overflow-y-auto flex-1 bg-white" ref={tileRef}>
+            {/* Cabecera solo visible al exportar a PDF (en pantalla ya está en el título del modal) */}
+            <div ref={pdfHeaderRef} style={{ display: 'none' }} className="mb-2"><PlayerHeader player={formData} photoUrl={preview} /></div>
             <PlayerDashboard
+              hideHeader
               player={formData}
               photoUrl={preview}
               matchStats={matchStats}
               matchLog={playerActaMatches}
+              matchesByTeam={matchesByTeam}
               teamMatches={matchStats.totalTeamMatches}
               attendance={{
                 total: attendanceStats.total,
@@ -699,9 +826,14 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
                 byTeam: attendanceStats.byTeam,
               }}
             />
-            <div className="mt-4">
+            <div className="mt-2">
               <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
                 <PlayerObjetivosSection playerId={String(player.id)} playerName={formData.apodo || formData.nombre} equipoId={player.equipoId} />
+              </Suspense>
+            </div>
+            <div className="mt-2">
+              <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
+                <PlayerCalendarSection playerId={String(player.id)} events={ownTeamEvents} matchLog={playerActaMatches} teamName={equipos.find(tm => String(tm.id) === String(player.equipoId))?.equipo || equipos.find(tm => String(tm.id) === String(player.equipoId))?.nombre || player.equipo} />
               </Suspense>
             </div>
           </div>
@@ -1248,53 +1380,6 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
         </div>
         </fieldset>
 
-        <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-center gap-3 sticky bottom-0">
-          <div className="grid grid-cols-3 sm:contents gap-3">
-            <button
-              disabled={isSaving}
-              onClick={onClose}
-              className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-50"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
-              title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
-            >
-              <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'} mr-2`}></i>
-              {isFullscreen ? t('editPlayer.exitFullscreen', 'Salir') : t('editPlayer.fullscreen', 'Pantalla completa')}
-            </button>
-            <button
-              type="button"
-              onClick={exportPlayerProfile}
-              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
-            >
-              <i className="fa-solid fa-file-pdf mr-2"></i>
-              {t('editPlayer.exportPdf', 'Exportar PDF')}
-            </button>
-          </div>
-          {!readOnly && (
-          <button
-            disabled={isSaving || !formData.nombre?.trim()}
-            onClick={handleSave}
-            className="flex-2 py-4 bg-[var(--accent)] text-white rounded-2xl font-black hover:bg-[var(--accent-dark)] transition-all shadow-xl shadow-[var(--accent)]/20 uppercase text-xs tracking-widest flex items-center justify-center gap-3 disabled:opacity-70"
-          >
-            {isSaving ? (
-              <>
-                <i className="fa-solid fa-spinner animate-spin"></i>
-                {t('editPlayer.saving')}
-              </>
-            ) : (
-              <>
-                <i className="fa-solid fa-cloud-arrow-up"></i>
-                {t('editPlayer.saveChanges')}
-              </>
-            )}
-          </button>
-          )}
-        </div>
       </div>
     </div>
   );

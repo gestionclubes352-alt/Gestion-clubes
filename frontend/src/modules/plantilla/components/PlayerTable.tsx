@@ -103,6 +103,15 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
 
   // Estadísticas de partido por jugador (PJ, titularidades, minutos, goles, goles recibidos)
   const [matchTotals, setMatchTotals] = useState<Map<string, MatchTotals>>(new Map());
+  const teamMatches = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of allSquad ?? squad) {
+      if (!p.equipo) continue;
+      const pj = (matchTotals.get(String(p.id)) ?? EMPTY_TOTALS).pj;
+      if (pj > (m.get(p.equipo) ?? 0)) m.set(p.equipo, pj);
+    }
+    return m;
+  }, [allSquad, squad, matchTotals]);
   useEffect(() => {
     if (simplified) return;
     let cancelled = false;
@@ -319,6 +328,18 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${color}`}>{val}</span>;
         },
       }),
+      // Partidos del equipo (PE): el máximo de PJ entre los jugadores del mismo equipo
+      columnHelper.accessor(row => (row.equipo ? teamMatches.get(row.equipo) ?? null : null), {
+        id: 'pe',
+        header: 'PE',
+        size: 48,
+        cell: info => {
+          const v = info.getValue();
+          return v == null
+            ? <span className="text-slate-300">—</span>
+            : <span className="text-slate-600 text-xs tabular-nums" title="Partidos del equipo">{v}</span>;
+        },
+      }),
       // Estadísticas de partido (actas)
       ...([
         { id: 'pj', header: 'PJ', title: 'Partidos jugados', get: (m: MatchTotals) => m.pj },
@@ -342,7 +363,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       )),
     ];
     return allColumns;
-  }, [t, isHuesca, matchTotals]);
+  }, [t, isHuesca, matchTotals, teamMatches]);
 
   const actions = useMemo<DataTableAction<Player>[]>(() => {
     const acts: DataTableAction<Player>[] = [
@@ -389,6 +410,29 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       </div>
     );
   }
+
+  const viewToggle = (
+    <div className="flex items-center gap-1 bg-[var(--surface-2)] p-0.5 rounded-lg">
+      <button
+        onClick={() => setViewMode('table')}
+        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
+          viewMode === 'table' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+        }`}
+        title={t('playerTable.tableView')}
+      >
+        <i className="fa-solid fa-table text-sm"></i>
+      </button>
+      <button
+        onClick={() => setViewMode('cards')}
+        className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
+          viewMode === 'cards' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+        }`}
+        title={t('playerTable.cardsView')}
+      >
+        <i className="fa-solid fa-grip text-sm"></i>
+      </button>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-3 animate-fade-in">
@@ -513,26 +557,8 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                    viewMode === 'table' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-                  }`}
-                  title={t('playerTable.tableView')}
-                >
-                  <i className="fa-solid fa-table text-sm"></i>
-                </button>
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                    viewMode === 'cards' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-                  }`}
-                  title={t('playerTable.cardsView')}
-                >
-                  <i className="fa-solid fa-grip text-sm"></i>
-                </button>
-              </div>
+              {/* En vista tarjetas no hay barra de tabla: el selector se queda aquí */}
+              {viewMode === 'cards' && viewToggle}
             </div>
 
             <div className="hidden sm:contents">
@@ -601,6 +627,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           skeletonRows={6}
           maxHeight="calc(100vh - 340px)"
           actionsAlignLeft
+          toolbarRight={viewToggle}
           emptyMessage={activeTab === 'rivales' ? 'Todavía no hay jugadores rivales dados de alta.' : t('playerTable.noPlayersFound')}
           emptyIcon={activeTab === 'rivales' ? 'fa-solid fa-user-secret' : 'fa-solid fa-futbol'}
           onRowClick={(player) => onEdit(player)}

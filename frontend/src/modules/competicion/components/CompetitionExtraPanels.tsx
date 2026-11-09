@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { eventosCalendarioService } from '@shared/services/dataService';
 import type { ActaPartido } from '@shared/services/rfefActasService';
 import type { Match } from '../../partidos/types';
@@ -8,7 +8,22 @@ import { CardIcon } from '@shared/components/MatchIcons';
 export const norm = (v?: string | null) =>
   (v ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
-const fmtDate = (iso?: string | null) => {
+/** Orden de equipos: Primer Equipo, Juveniles, Cadetes, Infantiles, Alevines, resto. */
+export const teamRank = (...names: Array<string | null | undefined>) => {
+  const rankOne = (v?: string | null) => {
+    const n = (v ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const letter = (n.match(/\b([a-z])\b\s*$/)?.[1] ?? 'a').charCodeAt(0) - 97;
+    if (/primer\s*equipo/.test(n)) return 0;
+    if (/juvenil/.test(n)) return 10 + letter;
+    if (/cadete/.test(n)) return 20 + letter;
+    if (/infantil/.test(n)) return 30 + letter;
+    if (/alevin/.test(n)) return 40 + letter;
+    return 100;
+  };
+  return Math.min(...names.map(rankOne));
+};
+
+const fmtDate =(iso?: string | null) => {
   if (!iso) return '';
   const d = new Date(iso);
   return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -32,9 +47,11 @@ const weekKey = (d: Date) => {
   return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-${String(m.getDate()).padStart(2, '0')}`;
 };
 const weekLabel = (key: string) => {
+  // key = lunes de la semana; se muestra el fin de semana (sáb–dom)
   const s = new Date(`${key}T00:00:00`);
+  s.setDate(s.getDate() + 5);
   const e = new Date(s);
-  e.setDate(e.getDate() + 6);
+  e.setDate(e.getDate() + 1);
   const f = (d: Date) => d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
   return `${f(s)} – ${f(e)}`;
 };
@@ -42,8 +59,6 @@ const weekLabel = (key: string) => {
 export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo }) => {
   const [week, setWeek] = useState<string>('ALL');
   const allRows = useMemo(() => {
-    const now = Date.now() - 24 * 3600 * 1000;
-
     // Los partidos del calendario federativo (readonly) vienen sin hora/campo; los partidos
     // cargados a mano sí los tienen pero con otro formato de jornada ("J8") y nombres.
     // Se fusionan por equipo interno + día + nº de jornada: se completan hora/campo y se evita el duplicado.
@@ -64,9 +79,10 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
     }).filter(m => m.readonly || !usedKeys.has(keyOf(m)));
 
     return merged
-      .filter(m => m.status === 'Upcoming' || new Date(m.date).getTime() >= now)
       .filter(m => equipo === 'TODOS' || [m.team, m.nombreInterno, m.localTeam, m.visitorTeam].some(t => norm(t) === norm(equipo)))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+        || teamRank(a.nombreInterno, a.team, a.localTeam, a.visitorTeam) - teamRank(b.nombreInterno, b.team, b.localTeam, b.visitorTeam));
   }, [matches, equipo]);
 
   const weeks = useMemo(() => {
@@ -76,6 +92,23 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
   }, [allRows]);
 
   const weekIdx = weeks.indexOf(week);
+
+  // Semana actual; si no tiene partidos, la siguiente con partidos (o la última).
+  const currentWeek = useMemo(() => {
+    if (weeks.length === 0) return null;
+    const k = weekKey(new Date());
+    return weeks.find(w => w >= k) ?? weeks[weeks.length - 1];
+  }, [weeks]);
+
+  // Al abrir (y si la semana elegida deja de existir al cambiar de equipo) ir a la semana actual.
+  const autoSet = useRef(false);
+  useEffect(() => {
+    if (!currentWeek) return;
+    if (!autoSet.current || (week !== 'ALL' && !weeks.includes(week))) {
+      autoSet.current = true;
+      setWeek(currentWeek);
+    }
+  }, [currentWeek, weeks, week]);
 
   const rows = useMemo(
     () => (week === 'ALL' ? allRows : allRows.filter(m => { const d = new Date(m.date); return !isNaN(d.getTime()) && weekKey(d) === week; })),
@@ -89,7 +122,7 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400" htmlFor="horarios-week">Semana</label>
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400" htmlFor="horarios-week">Fin de semana</label>
         <select
           id="horarios-week"
           value={week}
@@ -105,7 +138,8 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
           disabled={weekIdx <= 0}
           aria-label="Semana anterior"
           title="Semana anterior"
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          style={{ padding: 0, minHeight: 0 }}
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
@@ -115,9 +149,19 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
           disabled={weekIdx >= weeks.length - 1}
           aria-label="Semana siguiente"
           title="Semana siguiente"
-          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          style={{ padding: 0, minHeight: 0 }}
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => currentWeek && setWeek(currentWeek)}
+          disabled={!currentWeek || week === currentWeek}
+          style={{ minHeight: 0 }}
+          className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 hover:bg-blue-100 disabled:cursor-default disabled:opacity-60"
+        >
+          Esta semana
         </button>
       </div>
       <div className="overflow-x-auto">
@@ -133,8 +177,22 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
             </tr>
           </thead>
           <tbody>
-            {rows.map(m => (
-              <tr key={m.id} className="border-t border-slate-100">
+            {rows.map((m, i) => {
+              const d = new Date(m.date);
+              const wk = isNaN(d.getTime()) ? '' : weekKey(d);
+              const pd = i > 0 ? new Date(rows[i - 1].date) : null;
+              const prevWk = pd && !isNaN(pd.getTime()) ? weekKey(pd) : null;
+              const showHeader = i === 0 || wk !== prevWk;
+              return (
+              <React.Fragment key={m.id}>
+              {showHeader && wk && (
+                <tr className="border-t border-slate-200 bg-slate-100">
+                  <td colSpan={6} className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Fin de semana {weekLabel(wk)}
+                  </td>
+                </tr>
+              )}
+              <tr className="border-t border-slate-100">
                 <td className="px-4 py-2 font-bold capitalize text-slate-700">{fmtDate(m.date)}</td>
                 <td className="px-2 py-2 tabular-nums">{m.time || 'Pendiente'}</td>
                 <td className="px-2 py-2 tabular-nums">{m.jornada || '—'}</td>
@@ -142,7 +200,9 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
                 <td className="px-2 py-2 text-slate-500">{m.location || 'Pendiente'}</td>
                 <td className="px-4 py-2 text-slate-500">{m.competition}</td>
               </tr>
-            ))}
+              </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

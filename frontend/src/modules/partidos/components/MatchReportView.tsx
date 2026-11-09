@@ -4500,10 +4500,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
             <button
               onClick={() => handleApplyActa()}
               disabled={actaState.loading}
-              title="Copia alineación, cambios, goles y tarjetas del acta al informe del partido"
-              className="shrink-0 bg-sport-primary hover:bg-sport-primary-dark disabled:opacity-60 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+              title="El acta se aplica sola al abrir el partido. Usa esto solo para volver a copiarla y sustituir lo que hayas cambiado a mano."
+              className="shrink-0 border border-[var(--border-soft)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)] disabled:opacity-60 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
             >
-              <i className={`fa-solid ${actaState.loading ? 'fa-spinner fa-spin' : 'fa-clipboard-check'}`}></i> Aplicar al informe
+              <i className={`fa-solid ${actaState.loading ? 'fa-spinner fa-spin' : 'fa-rotate'}`}></i> Reimportar acta
             </button>
           )}
           {actaState.loading && !actaFull && (

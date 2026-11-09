@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { ObjetivoIndividual } from '@shared/services/dataService';
 import { objetivosIndividualesService } from '@shared/services';
 import { useAuth } from '@context/AuthContext';
+import { DashboardGroup } from './PlayerDashboard';
 import { EditObjetivoModal, TIPOS_OBJETIVO, ESTADOS_OBJETIVO } from '@modules/objetivos';
 import type { ObjetivoIndividualFormData } from '@modules/objetivos';
 
@@ -82,50 +83,61 @@ const PlayerObjetivosSection: React.FC<PlayerObjetivosSectionProps> = ({ playerI
     );
   }
 
-  return (
-    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4">
-      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          <i className="fa-solid fa-bullseye mr-2"></i>
-          Objetivos Individuales
-        </span>
-        <button
-          type="button"
-          onClick={() => setEditing(null)}
-          className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all"
-        >
-          <i className="fa-solid fa-plus mr-1"></i>
-          Nuevo objetivo
-        </button>
-      </div>
+  // Solo se muestran los objetivos que tienen nombre o detalle
+  const visibles = objetivos.filter(o => o.nombre_objetivo?.trim() || o.detalle?.trim());
 
-      {objetivos.length === 0 ? (
-        <p className="text-xs text-slate-400 text-center py-3">Sin objetivos individuales registrados</p>
+  return (
+    <>
+      <DashboardGroup
+        title="Objetivos individuales"
+        icon="fa-bullseye"
+        action={
+          <button
+            type="button"
+            onClick={() => setEditing(null)}
+            className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-white/40 text-white hover:bg-white/10 transition-all"
+          >
+            <i className="fa-solid fa-plus mr-1"></i>
+            Nuevo objetivo
+          </button>
+        }
+      >
+      {visibles.length === 0 ? (
+        <p className="text-xs text-slate-400 text-center py-2">Sin objetivos individuales registrados</p>
       ) : (
-        <div className="space-y-2">
-          {objetivos.map(o => (
+        <div className="space-y-1">
+          {visibles.map(o => (
             <button
               key={o.id}
               type="button"
               onClick={() => setEditing(o)}
-              className="w-full flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-[var(--accent)]/40 transition-all text-left"
+              className="w-full flex items-start gap-2 px-2 py-1.5 bg-white rounded-xl border border-slate-200 hover:border-[var(--accent)]/40 transition-all text-left"
             >
               <span
-                className="w-3 h-3 rounded-full mt-1 shrink-0"
+                className="w-2.5 h-2.5 rounded-full mt-1 shrink-0"
                 style={{ backgroundColor: estadoColor(o.estado) }}
                 title={o.estado}
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black text-slate-700 uppercase tracking-wide">{tipoLabel(o.tipo)}</span>
+                  <span className="text-[11px] font-black text-slate-700 uppercase tracking-wide">{tipoLabel(o.tipo)}</span>
                   <span className="text-[10px] font-bold text-slate-400">{o.fecha}</span>
+                  {(() => {
+                    const ev = (o.acciones ?? []).filter(a => a.categoria === 'evaluacion').length;
+                    const ac = (o.acciones ?? []).length - ev;
+                    return (ac > 0 || ev > 0) ? (
+                      <span className="text-[10px] font-bold text-slate-400 ml-auto">{ac} acc. · {ev} eval.</span>
+                    ) : null;
+                  })()}
                 </div>
-                {o.detalle && <p className="text-xs text-slate-600 mt-1 truncate">{o.detalle}</p>}
+                {o.nombre_objetivo && <p className="text-xs font-black text-[var(--accent)]">{o.nombre_objetivo}</p>}
+                {o.detalle && <p className="text-[11px] text-slate-600 whitespace-pre-line">{o.detalle}</p>}
               </div>
             </button>
           ))}
         </div>
       )}
+      </DashboardGroup>
 
       <EditObjetivoModal
         isOpen={editing !== undefined}
@@ -137,7 +149,7 @@ const PlayerObjetivosSection: React.FC<PlayerObjetivosSectionProps> = ({ playerI
         onSave={handleSave}
         onDelete={handleDelete}
       />
-    </div>
+    </>
   );
 };
 

@@ -1064,10 +1064,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
               ['Empates', listKpis.empates, listKpis.jugados ? `${Math.round((100 * listKpis.empates) / listKpis.jugados)}%` : ''],
               ['Victorias visitante', listKpis.visitante, listKpis.jugados ? `${Math.round((100 * listKpis.visitante) / listKpis.jugados)}%` : ''],
             ] as [string, number, string][]).map(([label, value, sub]) => (
-              <div key={label} className="bg-white border border-slate-100 rounded-xl px-4 py-2 shadow-sm min-w-[120px]">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-                <p className="text-xl font-black text-slate-800 leading-tight">{value.toLocaleString('es')}</p>
-                {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+              <div key={label} className="bg-white border border-slate-100 rounded-lg px-2.5 py-1 shadow-sm min-w-[80px]">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{label}</p>
+                <p className="text-[15px] font-black text-slate-800 leading-tight">{value.toLocaleString('es')}</p>
+                {sub && <p className="text-[9px] text-slate-400 leading-tight">{sub}</p>}
               </div>
             ))}
             <select

@@ -19,12 +19,16 @@ export interface PlayerMatchLogRow {
 }
 
 interface PlayerDashboardProps {
+  /** Oculta la cabecera (cuando el modal ya la muestra en su título) */
+  hideHeader?: boolean;
   player: Player;
   /** Foto actual (incluye la previsualización aún sin guardar) */
   photoUrl?: string | null;
   matchStats: { partidosJugados: number; minutos: number; titular: number; goles: number };
   /** Partidos del jugador, más recientes primero */
   matchLog?: PlayerMatchLogRow[];
+  /** Partidos del jugador agrupados por equipo */
+  matchesByTeam?: { team: string; convocado: number; jugados: number; titular: number; minutos: number; goles: number }[];
   /** Total de partidos con acta del equipo */
   teamMatches?: number;
   /** Asistencia a entrenamientos: sesiones registradas, ausencias y motivos */
@@ -47,7 +51,7 @@ const AttendanceDonut: React.FC<{ value: number }> = ({ value }) => {
   const c = 2 * Math.PI * r;
   const color = value >= 85 ? '#059669' : value >= 70 ? '#f59e0b' : '#dc2626';
   return (
-    <svg viewBox="0 0 100 100" className="w-16 h-16 shrink-0" role="img" aria-label={`Asistencia ${value}%`}>
+    <svg viewBox="0 0 100 100" className="w-10 h-10 shrink-0" role="img" aria-label={`Asistencia ${value}%`}>
       <circle cx="50" cy="50" r={r} fill="none" stroke="#e2e8f0" strokeWidth="12" />
       <circle
         cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
@@ -67,7 +71,7 @@ const SegmentDonut: React.FC<{ slices: DonutSlice[]; centerLabel: string; ariaLa
   const total = slices.reduce((s, x) => s + x.value, 0);
   let offset = 0;
   return (
-    <svg viewBox="0 0 100 100" className="w-16 h-16 shrink-0" role="img" aria-label={ariaLabel}>
+    <svg viewBox="0 0 100 100" className="w-10 h-10 shrink-0" role="img" aria-label={ariaLabel}>
       <circle cx="50" cy="50" r={r} fill="none" stroke="#e2e8f0" strokeWidth="12" />
       {total > 0 && slices.filter(s => s.value > 0).map(s => {
         const len = (s.value / total) * c;
@@ -100,31 +104,43 @@ const ChartLegend: React.FC<{ items: DonutSlice[] }> = ({ items }) => (
 const ROLE_COLORS = { tit: '#c8102e', sup: '#0ea5e9', banq: '#94a3b8', none: '#e2e8f0' };
 
 /** Minutos jugados en cada partido (cronológico), coloreado por rol. */
-const MinutesBars: React.FC<{ rows: PlayerMatchLogRow[] }> = ({ rows }) => {
+const MinutesBars: React.FC<{ rows: PlayerMatchLogRow[] }> = ({ rows: rawRows }) => {
+  const jornadaNum = (m: PlayerMatchLogRow, i: number) => {
+    const n = parseInt(String(m.jornada ?? '').replace(/\D/g, ''), 10);
+    return Number.isFinite(n) ? n : i + 1;
+  };
+  const rows = [...rawRows]
+    .map((m, i) => ({ m, n: jornadaNum(m, i) }))
+    .sort((a, b) => a.n - b.n)
+    .map((x) => x.m);
   const W = 300;
-  const H = 110;
+  const H = 130;
   const base = H - 16;
   const gap = 4;
   const bw = Math.max(6, Math.min(28, (W - gap * (rows.length - 1)) / rows.length));
   const totalW = rows.length * bw + (rows.length - 1) * gap;
   const x0 = Math.max(0, (W - totalW) / 2);
-  const y90 = base - 0.9 * (base - 14) / 0.9;
+  const y90 = base - (base - 14);
+  const pts = rows.map((m, i) => {
+    const min = Math.max(0, Math.min(90, m.minutos || 0));
+    return { x: x0 + i * (bw + gap) + bw / 2, y: base - (min / 90) * (base - 14) };
+  });
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-20" role="img" aria-label="Minutos jugados por partido">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-20" role="img" aria-label="Minutos jugados por jornada">
       <line x1="0" x2={W} y1={base} y2={base} stroke="#cbd5e1" strokeWidth="1" />
       <line x1="0" x2={W} y1={y90} y2={y90} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
       <text x={W} y={y90 - 3} textAnchor="end" style={{ fontSize: 8 }} className="fill-slate-400">90'</text>
+      {rows.length > 1 && <path d={path} fill="none" stroke="#c8102e" strokeWidth="1.5" strokeLinejoin="round" />}
       {rows.map((m, i) => {
-        const min = Math.max(0, Math.min(90, m.minutos || 0));
-        const h = (min / 90) * (base - 14);
-        const x = x0 + i * (bw + gap);
+        const { x, y } = pts[i];
         const role = m.titular ? 'tit' : m.minutos > 0 ? 'sup' : 'banq';
         return (
           <g key={m.fed_match_id}>
-            <title>{`${formatBirthDate(m.fecha) ?? m.fecha} · ${m.rival || ''} · ${m.minutos}'${m.goles > 0 ? ` · ${m.goles} gol(es)` : ''}`}</title>
-            <rect x={x} y={base - Math.max(h, 2)} width={bw} height={Math.max(h, 2)} rx="2" fill={ROLE_COLORS[role]} />
-            {m.goles > 0 && <circle cx={x + bw / 2} cy={base - h - 6} r="3" fill="#0f172a" />}
-            <text x={x + bw / 2} y={H - 4} textAnchor="middle" style={{ fontSize: 7 }} className="fill-slate-400">
+            <title>{`${formatBirthDate(m.fecha) ?? m.fecha} · ${m.rival || ''} · ${m.minutos}'`}</title>
+            <circle cx={x} cy={y} r="3.5" fill={ROLE_COLORS[role]} stroke="#fff" strokeWidth="1" />
+            <text x={x} y={y - 7} textAnchor="middle" style={{ fontSize: 8, fontWeight: 700 }} className="fill-slate-600">{m.minutos || 0}</text>
+            <text x={x} y={H - 4} textAnchor="middle" style={{ fontSize: 8 }} className="fill-slate-400">
               {m.jornada ? String(m.jornada).replace(/\D/g, '') || i + 1 : i + 1}
             </text>
           </g>
@@ -174,32 +190,104 @@ export const DashboardWidget: React.FC<{ title: string; icon?: string; className
   icon,
   className = '',
   children,
-}) => (
-  <section className={`bg-slate-50 border border-slate-200 rounded-2xl p-2.5 ${className}`}>
-    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-      {icon && <i className={`fa-solid ${icon} mr-2`}></i>}
-      {title}
-    </h4>
-    {children}
-  </section>
-);
+}) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <section className={`bg-slate-50 border border-slate-200 rounded-2xl p-2 ${className}`}>
+      <h4 className={`text-[10px] font-black text-slate-400 uppercase tracking-widest ${open ? 'mb-1' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          aria-expanded={open}
+          title={open ? 'Ocultar contenido' : 'Mostrar contenido'}
+          className="w-full flex items-center justify-between gap-2 uppercase tracking-widest font-black hover:text-slate-600"
+        >
+          <span>
+            {icon && <i className={`fa-solid ${icon} mr-2`}></i>}
+            {title}
+          </span>
+          <i className={`fa-solid ${open ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+        </button>
+      </h4>
+      {open && children}
+    </section>
+  );
+};
 
-const Kpi: React.FC<{ label: string; value: React.ReactNode; hint?: string }> = ({ label, value, hint }) => (
-  <div className="bg-white border border-slate-200 rounded-2xl px-2 py-1.5 text-center">
-    <div className="text-sm font-black text-[var(--accent)] tabular-nums leading-none">{value}</div>
-    <div className="text-[8px] font-black text-slate-500 uppercase tracking-wide mt-1">{label}</div>
-    {hint && <div className="text-[8px] text-slate-400 mt-0.5">{hint}</div>}
+/** Agrupa varios widgets bajo una cabecera común (Entrenamientos / Partidos). */
+export const DashboardGroup: React.FC<{ title: string; icon?: string; action?: React.ReactNode; children: React.ReactNode }> = ({ title, icon, action, children }) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <section className="border border-slate-300 rounded-2xl overflow-hidden bg-white">
+      <h3 className="bg-slate-800 text-white text-[11px] font-black uppercase tracking-widest px-3 py-1.5 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          aria-expanded={open}
+          title={open ? 'Ocultar sección' : 'Mostrar sección'}
+          className="flex-1 flex items-center gap-2 text-left uppercase tracking-widest font-black hover:text-slate-300"
+        >
+          <span>
+            {icon && <i className={`fa-solid ${icon} mr-2`}></i>}
+            {title}
+          </span>
+          <i className={`fa-solid ${open ? 'fa-chevron-up' : 'fa-chevron-down'} ml-auto`}></i>
+        </button>
+        {action}
+      </h3>
+      {open && <div className="flex flex-col gap-1.5 p-1.5">{children}</div>}
+    </section>
+  );
+};
+
+const Kpi: React.FC<{ label: string; value: React.ReactNode; hint?: string; tone?: 'blue' }> = ({ label, value, hint, tone }) => (
+  <div className="bg-white border border-slate-200 rounded-xl px-1 py-0.5 text-center">
+    <div className={`text-xs font-black tabular-nums leading-none ${tone === 'blue' ? 'text-blue-600' : 'text-[var(--accent)]'}`}>{value}</div>
+    <div className="text-[7px] font-black text-slate-500 uppercase tracking-tight mt-0.5 truncate">{label}</div>
+    {hint && <div className="text-[8px] text-slate-400">{hint}</div>}
   </div>
 );
 
 const MiniStat: React.FC<{ label: string; value: React.ReactNode; tone?: 'amber' | 'red' }> = ({ label, value, tone }) => (
-  <div className="bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-center">
+  <div className="bg-white border border-slate-200 rounded-xl px-2 py-1 text-center">
     <div className={`text-sm font-black tabular-nums leading-none ${tone === 'amber' ? 'text-amber-500' : tone === 'red' ? 'text-red-600' : 'text-slate-800'}`}>{value}</div>
     <div className="text-[8px] font-black text-slate-400 uppercase tracking-wide mt-1">{label}</div>
   </div>
 );
 
-const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, matchStats, matchLog = [], teamMatches, attendance }) => {
+/** Cabecera compacta del jugador: foto, nombre, dorsal, estado y datos básicos. */
+export const PlayerHeader: React.FC<{ player: Player; photoUrl?: string | null; extra?: React.ReactNode }> = ({ player, photoUrl, extra }) => {
+  const age = calculatePlayerAge(player.fechaNacimiento);
+  const estado = player.estado || 'APTO';
+  const subtitle = [player.posicion, player.otraDemarcacion, player.equipo].filter(Boolean).join(' · ');
+  const info = [formatBirthDate(player.fechaNacimiento), age !== undefined ? `${age} años` : null, player.club].filter(Boolean).join(' · ');
+  return (
+    <div className="flex items-center gap-3 min-w-0">
+      <div className="w-10 h-12 shrink-0 rounded-lg overflow-hidden bg-slate-200 flex items-center justify-center">
+        <img
+          src={isImageUrl(photoUrl) ? photoUrl : DEFAULT_PLAYER_PHOTO}
+          alt={player.nombre}
+          style={encuadreStyle(getFotoEncuadre(player))}
+          className="w-full h-full object-cover"
+        />
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase truncate">{player.nombre || '—'}</h3>
+          {player.dorsal !== undefined && player.dorsal !== null && (
+            <span className="bg-slate-900 text-white text-xs font-black rounded-md px-2 py-0.5 tabular-nums">#{player.dorsal}</span>
+          )}
+          <span className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-0.5 ${ESTADO_STYLE[estado] || ESTADO_STYLE.OTRO}`}>{estado}</span>
+          {extra}
+          {player.apodo && <span className="text-sm font-black text-[var(--accent)] uppercase">{player.apodo}</span>}
+        </div>
+        <p className="text-[11px] text-slate-500 font-medium truncate">{[subtitle, info].filter(Boolean).join(' · ')}</p>
+      </div>
+    </div>
+  );
+};
+
+const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, photoUrl, matchStats, matchLog = [], matchesByTeam = [], teamMatches, attendance }) => {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const totals = useMemo(() => {
     const played = matchLog.filter(m => m.titular || m.minutos > 0);
@@ -221,131 +309,135 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
     const noConv = Math.max(0, (teamMatches || 0) - matchLog.length);
     return { tit, sup, banq, noConv, chrono: [...matchLog].reverse() };
   }, [matchLog, teamMatches]);
-  const age = calculatePlayerAge(player.fechaNacimiento);
   const convocadoPct = teamMatches && teamMatches > 0 ? Math.min(100, Math.round((totals.convocado / teamMatches) * 100)) : null;
-  const estado = player.estado || 'APTO';
-  const subtitle = [player.posicion, player.otraDemarcacion, player.equipo].filter(Boolean).join(' · ');
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Cabecera del jugador */}
-      <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-2xl p-2.5">
-        <div className="w-14 h-16 shrink-0 rounded-xl overflow-hidden bg-slate-200 flex items-center justify-center">
-          <img
-            src={isImageUrl(photoUrl) ? photoUrl : DEFAULT_PLAYER_PHOTO}
-            alt={player.nombre}
-            style={encuadreStyle(getFotoEncuadre(player))}
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-black text-slate-800 uppercase truncate">{player.nombre || '—'}</h3>
-            {player.dorsal !== undefined && player.dorsal !== null && (
-              <span className="bg-slate-900 text-white text-sm font-black rounded-md px-2.5 py-0.5 tabular-nums">#{player.dorsal}</span>
-            )}
-            <span className={`text-xs font-black uppercase tracking-widest rounded-full px-3 py-1 ${ESTADO_STYLE[estado] || ESTADO_STYLE.OTRO}`}>
-              {estado}
-            </span>
-          </div>
-          {player.apodo && <p className="text-base font-black text-[var(--accent)] uppercase mt-0.5">{player.apodo}</p>}
-          {subtitle && <p className="text-sm text-slate-600 font-semibold mt-0.5">{subtitle}</p>}
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {[
-              formatBirthDate(player.fechaNacimiento),
-              age !== undefined ? `${age} años` : null,
-              player.club,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-1.5">
+      {!hideHeader && <PlayerHeader player={player} photoUrl={photoUrl} />}
 
-      {/* Indicadores principales */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <Kpi label="Partidos" value={matchStats.partidosJugados} />
-        <Kpi label="Minutos" value={matchStats.minutos} />
-        <Kpi label="Titular" value={matchStats.titular} />
-        <Kpi label="Goles" value={matchStats.goles} />
-        <Kpi
-          label="Convocatorias"
-          value={convocadoPct === null ? '–' : `${convocadoPct}%`}
-          hint={teamMatches && teamMatches > 0 ? `${totals.convocado}/${teamMatches} partidos` : undefined}
-        />
-      </div>
-
+      {/* ===== GRUPO: ENTRENAMIENTOS ===== */}
+      <DashboardGroup title="Entrenamientos" icon="fa-clipboard-check">
       {/* Entrenamientos: sesiones, ausencias y motivos */}
-      <DashboardWidget title="Entrenamientos" icon="fa-clipboard-check">
+      <DashboardWidget title="Asistencia" icon="fa-clipboard-check">
         {!attendance || attendance.total === 0 ? (
           <p className="text-xs text-slate-400 text-center">Sin sesiones de entrenamiento registradas</p>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-2">
-              <MiniStat label="Sesiones" value={attendance.total} />
-              <MiniStat label="Asistidas" value={attendance.attended} />
-              <MiniStat label="Ausencias" value={attendance.absences} tone="red" />
-            </div>
-            <div className="mt-2 flex items-center gap-4 bg-white border border-slate-200 rounded-xl p-3">
-              <AttendanceDonut value={pct(attendance.attended, attendance.total)} />
-              <div className="min-w-0">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">% asistencia a sesiones</p>
-                <p className="text-xs text-slate-500 mt-1">{attendance.attended} de {attendance.total} sesiones asistidas</p>
+            <div className="flex items-center gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5 flex-1">
+                <MiniStat label="Sesiones" value={attendance.total} />
+                <MiniStat label="Asistidas" value={attendance.attended} />
+                <MiniStat label="Ausencias" value={attendance.absences} tone="red" />
               </div>
+              <div className="flex items-center bg-white border border-slate-200 rounded-xl px-1.5 py-0.5" title="% asistencia">
+                <AttendanceDonut value={pct(attendance.attended, attendance.total)} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBreakdown(v => !v)}
+                aria-expanded={showBreakdown}
+                title={showBreakdown ? 'Ocultar desglose' : 'Ver desglose de entrenamientos'}
+                className="self-stretch flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100"
+              >
+                <i className={`fa-solid ${showBreakdown ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                <span className="hidden sm:inline">Desglose</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowBreakdown(v => !v)}
-              aria-expanded={showBreakdown}
-              className="mt-3 w-full flex items-center justify-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100"
-            >
-              <i className={`fa-solid ${showBreakdown ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-              {showBreakdown ? 'Ocultar desglose' : 'Ver desglose de entrenamientos'}
-            </button>
             {showBreakdown && (
               <div className="mt-3 flex flex-col gap-4">
-                {attendance.byScope && attendance.byScope.some(s => s.total > 0) && (
+                {attendance.byScope && attendance.byScope.some(s => s.attended > 0) && (
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Por tipo de sesión</p>
                     <ul className="flex flex-col gap-1.5">
-                      {attendance.byScope.filter(s => s.total > 0).map(s => <BreakdownBar key={s.label} {...s} />)}
+                      {attendance.byScope.filter(s => s.attended > 0).map(s => <BreakdownBar key={s.label} {...s} />)}
                     </ul>
                   </div>
                 )}
-                {attendance.byTeam && attendance.byTeam.some(t => t.total > 0) && (
+                {attendance.byTeam && attendance.byTeam.some(t => t.attended > 0) && (
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Por equipo</p>
                     <ul className="flex flex-col gap-1.5">
-                      {attendance.byTeam.filter(t => t.total > 0).map(t => <BreakdownBar key={t.team} label={t.team} total={t.total} attended={t.attended} absences={t.absences} />)}
+                      {attendance.byTeam.filter(t => t.attended > 0).map(t => <BreakdownBar key={t.team} label={t.team} total={t.total} attended={t.attended} absences={t.absences} />)}
                     </ul>
                   </div>
                 )}
-              </div>
-            )}
-            {attendance.absences > 0 && (
-              <div className="mt-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Motivos de ausencia</p>
-                <ul className="flex flex-col gap-1.5">
-                  {Object.entries(attendance.reasons)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([reason, count]) => (
-                      <li key={reason} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
-                        <span className="font-semibold text-slate-700">{reason}</span>
-                        <span className="font-black text-red-600 tabular-nums">{count}</span>
-                      </li>
-                    ))}
-                </ul>
+                {attendance.absences > 0 && (
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Motivos de ausencia</p>
+                    <ul className="flex flex-col gap-1.5">
+                      {Object.entries(attendance.reasons)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([reason, count]) => (
+                          <li key={reason} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+                            <span className="font-semibold text-slate-700">{reason}</span>
+                            <span className="font-black text-red-600 tabular-nums">{count}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </>
         )}
       </DashboardWidget>
+      </DashboardGroup>
+
+      {/* ===== GRUPO: PARTIDOS ===== */}
+      <DashboardGroup title="Partidos" icon="fa-futbol">
+      {/* Indicadores principales */}
+      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1">
+        <Kpi label="P. equipo" value={teamMatches && teamMatches > 0 ? teamMatches : '–'} tone="blue" />
+        <Kpi label="Conv." value={totals.convocado} />
+        <Kpi label="Titular" value={matchStats.titular} />
+        <Kpi label="Suplente" value={totals.suplente} />
+        <Kpi label="Minutos" value={matchStats.minutos} />
+        <Kpi label="Min/part." value={totals.minPorPartido} />
+        <Kpi label="Goles" value={matchStats.goles} />
+        <Kpi label="% Conv." value={convocadoPct === null ? '–' : `${convocadoPct}%`} />
+        <Kpi label="% Tit." value={teamMatches && teamMatches > 0 ? `${Math.min(100, pct(matchStats.titular, teamMatches))}%` : '–'} />
+        <Kpi label="% Min." value={totals.pctMinutos === null ? '–' : `${Math.min(100, totals.pctMinutos)}%`} />
+        <Kpi label="Amarillas" value={totals.amarillas} />
+        <Kpi label="Rojas" value={totals.rojas} />
+      </div>
+
+      {/* Partidos por equipo (solo si hay más de un equipo; si no, ya está en los KPIs) */}
+      {matchesByTeam.length > 1 && (
+        <DashboardWidget title="Partidos por equipo" icon="fa-people-group">
+          <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl">
+            <table className="w-full text-[10px] [&_th]:!px-2 [&_th]:!py-0.5 [&_td]:!px-2 [&_td]:!py-0.5" style={{ fontSize: 10 }}>
+              <thead>
+                <tr className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-left">
+                  <th>Equipo</th>
+                  <th className="text-right">Conv.</th>
+                  <th className="text-right">Jugados</th>
+                  <th className="text-right">Titular</th>
+                  <th className="text-right">Min</th>
+                  <th className="text-right">Goles</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matchesByTeam.map(t => (
+                  <tr key={t.team} className="border-t border-slate-100 tabular-nums">
+                    <td className="font-semibold text-slate-700">{t.team}</td>
+                    <td className="text-right">{t.convocado}</td>
+                    <td className="text-right font-black text-slate-800">{t.jugados}</td>
+                    <td className="text-right">{t.titular}</td>
+                    <td className="text-right">{t.minutos}</td>
+                    <td className="text-right">{t.goles}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DashboardWidget>
+      )}
 
       {/* Gráficas: partidos, minutos y titularidades */}
       {matchLog.length > 0 && (
         <DashboardWidget title="Gráficas de partidos" icon="fa-chart-simple">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div className="bg-white border border-slate-200 rounded-xl p-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-1.5">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Partidos</p>
               <div className="flex items-center gap-3">
                 <SegmentDonut
@@ -385,7 +477,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
             </div>
             <div className="bg-white border border-slate-200 rounded-xl p-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                Minutos por partido <span className="text-slate-300 normal-case tracking-normal">· ● gol</span>
+                Minutos por jornada
               </p>
               <MinutesBars rows={chart.chrono} />
             </div>
@@ -399,16 +491,8 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
           <p className="text-xs text-slate-400 text-center py-2">Sin partidos registrados</p>
         ) : (
           <>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
-              <MiniStat label="Convocado" value={`${totals.convocado}${teamMatches ? `/${teamMatches}` : ''}`} />
-              <MiniStat label="Suplente" value={totals.suplente} />
-              <MiniStat label="Min/partido" value={totals.minPorPartido} />
-              <MiniStat label="% minutos" value={totals.pctMinutos === null ? '–' : `${totals.pctMinutos}%`} />
-              <MiniStat label="Amarillas" value={totals.amarillas} tone="amber" />
-              <MiniStat label="Rojas" value={totals.rojas} tone="red" />
-            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-[10px]">
+              <table className="w-full text-[10px] [&_th]:!px-1 [&_th]:!py-0.5 [&_td]:!px-1 [&_td]:!py-0.5" style={{ fontSize: 10 }}>
                 <thead>
                   <tr className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-left">
                     <th className="py-0.5 pr-2">Fecha</th>
@@ -454,6 +538,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
           </>
         )}
       </DashboardWidget>
+      </DashboardGroup>
     </div>
   );
 };

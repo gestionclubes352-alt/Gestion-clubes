@@ -17,7 +17,9 @@ const contarEvaluaciones = (o: ObjetivoIndividual): number =>
 const contarAcciones = (o: ObjetivoIndividual): number =>
   (o.acciones ?? []).filter(a => a.categoria !== 'evaluacion').length;
 
-const estadoColor = (estado: string) => ESTADOS_OBJETIVO.find(e => e.value === estado)?.color || '#94a3b8';
+const DEFAULT_PLAYER_PHOTO = '/jugador-default.png';
+
+const estadoColor =(estado: string) => ESTADOS_OBJETIVO.find(e => e.value === estado)?.color || '#94a3b8';
 const tipoLabel = (tipo: string) => TIPOS_OBJETIVO.find(t => t.value === tipo)?.label || tipo;
 
 interface ObjetivosIndividualesViewProps {
@@ -97,6 +99,10 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
   };
 
   const getJugadorNombre = (id: string) => jugadores.find(j => String(j.id) === String(id))?.nombre || '—';
+  const getJugadorFoto = (id: string) => {
+    const url = jugadores.find(j => String(j.id) === String(id))?.foto_url;
+    return url && /^(https?:\/\/|\/)/i.test(url) ? url : DEFAULT_PLAYER_PHOTO;
+  };
   const getEquipoNombre = (id: string) => equipos.find(e => String(e.id) === String(id))?.nombre || '—';
 
   const filtered = useMemo(() => {
@@ -233,13 +239,13 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar jugador o detalle..."
-            className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-base text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+            className="w-full pl-8 pr-4 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
           />
         </div>
         <select
           value={filtroTipo}
           onChange={e => setFiltroTipo(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-base text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+          className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
         >
           <option value="">Todos los tipos</option>
           {TIPOS_OBJETIVO.map(t => (
@@ -249,7 +255,7 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
         <select
           value={filtroEstado}
           onChange={e => setFiltroEstado(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-base text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+          className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
         >
           <option value="">Todos los estados</option>
           {ESTADOS_OBJETIVO.map(e => (
@@ -332,7 +338,19 @@ const ObjetivosIndividualesView: React.FC<ObjetivosIndividualesViewProps> = ({ e
                 }}
                 className="grid grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr_2.2fr_0.5fr_3fr_64px_84px] gap-3 px-4 py-1.5 border-b border-slate-100 hover:bg-slate-50 transition-all cursor-pointer items-center"
               >
-                <span className="text-xs font-black text-[var(--accent)] uppercase tracking-tighter truncate">{getJugadorNombre(o.jugador_id)}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  <img
+                    loading="lazy"
+                    alt=""
+                    src={getJugadorFoto(o.jugador_id)}
+                    onError={e => {
+                      const img = e.currentTarget;
+                      if (!img.src.endsWith(DEFAULT_PLAYER_PHOTO)) img.src = DEFAULT_PLAYER_PHOTO;
+                    }}
+                    className="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-100"
+                  />
+                  <span className="text-xs font-black text-[var(--accent)] uppercase tracking-tighter truncate">{getJugadorNombre(o.jugador_id)}</span>
+                </span>
                 <span className="text-xs text-slate-700 truncate">{getEquipoNombre(o.equipo_id)}</span>
                 <span className="text-xs text-slate-700">{o.fecha}</span>
                 <span className="text-xs text-slate-700">{tipoLabel(o.tipo)}</span>

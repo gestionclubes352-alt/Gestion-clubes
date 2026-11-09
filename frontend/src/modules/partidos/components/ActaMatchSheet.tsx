@@ -93,16 +93,20 @@ const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean; show
       <td className="py-0.5 pr-3 font-medium">{r.name}</td>
       <td className="py-0.5 pr-3 text-right tabular-nums">
         {showMinutes && onChangeMinutes ? (
-          <input
-            type="number"
-            min={0}
-            max={120}
+          <select
             aria-label={`Minutos de ${r.name}`}
             value={manualMinutes?.[String(r.dorsal)] ?? ''}
-            placeholder="—"
-            onChange={e => onChangeMinutes(r.dorsal, e.target.value === '' ? null : Math.max(0, Math.min(120, parseInt(e.target.value, 10) || 0)))}
-            className="w-14 text-right bg-[var(--surface-1)] border border-[var(--border-soft)] rounded px-1 py-0.5 tabular-nums"
-          />
+            onChange={e => onChangeMinutes(r.dorsal, e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            className="w-16 text-right bg-[var(--surface-1)] border border-[var(--border-soft)] rounded px-1 py-0.5 tabular-nums"
+          >
+            <option value="">—</option>
+            {(() => {
+              const cur = manualMinutes?.[String(r.dorsal)];
+              const opts = [0, 10, 20, 30, 40, 50, 60];
+              if (typeof cur === 'number' && !opts.includes(cur)) opts.push(cur);
+              return opts.map(m => <option key={m} value={m}>{m}</option>);
+            })()}
+          </select>
         ) : showMinutes ? `${r.minutes}'` : ''}
       </td>
       <td className="py-0.5 pr-2 whitespace-nowrap text-center w-16">
@@ -121,18 +125,41 @@ const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean; show
       <h3 className={`inline-block text-[11px] font-black uppercase tracking-wider mb-3 px-2 py-1 rounded ${highlight ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-muted)]'}`}>{title}</h3>
       <table className="w-full text-xs leading-tight">
         <tbody>
+          {starters.length > 0 && (
+            <tr><td colSpan={5} className="pb-1 text-xs font-bold text-[var(--text-muted)]">Titulares</td></tr>
+          )}
           {starters.map(r => renderRow(r, false))}
           {bench.length > 0 && (
             <tr><td colSpan={5} className="pt-3 pb-1 text-xs font-bold text-[var(--text-muted)]">Suplentes</td></tr>
           )}
           {bench.map(r => renderRow(r, true))}
+          {showMinutes && onChangeMinutes && (() => {
+            const total = rows.reduce((s, r) => s + (manualMinutes?.[String(r.dorsal)] ?? 0), 0);
+            const ok = total === 360;
+            return (
+              <tr>
+                <td colSpan={5} className="pt-3">
+                  <div className={`text-xs font-bold ${ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    TOTAL: {total} / 360
+                  </div>
+                  {!ok && (
+                    <div className="text-[11px] text-red-600 dark:text-red-400">
+                      ⚠ El total de minutos debe ser 360 ({total < 360 ? `faltan ${360 - total}` : `sobran ${total - 360}`}).
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })()}
         </tbody>
       </table>
     </div>
   );
 };
 
-const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes, manualMinutes, onChangeMinutes }) => {
+const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes, manualMinutes, onChangeMinutes: onChangeMinutesProp }) => {
+  // Solo alevines editan minutos a mano; en el resto de categorías vale lo que dice la federación
+  const onChangeMinutes = /alev[ií]n/i.test(norm(acta.competition || '')) ? onChangeMinutesProp : undefined;
   // Goles por equipo: el que incrementa su marcador es el que marca
   const goalsBySide = useMemo(() => {
     let h = 0, a = 0;
