@@ -46,7 +46,9 @@ const ConvocatoriaSheet: React.FC<ConvocatoriaSheetProps> = ({ acta, ownSide, sq
     });
     const byDorsal = (a: ConvocatoriaPlayer, b: ConvocatoriaPlayer) => (a.dorsal ?? 999) - (b.dorsal ?? 999);
     return {
-      convocados: squad.filter(p => used.has(String(p.id))).sort(byDorsal),
+      convocados: squad
+        .filter(p => used.has(String(p.id)))
+        .sort((a, b) => (Number(starters.has(String(b.id))) - Number(starters.has(String(a.id)))) || byDorsal(a, b)),
       noConvocados: squad.filter(p => !used.has(String(p.id))).sort(byDorsal),
       starterIds: starters,
       sinEmparejar: sin,

@@ -304,22 +304,22 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1000px] border-collapse text-left text-xs leading-tight">
+        <table className="w-max max-w-full whitespace-nowrap border-collapse text-left text-xs leading-tight">
           <thead>
             <tr className="border-b border-slate-100 bg-white text-[9px] font-black uppercase tracking-widest text-slate-400">
-              <th className="px-2 py-1 w-10">#</th>
-              <th className="px-2 py-1">Federación</th>
-              <th className="px-2 py-1">Género</th>
-              <th className="px-2 py-1">Etapa</th>
-              <th className="px-2 py-1">Competición</th>
-              <th className="px-2 py-1">Equipo</th>
-              <th className="px-2 py-1 text-center">Equipos</th>
-              <th className="px-2 py-1 text-center">Jornada</th>
-              <th className="px-1 py-1 text-center">Clasif.</th>
-              <th className="px-1 py-1 text-center">Horarios</th>
-              <th className="px-1 py-1 text-center">Result.</th>
-              <th className="px-1 py-1 text-center">Calend.</th>
-              <th className="px-1 py-1 text-center">Portal</th>
+              <th className="px-1.5 py-1 w-10">#</th>
+              <th className="px-1.5 py-1">Federación</th>
+              <th className="px-1.5 py-1">Género</th>
+              <th className="px-1.5 py-1">Etapa</th>
+              <th className="px-1.5 py-1">Competición</th>
+              <th className="px-1.5 py-1">Equipo</th>
+              <th className="px-1.5 py-1 text-center">Equipos</th>
+              <th className="px-1.5 py-1 text-center">Jornada</th>
+              <th className="px-0.5 py-1 text-center">Clasif.</th>
+              <th className="px-0.5 py-1 text-center">Horarios</th>
+              <th className="px-0.5 py-1 text-center">Result.</th>
+              <th className="px-0.5 py-1 text-center">Calend.</th>
+              <th className="px-0.5 py-1 text-center">Portal</th>
             </tr>
           </thead>
           <tbody>
@@ -328,7 +328,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
               return (
                 <React.Fragment key={etapa}>
                   <tr className="border-b border-slate-100 bg-slate-50/60">
-                    <td colSpan={13} className="px-2 py-0.5">
+                    <td colSpan={13} className="px-1.5 py-0.5">
                       <button
                         type="button"
                         onClick={() => toggle(etapa)}
@@ -350,19 +350,19 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                       const portal = row.compId ? federationPortalUrl(row.compId) : null;
                       return (
                         <tr key={`${row.competition}|${row.clubLabel}`} className="border-b border-slate-50 hover:bg-slate-50/70">
-                          <td className="px-2 py-0.5 text-xs text-slate-400">{counter}</td>
-                          <td className="px-2 py-0.5 text-[11px] font-bold text-slate-500">ARAGÓN</td>
-                          <td className="px-2 py-0.5 text-xs font-medium text-slate-700">Masculino</td>
-                          <td className="px-2 py-0.5 text-xs font-medium text-slate-700">{row.etapa}</td>
-                          <td className="px-2 py-0.5 text-xs font-medium text-slate-700">{row.competition}</td>
-                          <td className="px-2 py-0.5">
+                          <td className="px-1.5 py-0.5 text-xs text-slate-400">{counter}</td>
+                          <td className="px-1.5 py-0.5 text-[11px] font-bold text-slate-500">ARAGÓN</td>
+                          <td className="px-1.5 py-0.5 text-xs font-medium text-slate-700">Masculino</td>
+                          <td className="px-1.5 py-0.5 text-xs font-medium text-slate-700">{row.etapa}</td>
+                          <td className="px-1.5 py-0.5 text-xs font-medium text-slate-700">{row.competition}</td>
+                          <td className="px-1.5 py-0.5">
                             <span className="inline-block rounded-md bg-[#c8102e]/10 px-1.5 py-0 text-xs font-semibold text-slate-800">
                               {row.clubLabel}
                             </span>
                           </td>
-                          <td className="px-2 py-0.5 text-center text-xs font-medium text-slate-700">{nEquipos ?? '—'}</td>
-                          <td className="px-2 py-0.5 text-center text-xs font-medium text-slate-700">{jornada ? `J${jornada}` : '—'}</td>
-                          <td className="px-1 py-0.5 text-center">
+                          <td className="px-1.5 py-0.5 text-center text-xs font-medium text-slate-700">{nEquipos ?? '—'}</td>
+                          <td className="px-1.5 py-0.5 text-center text-xs font-medium text-slate-700">{jornada ? `J${jornada}` : '—'}</td>
+                          <td className="px-0.5 py-0.5 text-center">
                             <ActionButton
                               icon="fa-trophy"
                               label="Clasificación"
@@ -371,7 +371,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                               onClick={() => setModal({ row, kind: 'clasificacion' })}
                             />
                           </td>
-                          <td className="px-1 py-0.5 text-center">
+                          <td className="px-0.5 py-0.5 text-center">
                             <ActionButton
                               icon="fa-clock"
                               label="Horarios"
@@ -379,7 +379,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                               onClick={() => setModal({ row, kind: 'horarios' })}
                             />
                           </td>
-                          <td className="px-1 py-0.5 text-center">
+                          <td className="px-0.5 py-0.5 text-center">
                             <ActionButton
                               icon="fa-list-check"
                               label="Resultados"
@@ -387,7 +387,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                               onClick={() => setModal({ row, kind: 'resultados' })}
                             />
                           </td>
-                          <td className="px-1 py-0.5 text-center">
+                          <td className="px-0.5 py-0.5 text-center">
                             <ActionButton
                               icon="fa-calendar-days"
                               label="Calendario"
@@ -395,7 +395,7 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                               onClick={() => setModal({ row, kind: 'calendario' })}
                             />
                           </td>
-                          <td className="px-1 py-0.5 text-center">
+                          <td className="px-0.5 py-0.5 text-center">
                             <ActionButton
                               icon="fa-arrow-up-right-from-square"
                               label="Abrir en el portal de la federación"

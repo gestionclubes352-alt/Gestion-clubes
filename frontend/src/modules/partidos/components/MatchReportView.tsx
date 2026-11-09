@@ -348,8 +348,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
   const resolveTeamCrest = (teamName: string, clubId?: string): string | undefined => {
     const byId = clubId ? clubs.find(c => String(c.id) === String(clubId)) : undefined;
-    if (byId?.escudo_url) return byId.escudo_url;
     const compTeam: any = competitionTeams.find(t => (t.equipo || t.nombre) === teamName);
+    // Equipos internos (de mi club): siempre el escudo del club.
+    const effectiveClubId = clubId ?? compTeam?.clubId;
+    if (ownClubId && effectiveClubId != null && String(effectiveClubId) === String(ownClubId)) {
+      const own = clubs.find(c => String(c.id) === String(ownClubId));
+      if (own?.escudo_url) return own.escudo_url;
+    }
+    if (byId?.escudo_url) return byId.escudo_url;
     if (compTeam?.logoUrl) return compTeam.logoUrl;
     const byTeamClub = compTeam?.clubId != null ? clubs.find(c => String(c.id) === String(compTeam.clubId)) : undefined;
     return byTeamClub?.escudo_url || undefined;
@@ -947,7 +953,16 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const playerOutOptions = activeLineupPlayers.length > 0 ? onPitchPlayers : convocadoPlayers;
   const playerInOptions = activeLineupPlayers.length > 0 ? benchPlayers : convocadoPlayers;
 
-  const MATCH_DURATION_MINUTES = 90;
+  // Duración total según la competición configurada (p.ej. Alevín = 2x30 = 60'); 90' por defecto.
+  const MATCH_DURATION_MINUTES = useMemo(() => {
+    const clean = (v: string) => v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^copa\s*-\s*/, '').replace(/\s+/g, ' ').trim();
+    const target = clean(match.competition || '');
+    if (!target) return 90;
+    const found = competitions.find(c => clean(c.nombre) === target)
+      || competitions.find(c => { const n = clean(c.nombre); return n.length > 5 && (target.includes(n) || n.includes(target)); });
+    const total = found ? (found.total_minutos || found.numero_partes * found.minutos_por_parte) : 0;
+    return total > 0 ? total : 90;
+  }, [competitions, match.competition]);
 
   // Intervalo [start, end] jugado por cada jugador: un titular juega desde el
   // minuto 0 hasta que le cambian o le expulsan (roja), lo que ocurra antes; un
@@ -985,14 +1000,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     });
 
     return map;
-  }, [startingXIEntries, report.substitutions, report.matchCards]);
+  }, [startingXIEntries, report.substitutions, report.matchCards, MATCH_DURATION_MINUTES]);
 
   // Minutos jugados por jugador (apartado Resumen): duración del intervalo anterior.
   const playerMinutesMap = useMemo(() => {
     const map = new Map<string, number>();
     playerIntervalsMap.forEach((interval, key) => map.set(key, Math.min(Math.max(0, interval.end - interval.start), MATCH_DURATION_MINUTES)));
     return map;
-  }, [playerIntervalsMap]);
+  }, [playerIntervalsMap, MATCH_DURATION_MINUTES]);
 
   const goalsByPlayer = useMemo(() => {
     const map = new Map<string, number>();

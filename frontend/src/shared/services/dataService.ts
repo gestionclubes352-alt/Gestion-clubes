@@ -780,6 +780,7 @@ interface StoredMatchReport {
   substitute_ids: Array<string | number>;
   not_convocado_ids: Array<string | number>;
   not_convocado_reasons?: Record<string, string>;
+  manual_minutes?: Record<string, number>;
   video_events: unknown[];
   substitutions?: unknown[];
   match_goals?: unknown[];
@@ -941,6 +942,7 @@ function createMatchReportsStore(): LegacyStore<any> {
           substituteIds: row.substitute_ids,
           notConvocadoIds: row.not_convocado_ids,
           notConvocadoReasons: row.not_convocado_reasons,
+          manualMinutes: row.manual_minutes || {},
           videoEvents: row.video_events,
           substitutions: row.substitutions || [],
           matchGoals: row.match_goals || [],
@@ -1012,6 +1014,7 @@ function createMatchReportsStore(): LegacyStore<any> {
         substitute_ids: item.substituteIds || [],
         not_convocado_ids: item.notConvocadoIds || [],
         not_convocado_reasons: item.notConvocadoReasons || {},
+        manual_minutes: item.manualMinutes || {},
         video_events: item.videoEvents || [],
         substitutions: item.substitutions || [],
         match_goals: item.matchGoals || [],

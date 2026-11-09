@@ -25,6 +25,7 @@ const HOME_SECTIONS: HomeSection[] = [
     textColor: 'text-blue-100',
     items: [
       { labelKey: 'sidebar.squadsLabel', icon: 'fa-users', route: '/plantillas', menuId: 'PLANTILLAS' },
+      { labelKey: 'sidebar.competitionLabel', icon: 'fa-ranking-star', route: '/competicion', menuId: 'COMPETICIÓN' },
       { labelKey: 'sidebar.fieldDiagramLabel', icon: 'fa-diagram-project', route: '/campograma', menuId: 'CAMPOGRAMA' },
       { labelKey: 'sidebar.technicalStaffLabel', icon: 'fa-user-tie', route: '/staff', menuId: 'PERSONAL' },
       { labelKey: 'sidebar.objectivesLabel', icon: 'fa-bullseye', route: '/objetivos', menuId: 'OBJETIVOS' },
@@ -43,7 +44,6 @@ const HOME_SECTIONS: HomeSection[] = [
       { labelKey: 'sidebar.actionPaintingLabel', icon: 'fa-paintbrush', route: '/pintado-acciones', menuId: 'PINTADO DE ACCIONES' },
       { labelKey: 'sidebar.taskRepositoryLabel', icon: 'fa-book-open', route: '/repositorio-tareas', menuId: 'REPOSITORIO DE TAREAS' },
       { labelKey: 'sidebar.sessionsLabel', icon: 'fa-calendar-days', route: '/sesiones', menuId: 'SESIONES' },
-      { labelKey: 'sidebar.competitionLabel', icon: 'fa-ranking-star', route: '/competicion', menuId: 'COMPETICIÓN' },
       { labelKey: 'sidebar.matchesLabel', icon: 'fa-futbol', route: '/partidos', menuId: 'PARTIDOS' },
       { labelKey: 'sidebar.videoLibraryLabel', icon: 'fa-video', route: '/videoteca', menuId: 'VIDEOTECA' },
     ],

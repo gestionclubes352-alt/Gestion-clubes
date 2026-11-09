@@ -10,6 +10,10 @@ interface Props {
   ownSide?: Side | null;
   /** Duración total configurada en la competición (partes × min/parte), si existe */
   configuredMinutes?: number | null;
+  /** Minutos manuales por dorsal del equipo propio (para actas que no traen minutos) */
+  manualMinutes?: Record<string, number>;
+  /** Si se informa, los minutos del equipo propio son editables */
+  onChangeMinutes?: (dorsal: number, minutes: number | null) => void;
 }
 
 const norm = (v: string) => v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
@@ -80,29 +84,42 @@ const buildRows = (
   return [...team.starters.map(p => make(p, true)), ...team.substitutes.map(p => make(p, false))];
 };
 
-const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean }> = ({ title, rows, highlight }) => {
+const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean; showMinutes?: boolean; manualMinutes?: Record<string, number>; onChangeMinutes?: (dorsal: number, minutes: number | null) => void; hideSubs?: boolean }> = ({ title, rows, highlight, showMinutes = true, manualMinutes, onChangeMinutes, hideSubs = false }) => {
   const starters = rows.filter(r => r.starter);
   const bench = rows.filter(r => !r.starter);
   const renderRow = (r: Row, dim: boolean) => (
     <tr key={`${r.dorsal}-${r.name}`} className={`border-b border-[var(--border-soft)] ${dim ? 'text-[var(--text-muted)]' : 'text-[var(--text-strong)]'}`}>
-      <td className="py-1.5 pr-3 w-8 text-right tabular-nums">{r.dorsal}</td>
-      <td className="py-1.5 pr-3 font-medium">{r.name}</td>
-      <td className="py-1.5 pr-3 text-right tabular-nums">{r.minutes}'</td>
-      <td className="py-1.5 pr-2 whitespace-nowrap text-center w-16">
+      <td className="py-0.5 pr-3 w-8 text-right tabular-nums">{r.dorsal}</td>
+      <td className="py-0.5 pr-3 font-medium">{r.name}</td>
+      <td className="py-0.5 pr-3 text-right tabular-nums">
+        {showMinutes && onChangeMinutes ? (
+          <input
+            type="number"
+            min={0}
+            max={120}
+            aria-label={`Minutos de ${r.name}`}
+            value={manualMinutes?.[String(r.dorsal)] ?? ''}
+            placeholder="—"
+            onChange={e => onChangeMinutes(r.dorsal, e.target.value === '' ? null : Math.max(0, Math.min(120, parseInt(e.target.value, 10) || 0)))}
+            className="w-14 text-right bg-[var(--surface-1)] border border-[var(--border-soft)] rounded px-1 py-0.5 tabular-nums"
+          />
+        ) : showMinutes ? `${r.minutes}'` : ''}
+      </td>
+      <td className="py-0.5 pr-2 whitespace-nowrap text-center w-16">
         <span className="inline-flex items-center gap-0.5">
           <GoalIcons count={r.goals} />
           <CardIcons yellow={r.yellow} red={r.red} />
         </span>
       </td>
-      <td className="py-1.5 text-right whitespace-nowrap w-24">
-        <SubChange inMin={r.inMin} outMin={r.outMin} />
+      <td className="py-0.5 text-right whitespace-nowrap w-24">
+        {!hideSubs && <SubChange inMin={r.inMin} outMin={r.outMin} />}
       </td>
     </tr>
   );
   return (
     <div className="min-w-0">
       <h3 className={`inline-block text-[11px] font-black uppercase tracking-wider mb-3 px-2 py-1 rounded ${highlight ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-muted)]'}`}>{title}</h3>
-      <table className="w-full text-sm">
+      <table className="w-full text-xs leading-tight">
         <tbody>
           {starters.map(r => renderRow(r, false))}
           {bench.length > 0 && (
@@ -115,7 +132,7 @@ const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean }> = 
   );
 };
 
-const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes }) => {
+const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes, manualMinutes, onChangeMinutes }) => {
   // Goles por equipo: el que incrementa su marcador es el que marca
   const goalsBySide = useMemo(() => {
     let h = 0, a = 0;
@@ -139,8 +156,14 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes }) =
       : guessDuration(acta.competition, actaEnd)
   );
 
-  const homeRows = useMemo(() => buildRows(acta.homeTeam, goalsBySide.filter(g => g.side === 'home').map(g => g.player), duration), [acta, goalsBySide, duration]);
-  const awayRows = useMemo(() => buildRows(acta.awayTeam, goalsBySide.filter(g => g.side === 'away').map(g => g.player), duration), [acta, goalsBySide, duration]);
+  // Alevín = fútbol 8: solo 8 titulares; el resto de la lista pasa a suplentes
+  const maxStarters = /alev[ií]n/i.test(acta.competition || '') ? 8 : Infinity;
+  const capStarters = (t: ActaTeamData): ActaTeamData =>
+    t.starters.length > maxStarters
+      ? { ...t, starters: t.starters.slice(0, maxStarters), substitutes: [...t.starters.slice(maxStarters), ...t.substitutes] }
+      : t;
+  const homeRows = useMemo(() => buildRows(capStarters(acta.homeTeam), goalsBySide.filter(g => g.side === 'home').map(g => g.player), duration), [acta, goalsBySide, duration]);
+  const awayRows = useMemo(() => buildRows(capStarters(acta.awayTeam), goalsBySide.filter(g => g.side === 'away').map(g => g.player), duration), [acta, goalsBySide, duration]);
 
   // Eventos agrupados por minuto
   const events = useMemo(() => {
@@ -154,7 +177,7 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes }) =
     ));
     (['home', 'away'] as Side[]).forEach(side => {
       const team = side === 'home' ? acta.homeTeam : acta.awayTeam;
-      team.substitutions.forEach((s, i) => {
+      if (!onChangeMinutes) team.substitutions.forEach((s, i) => {
         const m = minuteOf(s.minute);
         slot(m)[side].push(<div key={`si${side}${i}`}><SubInIcon className="w-3 h-3 mr-1" />{s.playerIn}</div>);
         slot(m)[side].push(<div key={`so${side}${i}`} className="text-[var(--text-muted)]"><SubOutIcon className="w-3 h-3 mr-1" />{s.playerOut}</div>);
@@ -167,7 +190,7 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes }) =
       });
     });
     return Array.from(byMin.entries()).sort((a, b) => a[0] - b[0]);
-  }, [goalsBySide, acta]);
+  }, [goalsBySide, acta, onChangeMinutes]);
 
   const half = duration / 2;
   let halfShown = false;
@@ -196,8 +219,8 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes }) =
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        <TeamTable title={acta.homeTeam.name} rows={homeRows} highlight={ownSide === 'home'} />
-        <TeamTable title={acta.awayTeam.name} rows={awayRows} highlight={ownSide === 'away'} />
+        <TeamTable title={acta.homeTeam.name} rows={homeRows} highlight={ownSide === 'home'} showMinutes={!ownSide || ownSide === 'home'} manualMinutes={manualMinutes} onChangeMinutes={ownSide === 'home' ? onChangeMinutes : undefined} hideSubs={!!onChangeMinutes} />
+        <TeamTable title={acta.awayTeam.name} rows={awayRows} highlight={ownSide === 'away'} showMinutes={!ownSide || ownSide === 'away'} manualMinutes={manualMinutes} onChangeMinutes={ownSide === 'away' ? onChangeMinutes : undefined} hideSubs={!!onChangeMinutes} />
       </div>
 
       <div>

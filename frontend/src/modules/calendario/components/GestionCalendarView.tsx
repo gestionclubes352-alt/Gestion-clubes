@@ -387,6 +387,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return new Date();
   });
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('week');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isFullscreen]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
@@ -1438,8 +1445,19 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
 
       <div className="flex-1 w-full">
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden">
-          <div className="px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-center gap-3">
+        <div className={isFullscreen
+          ? 'fixed inset-0 z-[90] bg-white flex flex-col overflow-auto'
+          : 'bg-white rounded-3xl border border-slate-100 shadow-xl min-h-[75dvh] flex flex-col overflow-hidden'}>
+          <div className="relative px-4 md:px-6 py-2 md:py-3 border-b border-slate-50 bg-slate-50/30 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(prev => !prev)}
+              className="absolute right-3 top-3 w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all shadow-sm"
+              aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}
+            >
+              <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-sm`}></i>
+            </button>
             <div className="text-center">
               <div className="flex items-center justify-center gap-3">
                 <button

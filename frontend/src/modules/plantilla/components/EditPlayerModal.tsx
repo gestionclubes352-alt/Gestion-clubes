@@ -679,7 +679,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
         {/* === PESTAÑA FICHA JUGADOR: dashboard del jugador === */}
         {activeTab === 'tile' && (
-          <div className="p-3 sm:p-4 overflow-y-auto flex-1 bg-white" ref={tileRef}>
+          <div className="p-2 sm:p-3 overflow-y-auto flex-1 bg-white" ref={tileRef}>
             <PlayerDashboard
               player={formData}
               photoUrl={preview}

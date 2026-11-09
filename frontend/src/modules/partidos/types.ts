@@ -141,6 +141,8 @@ export interface MatchReport {
   substituteIds?: Array<string | number>;
   notConvocadoIds?: Array<string | number>;
   notConvocadoReasons?: Record<string, string>;
+  /** Minutos jugados introducidos a mano por dorsal (actas sin minutos, p. ej. alevines) */
+  manualMinutes?: Record<string, number>;
   videoEvents?: VideoEvent[];
   substitutions?: MatchSubstitution[];
   formationChanges?: MatchFormationChange[];

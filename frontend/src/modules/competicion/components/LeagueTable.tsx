@@ -15,6 +15,7 @@ import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import GlobalCompetitionsView, { isOwnTeamInCompetition } from './GlobalCompetitionsView';
 import { HorariosPanel, SancionesPanel, useActas, ownSideOf, norm, type ActaRow } from './CompetitionExtraPanels';
+import StandingsCharts from './StandingsCharts';
 import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
 
 interface StandingTeam {
@@ -250,6 +251,31 @@ const FEDERATION_CALENDAR_URL_BY_TEAM: Record<string, string> = {
 const FEDERATION_COMPETITION_URL_BY_TEAM: Record<string, string> = {
   'escuela-huesca::juvenil a': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_CmpJornada?cod_primaria=1000120&CodCompeticion=23183382&CodGrupo=23183383&CodTemporada=22&cod_agrupacion=&CodJornada=1&Sch_Tipo_Juego=1',
   'escuela-huesca::primer equipo': 'https://www.futbolaragon.com/pnfg/NPcd/NFG_CmpJornada?cod_primaria=1000120&CodCompeticion=23183382&CodGrupo=23183383&CodTemporada=22&cod_agrupacion=&CodJornada=1&Sch_Tipo_Juego=1',
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+// Fecha en una sola línea (dd/mm/yyyy). Admite ISO ("2026-10-24T22:00:00.000Z") o texto ya formateado.
+const formatMatchDate = (value?: string | null): string => {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return value;
+};
+
+// Hora solo HH:mm.
+const formatMatchTime = (value?: string | null): string => {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  const m = value.match(/^(\d{1,2}):(\d{2})/);
+  return m ? `${pad2(Number(m[1]))}:${m[2]}` : value;
 };
 
 const normalizeTeam = (name: string) => name
@@ -1045,13 +1071,13 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             role="tab"
             aria-selected={activeSection === tab.id}
             onClick={() => setActiveSection(tab.id)}
-            className={`inline-flex h-10 items-center gap-2 rounded-full border-2 px-5 text-sm font-semibold transition-all ${
+            className={`inline-flex h-7 items-center gap-1.5 rounded-full border-2 px-3 text-xs font-semibold transition-all ${
               activeSection === tab.id
                 ? 'border-blue-600 bg-blue-600 text-white shadow'
                 : 'border-blue-400 bg-white text-slate-700 hover:bg-blue-50'
             }`}
           >
-            <i className={`fa-solid ${tab.icon} text-xs`}></i>
+            <i className={`fa-solid ${tab.icon} text-[10px]`}></i>
             <span>{tab.label}</span>
           </button>
         ))}
@@ -1089,7 +1115,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       {filterAndTabs}
 
       {/* Header con nombre de la liga */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className={`flex items-center justify-between flex-wrap gap-2 ${activeSection === 'horarios' ? 'hidden' : ''}`}>
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
             isAISource
@@ -1099,9 +1125,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             <i className={`text-white text-sm ${isAISource ? 'fa-solid fa-robot' : 'fa-solid fa-trophy'}`}></i>
           </div>
           <div>
-            <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight leading-none">
-              {resolvedLeagueName || 'Clasificación'}
-            </h2>
+            {resolvedLeagueName && (
+              <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight leading-none">
+                {resolvedLeagueName}
+              </h2>
+            )}
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
               {standings.length} equipos
               {hasOfficialData
@@ -1208,19 +1236,23 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             </a>
           </div>
 
-          <div className="bg-white p-2 sm:p-3 max-w-4xl">
-            <DataTable<StandingTeam>
-              data={federationDisplayStandings}
-              columns={columns}
-              sortable
-              compact
-              emptyMessage="No hay datos de clasificación"
-              emptyIcon="fa-solid fa-trophy"
-              rowClassName={(row) =>
-                isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#9f1239]/10 hover:bg-[#9f1239]/15 border-l-4 border-[#9f1239]' : ''
-              }
-              hideToolbar
-            />
+          <div className="grid grid-cols-1 items-start gap-4 bg-white p-2 sm:p-3 xl:grid-cols-[minmax(0,56rem)_minmax(0,1fr)]">
+            <div className="min-w-0">
+              <DataTable<StandingTeam>
+                data={federationDisplayStandings}
+                columns={columns}
+                sortable
+                compact
+                fit
+                emptyMessage="No hay datos de clasificación"
+                emptyIcon="fa-solid fa-trophy"
+                rowClassName={(row) =>
+                  isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#9f1239]/10 hover:bg-[#9f1239]/15 border-l-4 border-[#9f1239]' : ''
+                }
+                hideToolbar
+              />
+            </div>
+            <StandingsCharts rows={federationDisplayStandings} isOwn={name => isMyTeamName(name, highlightedTeamName)} />
           </div>
 
           <p className="border-t border-slate-100 px-5 py-3 text-[11px] font-semibold text-slate-400">
@@ -1293,19 +1325,23 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'clasificacion' && !federationStandingsUrl && standingsKey !== 'escuela-huesca' && (
-        <div className="max-w-4xl">
-          <DataTable<StandingTeam>
-            data={standings}
-            columns={columns}
-            sortable
-            compact
-            emptyMessage="No hay datos de clasificación"
-            emptyIcon="fa-solid fa-trophy"
-            rowClassName={(row) =>
-              isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#9f1239]/10 hover:bg-[#9f1239]/15 border-l-4 border-[#9f1239]' : ''
-            }
-            hideToolbar
-          />
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,56rem)_minmax(0,1fr)]">
+          <div className="min-w-0">
+            <DataTable<StandingTeam>
+              data={standings}
+              columns={columns}
+              sortable
+              compact
+              fit
+              emptyMessage="No hay datos de clasificación"
+              emptyIcon="fa-solid fa-trophy"
+              rowClassName={(row) =>
+                isMyTeamName(row.team, highlightedTeamName) ? 'bg-[#9f1239]/10 hover:bg-[#9f1239]/15 border-l-4 border-[#9f1239]' : ''
+              }
+              hideToolbar
+            />
+          </div>
+          <StandingsCharts rows={standings} isOwn={name => isMyTeamName(name, highlightedTeamName)} />
         </div>
       )}
 
@@ -1381,9 +1417,9 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
           )}
           <div className="mx-auto grid w-full max-w-3xl gap-1.5">
             {resultsData.map((match, index) => {
-              const matchTime = match.hora;
+              const matchTime = formatMatchTime(match.hora);
               const matchLocation = match.campo;
-              const matchDate = match.fecha;
+              const matchDate = formatMatchDate(match.fecha);
               const isPrimaryMatch = isMyTeamName(match.local, highlightedTeamName) || isMyTeamName(match.visitante, highlightedTeamName);
               const previousMatch = index > 0 ? resultsData[index - 1] : undefined;
               const showJornadaHeader = !previousMatch || previousMatch.jornada !== match.jornada;
@@ -1397,8 +1433,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                   )}
                   <div className={`grid gap-2 rounded-lg border bg-white px-2.5 py-1.5 md:grid-cols-[64px_minmax(0,1fr)_96px_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#9f1239]/50 bg-[#9f1239]/10 ring-1 ring-inset ring-[#9f1239]/40' : 'border-slate-100'}`}>
                     <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
-                      <span>J{match.jornada}</span>
-                      <span>{matchDate}</span>
+                      <span className="whitespace-nowrap">J{match.jornada}</span>
+                      <span className="whitespace-nowrap">{matchDate}</span>
                     </div>
                     <div className="flex min-w-0 items-center justify-end gap-2 text-right">
                       <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
@@ -1461,7 +1497,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                 </div>
               </div>
               <span className="text-[11px] font-bold text-slate-500 tabular-nums whitespace-nowrap">{row.partidos !== undefined ? `${row.partidos} PJ` : ''}</span>
-              <span className="justify-self-end text-sm font-black text-emerald-600">{row.goles} goles</span>
+              <span className="justify-self-end text-sm font-black text-emerald-600">{row.goles}</span>
             </div>
           ))}
         </div>

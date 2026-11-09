@@ -22,8 +22,26 @@ interface HorariosPanelProps {
 }
 
 /** Próximos partidos con fecha, hora y campo. */
+const mondayOf = (d: Date) => {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+};
+const weekKey = (d: Date) => {
+  const m = mondayOf(d);
+  return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-${String(m.getDate()).padStart(2, '0')}`;
+};
+const weekLabel = (key: string) => {
+  const s = new Date(`${key}T00:00:00`);
+  const e = new Date(s);
+  e.setDate(e.getDate() + 6);
+  const f = (d: Date) => d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+  return `${f(s)} – ${f(e)}`;
+};
+
 export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo }) => {
-  const rows = useMemo(() => {
+  const [week, setWeek] = useState<string>('ALL');
+  const allRows = useMemo(() => {
     const now = Date.now() - 24 * 3600 * 1000;
 
     // Los partidos del calendario federativo (readonly) vienen sin hora/campo; los partidos
@@ -51,12 +69,57 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [matches, equipo]);
 
-  if (rows.length === 0) {
+  const weeks = useMemo(() => {
+    const set = new Set<string>();
+    allRows.forEach(m => { const d = new Date(m.date); if (!isNaN(d.getTime())) set.add(weekKey(d)); });
+    return Array.from(set).sort();
+  }, [allRows]);
+
+  const weekIdx = weeks.indexOf(week);
+
+  const rows = useMemo(
+    () => (week === 'ALL' ? allRows : allRows.filter(m => { const d = new Date(m.date); return !isNaN(d.getTime()) && weekKey(d) === week; })),
+    [allRows, week],
+  );
+
+  if (allRows.length === 0) {
     return <p className="py-10 text-center text-sm font-semibold text-slate-400">No hay partidos próximos programados</p>;
   }
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2">
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400" htmlFor="horarios-week">Semana</label>
+        <select
+          id="horarios-week"
+          value={week}
+          onChange={e => setWeek(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700"
+        >
+          <option value="ALL">Todas</option>
+          {weeks.map(w => <option key={w} value={w}>{weekLabel(w)}</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={() => weekIdx > 0 && setWeek(weeks[weekIdx - 1])}
+          disabled={weekIdx <= 0}
+          aria-label="Semana anterior"
+          title="Semana anterior"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => weekIdx < weeks.length - 1 && setWeek(weeks[weekIdx + 1])}
+          disabled={weekIdx >= weeks.length - 1}
+          aria-label="Semana siguiente"
+          title="Semana siguiente"
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">

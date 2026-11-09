@@ -3,6 +3,11 @@ import type { Player } from '../types';
 import { fetchMatchTotals, EMPTY_TOTALS, type MatchTotals } from '../utils/matchTotals';
 import { BallIcon } from '@shared/components/MatchIcons';
 import FullscreenChart from '@shared/components/FullscreenChart';
+import { objetivosIndividualesService, type ObjetivoIndividual } from '@shared/services/dataService';
+import { TIPOS_OBJETIVO } from '../../objetivos/types';
+import { eventosCalendarioService } from '@shared/services/dataService';
+import type { ActaPartido } from '@shared/services/rfefActasService';
+import { norm } from '../../competicion/components/CompetitionExtraPanels';
 
 interface SquadAnalyticsProps {
   squad: Player[];
@@ -181,13 +186,13 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <h3 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+      <h3 className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
         <i className="fa-solid fa-ranking-star text-blue-500"></i>Plantilla · ranking de estadísticas
-        <span className="ml-auto font-semibold normal-case tracking-normal text-slate-400">Pulsa una columna para ordenar</span>
+        <span className="ml-auto text-[9px] font-semibold normal-case tracking-normal text-slate-400">Pulsa una columna para ordenar</span>
       </h3>
       <div className="max-h-[70vh] overflow-auto">
-        <table className="w-full min-w-[720px] text-left text-xs">
-          <thead className="sticky top-0 z-10 bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+        <table className="w-full min-w-[720px] text-left text-[10px]">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
             <tr>
               <th className="w-8 px-3 py-2 text-right">#</th>
               {COLUMNS.map(c => (
@@ -207,16 +212,16 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
           <tbody>
             {sorted.map((r, i) => (
               <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-3 py-1.5 text-right tabular-nums text-slate-400">{i + 1}</td>
-                <td className="px-2 py-1.5 font-bold text-slate-700">
+                <td className="px-3 py-1 text-right tabular-nums text-slate-400">{i + 1}</td>
+                <td className="px-2 py-1 font-bold text-slate-700">
                   {r.dorsal !== undefined && r.dorsal !== null && <span className="mr-1.5 text-slate-400 tabular-nums">{r.dorsal}</span>}
                   {r.nombre}
                 </td>
-                <td className="px-2 py-1.5 text-slate-500">{r.posicion || '—'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{r.pj}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{r.tit}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{r.sup}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">
+                <td className="px-2 py-1 text-slate-500">{r.posicion || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.pj}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.tit}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.sup}</td>
+                <td className="px-2 py-1 text-right tabular-nums">
                   <div className="flex items-center justify-end gap-2">
                     <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 sm:block">
                       <div className="h-full rounded-full bg-violet-500" style={{ width: `${(r.min / maxMin) * 100}%` }} />
@@ -224,16 +229,98 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
                     <span className="font-black text-slate-800">{r.min.toLocaleString('es')}</span>
                   </div>
                 </td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{r.minPj || '—'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{r.pct === null ? '—' : `${r.pct}%`}</td>
-                <td className="px-2 py-1.5 text-right font-black tabular-nums">{r.goles || '—'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-amber-500">{r.am || '—'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-red-600">{r.ro || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.minPj || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.pct === null ? '—' : `${r.pct}%`}</td>
+                <td className="px-2 py-1 text-right font-black tabular-nums">{r.goles || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums text-amber-500">{r.am || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums text-red-600">{r.ro || '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </section>
+  );
+};
+
+interface PlayedMatch { id: string; date: string; team: string; jornada: string; acta: ActaPartido }
+
+/** Desglose de partidos jugados (actas federativas) de los equipos mostrados. */
+const PlayedMatchesTable: React.FC<{ squad: Player[] }> = ({ squad }) => {
+  const [rows, setRows] = useState<PlayedMatch[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    eventosCalendarioService
+      .list({ type: 'Partido' }, 'id,date,team,nombre_interno,jornada,acta_fed')
+      .then(data => {
+        if (cancelled) return;
+        setRows((data ?? []).filter((r: any) => r.acta_fed).map((r: any) => ({
+          id: r.id, date: r.date, team: r.nombre_interno || r.team || '', jornada: r.jornada || '', acta: r.acta_fed as ActaPartido,
+        })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      })
+      .catch(err => console.error('No se pudieron cargar los partidos jugados', err));
+    return () => { cancelled = true; };
+  }, []);
+
+  const teams = useMemo(() => new Set(squad.map(p => norm(p.equipo)).filter(Boolean)), [squad]);
+  const matches = useMemo(() => rows.filter(r => teams.size === 0 || teams.has(norm(r.team))), [rows, teams]);
+
+  const view = matches.map(m => {
+    const a = m.acta;
+    const t = norm(m.team);
+    const side: 'home' | 'away' | null = norm(a.homeTeam.name) === t ? 'home' : norm(a.awayTeam.name) === t ? 'away' : null;
+    const own = side === 'away' ? a.awayScore : a.homeScore;
+    const rival = side === 'away' ? a.homeScore : a.awayScore;
+    const result = side === null ? null : own > rival ? 'G' : own === rival ? 'E' : 'P';
+    let ph = 0, pa = 0;
+    const scorers = (a.goals ?? []).map(g => {
+      const gSide = g.homeScore > ph ? 'home' : g.awayScore > pa ? 'away' : null;
+      ph = g.homeScore; pa = g.awayScore;
+      return { text: `${g.player} ${g.minute}'`, mine: gSide === side };
+    }).filter(g => side === null || g.mine).map(g => g.text);
+    return { m, result, scorers };
+  });
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <h3 className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+        <i className="fa-solid fa-flag-checkered text-blue-500"></i>Partidos jugados
+        <span className="ml-auto text-[9px] font-semibold normal-case tracking-normal text-slate-400">{view.length} partidos</span>
+      </h3>
+      {view.length === 0 ? (
+        <p className="px-3 py-3 text-[10px] text-slate-400">Sin partidos jugados con acta</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-[10px]">
+            <thead className="bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
+              <tr>
+                <th className="px-3 py-2">Fecha</th>
+                <th className="px-2 py-2">Jor.</th>
+                <th className="px-2 py-2">Equipo</th>
+                <th className="px-2 py-2 text-right">Local</th>
+                <th className="px-2 py-2 text-center">Res.</th>
+                <th className="px-2 py-2">Visitante</th>
+                <th className="px-2 py-2 text-center">G/E/P</th>
+                <th className="px-2 py-2">Goleadores</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.map(({ m, result, scorers }) => (
+                <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="whitespace-nowrap px-3 py-1 text-slate-500">{m.acta.date || m.date}</td>
+                  <td className="px-2 py-1 text-slate-500">{m.jornada || m.acta.jornada}</td>
+                  <td className="px-2 py-1 font-bold text-slate-700">{m.team}</td>
+                  <td className="px-2 py-1 text-right text-slate-700">{m.acta.homeTeam.name}</td>
+                  <td className="px-2 py-1 text-center"><span className="rounded bg-slate-800 px-1.5 py-0.5 font-black tabular-nums text-white">{m.acta.score}</span></td>
+                  <td className="px-2 py-1 text-slate-700">{m.acta.awayTeam.name}</td>
+                  <td className={`px-2 py-1 text-center font-black ${result === 'G' ? 'text-emerald-600' : result === 'P' ? 'text-red-600' : 'text-amber-500'}`}>{result ?? '—'}</td>
+                  <td className="px-2 py-1 text-slate-500">{scorers.join(', ') || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 };
@@ -246,6 +333,15 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
     fetchMatchTotals()
       .then(m => { if (!cancelled) setMatchTotals(m); })
       .catch(err => console.error('No se pudieron cargar las estadísticas de actas', err));
+    return () => { cancelled = true; };
+  }, []);
+
+  const [objetivos, setObjetivos] = useState<ObjetivoIndividual[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    objetivosIndividualesService.list()
+      .then(d => { if (!cancelled) setObjetivos(d ?? []); })
+      .catch(err => console.error('No se pudieron cargar los objetivos', err));
     return () => { cancelled = true; };
   }, []);
 
@@ -302,6 +398,23 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
       topMinutos: [...squad].filter(p => (p.minutos ?? 0) > 0).sort((a, b) => (b.minutos ?? 0) - (a.minutos ?? 0)).slice(0, RANKING_LIMIT),
     };
   }, [squad]);
+
+  // Objetivos por equipo (nombre del equipo del jugador) y tipología, con semáforo.
+  const objetivosPorEquipo = useMemo(() => {
+    const teamOf = new Map(squad.map(p => [String(p.id), p.equipo || 'Sin equipo']));
+    const rows = new Map<string, Record<string, { total: number; verde: number; naranja: number; rojo: number }>>();
+    objetivos.forEach(o => {
+      const team = teamOf.get(String(o.jugador_id));
+      if (!team) return;
+      const row = rows.get(team) ?? {};
+      const cell = row[o.tipo] ?? { total: 0, verde: 0, naranja: 0, rojo: 0 };
+      cell.total += 1;
+      cell[o.estado] += 1;
+      row[o.tipo] = cell;
+      rows.set(team, row);
+    });
+    return [...rows.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es', { numeric: true }));
+  }, [objetivos, squad]);
 
   if (squad.length === 0) {
     return (
@@ -424,10 +537,9 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
         </section>
       )}
 
-      <SquadStatsTable squad={squad} totals={matchTotals} />
-
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <BarChart title="Demarcaciones" icon="fa-location-dot" data={stats.byPosition} />
+        {stats.ratings.some(r => r.value) && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500">
             <i className="fa-solid fa-star text-blue-500"></i>Valoración media (1-10)
@@ -444,6 +556,7 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
             ))}
           </ul>
         </section>
+        )}
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500">
             <i className="fa-solid fa-trophy text-blue-500"></i>Máximos goleadores
@@ -476,6 +589,62 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
         </section>
         <BarChart title="Estado" icon="fa-heart-pulse" data={stats.byEstado} color="bg-emerald-500" />
       </div>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <h3 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500">
+          <i className="fa-solid fa-bullseye text-blue-500"></i>Objetivos por equipo y tipología
+          <span className="ml-auto flex items-center gap-2 font-semibold normal-case tracking-normal text-slate-400">
+            <span className="h-2 w-2 rounded-full bg-green-500"></span>verde
+            <span className="h-2 w-2 rounded-full bg-orange-500"></span>naranja
+            <span className="h-2 w-2 rounded-full bg-red-500"></span>rojo
+          </span>
+        </h3>
+        {objetivosPorEquipo.length === 0 ? (
+          <p className="px-4 py-3 text-xs text-slate-400">Sin objetivos registrados</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                  <th className="px-4 py-2">Equipo</th>
+                  {TIPOS_OBJETIVO.map(t => <th key={t.value} className="px-2 py-2 text-center">{t.label}</th>)}
+                  <th className="px-4 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {objetivosPorEquipo.map(([equipo, row]) => {
+                  const total = TIPOS_OBJETIVO.reduce((a, t) => a + (row[t.value]?.total ?? 0), 0);
+                  return (
+                    <tr key={equipo} className="border-t border-slate-100">
+                      <td className="px-4 py-2 font-bold text-slate-700">{equipo}</td>
+                      {TIPOS_OBJETIVO.map(t => {
+                        const c = row[t.value];
+                        return (
+                          <td key={t.value} className="px-2 py-2 text-center tabular-nums">
+                            {c ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="font-black text-slate-800">{c.total}</span>
+                                <span className="text-[10px] font-bold">
+                                  <span className="text-green-600">{c.verde}</span>/<span className="text-orange-500">{c.naranja}</span>/<span className="text-red-600">{c.rojo}</span>
+                                </span>
+                              </span>
+                            ) : <span className="text-slate-300">—</span>}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-2 text-right font-black tabular-nums text-slate-800">{total}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <PlayedMatchesTable squad={squad} />
+
+      <SquadStatsTable squad={squad} totals={matchTotals} />
     </div>
   );
 };

@@ -45,7 +45,7 @@ export const ALL_MENU_ITEMS: MenuItemDef[] = [
   // Planificación
   { id: 'SESIONES', labelKey: 'sidebar.sessionsLabel', icon: 'fa-calendar-days', section: 'planning' },
   { id: 'PARTIDOS', labelKey: 'sidebar.matchesLabel', icon: 'fa-futbol', section: 'planning' },
-  { id: 'COMPETICIÓN', labelKey: 'sidebar.competitionLabel', icon: 'fa-ranking-star', section: 'planning' },
+  { id: 'COMPETICIÓN', labelKey: 'sidebar.competitionLabel', icon: 'fa-ranking-star', section: 'management' },
   // Área Médica
   { id: 'MEDICIONES_REGISTRO', labelKey: 'sidebar.medicionesRegistroLabel', icon: 'fa-clipboard-list', section: 'medical' },
   { id: 'MEDICIONES_ANALISIS', labelKey: 'sidebar.medicionesAnalisisLabel', icon: 'fa-chart-line', section: 'medical' },
