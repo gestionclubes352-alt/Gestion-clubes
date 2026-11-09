@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import FullscreenChart from '@shared/components/FullscreenChart';
 import type { Match, MatchReport } from '../types';
 import type { Jugador } from '@shared/services/dataService';
 
@@ -249,7 +250,7 @@ const SystemsDataSummary: React.FC<SystemsDataSummaryProps> = ({ matches, report
           <i className="fa-solid fa-diagram-project"></i> {t('playerStatsSummary.chartSystemMinutesCollective')}
         </h3>
 
-        <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+        <FullscreenChart className="bg-slate-50 rounded-2xl border border-slate-100 p-5 pt-10 space-y-4">
           {collectiveRows.length === 0 ? (
             <p className="text-xs font-bold text-slate-400">{t('playerStatsSummary.noData')}</p>
           ) : (
@@ -265,7 +266,7 @@ const SystemsDataSummary: React.FC<SystemsDataSummaryProps> = ({ matches, report
               ))}
             </div>
           )}
-        </div>
+        </FullscreenChart>
       </div>
 
       {/* Systems by Player */}
@@ -277,8 +278,8 @@ const SystemsDataSummary: React.FC<SystemsDataSummaryProps> = ({ matches, report
           {systemsWithPlayers.map(({ formation, players }) => {
             const maxPlayer = Math.max(1, ...players.map(p => p.minutes));
             return (
-              <div key={formation} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <FullscreenChart key={formation} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
                   <i className="fa-solid fa-users text-sport-primary"></i> {formation}
                 </h4>
                 {players.length === 0 ? (
@@ -296,7 +297,7 @@ const SystemsDataSummary: React.FC<SystemsDataSummaryProps> = ({ matches, report
                     ))}
                   </div>
                 )}
-              </div>
+              </FullscreenChart>
             );
           })}
         </div>
@@ -309,8 +310,8 @@ const SystemsDataSummary: React.FC<SystemsDataSummaryProps> = ({ matches, report
         </h3>
         <div className="space-y-6">
           {matchSystemsData.map(matchData => (
-            <div key={matchData.matchId} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <FullscreenChart key={matchData.matchId} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3 pr-8">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     {new Date(matchData.date).toLocaleDateString()}
@@ -344,7 +345,7 @@ const SystemsDataSummary: React.FC<SystemsDataSummaryProps> = ({ matches, report
                   </div>
                 ))}
               </div>
-            </div>
+            </FullscreenChart>
           ))}
         </div>
       </div>

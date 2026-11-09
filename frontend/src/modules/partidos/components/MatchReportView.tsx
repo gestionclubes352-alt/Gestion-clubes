@@ -6663,18 +6663,18 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           size="sm"
         />
       </div>
-      <div className="px-6 py-6 text-center border-b border-[var(--border-soft)] bg-[var(--surface-0)]">
-        <p className="text-[11px] text-[var(--text-muted)]">
+      <div className="px-6 py-2 text-center border-b border-[var(--border-soft)] bg-[var(--surface-0)]">
+        <p className="text-[10px] leading-tight text-[var(--text-muted)]">
           {[match.competition, match.jornada ? `Jornada ${match.jornada}` : ''].filter(Boolean).join(' · ')}
         </p>
-        <div className="flex items-center justify-center gap-4 mt-3 flex-wrap">
-          <span className="text-sm lg:text-base font-black text-[var(--text-strong)]">{match.localTeam}</span>
-          <span className="text-2xl lg:text-3xl font-black text-[var(--text-strong)] tracking-wider">
+        <div className="flex items-center justify-center gap-3 mt-0.5 flex-wrap">
+          <span className="text-xs lg:text-sm font-black text-[var(--text-strong)]">{match.localTeam}</span>
+          <span className="text-base lg:text-lg leading-none font-black text-[var(--text-strong)] tracking-wider">
             {(match.score || '').replace(/\s*[-:]\s*/, ' - ') || 'vs'}
           </span>
-          <span className="text-sm lg:text-base font-black text-[var(--text-strong)]">{match.visitorTeam}</span>
+          <span className="text-xs lg:text-sm font-black text-[var(--text-strong)]">{match.visitorTeam}</span>
         </div>
-        <p className="text-[11px] text-[var(--text-muted)] mt-3">
+        <p className="text-[10px] leading-tight text-[var(--text-muted)] mt-0.5">
           {[
             match.date ? new Date(match.date).toLocaleDateString('es-ES') : '',
             match.time,

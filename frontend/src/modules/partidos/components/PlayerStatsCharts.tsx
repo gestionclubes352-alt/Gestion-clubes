@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Jugador } from '@shared/services/dataService';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 interface PlayerAggregate {
   playerId: string;
@@ -69,8 +70,8 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+      <FullscreenChart className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
           <i className="fa-solid fa-list-ol text-blue-500"></i> {t('playerStatsSummary.chartStarters')}
         </h4>
         {topStarters.length === 0 ? (
@@ -82,10 +83,10 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }
             ))}
           </div>
         )}
-      </div>
+      </FullscreenChart>
 
-      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+      <FullscreenChart className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
           <i className="fa-solid fa-futbol text-emerald-500"></i> {t('playerStatsSummary.chartGoals')}
         </h4>
         {topGoals.length === 0 ? (
@@ -97,10 +98,10 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }
             ))}
           </div>
         )}
-      </div>
+      </FullscreenChart>
 
-      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+      <FullscreenChart className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
           <i className="fa-solid fa-clock text-sport-primary"></i> {t('playerStatsSummary.chartMinutes')}
         </h4>
         {topMinutes.length === 0 ? (
@@ -112,10 +113,10 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }
             ))}
           </div>
         )}
-      </div>
+      </FullscreenChart>
 
-      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4 lg:col-span-2">
-        <div className="flex items-center justify-between">
+      <FullscreenChart className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4 lg:col-span-2">
+        <div className="flex items-center justify-between pr-8">
           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <i className="fa-solid fa-square text-amber-400"></i> {t('playerStatsSummary.chartCards')}
           </h4>
@@ -133,7 +134,7 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({ rows, squadById }
             ))}
           </div>
         )}
-      </div>
+      </FullscreenChart>
     </div>
   );
 };

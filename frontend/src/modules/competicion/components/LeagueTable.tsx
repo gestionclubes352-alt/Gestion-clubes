@@ -12,8 +12,10 @@ import { useGeminiStandings } from '../hooks/useGeminiStandings';
 import { useTeam } from '@context/TeamContext';
 import { getFederationTeamLogo } from '../data/teamLogos';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import GlobalCompetitionsView, { isOwnTeamInCompetition } from './GlobalCompetitionsView';
-import { HorariosPanel, ActasPanel, SancionesPanel } from './CompetitionExtraPanels';
+import { HorariosPanel, ActasPanel, SancionesPanel, useActas, ownSideOf, norm, type ActaRow } from './CompetitionExtraPanels';
+import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
 
 interface StandingTeam {
   pos: number;
@@ -454,7 +456,13 @@ const FormBadge: React.FC<{ result: 'W' | 'D' | 'L' }> = ({ result }) => {
   );
 };
 
+/** Nombres genéricos de equipos internos del club (p. ej. "Primer Equipo", "Filial", "Juvenil A"). */
+const INTERNAL_TEAM_NAME_REGEX = /^(primer equipo|filial|juvenil [a-d]|cadete [a-d]|infantil [a-d]|alevin [a-d])$/i;
+const isInternalTeamName = (name: string): boolean =>
+  INTERNAL_TEAM_NAME_REGEX.test(name.trim().normalize('NFD').replace(/[̀-ͯ]/g, '')) || HUESCA_OWN_TEAM_REGEX.test(name);
+
 const isMyTeamName = (name: string, myTeam: string): boolean => {
+  if (isInternalTeamName(name)) return true;
   if (!myTeam) return false;
   const normalizedName = normalizeTeam(name);
   const normalizedMyTeam = normalizeTeam(myTeam);
@@ -601,6 +609,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     || normalizeTeam(String(clubId || '')).includes('huesca')
     || normalizeTeam(String(currentTeam?.id || '')).includes('huesca');
   const currentClubId = isHuescaClub ? 'escuela-huesca' : (clubId || currentTeam?.id || '');
+  // Actas federativas disponibles: permiten abrir el acta desde cada fila de Resultados.
+  const { rows: actaRows } = useActas(currentClubId, 'TODOS');
+  const [openActaId, setOpenActaId] = useState<string | null>(null);
+  const openActa = actaRows.find(r => r.id === openActaId) ?? null;
 
   // Extraer sub-equipos disponibles (ej: 'Juvenil A', 'Cadete A') para poder filtrar
   const availableEquipos = useMemo(() => {
@@ -613,7 +625,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         map.set(key, rawEquipo);
       }
     });
-    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'es'));
+    // Mismo orden que en Plantillas (Primer equipo, Juvenil, Cadete, Infantil, Alevín...)
+    return Array.from(map.values()).sort(compareEquipoNames);
   }, [teams]);
   const hasMultipleEquipos = availableEquipos.length > 1;
 
@@ -633,6 +646,21 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     if (selectedEquipo !== 'TODOS' && selectedIsAvailable) return selectedEquipo;
     return availableEquipos.length === 1 ? availableEquipos[0] : 'TODOS';
   }, [availableEquipos, selectedEquipo, hideTeamFilter, myTeamName, currentTeam?.name]);
+
+  // Actas indexadas por jornada + rival: el acta nombra a nuestro equipo por su categoría ("Juvenil A")
+  // y la clasificación federativa por el club ("IPC LA ESCUELA"), así que el rival es la clave fiable.
+  const actaByMatch = useMemo(() => {
+    const map = new Map<string, ActaRow>();
+    actaRows.forEach(r => {
+      if (effectiveSelectedEquipo !== 'TODOS' && normalizeTeamLabel(r.team) !== normalizeTeamLabel(effectiveSelectedEquipo)) return;
+      const j = parseInt(String(r.jornada).replace(/\D/g, ''), 10);
+      const own = ownSideOf(r);
+      if (!Number.isFinite(j) || !own) return;
+      const rival = own === 'home' ? r.acta.awayTeam.name : r.acta.homeTeam.name;
+      map.set(`${j}|${norm(rival)}`, r);
+    });
+    return map;
+  }, [actaRows, effectiveSelectedEquipo]);
 
   // Equipos filtrados por sub-equipo seleccionado
   const filteredTeams = useMemo(() => {
@@ -989,6 +1017,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       <div className="space-y-4">
         {filterAndTabs}
         <GlobalCompetitionsView
+          equipoFilter={selectedEquipo}
           onNavigate={(equipo, section) => {
             setSelectedEquipo(equipo);
             setActiveSection(section);
@@ -1181,7 +1210,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                       points: row.points,
                       form: (row.form || '').split('').filter((c): c is 'W' | 'D' | 'L' => c === 'W' || c === 'D' || c === 'L'),
                     }));
-                    const isOwn = (name: string) => isOwnTeamInCompetition(comp.id, name) || HUESCA_OWN_TEAM_REGEX.test(name);
+                    const isOwn = (name: string) => isOwnTeamInCompetition(comp.id, name) || isInternalTeamName(name);
                     return (
                       <div key={comp.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
@@ -1232,8 +1261,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'horarios' && <HorariosPanel matches={matches} equipo={effectiveSelectedEquipo} />}
-      {activeSection === 'actas' && <ActasPanel clubId={clubId} equipo={effectiveSelectedEquipo} />}
-      {activeSection === 'sanciones' && <SancionesPanel clubId={clubId} equipo={effectiveSelectedEquipo} />}
+      {activeSection === 'actas' && <ActasPanel clubId={currentClubId} equipo={effectiveSelectedEquipo} />}
+      {activeSection === 'sanciones' && <SancionesPanel clubId={currentClubId} equipo={effectiveSelectedEquipo} />}
 
       {activeSection === 'calendario' && federationCalendarUrl && (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
@@ -1258,7 +1287,20 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
         </section>
       )}
 
-      {(activeSection === 'resultados' || activeSection === 'calendario') && (
+      {activeSection === 'resultados' && openActa && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setOpenActaId(null)}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 hover:border-slate-400"
+          >
+            <i className="fa-solid fa-arrow-left"></i>Volver a resultados
+          </button>
+          <ActaMatchSheet acta={openActa.acta} ownSide={ownSideOf(openActa)} />
+        </div>
+      )}
+
+      {(activeSection === 'resultados' || activeSection === 'calendario') && !(activeSection === 'resultados' && openActa) && (
         <div className="space-y-4">
           {federationCalendarData.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
@@ -1316,9 +1358,23 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                     </div>
                     <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-3 md:py-0">
                       {activeSection === 'resultados' ? (
-                        <span className={`rounded-md px-3 py-1.5 text-base font-black uppercase tabular-nums ${match.resultado === 'vs' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-white'}`}>
-                          {match.resultado === 'vs' ? 'Sin jugar' : match.resultado}
-                        </span>
+                        <>
+                          <span className={`rounded-md px-3 py-1.5 text-base font-black uppercase tabular-nums ${match.resultado === 'vs' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-white'}`}>
+                            {match.resultado === 'vs' ? 'Sin jugar' : match.resultado}
+                          </span>
+                          {(() => {
+                            const acta = actaByMatch.get(`${match.jornada}|${norm(match.local)}`) ?? actaByMatch.get(`${match.jornada}|${norm(match.visitante)}`);
+                            return acta ? (
+                              <button
+                                type="button"
+                                onClick={() => setOpenActaId(acta.id)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 transition-colors hover:border-[#c8102e]/50 hover:text-[#c8102e]"
+                              >
+                                <i className="fa-solid fa-clipboard-list text-[9px]"></i>Acta
+                              </button>
+                            ) : null;
+                          })()}
+                        </>
                       ) : (
                         <>
                           <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-black uppercase tabular-nums text-white">{match.resultado}</span>

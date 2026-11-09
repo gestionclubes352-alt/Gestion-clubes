@@ -7,6 +7,8 @@ export type GlobalTargetSection = 'clasificacion' | 'calendario' | 'resultados';
 interface GlobalCompetitionsViewProps {
   /** Navega a la vista de una competición concreta para un sub-equipo del club. */
   onNavigate?: (equipo: string, section: GlobalTargetSection) => void;
+  /** Sub-equipo seleccionado en los chips de filtro; 'TODOS' (o vacío) no filtra. */
+  equipoFilter?: string;
 }
 
 type ModalKind = 'clasificacion' | 'horarios' | 'resultados' | 'calendario' | 'portal';
@@ -65,7 +67,7 @@ const ActionButton: React.FC<{
   disabled?: boolean;
   onClick?: () => void;
 }> = ({ icon, label, tone, disabled, onClick }) => {
-  const cls = `inline-flex h-5 w-7 items-center justify-center rounded-full border bg-white text-[9px] transition-all ${
+  const cls = `inline-flex h-4 w-6 items-center justify-center rounded-full border bg-white text-[8px] transition-all ${
     disabled ? 'cursor-not-allowed border-slate-200 text-slate-300' : `${tone} hover:scale-110 hover:shadow`
   }`;
   return (
@@ -95,6 +97,11 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
   const results = row.compId ? FEDERATION_RESULTS_BY_COMPETITION[row.compId] ?? [] : [];
   const mine = normalizeName(federationClubName(row.clubLabel));
   const isMine = (team: string) => normalizeName(team) === mine;
+  /** Cualquier equipo interno del club en esta competición (no solo el de la fila). */
+  const isInternal = (team: string) =>
+    isMine(team) ||
+    (!!row.compId && isOwnTeamInCompetition(row.compId, team)) ||
+    /^(primerequipo|filial|juvenil[a-d]|cadete[a-d]|infantil[a-d]|alevin[a-d])$/.test(normalizeName(team));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -126,9 +133,9 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
 
   const matchLine = (r: FederationResultRow, key: string) => (
     <div key={key} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-slate-50 px-3 py-1.5 text-xs">
-      <span className={`text-right ${isMine(r[1]) ? 'font-black text-[#c8102e]' : 'text-slate-700'}`}>{r[1]}</span>
+      <span className={`text-right ${isInternal(r[1]) ? 'font-black text-[#8c1d40]' : 'text-slate-700'}`}>{r[1]}</span>
       <span className="min-w-[44px] rounded bg-slate-100 px-2 py-0.5 text-center font-black text-slate-800">{r[3]}</span>
-      <span className={isMine(r[2]) ? 'font-black text-[#c8102e]' : 'text-slate-700'}>{r[2]}</span>
+      <span className={isInternal(r[2]) ? 'font-black text-[#8c1d40]' : 'text-slate-700'}>{r[2]}</span>
     </div>
   );
 
@@ -173,7 +180,7 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
             (standings.length === 0 ? empty('Esta competición no tiene clasificación.') : (
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <tr className="border-b border-slate-100 bg-white text-[9px] font-black uppercase tracking-widest text-slate-400">
                     <th className="px-3 py-2">#</th><th className="px-3 py-2">Equipo</th>
                     <th className="px-2 py-2 text-center">PJ</th><th className="px-2 py-2 text-center">G</th>
                     <th className="px-2 py-2 text-center">E</th><th className="px-2 py-2 text-center">P</th>
@@ -183,9 +190,9 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
                 </thead>
                 <tbody>
                   {standings.map(s => (
-                    <tr key={s.team} className={`border-b border-slate-50 ${isMine(s.team) ? 'bg-[#c8102e]/10 font-black' : ''}`}>
-                      <td className="px-3 py-1.5 text-slate-400">{s.pos}</td>
-                      <td className="px-3 py-1.5 text-slate-800">{s.team}</td>
+                    <tr key={s.team} className={`border-b border-slate-50 ${isInternal(s.team) ? 'bg-[#8c1d40]/15 font-black text-[#8c1d40]' : ''}`}>
+                      <td className={`px-3 py-1.5 ${isInternal(s.team) ? 'border-l-4 border-[#8c1d40] text-[#8c1d40]' : 'text-slate-400'}`}>{s.pos}</td>
+                      <td className={`px-3 py-1.5 ${isInternal(s.team) ? 'text-[#8c1d40]' : 'text-slate-800'}`}>{s.team}</td>
                       <td className="px-2 py-1.5 text-center">{s.played}</td>
                       <td className="px-2 py-1.5 text-center">{s.won}</td>
                       <td className="px-2 py-1.5 text-center">{s.drawn}</td>
@@ -254,7 +261,7 @@ const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; onClose: () 
   );
 };
 
-const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavigate }) => {
+const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavigate, equipoFilter }) => {
   const [collapsed, setCollapsed] = useState<Set<Etapa>>(new Set());
   const [modal, setModal] = useState<{ row: GlobalRow; kind: ModalKind } | null>(null);
 
@@ -266,13 +273,21 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
       return next;
     });
 
+  const visibleRows = useMemo(() => {
+    if (!equipoFilter || equipoFilter === 'TODOS') return GLOBAL_ROWS;
+    const f = normalizeName(equipoFilter);
+    return GLOBAL_ROWS.filter(r => normalizeName(r.equipo) === f);
+  }, [equipoFilter]);
+
   const rowsByEtapa = useMemo(
-    () => ETAPAS.map(etapa => ({ etapa, rows: GLOBAL_ROWS.filter(r => r.etapa === etapa) })),
-    []
+    () => ETAPAS
+      .map(etapa => ({ etapa, rows: visibleRows.filter(r => r.etapa === etapa) }))
+      .filter(g => g.rows.length > 0),
+    [visibleRows]
   );
 
-  const totalEquipos = useMemo(() => new Set(GLOBAL_ROWS.map(r => r.clubLabel)).size, []);
-  const totalCompeticiones = useMemo(() => new Set(GLOBAL_ROWS.map(r => r.competition)).size, []);
+  const totalEquipos = useMemo(() => new Set(visibleRows.map(r => r.clubLabel)).size, [visibleRows]);
+  const totalCompeticiones = useMemo(() => new Set(visibleRows.map(r => r.competition)).size, [visibleRows]);
 
   let counter = 0;
 
@@ -280,17 +295,17 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-5 py-2">
         <div>
-          <p className="text-xs font-black text-slate-800">Temporada 2026-2027 · Federación Aragonesa</p>
-          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <p className="text-[11px] font-black text-slate-800">Temporada 2026-2027 · Federación Aragonesa</p>
+          <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
             {totalCompeticiones} competiciones · {totalEquipos} equipos · Masculino
           </p>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] border-collapse text-left text-[11px] leading-tight">
+        <table className="w-full min-w-[1000px] border-collapse text-left text-[10px] leading-tight">
           <thead>
-            <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <tr className="border-b border-slate-100 bg-white text-[9px] font-black uppercase tracking-widest text-slate-400">
               <th className="px-2 py-1 w-10">#</th>
               <th className="px-2 py-1">Federación</th>
               <th className="px-2 py-1">Género</th>
@@ -317,11 +332,11 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                         type="button"
                         onClick={() => toggle(etapa)}
                         aria-expanded={!isCollapsed}
-                        className="flex items-center gap-2 text-xs font-black text-[#c8102e]"
+                        className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#c8102e]"
                       >
                         <i className={`fa-solid fa-caret-${isCollapsed ? 'right' : 'down'} text-[10px]`}></i>
                         {etapa}
-                        <span className="text-[10px] font-bold text-slate-400">· {rows.length}</span>
+                        <span className="text-[9px] font-bold text-slate-400">· {rows.length}</span>
                       </button>
                     </td>
                   </tr>
@@ -335,12 +350,12 @@ const GlobalCompetitionsView: React.FC<GlobalCompetitionsViewProps> = ({ onNavig
                       return (
                         <tr key={`${row.competition}|${row.clubLabel}`} className="border-b border-slate-50 hover:bg-slate-50/70">
                           <td className="px-2 py-0.5 text-slate-400">{counter}</td>
-                          <td className="px-2 py-0.5 font-semibold text-slate-700">ARAGÓN</td>
+                          <td className="px-2 py-0.5 text-[10px] font-bold text-slate-600">ARAGÓN</td>
                           <td className="px-2 py-0.5 text-slate-600">Masculino</td>
                           <td className="px-2 py-0.5 text-slate-600">{row.etapa}</td>
                           <td className="px-2 py-0.5 text-slate-700">{row.competition}</td>
                           <td className="px-2 py-0.5">
-                            <span className="inline-block rounded-md bg-[#c8102e]/10 px-1.5 py-0 font-black text-slate-900">
+                            <span className="inline-block rounded-md bg-[#c8102e]/10 px-1.5 py-0 text-[10px] font-bold text-slate-800">
                               {row.clubLabel}
                             </span>
                           </td>

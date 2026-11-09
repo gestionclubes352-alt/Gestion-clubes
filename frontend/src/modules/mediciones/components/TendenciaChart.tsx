@@ -1,4 +1,5 @@
 import React from 'react';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 export interface SerieTendencia {
   key: string;
@@ -31,7 +32,7 @@ const TendenciaChart: React.FC<{ dias: string[]; series: SerieTendencia[] }> = (
   };
 
   return (
-    <div className="overflow-x-auto">
+    <FullscreenChart className="overflow-x-auto pt-8">
       <svg viewBox={`0 0 ${ANCHO} ${ALTO + 24}`} className="w-full min-w-[900px]" style={{ maxHeight: 380 }}>
         {[0, 2.5, 5, 7.5, 10].map((v) => (
           <g key={v}>
@@ -71,7 +72,7 @@ const TendenciaChart: React.FC<{ dias: string[]; series: SerieTendencia[] }> = (
           </span>
         ))}
       </div>
-    </div>
+    </FullscreenChart>
   );
 };
 

@@ -4,6 +4,7 @@ import type { Player } from '@modules/plantilla';
 import type { AttendanceStatus, CalendarEvent } from '../types';
 import { getPlayerSessionAttendance, hasRecordedAttendance } from '../utils/attendance';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 interface SessionAttendanceSummaryProps {
   events: CalendarEvent[];
@@ -197,8 +198,8 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="space-y-4">
-                  <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <FullscreenChart className="space-y-4 rounded-xl p-2">
+                  <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
                     <i className="fa-solid fa-ranking-star text-emerald-500"></i> {t('calendarView.topAttendance')}
                   </h6>
                   {chartData.topAttendance.length === 0 ? (
@@ -217,10 +218,10 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
                       ))}
                     </div>
                   )}
-                </div>
+                </FullscreenChart>
 
-                <div className="space-y-4">
-                  <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <FullscreenChart className="space-y-4 rounded-xl p-2">
+                  <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
                     <i className="fa-solid fa-user-minus text-red-500"></i> {t('calendarView.topAbsences')}
                   </h6>
                   {chartData.topAbsences.length === 0 ? (
@@ -238,10 +239,10 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
                       ))}
                     </div>
                   )}
-                </div>
+                </FullscreenChart>
 
-                <div className="space-y-4">
-                  <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <FullscreenChart className="space-y-4 rounded-xl p-2">
+                  <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
                     <i className="fa-solid fa-circle-question text-amber-500"></i> {t('calendarView.absenceReasonsChart')}
                   </h6>
                   {chartData.reasonTotals.length === 0 ? (
@@ -259,7 +260,7 @@ const SessionAttendanceSummary: React.FC<SessionAttendanceSummaryProps> = ({
                       ))}
                     </div>
                   )}
-                </div>
+                </FullscreenChart>
               </div>
             </section>
 

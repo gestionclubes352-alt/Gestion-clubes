@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 interface PlayerStatsChartsProps {
   partidosJugados?: number;
@@ -92,8 +93,8 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
   const estadoLabel = isLesionado ? 'Lesionado' : 'Apto';
 
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4">
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">
+    <FullscreenChart className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4">
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block pr-8">
         <i className="fa-solid fa-chart-simple mr-1"></i>
         {t('editPlayer.statsTitle', 'Estadísticas de participación')}
       </span>
@@ -310,7 +311,7 @@ const PlayerStatsCharts: React.FC<PlayerStatsChartsProps> = ({
           )}
         </div>
       )}
-    </div>
+    </FullscreenChart>
   );
 };
 

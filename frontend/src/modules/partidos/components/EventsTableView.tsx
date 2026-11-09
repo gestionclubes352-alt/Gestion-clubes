@@ -3,6 +3,7 @@ import type { VideoEvent } from '../types';
 import type { Player } from '@modules/plantilla';
 import { useTranslation } from 'react-i18next';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 interface EventsTableViewProps {
   events: VideoEvent[];
@@ -77,8 +78,8 @@ interface StatBarRow {
 const StatBarChart: React.FC<{ title: string; rows: StatBarRow[] }> = ({ title, rows }) => {
   const max = Math.max(1, ...rows.map(r => r.value));
   return (
-    <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">{title}</p>
+    <FullscreenChart className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3 pr-8">{title}</p>
       <div className="space-y-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center gap-2">
@@ -93,7 +94,7 @@ const StatBarChart: React.FC<{ title: string; rows: StatBarRow[] }> = ({ title, 
           </div>
         ))}
       </div>
-    </div>
+    </FullscreenChart>
   );
 };
 

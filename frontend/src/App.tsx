@@ -1301,6 +1301,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [campogramasList, selectedTeams]
   );
 
+  // Si el equipo ya tiene un campograma asignado, se abre directamente el campo
+  // (salvo que el usuario haya vuelto explícitamente al listado).
+  const [campogramaListMode, setCampogramaListMode] = useState(false);
+  const ownCampogramas = useMemo(
+    () => filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name)),
+    [filteredCampogramasList, currentTeam]
+  );
+  useEffect(() => {
+    setCampogramaListMode(false);
+  }, [selectedTeams]);
+  useEffect(() => {
+    if (activeCampograma || campogramaListMode || ownCampogramas.length === 0) return;
+    setActiveCampograma(ownCampogramas[0]);
+  }, [activeCampograma, campogramaListMode, ownCampogramas]);
+
   const filteredEventsList = useMemo(
     () => eventsList.filter(event => eventMatchesSelectedTeams(event, selectedTeams, competitionTeams)),
     [eventsList, selectedTeams, competitionTeams]
@@ -1497,6 +1512,41 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
   const hideShellSidebar = isMatchReportView || isSettingsView || isPizarraView || isPintadoAccionesView || userRole !== 'Jugador';
   const hideShellHeader = isMatchReportView || isSettingsView;
 
+  // Vista de campogramas (reutilizada en la ruta /campograma y en la pestaña de Plantillas)
+  const campogramasView = activeCampograma ? (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
+        <div className="flex items-center gap-4">
+          <button onClick={() => { setCampogramaListMode(true); setActiveCampograma(null); }} className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-sport-primary transition-all"><i className="fa-solid fa-arrow-left"></i></button>
+          <div><h3 className="text-xl md:text-2xl font-black text-sport-primary uppercase tracking-tighter leading-none">{activeCampograma.nombre}</h3><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{activeCampograma.equipo} - {activeCampograma.formacion}</p></div>
+        </div>
+      </div>
+      <TacticalBoard
+        formacion={activeCampograma.formacion}
+        positions={activeCampograma.positions || []}
+        squad={filteredCurrentClubSquadList}
+        notConvocadoIds={[]}
+        onAssignPlayer={handleAssignPlayer}
+        onRemovePlayer={handleRemovePlayer}
+        onChangeFormation={handleChangeFormation}
+        onToggleConvocado={() => {}}
+        onPlayerSelect={(player) => setEditingPlayer(player)}
+        showStarterBadge={false}
+        showConvocadoControl={false}
+        mainTeamName={activeCampograma.equipo}
+        isCampograma={true}
+      />
+    </div>
+  ) : (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <h3 className="text-3xl font-black text-sport-primary uppercase tracking-tighter">{t('app.campogramas')}</h3>
+        <button onClick={() => setShowNewCampModal(true)} className="w-full md:w-auto bg-sport-primary text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl"><i className="fa-solid fa-plus text-lg"></i> {t('app.new')}</button>
+      </div>
+      <CampogramaGrid campogramas={filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name))} onSelect={setActiveCampograma} onDelete={async id => { await db.campogramas.delete(id); await fetchCampogramas(); }} />
+    </div>
+  );
+
   // Margen dinámico según estado del sidebar
   return (
     <div className={`flex min-h-screen w-full overflow-hidden ${isDark ? 'bg-[var(--surface-0)]' : 'bg-white'}`}>
@@ -1584,7 +1634,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlantillasView squad={filteredSquadList} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                <PlantillasView squad={filteredSquadList} campogramas={campogramasView} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
                     if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
                     const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });
@@ -1726,41 +1776,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                   }}
                 />
               } />
-              <Route path="/campograma" element={
-                activeCampograma ? (
-                  <div className="space-y-6 animate-fade-in">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
-                      <div className="flex items-center gap-4">
-                        <button onClick={() => setActiveCampograma(null)} className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-sport-primary transition-all"><i className="fa-solid fa-arrow-left"></i></button>
-                        <div><h3 className="text-xl md:text-2xl font-black text-sport-primary uppercase tracking-tighter leading-none">{activeCampograma.nombre}</h3><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{activeCampograma.equipo} - {activeCampograma.formacion}</p></div>
-                      </div>
-                    </div>
-                    <TacticalBoard
-                      formacion={activeCampograma.formacion}
-                      positions={activeCampograma.positions || []}
-                      squad={filteredCurrentClubSquadList}
-                      notConvocadoIds={[]}
-                      onAssignPlayer={handleAssignPlayer}
-                      onRemovePlayer={handleRemovePlayer}
-                      onChangeFormation={handleChangeFormation}
-                      onToggleConvocado={() => {}}
-                      onPlayerSelect={(player) => setEditingPlayer(player)}
-                      showStarterBadge={false}
-                      showConvocadoControl={false}
-                      mainTeamName={activeCampograma.equipo}
-                      isCampograma={true}
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                      <h3 className="text-3xl font-black text-sport-primary uppercase tracking-tighter">{t('app.campogramas')}</h3>
-                      <button onClick={() => setShowNewCampModal(true)} className="w-full md:w-auto bg-sport-primary text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl"><i className="fa-solid fa-plus text-lg"></i> {t('app.new')}</button>
-                    </div>
-                    <CampogramaGrid campogramas={filteredCampogramasList.filter(c => !currentTeam || c.clubId === currentTeam.id || (!c.clubId && c.club === currentTeam.name))} onSelect={setActiveCampograma} onDelete={async id => { await db.campogramas.delete(id); await fetchCampogramas(); }} />
-                  </div>
-                )
-              } />
+              <Route path="/campograma" element={campogramasView} />
               <Route path="/disenador" element={<ExerciseDesigner squad={filteredSquadList} allSquad={currentClubSquadList} />} />
               <Route path="/pizarra" element={<PizarraTactica ownClubId={currentTeam?.id || ''} />} />
               <Route path="/pintado-acciones" element={<PintadoAcciones ownClubId={currentTeam?.id || ''} />} />

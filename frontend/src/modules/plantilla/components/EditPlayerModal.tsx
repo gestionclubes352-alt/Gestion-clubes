@@ -138,6 +138,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
 
   const attendanceStats = useMemo(() => {
     const pid = String(player.id);
@@ -584,32 +585,27 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   }, [equipos, formData.equipoId, formData.clubId, clubId]);
 
   const exportPlayerProfile = async () => {
-    const target = exportRef.current;
+    const target = activeTab === 'tile' ? tileRef.current : exportRef.current;
     if (!target) return;
 
     const prevMaxHeight = target.style.maxHeight;
     const prevOverflow = target.style.overflow;
-    const scrollEl = target.querySelector('[data-export-scroll]') as HTMLDivElement | null;
-    const prevScrollOverflow = scrollEl?.style.overflow;
-    const prevScrollMaxHeight = scrollEl?.style.maxHeight;
+    const prevFlex = target.style.flex;
     target.style.maxHeight = 'none';
     target.style.overflow = 'visible';
-    if (scrollEl) {
-      scrollEl.style.overflow = 'visible';
-      scrollEl.style.maxHeight = 'none';
-    }
+    target.style.flex = 'none';
 
-    const canvas = await html2canvas(target, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff'
-    });
-
-    target.style.maxHeight = prevMaxHeight;
-    target.style.overflow = prevOverflow;
-    if (scrollEl) {
-      scrollEl.style.overflow = prevScrollOverflow || '';
-      scrollEl.style.maxHeight = prevScrollMaxHeight || '';
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+    } finally {
+      target.style.maxHeight = prevMaxHeight;
+      target.style.overflow = prevOverflow;
+      target.style.flex = prevFlex;
     }
 
     const imgData = canvas.toDataURL('image/png');
@@ -682,14 +678,19 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
 
         {/* === PESTAÑA FICHA JUGADOR: dashboard del jugador === */}
         {activeTab === 'tile' && (
-          <div className="p-3 sm:p-4 overflow-y-auto flex-1">
+          <div className="p-3 sm:p-4 overflow-y-auto flex-1 bg-white" ref={tileRef}>
             <PlayerDashboard
               player={formData}
               photoUrl={preview}
               matchStats={matchStats}
               matchLog={playerActaMatches}
               teamMatches={matchStats.totalTeamMatches}
-              attendance={{ total: attendanceStats.total, attended: attendanceStats.attended }}
+              attendance={{
+                total: attendanceStats.total,
+                attended: attendanceStats.attended,
+                absences: attendanceStats.absences,
+                reasons: attendanceStats.absenceReasons,
+              }}
             />
             <div className="mt-4">
               <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
@@ -1291,15 +1292,16 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-600 bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
               title={isFullscreen ? t('editPlayer.exitFullscreen') : t('editPlayer.fullscreen')}
             >
-              <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
+              <i className={`fa-solid fa-${isFullscreen ? 'compress' : 'expand'} mr-2`}></i>
+              {isFullscreen ? t('editPlayer.exitFullscreen', 'Salir') : t('editPlayer.fullscreen', 'Pantalla completa')}
             </button>
             <button
               type="button"
               onClick={exportPlayerProfile}
-              disabled={activeTab === 'tile'}
-              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 py-4 border border-[var(--accent)]/20 rounded-2xl font-black text-[var(--accent)] bg-white hover:bg-slate-50 transition-colors uppercase text-xs tracking-widest"
             >
-              {t('editPlayer.exportPdf')}
+              <i className="fa-solid fa-file-pdf mr-2"></i>
+              {t('editPlayer.exportPdf', 'Exportar PDF')}
             </button>
           </div>
           {!readOnly && (

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Player } from '../types';
 import { fetchMatchTotals, EMPTY_TOTALS, type MatchTotals } from '../utils/matchTotals';
 import { BallIcon } from '@shared/components/MatchIcons';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 interface SquadAnalyticsProps {
   squad: Player[];
@@ -35,6 +36,26 @@ const countBy = <T,>(items: T[], key: (i: T) => string): Array<{ label: string; 
   return [...map.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
 };
 
+/** Máximo de jugadores permitido por equipo. */
+const MAX_JUGADORES_EQUIPO = 40;
+
+const normalizeText = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Nombres repetidos dentro de un equipo (mismo DNI o mismo nombre normalizado). */
+const findDuplicates = (players: Player[]): string[] => {
+  const seen = new Map<string, Player>();
+  const dups = new Set<string>();
+  players.forEach(p => {
+    const keys = [p.dni ? `dni:${normalizeText(p.dni)}` : '', p.nombre ? `n:${normalizeText(p.nombre)}` : ''].filter(Boolean);
+    keys.forEach(k => {
+      if (seen.has(k) && seen.get(k) !== p) dups.add(p.nombre || String(p.id));
+      else seen.set(k, p);
+    });
+  });
+  return [...dups];
+};
+
 const avg = (nums: number[]) => (nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0);
 
 type BarDatum = { label: string; value: number; pct?: number };
@@ -45,17 +66,17 @@ const BarChart: React.FC<{ title: string; icon: string; data: BarDatum[]; color?
   const max = Math.max(1, ...data.map(d => d.value));
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500">
+    <FullscreenChart as="section" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h3 className="mb-3 flex items-center gap-2 pr-8 text-[11px] font-black uppercase tracking-widest text-slate-500">
         <i className={`fa-solid ${icon} text-blue-500`}></i>{title}
       </h3>
       {data.length === 0 ? (
         <p className="text-xs text-slate-400">Sin datos</p>
       ) : (
-        <ul className="space-y-2">
-          {data.map(d => (
-            <li key={d.label} className="grid grid-cols-[110px_1fr_64px] items-center gap-2 text-xs">
-              <span className="truncate font-semibold text-slate-600" title={d.label}>{d.label}</span>
+        <ul className="grid max-h-72 grid-cols-[max-content_minmax(48px,1fr)_max-content] items-center gap-x-2 gap-y-2 overflow-y-auto pr-1">
+          {data.map((d, i) => (
+            <li key={`${d.label}-${i}`} className="col-span-3 grid grid-cols-subgrid items-center text-xs">
+              <span className="whitespace-nowrap font-semibold text-slate-600" title={d.label}>{d.label}</span>
               <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                 <div className={`h-full rounded-full ${color}`} style={{ width: `${(d.value / max) * 100}%` }} />
               </div>
@@ -66,18 +87,18 @@ const BarChart: React.FC<{ title: string; icon: string; data: BarDatum[]; color?
           ))}
         </ul>
       )}
-    </section>
+    </FullscreenChart>
   );
 };
 
 const Kpi: React.FC<{ label: string; value: string | number; icon: string; tone?: string }> = ({ label, value, icon, tone = 'bg-blue-600' }) => (
-  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-    <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-white ${tone}`}>
+  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs text-white ${tone}`}>
       <i className={`fa-solid ${icon}`}></i>
     </div>
-    <div>
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="text-xl font-black leading-tight text-slate-800 tabular-nums">{value}</p>
+    <div className="min-w-0">
+      <p className="truncate text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-base font-black leading-tight text-slate-800 tabular-nums">{value}</p>
     </div>
   </div>
 );
@@ -269,6 +290,7 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
         .map(([equipo, ps]) => ({
           equipo,
           jugadores: ps.length,
+          duplicados: findDuplicates(ps),
           aptos: ps.filter(p => p.estado === 'APTO').length,
           lesionados: ps.filter(p => p.estado === 'LESIONADO').length,
           edad: avg(ps.map(ageOf).filter((a): a is number => a !== null)),
@@ -307,8 +329,7 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
           return { label: p.nombre, value, pct: b > 0 ? (value / b) * 100 : undefined };
         })
         .filter(d => d.value > 0)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
+        .sort((a, b) => b.value - a.value);
     const sum = (pick: (t: MatchTotals) => number) =>
       squad.reduce((a, p) => a + pick(matchTotals.get(String(p.id)) ?? EMPTY_TOTALS), 0);
     return (
@@ -338,7 +359,7 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
 
   return (
     <div className="space-y-4 px-1 pb-24">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
         <Kpi label="Jugadores" value={stats.total} icon="fa-users" />
         <Kpi label="Aptos" value={stats.aptos} icon="fa-circle-check" tone="bg-emerald-600" />
         <Kpi label="Lesionados" value={stats.lesionados} icon="fa-bandage" tone="bg-red-600" />
@@ -351,6 +372,12 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <h3 className="border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500">Resumen por equipo</h3>
+        {stats.teams.some(t => t.jugadores > MAX_JUGADORES_EQUIPO) && (
+          <div role="alert" className="border-b border-red-100 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">
+            <i className="fa-solid fa-triangle-exclamation mr-1.5"></i>
+            Hay equipos con más de {MAX_JUGADORES_EQUIPO} jugadores: {stats.teams.filter(t => t.jugadores > MAX_JUGADORES_EQUIPO).map(t => `${t.equipo} (+${t.jugadores - MAX_JUGADORES_EQUIPO})`).join(', ')}.
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-xs">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
@@ -366,9 +393,16 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: rawSquad, mode, 
             </thead>
             <tbody>
               {stats.teams.map(t => (
-                <tr key={t.equipo} className="border-t border-slate-100">
+                <tr key={t.equipo} className={`border-t border-slate-100 ${t.jugadores > MAX_JUGADORES_EQUIPO ? 'bg-red-50' : ''}`}>
                   <td className="px-4 py-2 font-bold text-slate-700">{t.equipo}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{t.jugadores}</td>
+                  <td className={`px-2 py-2 text-right tabular-nums ${t.jugadores > MAX_JUGADORES_EQUIPO ? 'font-black text-red-600' : ''}`}>
+                    {t.jugadores}
+                    {t.duplicados.length > 0 && (
+                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700" title={`Posibles duplicados: ${t.duplicados.join(', ')}`}>
+                        {t.duplicados.length} dup.
+                      </span>
+                    )}
+                  </td>
                   <td className="px-2 py-2 text-right tabular-nums text-emerald-600">{t.aptos}</td>
                   <td className="px-2 py-2 text-right tabular-nums text-red-600">{t.lesionados}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{t.edad ? t.edad.toFixed(1) : '—'}</td>

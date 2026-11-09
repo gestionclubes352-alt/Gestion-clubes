@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Jugador } from '@shared/services/dataService';
+import FullscreenChart from '@shared/components/FullscreenChart';
 
 export interface SystemMinutesStats {
   collective: Map<string, number>;
@@ -50,8 +51,8 @@ const SystemMinutesCharts: React.FC<SystemMinutesChartsProps> = ({ stats, squadB
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+      <FullscreenChart className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
           <i className="fa-solid fa-diagram-project text-purple-500"></i> {t('playerStatsSummary.chartSystemMinutesCollective')}
         </h4>
         <div className="space-y-3">
@@ -59,14 +60,14 @@ const SystemMinutesCharts: React.FC<SystemMinutesChartsProps> = ({ stats, squadB
             <BarRow key={row.formation} label={row.formation} value={row.minutes} max={maxCollective} barClassName="bg-purple-500" />
           ))}
         </div>
-      </div>
+      </FullscreenChart>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {systemsWithPlayers.map(({ formation, players }) => {
           const maxPlayer = Math.max(1, ...players.map(p => p.minutes));
           return (
-            <div key={formation} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <FullscreenChart key={formation} className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 pr-8">
                 <i className="fa-solid fa-users text-sport-primary"></i> {t('playerStatsSummary.chartSystemMinutesByPlayer')} — {formation}
               </h4>
               {players.length === 0 ? (
@@ -78,7 +79,7 @@ const SystemMinutesCharts: React.FC<SystemMinutesChartsProps> = ({ stats, squadB
                   ))}
                 </div>
               )}
-            </div>
+            </FullscreenChart>
           );
         })}
       </div>

@@ -287,12 +287,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           cell: info => textCell(info.getValue() ? String(info.getValue()) : ''),
         }
       ),
-      // 9. Club
-      columnHelper.accessor('club', {
-        header: t('playerTable.club', 'Club'),
-        size: 130,
-        cell: info => textCell(info.getValue()),
-      }),
       // 11. Equipo
       columnHelper.accessor('equipo', {
         header: t('playerTable.team'),
@@ -309,12 +303,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           const color = val === 'LESIONADO' ? 'bg-red-100 text-red-700 border-red-200' : val === 'OTRO' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200';
           return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${color}`}>{val}</span>;
         },
-      }),
-      // 17. Campos extendidos (Huesca)
-      columnHelper.accessor('etapa', {
-        header: t('playerTable.stage', 'Etapa'),
-        size: 100,
-        cell: info => textCell(info.getValue()),
       }),
       // Estadísticas de partido (actas)
       ...([

@@ -5,7 +5,7 @@ import type { Match } from '../../partidos/types';
 import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
 import { CardIcon } from '@shared/components/MatchIcons';
 
-const norm = (v?: string | null) =>
+export const norm = (v?: string | null) =>
   (v ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
 const fmtDate = (iso?: string | null) => {
@@ -25,7 +25,27 @@ interface HorariosPanelProps {
 export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo }) => {
   const rows = useMemo(() => {
     const now = Date.now() - 24 * 3600 * 1000;
-    return matches
+
+    // Los partidos del calendario federativo (readonly) vienen sin hora/campo; los partidos
+    // cargados a mano sí los tienen pero con otro formato de jornada ("J8") y nombres.
+    // Se fusionan por equipo interno + día + nº de jornada: se completan hora/campo y se evita el duplicado.
+    const keyOf = (m: Match) =>
+      `${norm(m.nombreInterno || m.team)}|${String(m.date || '').slice(0, 10)}|${String(m.jornada ?? '').replace(/\D/g, '')}`;
+    const manualByKey = new Map<string, Match>();
+    matches.forEach(m => {
+      if (!m.readonly && (m.time || m.location)) manualByKey.set(keyOf(m), m);
+    });
+    const usedKeys = new Set<string>();
+    const merged: Match[] = matches.map(m => {
+      if (!m.readonly) return m;
+      const key = keyOf(m);
+      const manual = manualByKey.get(key);
+      if (!manual) return m;
+      usedKeys.add(key);
+      return { ...m, time: m.time || manual.time, location: m.location || manual.location };
+    }).filter(m => m.readonly || !usedKeys.has(keyOf(m)));
+
+    return merged
       .filter(m => m.status === 'Upcoming' || new Date(m.date).getTime() >= now)
       .filter(m => equipo === 'TODOS' || [m.team, m.nombreInterno, m.localTeam, m.visitorTeam].some(t => norm(t) === norm(equipo)))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -69,7 +89,7 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
 
 // ───────────────────── Actas y Sanciones ─────────────────────
 
-interface ActaRow {
+export interface ActaRow {
   id: string;
   date: string;
   team: string;
@@ -86,7 +106,7 @@ interface ActasDataProps {
 }
 
 /** Carga las actas federativas (eventos_calendario.acta_fed) del club, filtradas por equipo. */
-const useActas = (clubId: string | undefined, equipo: string) => {
+export const useActas = (clubId: string | undefined, equipo: string) => {
   const [rows, setRows] = useState<ActaRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +146,7 @@ const useActas = (clubId: string | undefined, equipo: string) => {
   return { rows: filtered, loading, error };
 };
 
-const ownSideOf = (row: ActaRow): Side | null => {
+export const ownSideOf = (row: ActaRow): Side | null => {
   const t = norm(row.team);
   if (!t) return null;
   if (norm(row.acta.homeTeam.name) === t) return 'home';
@@ -174,9 +194,9 @@ export const ActasPanel: React.FC<ActasDataProps> = ({ clubId, equipo }) => {
           >
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{r.acta.date || fmtDate(r.date)}</span>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{r.jornada}</span>
-            <span className="truncate text-right text-sm font-semibold text-slate-700">{r.acta.homeTeam.name}</span>
+            <span className={`truncate text-right text-sm ${ownSideOf(r) === 'home' ? 'font-black text-[#c8102e]' : 'font-semibold text-slate-700'}`}>{r.acta.homeTeam.name}</span>
             <span className="rounded-md bg-slate-800 px-2 py-1 text-center text-sm font-black tabular-nums text-white">{r.acta.score}</span>
-            <span className="truncate text-sm font-semibold text-slate-700">{r.acta.awayTeam.name}</span>
+            <span className={`truncate text-sm ${ownSideOf(r) === 'away' ? 'font-black text-[#c8102e]' : 'font-semibold text-slate-700'}`}>{r.acta.awayTeam.name}</span>
           </button>
         ))}
       </div>

@@ -25,7 +25,8 @@ const CATEGORY_ORDER = ['Primer equipo', 'Filial', 'Juvenil', 'Cadete', 'Infanti
  * (p.ej. "Cadete C" -> { base: 'Cadete', suffix: 'C' }). */
 const parseEquipoName = (name: string): { base: string; suffix: string } => {
   const trimmed = name.trim();
-  const canonical = (s: string) => CATEGORY_ORDER.find(c => c.toLowerCase() === s.toLowerCase());
+  const strip = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const canonical = (s: string) => CATEGORY_ORDER.find(c => strip(c) === strip(s));
   const match = trimmed.match(/^(.+?)\s+([A-Za-z])$/);
   const matchedBase = match ? canonical(match[1]) : undefined;
   if (match && matchedBase) {

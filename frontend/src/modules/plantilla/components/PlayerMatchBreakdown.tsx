@@ -6,6 +6,7 @@ import type { Club } from '@modules/clubes/types';
 import { computeMatchStats, MATCH_DURATION_MINUTES } from '../../partidos/components/PlayerStatsSummary';
 import { db } from '@shared/services/dataService';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import FullscreenChart from '@shared/components/FullscreenChart';
 import { BallIcon, CardIcon, StatCount } from '@shared/components/MatchIcons';
 
 interface PlayerMatchBreakdownProps {
@@ -252,8 +253,8 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
         </div>
       ) : (
         <div className="space-y-4">
-          <div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">
+          <FullscreenChart>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block pr-8">
               {t('editPlayer.minutesByCompetition', 'Minutos por competición')}
             </span>
             <div className="space-y-2">
@@ -272,10 +273,10 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                 </div>
               ))}
             </div>
-          </div>
+          </FullscreenChart>
 
-          <div className="pt-3 border-t border-slate-200">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">
+          <FullscreenChart className="pt-3 border-t border-slate-200">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block pr-8">
               {t('editPlayer.minutesByMatch', 'Minutos por partido')}
             </span>
             <div className="space-y-3">
@@ -305,7 +306,7 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                 {t('editPlayer.substitute', 'Suplente')}
               </span>
             </div>
-          </div>
+          </FullscreenChart>
         </div>
       )}
     </div>

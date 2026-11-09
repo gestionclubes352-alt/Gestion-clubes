@@ -26,7 +26,8 @@ interface PlayerDashboardProps {
   matchLog?: PlayerMatchLogRow[];
   /** Total de partidos con acta del equipo */
   teamMatches?: number;
-  attendance: { total: number; attended: number };
+  /** Asistencia a entrenamientos: sesiones registradas, ausencias y motivos */
+  attendance?: { total: number; attended: number; absences: number; reasons: Record<string, number> };
 }
 
 const isImageUrl = (value?: string | null): value is string =>
@@ -91,7 +92,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
     };
   }, [matchLog, teamMatches]);
   const age = calculatePlayerAge(player.fechaNacimiento);
-  const attendancePct = attendance.total > 0 ? Math.round((attendance.attended / attendance.total) * 100) : null;
+  const convocadoPct = teamMatches && teamMatches > 0 ? Math.min(100, Math.round((totals.convocado / teamMatches) * 100)) : null;
   const estado = player.estado || 'APTO';
   const subtitle = [player.posicion, player.otraDemarcacion, player.equipo].filter(Boolean).join(' · ');
 
@@ -137,11 +138,41 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
         <Kpi label="Titular" value={matchStats.titular} />
         <Kpi label="Goles" value={matchStats.goles} />
         <Kpi
-          label="Asistencia"
-          value={attendancePct === null ? '–' : `${attendancePct}%`}
-          hint={attendance.total > 0 ? `${attendance.attended}/${attendance.total} sesiones` : undefined}
+          label="Convocatorias"
+          value={convocadoPct === null ? '–' : `${convocadoPct}%`}
+          hint={teamMatches && teamMatches > 0 ? `${totals.convocado}/${teamMatches} partidos` : undefined}
         />
       </div>
+
+      {/* Entrenamientos: sesiones, ausencias y motivos */}
+      <DashboardWidget title="Entrenamientos" icon="fa-clipboard-check">
+        {!attendance || attendance.total === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-2">Sin sesiones de entrenamiento registradas</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <MiniStat label="Sesiones" value={attendance.total} />
+              <MiniStat label="Asistidas" value={attendance.attended} />
+              <MiniStat label="Ausencias" value={attendance.absences} tone="red" />
+            </div>
+            {attendance.absences > 0 && (
+              <div className="mt-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Motivos de ausencia</p>
+                <ul className="flex flex-col gap-1.5">
+                  {Object.entries(attendance.reasons)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([reason, count]) => (
+                      <li key={reason} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+                        <span className="font-semibold text-slate-700">{reason}</span>
+                        <span className="font-black text-red-600 tabular-nums">{count}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+      </DashboardWidget>
 
       {/* Participación acumulada en partidos */}
       <DashboardWidget title="Participación en partidos" icon="fa-futbol">
