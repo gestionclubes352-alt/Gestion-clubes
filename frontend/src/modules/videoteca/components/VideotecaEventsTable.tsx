@@ -253,7 +253,7 @@ const VideotecaEventsTable: React.FC<VideotecaEventsTableProps> = ({
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {event.matchDate ? new Date(event.matchDate).toLocaleDateString('es-ES') : '-'}
                   </td>
-                  <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400">
+                  <td className={`px-3 sm:px-5 py-2.5 sm:py-3 text-xs ${event.nombreInterno ? 'own-team-name' : 'text-slate-600 dark:text-slate-400'}`}>
                     {event.nombreInterno || '-'}
                   </td>
                   <td className="px-3 sm:px-5 py-2.5 sm:py-3 text-xs text-slate-600 dark:text-slate-400">

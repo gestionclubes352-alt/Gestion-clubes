@@ -99,10 +99,8 @@ export interface ActaPartido {
 // CONSTANTES
 // ============================================================================
 
-/** En desarrollo usamos proxy de Vite para evitar CORS */
-const RFEF_BASE = import.meta.env.DEV
-  ? '/api/rfef/pnfg/NPcd'
-  : 'https://resultados.rfef.es/pnfg/NPcd';
+/** Siempre vía proxy same-origin (Vite en dev, rewrite de Vercel en prod) para evitar CORS */
+const RFEF_BASE = '/api/rfef/pnfg/NPcd';
 
 const RFEF_IMG_BASE = 'https://rfef.filesnovanet.es';
 

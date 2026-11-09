@@ -34,3 +34,17 @@ export interface LeagueStanding {
   goalDifference: number;
   points: number;
 }
+
+export type OfficialStandingRow = {
+  pos: number;
+  team: string;
+  points: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  /** Últimos resultados, del más reciente al más antiguo, ej. 'WDLLW'. */
+  form?: string;
+};

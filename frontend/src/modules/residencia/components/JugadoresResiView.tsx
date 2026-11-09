@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { ResidenciaJugador, ResidenciaHabitacion, Jugador, Equipo } from '@shared/services/dataService';
 import { residenciaJugadoresService, residenciaHabitacionesService, plantillasService, equiposService } from '@shared/services';
 import { useAuth } from '@context/AuthContext';
+import { useTeamFilter } from '@context/TeamFilterContext';
 import type { ResidenciaJugadorFormData } from '../types';
 import QrComedorModal from './QrComedorModal';
+import { exportResidentesYObjetivosExcel } from '../utils/exportResidentesExcel';
 
 const calcularAnyos = (fechaNacimiento?: string): number | null => {
   if (!fechaNacimiento) return null;
@@ -234,6 +236,7 @@ const EditJugadorResiModal: React.FC<{
 
 const JugadoresResiView: React.FC = () => {
   const { perfil } = useAuth();
+  const { selectedTeams } = useTeamFilter();
   const [registros, setRegistros] = useState<ResidenciaJugador[]>([]);
   const [habitaciones, setHabitaciones] = useState<ResidenciaHabitacion[]>([]);
   const [jugadores, setJugadores] = useState<Jugador[]>([]);
@@ -246,6 +249,7 @@ const JugadoresResiView: React.FC = () => {
   const [editingJugador, setEditingJugador] = useState<Jugador | null>(null);
   const [qrJugador, setQrJugador] = useState<Jugador | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -320,6 +324,11 @@ const JugadoresResiView: React.FC = () => {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = jugadores;
+    // Filtro global de equipos de la cabecera
+    if (selectedTeams.length) {
+      const sel = new Set(selectedTeams.map(t => t.trim().toLowerCase()));
+      list = list.filter(j => sel.has((equipos.find(e => String(e.id) === String(j.equipo_id))?.nombre || '').trim().toLowerCase()));
+    }
     if (q) {
       list = list.filter(j =>
         j.nombre.toLowerCase().includes(q) ||
@@ -343,7 +352,7 @@ const JugadoresResiView: React.FC = () => {
       });
     }
     return [...list].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [jugadores, registros, habitaciones, search, filtroEquipo, filtroPlanta, filtroHabitacion]);
+  }, [jugadores, equipos, selectedTeams, registros, habitaciones, search, filtroEquipo, filtroPlanta, filtroHabitacion]);
 
   const handleSave = async (data: ResidenciaJugadorFormData) => {
     if (data.id) {
@@ -367,6 +376,19 @@ const JugadoresResiView: React.FC = () => {
     }
     await loadData();
     setEditingJugador(null);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      setError(null);
+      await exportResidentesYObjetivosExcel();
+    } catch (err) {
+      console.error('Error exportando Excel:', err);
+      setError('No se pudo generar el Excel');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -393,7 +415,16 @@ const JugadoresResiView: React.FC = () => {
         <h2 className="text-2xl md:text-3xl font-black text-[var(--text-strong)] uppercase tracking-tighter text-center">
           JUGADORES RESIDENTES
         </h2>
-        <div className="flex-1 flex justify-end" />
+        <div className="flex-1 flex justify-end">
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting}
+            className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors"
+          >
+            <i className={`fa-solid ${exporting ? 'fa-spinner animate-spin' : 'fa-file-excel'}`}></i>
+            Excel
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">

@@ -25,7 +25,7 @@ import { HUESCA_CADETE_A_PLAYERS, HUESCA_JUVENIL_A_PLAYERS } from './data/demo';
 import { INITIAL_COMPETITION_TEAMS, HUESCA_CLUBES, HUESCA_JUVENIL_2627_COMPETITION_TEAMS } from '@shared/constants';
 
 // Modules - Plantilla
-import { PlayerTable, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
+import { PlayerTable, PlantillasView, EditPlayerModal, BulkPhotoUpload } from '@modules/plantilla';
 import type { Player } from '@modules/plantilla';
 
 // Modules - Staff
@@ -1584,7 +1584,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                <PlantillasView squad={filteredSquadList} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
                     if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
                     const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });
@@ -1601,7 +1601,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
                     console.error('✗ Error guardando jugador:', msg);
                     alert(`Error al guardar: ${msg}`);
                   }
-                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchSquad(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} />
+                }} onDelete={async id => { try { await plantillasService.remove(id); await fetchSquad(); } catch (e) { alert(e instanceof Error ? e.message : 'Error al eliminar el jugador'); } }} onBulkPhotoUpload={() => setShowBulkPhotoUpload(true)} /></PlantillasView>
               } />
               <Route path="/staff" element={
                 isLoadingExtra ? <LoadingScreen /> :

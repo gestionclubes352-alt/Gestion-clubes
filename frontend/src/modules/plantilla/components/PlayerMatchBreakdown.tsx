@@ -6,6 +6,7 @@ import type { Club } from '@modules/clubes/types';
 import { computeMatchStats, MATCH_DURATION_MINUTES } from '../../partidos/components/PlayerStatsSummary';
 import { db } from '@shared/services/dataService';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import { BallIcon, CardIcon, StatCount } from '@shared/components/MatchIcons';
 
 interface PlayerMatchBreakdownProps {
   playerId: string;
@@ -208,9 +209,9 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                       <th className="px-3 py-2 text-center">{t('matchReport.generalData.formation', 'Sistema')}</th>
                       <th className="px-3 py-2 text-center">{t('editPlayer.minutes')}</th>
                       <th className="px-3 py-2 text-center">{t('editPlayer.starter')}</th>
-                      <th className="px-3 py-2 text-center">{t('players.goals')}</th>
-                      <th className="px-3 py-2 text-center">{t('playerStatsSummary.yellowCards')}</th>
-                      <th className="px-3 py-2 text-center">{t('playerStatsSummary.redCards')}</th>
+                      <th className="px-3 py-2 text-center"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />{t('players.goals')}</span></th>
+                      <th className="px-3 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />{t('playerStatsSummary.yellowCards')}</span></th>
+                      <th className="px-3 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="red" className="w-2 h-3" />{t('playerStatsSummary.redCards')}</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -237,9 +238,9 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                           <td className="px-3 py-2 text-center font-semibold">
                             {row.isStarter ? t('editPlayer.starter') : t('editPlayer.substitute', 'Suplente')}
                           </td>
-                          <td className="px-3 py-2 text-center font-semibold">{row.goals}</td>
-                          <td className="px-3 py-2 text-center font-semibold">{row.yellowCards}</td>
-                          <td className="px-3 py-2 text-center font-semibold">{row.redCards}</td>
+                          <td className="px-3 py-2 text-center font-semibold"><StatCount kind="goal" count={row.goals} /></td>
+                          <td className="px-3 py-2 text-center font-semibold"><StatCount kind="yellow" count={row.yellowCards} /></td>
+                          <td className="px-3 py-2 text-center font-semibold"><StatCount kind="red" count={row.redCards} /></td>
                         </tr>
                       );
                     })}

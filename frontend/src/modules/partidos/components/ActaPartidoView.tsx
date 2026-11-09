@@ -11,6 +11,7 @@ import {
   type ActaPartido,
 } from '@shared/services/rfefActasService';
 import SearchableSelect from '@shared/components/SearchableSelect';
+import { BallIcon, CardIcon, SubInIcon, SubOutIcon } from '@shared/components/MatchIcons';
 
 // ============================================================================
 // SUB-COMPONENTES
@@ -121,8 +122,8 @@ const TeamLineup: React.FC<{
           {team.substitutions.map((s, i) => (
             <div key={i} className="flex items-center gap-2 py-1 px-2 rounded-lg bg-white/[0.02] text-[10px]">
               <span className="text-white/30 font-mono">{s.minute}</span>
-              <span className="text-green-400/70"><i className="fa-solid fa-arrow-up text-[8px] mr-1"></i>{s.playerIn}</span>
-              <span className="text-red-400/50"><i className="fa-solid fa-arrow-down text-[8px] mr-1"></i>{s.playerOut}</span>
+              <span className="text-green-400/90"><SubInIcon className="w-3 h-3 mr-1" />{s.playerIn}</span>
+              <span className="text-red-400/70"><SubOutIcon className="w-3 h-3 mr-1" />{s.playerOut}</span>
             </div>
           ))}
         </div>
@@ -138,7 +139,8 @@ const TeamLineup: React.FC<{
         <div className="space-y-1">
           {team.cards.map((c, i) => (
             <div key={i} className="flex items-center gap-2 py-1 px-2 text-[10px]">
-              <span className={`w-3 h-4 rounded-sm ${c.type === 'yellow' ? 'bg-yellow-400' : 'bg-red-500'}`}></span>
+              <CardIcon kind={c.type === 'yellow' ? 'yellow' : 'red'} className="w-3 h-4" />
+              {c.minute !== undefined && <span className="text-white/30 font-mono">{c.minute}'</span>}
               <span className="text-white/60">{c.player}</span>
             </div>
           ))}
@@ -424,7 +426,8 @@ const ActaPartidoView: React.FC = () => {
             <div className="space-y-2">
               {actaData.goals.map((g, i) => (
                 <div key={i} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-white/[0.02]">
-                  <span className="text-[10px] font-mono font-bold text-white/40 w-10">{g.minute}</span>
+                  <span className="text-[10px] font-mono font-bold text-white/40 w-10">{g.minute}'</span>
+                  <BallIcon className="w-4 h-4" />
                   <span className="text-[11px] font-bold text-white/70">{g.player}</span>
                   <span className="ml-auto text-[10px] font-black text-white/30">{g.homeScore} - {g.awayScore}</span>
                 </div>

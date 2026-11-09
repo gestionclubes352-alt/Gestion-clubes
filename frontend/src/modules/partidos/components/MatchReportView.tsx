@@ -8,10 +8,12 @@ import type { CompetitionTeam } from '@modules/competicion';
 import type { Campograma } from '@modules/entrenamientos';
 import { competicionService, competicionEquiposService } from '@modules/competicion';
 import type { AbpItem, MatchReport, VideoEvent, MatchSubstitution, MatchFormationChange, MatchGoal, MatchCard } from '../types';
-import { db, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService, pizarrasService } from '@shared/services/dataService';
+import { db, eventosCalendarioService, equiposService, clubesService, plantillasService, localidadesService, instalacionesCamposService, pizarrasService } from '@shared/services/dataService';
 import type { Equipo, Jugador, Club, Competicion, Localidad, InstalacionCampo, PizarraTactica as PizarraTacticaRow } from '@shared/services/dataService';
 import { TacticalBoard } from '@modules/tactica';
 import ActaPartidoView from './ActaPartidoView';
+import ActaMatchSheet from './ActaMatchSheet';
+import ConvocatoriaSheet from './ConvocatoriaSheet';
 import EquipoSelect from '@shared/components/EquipoSelect';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemMinutesCharts from './SystemMinutesCharts';
@@ -31,6 +33,9 @@ import EventsTableView from './EventsTableView';
 import MatchEventsRegistry from './MatchEventsRegistry';
 import VideoPlayer from '@shared/components/VideoPlayer';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import { BallIcon, CardIcon, SubInIcon, SubOutIcon, GoalIcons, SubChange } from '@shared/components/MatchIcons';
+import type { ActaPartido } from '@shared/services/rfefActasService';
+import { applyActaToReport, detectOwnSide, type ActaApplySummary } from '../utils/actaMapping';
 
 type AbpSection =
   | 'abpOffCorners' | 'abpOffLateralFouls' | 'abpDefCorners' | 'abpDefLateralFouls' | 'abpDefFrontalFouls'
@@ -219,7 +224,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(() => {
     const tabFromUrl = new URLSearchParams(window.location.search).get('tab');
-    return tabFromUrl || 'DATOS GENERALES';
+    return tabFromUrl && ['INFO PARTIDO', 'PLAN DE PARTIDO', 'CONVOCATORIA', 'ACTA', 'DATOS PARTIDO', 'EVENTOS', 'VIDEOTECA'].includes(tabFromUrl) ? tabFromUrl : 'PLAN DE PARTIDO';
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -227,6 +232,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [squad, setSquad] = useState<Player[]>([]);
   const [squadLoaded, setSquadLoaded] = useState(false);
   const [showChartsInDatosPartido, setShowChartsInDatosPartido] = useState(false);
+  const [actaFull, setActaFull] = useState<ActaPartido | null>(null);
+  const actaAutoTried = useRef(false);
+  const actaAutoApplied = useRef(false);
+  const [reportLoaded, setReportLoaded] = useState(false);
+  const [actaState, setActaState] = useState<{ loading: boolean; error: string | null; summary: ActaApplySummary | null }>({ loading: false, error: null, summary: null });
 
   // Formulario "Añadir cambio" en la pestaña Eventos
   const [subForm, setSubForm] = useState({ minute: '', playerOutId: '', playerInId: '' });
@@ -1133,6 +1143,8 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
         }
       } catch (e) {
         console.error('Error loading match report:', e);
+      } finally {
+        setReportLoaded(true);
       }
     };
     loadData();
@@ -4489,6 +4501,218 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     }
   };
 
+  /** Acta federativa del partido, volcada desde la BD federativa (Docker) en eventos_calendario.acta_fed. */
+  const loadActaFromDb = async (): Promise<ActaPartido | null> => {
+    const row = await eventosCalendarioService.getById(match.id);
+    return (row as { acta_fed?: ActaPartido | null } | null)?.acta_fed ?? null;
+  };
+
+  /** Vuelca la alineación, cambios, goles y tarjetas del acta en el informe del partido. */
+  const handleApplyActa = async (auto = false) => {
+    setActaState({ loading: true, error: null, summary: null });
+    try {
+      if (squad.length === 0) throw new Error('La plantilla aún no está cargada.');
+      const acta = actaFull ?? await loadActaFromDb();
+      if (!acta) throw new Error('Este partido aún no tiene acta en la base de datos federativa.');
+      setActaFull(acta);
+      const side = detectOwnSide(acta, squad);
+      if (!side) throw new Error('No se ha podido determinar cuál de los equipos del acta es el tuyo (ningún jugador de la plantilla coincide).');
+
+      const result = applyActaToReport(acta, side, squad, report, getInitialPositions(report.formation || '1-4-3-3'), ownEquipoId || undefined);
+      if ('error' in result) throw new Error(result.error);
+
+      const hasData = (report.substitutions?.length || 0) > 0 || (report.matchGoals?.length || 0) > 0
+        || (report.lineupPositions || []).some(p => (p.playerIds || []).length > 0);
+      // Aplicación automática: nunca pisa datos ya registrados ni pide confirmación
+      if (auto && hasData) {
+        setActaState({ loading: false, error: null, summary: null });
+        return;
+      }
+      if (!auto && hasData && !confirm('Ya hay alineación, cambios o goles registrados. ¿Sustituirlos por los datos del acta?')) {
+        setActaState({ loading: false, error: null, summary: null });
+        return;
+      }
+
+      setReport(result.next);
+      await persistReport(result.next);
+      setActaState({ loading: false, error: null, summary: result.summary });
+    } catch (e) {
+      // En modo automático los fallos (sin acta, sin emparejar…) no se muestran: el botón manual los explica
+      setActaState({ loading: false, error: auto ? null : (e instanceof Error ? e.message : 'Error al importar el acta'), summary: null });
+    }
+  };
+
+  // Al abrir el partido, si el informe está vacío y hay acta federativa, se vuelca sola (sin pisar datos existentes)
+  useEffect(() => {
+    if (actaAutoApplied.current || !reportLoaded || !squadLoaded || squad.length === 0 || !ownEquipoId) return;
+    actaAutoApplied.current = true;
+    handleApplyActa(true);
+  }, [reportLoaded, squadLoaded, squad, ownEquipoId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Duración configurada de la competición del partido (Configuración > Competiciones)
+  const [configuredMinutes, setConfiguredMinutes] = useState<number | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'ACTA' || !match.competition) return;
+    const clean = (v: string) => v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^copa\s*-\s*/, '').replace(/\s+/g, ' ').trim();
+    const target = clean(match.competition);
+    competicionService.listCompeticiones().then(list => {
+      const found = list.find(c => clean(c.nombre) === target)
+        || list.find(c => { const n = clean(c.nombre); return n.length > 5 && (target.includes(n) || n.includes(target)); });
+      const total = found ? (found.total_minutos || found.numero_partes * found.minutos_por_parte) : 0;
+      setConfiguredMinutes(total > 0 ? total : null);
+    }).catch(() => setConfiguredMinutes(null));
+  }, [activeTab, match.competition]);
+
+  // Al abrir la pestaña ACTA se carga el acta de la BD federativa automáticamente (solo lectura)
+  useEffect(() => {
+    if ((activeTab !== 'ACTA' && activeTab !== 'CONVOCATORIA') || actaFull || actaAutoTried.current) return;
+    actaAutoTried.current = true;
+    setActaState(s => ({ ...s, loading: true, error: null }));
+    loadActaFromDb()
+      .then(a => { if (a) setActaFull(a); setActaState(s => ({ ...s, loading: false })); })
+      .catch(e => setActaState(s => ({ ...s, loading: false, error: e instanceof Error ? e.message : 'No se pudo cargar el acta' })));
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Fija (o quita) el motivo de ausencia de un jugador no convocado sin tocar la alineación. */
+  const handleChangeAbsenceReason = (playerId: string | number, reason: string) => {
+    const key = String(playerId);
+    const reasons = { ...(report.notConvocadoReasons || {}) };
+    if (reason) reasons[key] = reason; else delete reasons[key];
+    const ids = report.notConvocadoIds || [];
+    const next = {
+      ...report,
+      notConvocadoReasons: reasons,
+      notConvocadoIds: ids.some(id => samePlayerId(id, playerId)) ? ids : [...ids, playerId],
+    };
+    setReport(next);
+    persistReport(next);
+  };
+
+  const renderConvocatoriaCard = () => {
+    // Solo jugadores del equipo del partido (la plantilla trae también otras categorías)
+    const ownSquad = squad.filter(p => !ownEquipoId || (p as { equipoId?: string | number }).equipoId === undefined || String((p as { equipoId?: string | number }).equipoId) === String(ownEquipoId));
+    return (
+      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+        <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2 border-b border-[var(--border-soft)] pb-4">
+          <i className="fa-solid fa-users-rectangle text-red-500"></i> Convocatoria
+        </div>
+        <ConvocatoriaSheet
+          acta={actaFull}
+          ownSide={actaFull ? detectOwnSide(actaFull, squad) : null}
+          squad={ownSquad}
+          notConvocadoReasons={report.notConvocadoReasons || {}}
+          canEdit
+          onChangeReason={handleChangeAbsenceReason}
+          loading={actaState.loading}
+        />
+      </div>
+    );
+  };
+
+  const renderActaCard = () => {
+    const nameOf = (id?: string | number) => {
+      const p = id === undefined ? undefined : squad.find(s => samePlayerId(s.id, id));
+      return p ? `${p.dorsal ?? '-'} · ${p.apodo || p.nombre}` : '—';
+    };
+    const starterIds = (report.lineupPositions || []).flatMap(p => p.playerIds || []);
+    const benchIds = report.substituteIds || [];
+    const subs = report.substitutions || [];
+    const goals = report.matchGoals || [];
+    const cards = report.matchCards || [];
+    const hasActaData = starterIds.length > 0 || subs.length > 0 || goals.length > 0 || benchIds.length > 0;
+    const sectionTitle = 'text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest mb-2';
+
+    return (
+      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-soft)] pb-4">
+          <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2">
+            <i className="fa-solid fa-file-lines text-red-500"></i> Acta del partido
+          </div>
+          {actaFull && (
+            <button
+              onClick={() => handleApplyActa()}
+              disabled={actaState.loading}
+              title="Copia alineación, cambios, goles y tarjetas del acta al informe del partido"
+              className="shrink-0 bg-sport-primary hover:bg-sport-primary-dark disabled:opacity-60 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+            >
+              <i className={`fa-solid ${actaState.loading ? 'fa-spinner fa-spin' : 'fa-clipboard-check'}`}></i> Aplicar al informe
+            </button>
+          )}
+          {actaState.loading && !actaFull && (
+            <span className="text-xs font-bold text-[var(--text-muted)]"><i className="fa-solid fa-spinner fa-spin mr-2"></i>Cargando acta…</span>
+          )}
+        </div>
+
+        {actaState.error && (
+          <p className="text-red-500 text-xs font-bold"><i className="fa-solid fa-circle-exclamation mr-2"></i>{actaState.error}</p>
+        )}
+        {actaState.summary && (
+          <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 space-y-1">
+            <p><i className="fa-solid fa-circle-check mr-2"></i>Acta importada: {actaState.summary.starters} titulares, {actaState.summary.bench} suplentes, {actaState.summary.notConvocado} no convocados, {actaState.summary.substitutions} cambios, {actaState.summary.goalsFor} goles a favor, {actaState.summary.goalsAgainst} en contra, {actaState.summary.cards} tarjetas.</p>
+            {actaState.summary.unmatched.length > 0 && (
+              <p className="text-amber-600 dark:text-amber-400"><i className="fa-solid fa-triangle-exclamation mr-2"></i>Sin emparejar con la plantilla: {actaState.summary.unmatched.join(', ')}</p>
+            )}
+          </div>
+        )}
+
+        {actaFull ? (
+          <ActaMatchSheet key={configuredMinutes ?? 'auto'} acta={actaFull} ownSide={detectOwnSide(actaFull, squad)} configuredMinutes={configuredMinutes} />
+        ) : !hasActaData ? (
+          <p className="text-xs text-[var(--text-muted)]">{actaState.loading ? 'Cargando acta…' : 'Este partido aún no tiene acta en la base de datos federativa (se publica cuando se disputa y se cierra).'}</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-[var(--text)]">
+            <div>
+              <div className={sectionTitle}>Titulares ({starterIds.length})</div>
+              <ul className="space-y-1 font-bold">{starterIds.map(id => <li key={String(id)}>{nameOf(id)}</li>)}</ul>
+            </div>
+            <div>
+              <div className={sectionTitle}>Suplentes ({benchIds.length})</div>
+              <ul className="space-y-1 font-bold">{benchIds.map(id => <li key={String(id)}>{nameOf(id)}</li>)}</ul>
+              <div className={`${sectionTitle} mt-4`}>No convocados ({(report.notConvocadoIds || []).length})</div>
+              <p className="text-[var(--text-muted)] font-bold">{(report.notConvocadoIds || []).map(id => nameOf(id).split(' · ')[1]).join(', ') || '—'}</p>
+            </div>
+            <div>
+              <div className={sectionTitle}>Cambios ({subs.length})</div>
+              <ul className="space-y-1 font-bold">
+                {subs.map(s => <li key={s.id}>{s.minute}' · sale {nameOf(s.playerOutId)} → entra {nameOf(s.playerInId)}</li>)}
+              </ul>
+            </div>
+            <div>
+              <div className={sectionTitle}>Goles ({goals.length}) y tarjetas ({cards.length})</div>
+              <ul className="space-y-1 font-bold">
+                {goals.map(g => <li key={g.id}>{g.minute}' · {g.side === 'FAVOR' ? `⚽ ${nameOf(g.playerId)}` : 'Gol en contra'}</li>)}
+                {cards.map(c => <li key={c.id}>{c.minute ? `${c.minute}' · ` : ''}{c.type === 'AMARILLA' ? '🟨' : '🟥'} {nameOf(c.playerId)}</li>)}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderInfoPartido = () => (
+    <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
+      <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl">
+        <div className="text-[11px] font-black text-[var(--accent)] uppercase tracking-[0.2em] flex items-center gap-2"><i className="fa-solid fa-circle-info text-red-500"></i> Datos partido</div>
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          {[
+            { label: 'Fecha', value: match.date ? new Date(match.date).toLocaleDateString('es-ES') : '' },
+            { label: 'Hora', value: match.time },
+            { label: 'Local', value: match.localTeam },
+            { label: 'Visitante', value: match.visitorTeam },
+            { label: 'Campo', value: match.location },
+            { label: 'Competición', value: [match.competition, match.jornada].filter(Boolean).join(' · ') },
+          ].map(item => (
+            <div key={item.label} className="bg-[var(--surface-1)] border border-[var(--border-soft)] rounded-2xl px-5 py-4">
+              <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">{item.label}</div>
+              <div className="text-sm font-bold text-[var(--text)] break-words">{item.value || '—'}</div>
+            </div>
+          ))}
+        </div>
+            </div>
+    </div>
+  );
+
   const renderPlanPartido = () => (
     <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-32">
       <div className="bg-[var(--surface-0)] p-8 rounded-[40px] border border-[var(--border-soft)] shadow-2xl space-y-8">
@@ -5733,9 +5957,10 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   <th className="px-3 py-3 text-left">#</th>
                   <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
                   <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
-                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.goals')}</th>
-                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.yellowCards')}</th>
-                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.redCards')}</th>
+                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />{t('matchReport.playerStats.goals')}</span></th>
+                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />{t('matchReport.playerStats.yellowCards')}</span></th>
+                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="red" className="w-2 h-3" />{t('matchReport.playerStats.redCards')}</span></th>
+                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><SubInIcon className="w-3 h-3" /><SubOutIcon className="w-3 h-3" />Cambios</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-soft)]">
@@ -5744,9 +5969,14 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
                     <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
                     <td className="px-3 py-2 text-center font-bold">{minutes}'</td>
-                    <td className="px-3 py-2 text-center font-bold">{goals}</td>
-                    <td className="px-3 py-2 text-center font-bold">{cards?.amarillas ?? 0}</td>
-                    <td className="px-3 py-2 text-center font-bold">{cards?.rojas ?? 0}</td>
+                    <td className="px-3 py-2 text-center font-bold">{goals > 0 ? <GoalIcons count={goals} /> : <span className="text-[var(--text-muted)]">0</span>}</td>
+                    <td className="px-3 py-2 text-center font-bold">{(cards?.amarillas ?? 0) > 0 ? <span className="inline-flex items-center gap-1"><CardIcon kind="yellow" />{(cards?.amarillas ?? 0) > 1 ? `x${cards?.amarillas}` : ''}</span> : <span className="text-[var(--text-muted)]">0</span>}</td>
+                    <td className="px-3 py-2 text-center font-bold">{(cards?.rojas ?? 0) > 0 ? <span className="inline-flex items-center gap-1"><CardIcon kind="red" />{(cards?.rojas ?? 0) > 1 ? `x${cards?.rojas}` : ''}</span> : <span className="text-[var(--text-muted)]">0</span>}</td>
+                    <td className="px-3 py-2 text-center">
+                      {subInMinuteByPlayer.get(String(player.id)) !== undefined || subOutMinuteByPlayer.get(String(player.id)) !== undefined
+                        ? <SubChange inMin={subInMinuteByPlayer.get(String(player.id))} outMin={subOutMinuteByPlayer.get(String(player.id))} />
+                        : <span className="text-[var(--text-muted)]">-</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -6399,15 +6629,11 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
   // Match report tabs - CAMBIOS TÁCTICOS removed (consolidated into ALINEACIÓN and PLAN DE PARTIDO)
   const tabs = [
-    { id: 'DATOS GENERALES', label: t('matchReport.tabs.generalData'), icon: 'fa-circle-info' },
-    { id: 'INFORME RIVAL', label: t('matchReport.tabs.opponentReport'), icon: 'fa-shield-heart' },
-    { id: 'ALINEACIÓN', label: t('matchReport.tabs.lineup'), icon: 'fa-border-all' },
+    { id: 'INFO PARTIDO', label: 'Datos partido', icon: 'fa-circle-info' },
     { id: 'PLAN DE PARTIDO', label: t('matchReport.tabs.matchPlan'), icon: 'fa-clipboard-list' },
-    { id: 'ABP', label: t('matchReport.tabs.abp'), icon: 'fa-flag' },
-    { id: 'EVENTOS PARTIDO', label: t('matchReport.tabs.matchEvents'), icon: 'fa-list-check' },
-    { id: 'RESUMEN', label: t('matchReport.tabs.summary'), icon: 'fa-chart-simple' },
-    { id: 'DATOS PARTIDO', label: t('matchReport.tabs.playerStats'), icon: 'fa-table' },
-    { id: 'TABLA EVENTOS', label: 'Tabla Eventos', icon: 'fa-th' },
+    { id: 'CONVOCATORIA', label: 'Convocatoria', icon: 'fa-users-rectangle' },
+    { id: 'ACTA', label: 'Acta', icon: 'fa-file-lines' },
+    { id: 'DATOS PARTIDO', label: 'Estadísticas del partido', icon: 'fa-chart-simple' },
     { id: 'EVENTOS', label: t('matchReport.tabs.events'), icon: 'fa-video' },
     { id: 'VIDEOTECA', label: 'Videoteca', icon: 'fa-film' }
   ];
@@ -6437,12 +6663,31 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
           size="sm"
         />
       </div>
+      <div className="px-6 py-6 text-center border-b border-[var(--border-soft)] bg-[var(--surface-0)]">
+        <p className="text-[11px] text-[var(--text-muted)]">
+          {[match.competition, match.jornada ? `Jornada ${match.jornada}` : ''].filter(Boolean).join(' · ')}
+        </p>
+        <div className="flex items-center justify-center gap-4 mt-3 flex-wrap">
+          <span className="text-sm lg:text-base font-black text-[var(--text-strong)]">{match.localTeam}</span>
+          <span className="text-2xl lg:text-3xl font-black text-[var(--text-strong)] tracking-wider">
+            {(match.score || '').replace(/\s*[-:]\s*/, ' - ') || 'vs'}
+          </span>
+          <span className="text-sm lg:text-base font-black text-[var(--text-strong)]">{match.visitorTeam}</span>
+        </div>
+        <p className="text-[11px] text-[var(--text-muted)] mt-3">
+          {[
+            match.date ? new Date(match.date).toLocaleDateString('es-ES') : '',
+            match.time,
+            match.location,
+          ].filter(Boolean).join(' · ')}
+        </p>
+      </div>
       <div className="flex overflow-x-auto px-4 gap-2 scrollbar-hide border-b border-[var(--border-soft)] bg-[var(--surface-0)] sticky top-[72px] z-50">
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-8 py-5 flex items-center gap-3 transition-all border-b-[4px] whitespace-nowrap ${activeTab === tab.id ? 'border-[var(--accent)] text-[var(--text-strong)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'}`}><i className={`fa-solid ${tab.icon} text-[10px]`}></i><span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span></button>
         ))}
       </div>
-      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'VIDEOTECA' ? renderVideoteca() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
+      <div className={`flex-1 ${activeTab === 'EVENTOS' || activeTab === 'ALINEACIÓN' ? '' : 'p-4 lg:p-12'}`}>{activeTab === 'DATOS GENERALES' ? renderDatosGenerales() : activeTab === 'ALINEACIÓN' ? renderAlineacionTactiva() : activeTab === 'INFO PARTIDO' ? renderInfoPartido() : activeTab === 'PLAN DE PARTIDO' ? renderPlanPartido() : activeTab === 'CONVOCATORIA' ? <div className="animate-fade-in max-w-5xl mx-auto pb-32">{renderConvocatoriaCard()}</div> : activeTab === 'ACTA' ? <div className="animate-fade-in max-w-5xl mx-auto pb-32">{renderActaCard()}</div> : activeTab === 'ABP' ? renderABP() : activeTab === 'INFORME RIVAL' ? renderInforme() : activeTab === 'EVENTOS PARTIDO' ? renderEventosPartido() : activeTab === 'RESUMEN' ? renderResumenSection() : activeTab === 'DATOS PARTIDO' ? renderDatosPartidos() : activeTab === 'TABLA EVENTOS' ? renderTablaEventos() : activeTab === 'VIDEOTECA' ? renderVideoteca() : activeTab === 'EVENTOS' ? renderEventos() : null}</div>
 
       {selectedPlayerForModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end z-50 animate-fade-in" onClick={() => setSelectedPlayerForModal(null)}>

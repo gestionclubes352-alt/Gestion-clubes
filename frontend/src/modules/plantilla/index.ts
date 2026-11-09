@@ -2,6 +2,7 @@
 
 // Componentes
 export { default as PlayerTable } from './components/PlayerTable';
+export { default as PlantillasView } from './components/PlantillasView';
 export { default as SquadList } from './components/SquadList';
 export { default as EditPlayerModal } from './components/EditPlayerModal';
 export { default as BulkPhotoUpload } from './components/BulkPhotoUpload';

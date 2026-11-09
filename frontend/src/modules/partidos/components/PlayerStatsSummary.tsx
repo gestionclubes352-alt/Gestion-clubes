@@ -8,6 +8,7 @@ import PlayerStatsCharts from './PlayerStatsCharts';
 import SystemsDataSummary from './SystemsDataSummary';
 import MultiSelectFilter from '@shared/components/MultiSelectFilter';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
+import { BallIcon, CardIcon, StatCount } from '@shared/components/MatchIcons';
 import { buildInternalNameByFedName, resolveEquipoInterno as resolveEquipoInternoUtil } from '../utils/teamResolution';
 
 const getMyTeamName = (): string => {
@@ -397,10 +398,10 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                   <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.minutesPlayed')}</th>
                   <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.minutesPercent')}</th>
                   <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.starterPercent')}</th>
-                  <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.goals')}</th>
+                  <th className="px-0.5 py-0.5 text-center"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />{t('playerStatsSummary.goals')}</span></th>
                   <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.goalsConceded')}</th>
-                  <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.yellowCards')}</th>
-                  <th className="px-0.5 py-0.5 text-center">{t('playerStatsSummary.redCards')}</th>
+                  <th className="px-0.5 py-0.5 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />{t('playerStatsSummary.yellowCards')}</span></th>
+                  <th className="px-0.5 py-0.5 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="red" className="w-2 h-3" />{t('playerStatsSummary.redCards')}</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -421,10 +422,10 @@ const PlayerStatsSummary: React.FC<PlayerStatsSummaryProps> = ({ matches, onSele
                       <td className="px-0.5 py-px text-center font-bold text-xs">{row.minutes}'</td>
                       <td className="px-0.5 py-px text-center font-bold text-xs">{minutesPercent}%</td>
                       <td className="px-0.5 py-px text-center font-bold text-xs">{starterPercent}%</td>
-                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.goals}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs"><StatCount kind="goal" count={row.goals} /></td>
                       <td className="px-0.5 py-px text-center font-bold text-xs">{row.goalsConceded}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.yellowCards}</td>
-                      <td className="px-0.5 py-px text-center font-bold text-xs">{row.redCards}</td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs"><StatCount kind="yellow" count={row.yellowCards} /></td>
+                      <td className="px-0.5 py-px text-center font-bold text-xs"><StatCount kind="red" count={row.redCards} /></td>
                     </tr>
                   );
                 })}

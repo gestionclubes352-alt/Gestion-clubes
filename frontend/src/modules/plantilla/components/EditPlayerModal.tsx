@@ -11,6 +11,7 @@ import type { Match, MatchReport } from '@modules/partidos/types';
 import type { Club } from '@modules/clubes/types';
 import { computeMatchStats } from '../../partidos/components/PlayerStatsSummary';
 import { db } from '@shared/services/dataService';
+import { supabase } from '@shared/services/supabaseClient';
 import PlayerStatsCharts from './PlayerStatsCharts';
 import SearchableSelect from '@shared/components/SearchableSelect';
 import PlayerDashboard from './PlayerDashboard';
@@ -38,7 +39,23 @@ interface EditPlayerModalProps {
   readOnly?: boolean;
 }
 
-const isPersistedImage = (value?: string | null): value is string =>
+/** Fila de `estadisticas_partido_jugador` (datos de actas de la Federación). */
+interface ActaStatRow {
+  jugador_id: string;
+  fed_match_id: number;
+  titular: boolean;
+  minutos: number;
+  goles: number;
+  amarillas: number;
+  rojas: number;
+  fecha: string;
+  jornada: string | null;
+  competicion: string | null;
+  rival: string | null;
+  es_local: boolean | null;
+}
+
+const isPersistedImage =(value?: string | null): value is string =>
   typeof value === 'string' && /^(https?:\/\/|data:image\/|\/)/i.test(value);
 
 const slugify = (value: string): string =>
@@ -221,6 +238,29 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     return () => { cancelled = true; };
   }, []);
 
+  // Estadísticas por partido procedentes de las actas de la Federación (fuente principal).
+  const [actaRows, setActaRows] = useState<ActaStatRow[]>([]);
+
+  useEffect(() => {
+    const equipoId = player.equipoId || formData.equipoId;
+    if (!equipoId) { setActaRows([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('estadisticas_partido_jugador')
+          .select('jugador_id, fed_match_id, titular, minutos, goles, amarillas, rojas, fecha, jornada, competicion, rival, es_local')
+          .eq('equipo_id', equipoId);
+        if (error) throw error;
+        if (!cancelled) setActaRows((data ?? []) as ActaStatRow[]);
+      } catch (err) {
+        console.error('No se pudieron cargar las estadísticas de actas', err);
+        if (!cancelled) setActaRows([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [player.equipoId, formData.equipoId]);
+
   // Muestra gráficas detalladas solo si hay datos y el usuario las quiere ver
   useEffect(() => {
     if (matchReports.length > 0) {
@@ -229,8 +269,33 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     }
   }, [matchReports]);
 
+  // Participación del jugador partido a partido (acta federativa), para el dashboard.
+  const playerActaMatches = useMemo(() => {
+    const pid = String(player.id);
+    return actaRows
+      .filter(r => String(r.jugador_id) === pid)
+      .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  }, [actaRows, player.id]);
+
   const matchStats = useMemo(() => {
     const pid = String(player.id);
+
+    // Si el equipo tiene actas federativas cargadas, son la fuente de verdad.
+    if (actaRows.length > 0) {
+      const teamMatchIds = new Set(actaRows.map(r => r.fed_match_id));
+      const mine = actaRows.filter(r => String(r.jugador_id) === pid && (r.titular || r.minutos > 0));
+      const teamMinutes = actaRows.reduce((sum, r) => sum + (r.minutos || 0), 0);
+      return {
+        partidosJugados: mine.length,
+        minutos: mine.reduce((s, r) => s + (r.minutos || 0), 0),
+        titular: mine.filter(r => r.titular).length,
+        goles: mine.reduce((s, r) => s + (r.goles || 0), 0),
+        totalTeamMatches: teamMatchIds.size,
+        totalTeamMinutes: teamMinutes,
+        playerAvailableMatches: teamMatchIds.size > 0 ? teamMatchIds.size : undefined,
+      };
+    }
+
     const reportById = new Map(matchReports.map(r => [String(r.id), r]));
     let partidosJugados = 0;
     let minutos = 0;
@@ -272,7 +337,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     const playerAvailableMatches = totalTeamMatches > 0 ? totalTeamMatches : undefined;
 
     return { partidosJugados, minutos, titular, goles, totalTeamMatches, totalTeamMinutes, playerAvailableMatches };
-  }, [matches, matchReports, player.id]);
+  }, [matches, matchReports, player.id, actaRows]);
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -622,6 +687,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               player={formData}
               photoUrl={preview}
               matchStats={matchStats}
+              matchLog={playerActaMatches}
+              teamMatches={matchStats.totalTeamMatches}
               attendance={{ total: attendanceStats.total, attended: attendanceStats.attended }}
             />
             <div className="mt-4">

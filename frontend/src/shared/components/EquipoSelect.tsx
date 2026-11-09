@@ -25,11 +25,13 @@ const CATEGORY_ORDER = ['Primer equipo', 'Filial', 'Juvenil', 'Cadete', 'Infanti
  * (p.ej. "Cadete C" -> { base: 'Cadete', suffix: 'C' }). */
 const parseEquipoName = (name: string): { base: string; suffix: string } => {
   const trimmed = name.trim();
+  const canonical = (s: string) => CATEGORY_ORDER.find(c => c.toLowerCase() === s.toLowerCase());
   const match = trimmed.match(/^(.+?)\s+([A-Za-z])$/);
-  if (match && CATEGORY_ORDER.includes(match[1])) {
-    return { base: match[1], suffix: match[2].toUpperCase() };
+  const matchedBase = match ? canonical(match[1]) : undefined;
+  if (match && matchedBase) {
+    return { base: matchedBase, suffix: match[2].toUpperCase() };
   }
-  return { base: trimmed, suffix: '' };
+  return { base: canonical(trimmed) || trimmed, suffix: '' };
 };
 
 /** Compara dos nombres de equipo interno según el orden canónico de categorías (Primer equipo,

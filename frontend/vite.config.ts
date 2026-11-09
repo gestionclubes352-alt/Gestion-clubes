@@ -19,6 +19,12 @@ export default defineConfig(({ mode }) => {
       },
       // En desarrollo, proxy a los emuladores de Firebase Functions
       proxy: {
+        // Actas RFEF/federaciones: el portal no admite CORS, se consulta vía proxy (host fijo)
+        '/api/rfef': {
+          target: 'https://resultados.rfef.es',
+          changeOrigin: true,
+          rewrite: (p: string) => p.replace(/^\/api\/rfef/, ''),
+        },
         '/api': {
           target: 'http://127.0.0.1:5001',
           changeOrigin: true,

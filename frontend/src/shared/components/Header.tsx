@@ -184,7 +184,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
           </button>
         )}
 
-        <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 ml-1 sm:ml-2 md:ml-4 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 xl:gap-4 ml-1 sm:ml-2 md:ml-4 flex-shrink-0">
           {!isHomeActive && (
             <button
               onClick={() => navigate(-1)}
@@ -193,7 +193,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
               aria-label="Volver"
             >
               <i className="fa-solid fa-arrow-left text-sm"></i>
-              <span className="hidden sm:inline text-sm font-black tracking-tight uppercase">Volver</span>
+              <span className="hidden xl:inline text-sm font-black tracking-tight uppercase">Volver</span>
             </button>
           )}
 
@@ -208,7 +208,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             aria-label="HOME"
           >
             <i className="fa-solid fa-house text-sm"></i>
-            <span className="hidden sm:inline text-sm font-bold tracking-tight">HOME</span>
+            <span className="hidden xl:inline text-sm font-bold tracking-tight">HOME</span>
           </button>
 
           <button
@@ -222,13 +222,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             aria-label="calendario"
           >
             <i className="fa-solid fa-calendar-days text-sm"></i>
-            <span className="hidden sm:inline text-sm font-bold tracking-tight">calendario</span>
+            <span className="hidden xl:inline text-sm font-bold tracking-tight">calendario</span>
           </button>
         </div>
       </div>
 
       {/* Centro - Filtro de equipos */}
-      <div className="flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center justify-center flex-shrink-0 px-2">
         {showTeamFilter && hasTeamOptions && (
           <div className="relative" ref={teamFilterRef}>
             <button
@@ -241,11 +241,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
               title={t('header.teamFilter', 'Filtrar por equipo')}
             >
               <i className="fa-solid fa-layer-group text-lg"></i>
-              <div className="hidden lg:flex flex-col items-start leading-none gap-1">
+              <div className="hidden xl:flex flex-col items-start leading-none gap-1">
                 <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                   {t('header.teamFilter', 'Equipos')}
                 </span>
-                <span className="text-sm font-bold truncate max-w-[180px]">
+                <span className="text-sm font-bold truncate max-w-[140px] 2xl:max-w-[220px]">
                   {activeTeamLabel}
                 </span>
               </div>
@@ -341,7 +341,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             <i className={`fa-solid fa-brain text-sm transition-all duration-300 ${
               isAIMode ? 'text-white' : 'text-slate-400 dark:text-slate-500'
             }`}></i>
-            <span className={`text-[10px] font-black uppercase tracking-wider transition-all duration-300 hidden md:inline ${
+            <span className={`text-[10px] font-black uppercase tracking-wider transition-all duration-300 hidden xl:inline ${
               isAIMode ? 'text-white' : 'text-slate-500 dark:text-slate-400'
             }`}>
               AI Mode
@@ -438,8 +438,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, showMenuButton = true, isA
             <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br from-[var(--accent)] to-[var(--accent-dark)] rounded-full flex items-center justify-center shadow-lg">
               <i className="fa-solid fa-user text-white text-xs md:text-sm"></i>
             </div>
-            <div className="hidden md:flex flex-col items-start">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{perfil?.nombre || 'Usuario'}</span>
+            <div className="hidden xl:flex flex-col items-start min-w-0 max-w-[200px]">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-full">{perfil?.nombre || 'Usuario'}</span>
               <span className="text-[10px] text-slate-400 uppercase tracking-wider">{selectedTeam?.shortName || perfil?.rol || 'Demo'}</span>
             </div>
             <i className={`fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform hidden sm:block ${isProfileMenuOpen ? 'rotate-180' : ''}`}></i>

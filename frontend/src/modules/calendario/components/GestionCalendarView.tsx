@@ -228,7 +228,11 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       team?.nombreEnFed && normalizeTeamKey(team.nombreEnFed) !== normalizeTeamKey(clubName)
         ? team.nombreEnFed
         : '';
+    // Si el lado coincide con el nombre de un equipo interno (p. ej. "Juvenil A"),
+    // se muestra tal cual aunque el evento no traiga el id del club (partidos importados).
+    const internalName = internalTeamCanonicalByName.get(rawName.trim().toLowerCase()) || '';
     const teamDisplayName =
+      internalName ||
       (isOwnSide ? resolveTeamDisplayName(event.nombreInterno || event.team) : '') ||
       team?.equipo ||
       team?.etapa ||
@@ -765,6 +769,23 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       if (!map[key]) map[key] = [];
       map[key].push(ev);
     });
+    // Dentro de cada día: primero los eventos con hora (por hora) y después los que no la tienen,
+    // ordenados por equipo: Primer equipo, Juvenil A-C, Cadete A-D, Infantil A-D, Alevín A-B.
+    const timeMinutes = (t?: string) => {
+      const m = String(t || '').match(/^(\d{1,2})(?::(\d{2}))?/);
+      if (!m || Number(m[1]) > 23) return null;
+      return Number(m[1]) * 60 + Number(m[2] || '0');
+    };
+    const teamOf = (ev: CalendarEvent) => ev.team || getEventTeamKey(ev) || '';
+    Object.keys(map).forEach(key => {
+      const timed = map[key]
+        .filter(ev => timeMinutes(ev.time) !== null)
+        .sort((a, b) => (timeMinutes(a.time) as number) - (timeMinutes(b.time) as number));
+      const untimed = map[key]
+        .filter(ev => timeMinutes(ev.time) === null)
+        .sort((a, b) => compareEquipoNames(teamOf(a), teamOf(b)));
+      map[key] = [...timed, ...untimed];
+    });
     return map;
   }, [filteredEvents]);
 
@@ -796,10 +817,23 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     return days;
   }, [weekStart, viewMode, currentMonth]);
 
-  const scheduleHours = useMemo(
-    () => Array.from({ length: 14 }, (_, index) => 9 + index),
-    []
-  );
+  // Rango horario base 09-22, ampliado si hay eventos (p. ej. partidos) fuera de él
+  const scheduleHours = useMemo(() => {
+    let minHour = 9;
+    let maxHour = 22;
+    scheduleDays.forEach(date => {
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      (eventsByDay[key] || []).forEach(ev => {
+        const m = String(ev.time || '').match(/^(\d{1,2})/);
+        if (!m) return;
+        const h = Number(m[1]);
+        if (Number.isNaN(h) || h < 0 || h > 23) return;
+        if (h < minHour) minHour = h;
+        if (h > maxHour) maxHour = h;
+      });
+    });
+    return Array.from({ length: maxHour - minHour + 1 }, (_, index) => minHour + index);
+  }, [scheduleDays, eventsByDay]);
 
   const monthGridDays = useMemo(() => {
     const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -1069,9 +1103,16 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                 {scheduleEvents.map(({ date, events: dayEvents }) => {
                   const hourEvents = dayEvents.filter(ev => {
                     const parsed = parseEventTime(ev.time);
-                    return parsed && parsed.hour === hour;
+                    // Eventos sin hora válida: se muestran en la primera fila para no ocultarlos
+                    if (!parsed || parsed.hour < 0 || parsed.hour > 23) return hour === scheduleHours[0];
+                    return parsed.hour === hour;
                   });
                   const compact = hourEvents.length > 1;
+                  // Eventos sin hora: se apilan de arriba a abajo en lugar de repartirse en horizontal
+                  const hasUntimed = hourEvents.some(ev => {
+                    const parsed = parseEventTime(ev.time);
+                    return !parsed || parsed.hour < 0 || parsed.hour > 23;
+                  });
 
                   const slotKey = `${date.toISOString()}-${hour}`;
                   return (
@@ -1082,7 +1123,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                       onDrop={(e) => handleSlotDrop(e, date, hour)}
                       className={`min-h-12 bg-white p-1.5 transition-colors ${isToday(date) ? 'bg-red-50' : ''} ${dragOverSlot === slotKey ? 'bg-blue-100 ring-2 ring-inset ring-blue-400' : ''}`}
                     >
-                      <div className={hourEvents.length > 0 ? 'flex flex-row gap-1 items-stretch' : 'space-y-1'}>
+                      <div className={hourEvents.length > 0 ? (hasUntimed ? 'flex flex-col gap-1' : 'flex flex-row gap-1 items-stretch') : 'space-y-1'}>
                         {hourEvents.map(ev => {
                           const teamColor = getTeamColor(getEventTeamKey(ev));
                           const isMatch = ev.type === 'Partido';
@@ -1134,7 +1175,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                 )}
                               </div>
                               {isMatch ? (
-                                compact ? (
+                                compact && hasUntimed && ev.localTeam && ev.visitorTeam ? (
+                                  <span className="flex items-center gap-1 min-w-0 pr-8">
+                                    <span className="flex-shrink-0 font-black">{ev.time || '--:--'}</span>
+                                    {renderMiniCrest(localLogo)}
+                                    <span className="truncate">{localDisplay.teamName} - {visitorDisplay.teamName}</span>
+                                    {renderMiniCrest(visitorLogo)}
+                                    {ev.score && <span className="flex-shrink-0 font-black text-white bg-red-700 rounded px-1 leading-tight">{ev.score}</span>}
+                                  </span>
+                                ) : compact ? (
                                   <div className="flex flex-col items-center gap-0.5 w-full text-center">
                                     <span className="text-[10px] font-black leading-none">{ev.time || '--:--'}</span>
                                     {(ev.localTeam && ev.visitorTeam) ? (

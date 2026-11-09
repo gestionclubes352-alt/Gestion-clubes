@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { fetchMatchTotals, EMPTY_TOTALS, type MatchTotals } from '../utils/matchTotals';
 import { useTranslation } from 'react-i18next';
 import { createColumnHelper } from '@tanstack/react-table';
 import { DataTable } from '../../../shared/components/DataTable';
@@ -98,6 +99,17 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
+  // Estadísticas de partido por jugador (PJ, titularidades, minutos, goles, goles recibidos)
+  const [matchTotals, setMatchTotals] = useState<Map<string, MatchTotals>>(new Map());
+  useEffect(() => {
+    if (simplified) return;
+    let cancelled = false;
+    fetchMatchTotals()
+      .then(m => { if (!cancelled) setMatchTotals(m); })
+      .catch(err => console.error('No se pudieron cargar las estadísticas de partido', err));
+    return () => { cancelled = true; };
+  }, [simplified]);
+
   // Sin clubId propio no hay nada que distinguir: todo cuenta como "propio" (fallback demo/legacy)
   const isOwnPlayer = (p: Player) => !p.clubId || String(p.clubId) === String(clubId);
 
@@ -148,6 +160,14 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       return posMatch && clubMatch && teamMatch && statusMatch && residenciaMatch;
     }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [baseSquad, filterPosition, filterClub, filterTeam, filterStatus, filterResidencia]);
+
+  // TanStack Table cachea el valor de cada celda por fila y solo lo recalcula si cambia `data`.
+  // Las estadísticas de partido llegan de forma asíncrona, así que al cargarlas generamos filas
+  // nuevas para que PJ/Tit./Min/Goles se pinten sin tener que tocar ningún filtro.
+  const tableData = useMemo(
+    () => (matchTotals.size > 0 ? filteredSquad.map(p => ({ ...p })) : filteredSquad),
+    [filteredSquad, matchTotals]
+  );
 
   const groupedPlayers = useMemo(() => {
     const groups = positionOrder.reduce((acc, pos) => {
@@ -257,6 +277,16 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         size: 120,
         cell: info => textCell(info.getValue()),
       }),
+      // 8b. Año de nacimiento (usa el campo año; si falta, lo deduce de la fecha)
+      columnHelper.accessor(
+        row => row.anioNacimiento || (row.fechaNacimiento ? String(row.fechaNacimiento).slice(0, 4) : ''),
+        {
+          id: 'anioNacimiento',
+          header: t('playerTable.birthYear', 'Año'),
+          size: 80,
+          cell: info => textCell(info.getValue() ? String(info.getValue()) : ''),
+        }
+      ),
       // 9. Club
       columnHelper.accessor('club', {
         header: t('playerTable.club', 'Club'),
@@ -286,6 +316,27 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         size: 100,
         cell: info => textCell(info.getValue()),
       }),
+      // Estadísticas de partido (actas)
+      ...([
+        { id: 'pj', header: 'PJ', title: 'Partidos jugados', get: (m: MatchTotals) => m.pj },
+        { id: 'tit', header: 'Tit.', title: 'Titularidades', get: (m: MatchTotals) => m.tit },
+        { id: 'min', header: 'Min.', title: 'Minutos jugados', get: (m: MatchTotals) => m.min },
+        { id: 'minPj', header: 'Min/PJ', title: 'Minutos por partido jugado', get: (m: MatchTotals) => (m.pj ? Math.round(m.min / m.pj) : 0) },
+        { id: 'goles', header: 'Goles', title: 'Goles marcados', get: (m: MatchTotals) => m.goles },
+        { id: 'gc', header: 'GC', title: 'Goles recibidos con el jugador en campo', get: (m: MatchTotals) => m.gc },
+      ].map(c =>
+        columnHelper.accessor(row => (matchTotals.get(String(row.id)) ?? EMPTY_TOTALS).pj ? c.get(matchTotals.get(String(row.id))!) : null, {
+          id: c.id,
+          header: c.header,
+          size: 70,
+          cell: info => {
+            const v = info.getValue();
+            return v == null
+              ? <span className="text-slate-300">—</span>
+              : <span className="text-slate-600 text-xs tabular-nums" title={c.title}>{v}</span>;
+          },
+        })
+      )),
       columnHelper.accessor('telefono', {
         header: t('playerTable.phone', 'Teléfono'),
         size: 110,
@@ -305,7 +356,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       }),
     ];
     return allColumns;
-  }, [t, isHuesca]);
+  }, [t, isHuesca, matchTotals]);
 
   const actions = useMemo<DataTableAction<Player>[]>(() => {
     const acts: DataTableAction<Player>[] = [
@@ -360,6 +411,26 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex flex-wrap items-center gap-2 flex-1">
             <div className="hidden sm:contents">
+            {/* Grupo de equipos (a la izquierda) */}
+            {availableTeams.length > 1 && (
+              <>
+                {['TODOS', ...availableTeams].map((team) => (
+                  <button
+                    key={`team-btn-${team}`}
+                    onClick={() => setFilterTeam(team)}
+                    className={`px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border transition-all ${
+                      filterTeam === team
+                        ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
+                        : 'bg-[var(--surface-0)] text-[var(--text-muted)] border-[var(--border-soft)] hover:text-[var(--text)] hover:border-[var(--surface-3)]'
+                    }`}
+                  >
+                    {team === 'TODOS' ? t('playerTable.all') : team}
+                  </button>
+                ))}
+                <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
+              </>
+            )}
+
             {['TODOS', ...positionOrder].map((pos) => (
               <button
                 key={pos}
@@ -436,6 +507,48 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               </button>
             )}
 
+            </div>
+
+            {/* REGISTROS + SELECTOR DE VISTA (junto a los filtros de residencia) */}
+            <div className="flex items-center gap-2 shrink-0 sm:ml-2">
+              {/* STATS CARD COMPACTA */}
+              <div className="flex items-center gap-2 bg-gradient-to-br from-[var(--surface-0)] to-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-3.5 py-2 shrink-0">
+                <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white shadow-lg">
+                  <i className="fa-solid fa-users text-xs"></i>
+                </div>
+                <div>
+                  <p className="text-[9px] font-medium text-[var(--text-muted)] uppercase tracking-wider leading-none">
+                    {activeTab === 'rivales' ? 'Rivales' : 'Registros'}
+                  </p>
+                  <p className="text-lg font-black text-[var(--text-strong)] leading-none">
+                    {filteredSquad.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl">
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+                    viewMode === 'table' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                  }`}
+                  title={t('playerTable.tableView')}
+                >
+                  <i className="fa-solid fa-table text-sm"></i>
+                </button>
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+                    viewMode === 'cards' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                  }`}
+                  title={t('playerTable.cardsView')}
+                >
+                  <i className="fa-solid fa-grip text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden sm:contents">
             {/* Separador */}
             {availableClubs.length > 1 && (
               <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
@@ -463,18 +576,14 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               </select>
             )}
 
-            {/* Separador */}
-            {availableTeams.length > 1 && (
-              <div className="w-px h-6 bg-[var(--border-soft)] mx-1 hidden lg:block"></div>
-            )}
             </div>
 
-            {/* Filtro de equipos - Select */}
+            {/* Filtro de equipos - Select (solo móvil; en escritorio se usan los botones de la izquierda) */}
             {availableTeams.length > 1 && (
               <select
                 value={filterTeam}
                 onChange={(e) => setFilterTeam(e.target.value)}
-                className="px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border border-[var(--border-soft)] bg-[var(--surface-0)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--surface-3)] transition-all appearance-none cursor-pointer"
+                className="sm:hidden px-3 py-2 rounded-xl text-[10px] font-semibold uppercase tracking-wider border border-[var(--border-soft)] bg-[var(--surface-0)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--surface-3)] transition-all appearance-none cursor-pointer"
                 style={{
                   backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
                   backgroundRepeat: 'no-repeat',
@@ -492,44 +601,6 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
             )}
           </div>
 
-          {/* REGISTROS + SELECTOR DE VISTA (juntos) */}
-          <div className="flex items-center gap-2 shrink-0">
-          {/* STATS CARD COMPACTA */}
-          <div className="flex items-center gap-2 bg-gradient-to-br from-[var(--surface-0)] to-[var(--surface-1)] border border-[var(--border-soft)] rounded-xl px-3.5 py-2 shrink-0">
-            <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white shadow-lg">
-              <i className="fa-solid fa-users text-xs"></i>
-            </div>
-            <div>
-              <p className="text-[9px] font-medium text-[var(--text-muted)] uppercase tracking-wider leading-none">
-                {activeTab === 'rivales' ? 'Rivales' : 'Registros'}
-              </p>
-              <p className="text-lg font-black text-[var(--text-strong)] leading-none">
-                {filteredSquad.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                viewMode === 'table' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-              }`}
-              title={t('playerTable.tableView')}
-            >
-              <i className="fa-solid fa-table text-sm"></i>
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                viewMode === 'cards' ? 'bg-[var(--surface-0)] text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-              }`}
-              title={t('playerTable.cardsView')}
-            >
-              <i className="fa-solid fa-grip text-sm"></i>
-            </button>
-          </div>
-          </div>
           <button
             onClick={openNewPlayerCard}
             className={`inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] ${
@@ -547,7 +618,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       {/* TABLE VIEW */}
       {viewMode === 'table' && (
         <DataTable<Player>
-          data={filteredSquad}
+          data={tableData}
           columns={columns}
           actions={actions}
           searchable

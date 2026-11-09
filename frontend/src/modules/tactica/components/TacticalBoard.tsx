@@ -4,6 +4,24 @@ import type { Player } from '@modules/plantilla';
 import type { Campograma } from '@modules/entrenamientos';
 import SearchableSelect from '@shared/components/SearchableSelect';
 
+const DEFAULT_PLAYER_PHOTO = '/jugador-default.png';
+const isImageUrl = (value: string): boolean => /^(https?:\/\/|data:image\/|\/)/i.test(value);
+
+/** Foto del jugador; si falta o no carga, muestra la imagen por defecto. */
+const PlayerPhoto = ({ url, alt }: { url?: string | null; alt?: string }) => (
+  <img
+    loading="lazy"
+    decoding="async"
+    alt={alt ?? ''}
+    src={url && isImageUrl(url) ? url : DEFAULT_PLAYER_PHOTO}
+    onError={e => {
+      const img = e.currentTarget;
+      if (!img.src.endsWith(DEFAULT_PLAYER_PHOTO)) img.src = DEFAULT_PLAYER_PHOTO;
+    }}
+    className="w-full h-full object-cover"
+  />
+);
+
 const NOT_CONVOCADO_REASONS: Array<{ value: string; label: string }> = [
   { value: 'decision_tecnica', label: 'Decisión técnica' },
   { value: 'lesion', label: 'Lesión' },
@@ -209,11 +227,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                             className="relative flex items-center gap-2 py-1 pl-4 border-b border-white/10 last:border-b-0"
                           >
                             <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/20 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
-                              {p.fotoUrl && p.fotoUrl.length > 1 ? (
-                                <img src={p.fotoUrl} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-[8px] font-black text-white">{p.nombre.slice(0, 2).toUpperCase()}</span>
-                              )}
+                              <PlayerPhoto url={p.fotoUrl} alt={p.apodo || p.nombre} />
                             </div>
                             <span className="bg-white/15 text-white text-[9px] md:text-[10px] font-black px-1.5 py-0.5 rounded cursor-pointer" onClick={(e) => { e.stopPropagation(); if (onPlayerSelect) onPlayerSelect(p); }} title="Abrir ficha del jugador">
                               {p.dorsal}
@@ -288,11 +302,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         className="flex items-center gap-2 min-w-0 flex-1 text-left disabled:cursor-not-allowed"
                       >
                         <div className={`w-9 h-9 rounded-lg overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-slate-200'} bg-slate-100 flex items-center justify-center flex-shrink-0`}>
-                          {player.fotoUrl && player.fotoUrl.length > 1 ? (
-                            <img src={player.fotoUrl} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className={`text-[10px] font-black ${inThisPos ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
-                          )}
+                          <PlayerPhoto url={player.fotoUrl} alt={player.apodo || player.nombre} />
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex flex-col items-start gap-0.5 min-w-0">
@@ -408,11 +418,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                         className="flex items-center gap-2 min-w-0 flex-1 text-left disabled:cursor-not-allowed"
                       >
                         <div className={`w-9 h-9 rounded-lg overflow-hidden border-2 ${inThisPos ? 'border-white/70' : 'border-orange-200'} bg-slate-100 flex items-center justify-center flex-shrink-0`}>
-                          {player.fotoUrl && player.fotoUrl.length > 1 ? (
-                            <img src={player.fotoUrl} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className={`text-[10px] font-black ${inThisPos ? 'text-white' : 'text-slate-500'}`}>{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
-                          )}
+                          <PlayerPhoto url={player.fotoUrl} alt={player.apodo || player.nombre} />
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex flex-col items-start gap-0.5 min-w-0">
@@ -479,11 +485,7 @@ const TacticalBoard: React.FC<TacticalBoardProps> = ({
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <div className="w-9 h-9 rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center flex-shrink-0 grayscale">
-                          {player.fotoUrl && player.fotoUrl.length > 1 ? (
-                            <img src={player.fotoUrl} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-[10px] font-black text-slate-500">{(player.apodo || player.nombre).slice(0, 2).toUpperCase()}</span>
-                          )}
+                          <PlayerPhoto url={player.fotoUrl} alt={player.apodo || player.nombre} />
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex flex-col items-start gap-0.5 min-w-0">

@@ -1,17 +1,43 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Player } from '../types';
 import { calculatePlayerAge } from '../utils/tileConfig';
+import { BallIcon, CardIcon, GoalIcons } from '@shared/components/MatchIcons';
+
+/** Participación del jugador en un partido (fila de actas federativas). */
+export interface PlayerMatchLogRow {
+  fed_match_id: number;
+  fecha: string;
+  jornada: string | null;
+  rival: string | null;
+  es_local: boolean | null;
+  titular: boolean;
+  minutos: number;
+  goles: number;
+  amarillas: number;
+  rojas: number;
+}
 
 interface PlayerDashboardProps {
   player: Player;
   /** Foto actual (incluye la previsualización aún sin guardar) */
   photoUrl?: string | null;
   matchStats: { partidosJugados: number; minutos: number; titular: number; goles: number };
+  /** Partidos del jugador, más recientes primero */
+  matchLog?: PlayerMatchLogRow[];
+  /** Total de partidos con acta del equipo */
+  teamMatches?: number;
   attendance: { total: number; attended: number };
 }
 
 const isImageUrl = (value?: string | null): value is string =>
   typeof value === 'string' && /^(https?:\/\/|data:image\/|\/)/i.test(value);
+
+/** Formatea una fecha (YYYY-MM-DD o ISO) como DD/MM/YYYY. */
+const formatBirthDate = (value?: string | null): string | null => {
+  if (!value) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : null;
+};
 
 const ESTADO_STYLE: Record<string, string> = {
   APTO: 'bg-emerald-100 text-emerald-700',
@@ -43,7 +69,27 @@ const Kpi: React.FC<{ label: string; value: React.ReactNode; hint?: string }> = 
   </div>
 );
 
-const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, matchStats, attendance }) => {
+const MiniStat: React.FC<{ label: string; value: React.ReactNode; tone?: 'amber' | 'red' }> = ({ label, value, tone }) => (
+  <div className="bg-white border border-slate-200 rounded-xl px-2 py-2.5 text-center">
+    <div className={`text-lg font-black tabular-nums leading-none ${tone === 'amber' ? 'text-amber-500' : tone === 'red' ? 'text-red-600' : 'text-slate-800'}`}>{value}</div>
+    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5">{label}</div>
+  </div>
+);
+
+const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, matchStats, matchLog = [], teamMatches, attendance }) => {
+  const totals = useMemo(() => {
+    const played = matchLog.filter(m => m.titular || m.minutos > 0);
+    const minutos = played.reduce((s, m) => s + (m.minutos || 0), 0);
+    const posibles = (teamMatches || 0) * 90;
+    return {
+      convocado: matchLog.length,
+      suplente: played.filter(m => !m.titular).length,
+      minPorPartido: played.length > 0 ? Math.round(minutos / played.length) : 0,
+      pctMinutos: posibles > 0 ? Math.round((minutos / posibles) * 100) : null,
+      amarillas: matchLog.reduce((s, m) => s + (m.amarillas || 0), 0),
+      rojas: matchLog.reduce((s, m) => s + (m.rojas || 0), 0),
+    };
+  }, [matchLog, teamMatches]);
   const age = calculatePlayerAge(player.fechaNacimiento);
   const attendancePct = attendance.total > 0 ? Math.round((attendance.attended / attendance.total) * 100) : null;
   const estado = player.estado || 'APTO';
@@ -73,7 +119,13 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
           {player.apodo && <p className="text-base font-black text-[var(--accent)] uppercase mt-0.5">{player.apodo}</p>}
           {subtitle && <p className="text-base text-slate-600 font-semibold mt-1.5">{subtitle}</p>}
           <p className="text-sm text-slate-500 font-medium mt-1">
-            {[age !== undefined ? `${age} años` : null, player.club].filter(Boolean).join(' · ')}
+            {[
+              formatBirthDate(player.fechaNacimiento),
+              age !== undefined ? `${age} años` : null,
+              player.club,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
       </div>
@@ -91,9 +143,61 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ player, photoUrl, mat
         />
       </div>
 
-      {/* Zona de widgets: aquí se irán añadiendo datos y gráficas */}
-      <DashboardWidget title="Más widgets" icon="fa-chart-simple">
-        <p className="text-xs text-slate-400">Pendiente de definir: indica qué datos y gráficas quieres ver en este dashboard.</p>
+      {/* Participación acumulada en partidos */}
+      <DashboardWidget title="Participación en partidos" icon="fa-futbol">
+        {matchLog.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-2">Sin partidos registrados</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
+              <MiniStat label="Convocado" value={`${totals.convocado}${teamMatches ? `/${teamMatches}` : ''}`} />
+              <MiniStat label="Suplente" value={totals.suplente} />
+              <MiniStat label="Min/partido" value={totals.minPorPartido} />
+              <MiniStat label="% minutos" value={totals.pctMinutos === null ? '–' : `${totals.pctMinutos}%`} />
+              <MiniStat label="Amarillas" value={totals.amarillas} tone="amber" />
+              <MiniStat label="Rojas" value={totals.rojas} tone="red" />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">
+                    <th className="py-1.5 pr-2">Fecha</th>
+                    <th className="py-1.5 pr-2">Jor.</th>
+                    <th className="py-1.5 pr-2">Rival</th>
+                    <th className="py-1.5 pr-2 text-center">Rol</th>
+                    <th className="py-1.5 pr-2 text-right">Min</th>
+                    <th className="py-1.5 pr-2 text-right"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />Goles</span></th>
+                    <th className="py-1.5 text-right">Tarj.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchLog.map(m => (
+                    <tr key={m.fed_match_id} className="border-t border-slate-200 text-slate-700">
+                      <td className="py-1.5 pr-2 tabular-nums whitespace-nowrap">{formatBirthDate(m.fecha) ?? m.fecha}</td>
+                      <td className="py-1.5 pr-2">{m.jornada || '–'}</td>
+                      <td className="py-1.5 pr-2 font-semibold">
+                        <span className="text-slate-400 mr-1">{m.es_local === null ? '' : m.es_local ? 'vs' : '@'}</span>
+                        {m.rival || '–'}
+                      </td>
+                      <td className="py-1.5 pr-2 text-center">
+                        <span className={`text-[10px] font-black rounded px-1.5 py-0.5 ${m.titular ? 'bg-emerald-100 text-emerald-700' : m.minutos > 0 ? 'bg-sky-100 text-sky-700' : 'bg-slate-200 text-slate-500'}`}>
+                          {m.titular ? 'TIT' : m.minutos > 0 ? 'SUP' : 'BANQ'}
+                        </span>
+                      </td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{m.minutos}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{m.goles > 0 ? <GoalIcons count={m.goles} /> : '–'}</td>
+                      <td className="py-1.5 text-right whitespace-nowrap">
+                        {m.amarillas > 0 && <CardIcon kind="yellow" className="w-2.5 h-3.5 mr-0.5" />}
+                        {m.rojas > 0 && <CardIcon kind="red" className="w-2.5 h-3.5" />}
+                        {m.amarillas === 0 && m.rojas === 0 && '–'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </DashboardWidget>
     </div>
   );

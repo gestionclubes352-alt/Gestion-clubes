@@ -90,6 +90,8 @@ export interface DataTableProps<T> {
   allowModeToggle?: boolean;
   /** Default mode: 'basic' shows clean table, 'advanced' shows toolbar + pagination. Default: 'advanced' */
   defaultMode?: 'basic' | 'advanced';
+  /** Ajusta la tabla al ancho disponible: sin scroll (horizontal ni vertical), layout fijo y relleno mínimo */
+  fit?: boolean;
 }
 
 // ============================================================================
@@ -236,6 +238,17 @@ function RowsSummary<T>({ table }: { table: Table<T> }) {
   );
 }
 
+/** Con `fit` no hay barras de scroll; si no, scroll horizontal con barra superior sincronizada. */
+function ScrollWrapper({ fit, children, bodyClassName, bodyStyle }: {
+  fit: boolean;
+  children: React.ReactNode;
+  bodyClassName: string;
+  bodyStyle: React.CSSProperties;
+}) {
+  if (fit) return <div className="overflow-hidden">{children}</div>;
+  return <TableScrollContainer bodyClassName={bodyClassName} bodyStyle={bodyStyle}>{children}</TableScrollContainer>;
+}
+
 // ============================================================================
 // CSV EXPORT
 // ============================================================================
@@ -306,6 +319,7 @@ function DataTable<T extends Record<string, any>>({
   allowModeToggle,
   defaultMode = 'advanced',
   defaultSorting = [],
+  fit = false,
 }: DataTableProps<T>) {
   // Inject animations on mount
   useEffect(() => { injectStyles(); }, []);
@@ -432,8 +446,8 @@ function DataTable<T extends Record<string, any>>({
   }, [rowSelection]);
 
   const showToolbar = !hideToolbar && (searchable || exportable || toolbarLeft || toolbarRight || showModeToggle);
-  const py = compact ? 'py-2' : 'py-2 sm:py-2.5';
-  const px = compact ? 'px-3 sm:px-4' : 'px-3 sm:px-5';
+  const py = fit ? 'py-1' : compact ? 'py-2' : 'py-2 sm:py-2.5';
+  const px = fit ? 'px-1.5' : compact ? 'px-3 sm:px-4' : 'px-3 sm:px-5';
 
   // Results count badge
   const filteredCount = searchable ? table.getFilteredRowModel().rows.length : data.length;
@@ -533,11 +547,12 @@ function DataTable<T extends Record<string, any>>({
       )}
 
       {/* TABLE */}
-      <TableScrollContainer
+      <ScrollWrapper
+        fit={fit}
         bodyClassName="overflow-y-auto"
         bodyStyle={{ maxHeight: maxHeight ?? '640px' }}
       >
-        <table className="w-full" role="table">
+        <table className={`w-full ${fit ? 'table-fixed' : ''}`} role="table">
           <thead className={`${stickyHeader ? 'sticky top-0 z-10 bg-[var(--surface-1)]' : ''}`}>
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id} className="border-b border-[var(--border-soft)] bg-[var(--surface-1)]">
@@ -601,7 +616,7 @@ function DataTable<T extends Record<string, any>>({
             )}
           </tbody>
         </table>
-      </TableScrollContainer>
+      </ScrollWrapper>
 
       {/* ROWS SUMMARY */}
       {!loading && !actionsAlignLeft && <RowsSummary table={table} />}

@@ -201,6 +201,9 @@ export interface Sesion {
 /** Fila de la tabla `eventos_calendario` (persistencia real del módulo Calendario). */
 export interface EventoCalendario {
   id: string;
+  /** Acta federativa (forma ActaPartido) volcada desde la BD federativa; solo lectura */
+  acta_fed?: unknown | null;
+  id_partido_fed?: number | null;
   club_id?: string | null;
   title: string;
   type: 'Entrenamiento' | 'Sesión' | 'Partido' | 'Otro' | 'Actividad';

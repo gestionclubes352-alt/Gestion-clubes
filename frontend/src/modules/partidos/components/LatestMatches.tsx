@@ -16,13 +16,33 @@ import {
   isSameCompetition,
   internalNameOfTeam,
   isLikelyInternalTeamName,
-  getCompetitionType,
   ownTeamNameOf,
   buildInternalNameByFedName,
   resolveEquipoInterno as resolveEquipoInternoUtil,
 } from '../utils/teamResolution';
 
 const dateKeyOf = (date: string | undefined) => String(date || '').slice(0, 10);
+
+/** Etapas en orden de mayor a menor edad. */
+const ETAPAS = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín', 'Benjamín', 'Prebenjamín'];
+const ETAPA_PATTERNS: Array<[string, RegExp]> = [
+  ['Prebenjamín', /prebenjam/],
+  ['Benjamín', /benjam/],
+  ['Alevín', /alevin/],
+  ['Infantil', /infantil/],
+  ['Cadete', /cadete/],
+  ['Juvenil', /juvenil/],
+  ['Senior', /senior|primer equipo|filial|aficionado|regional preferente|tercera/],
+];
+const etapaFromText = (value?: string): string => {
+  const text = (value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const found = ETAPA_PATTERNS.find(([, re]) => re.test(text));
+  return found ? found[0] : '';
+};
+const etapaRank = (etapa: string) => {
+  const i = ETAPAS.indexOf(etapa);
+  return i === -1 ? ETAPAS.length : i;
+};
 /** Convierte una URL de YouTube/Vimeo en su URL de embebido para reproducir en un modal. */
 const getMatchVideoEmbedUrl = (url: string): string => {
   if (!url) return '';
@@ -71,6 +91,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [dateFromFilter, setDateFromFilter] = useState<string>('');
   const [dateToFilter, setDateToFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'' | 'played' | 'scheduled'>('');
 
   useEffect(() => {
     (async () => {
@@ -131,20 +152,20 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
 
   const resolveEquipoInterno = (match: Match): string => resolveEquipoInternoUtil(match, ownCompetitionTeams, internalNameByFedName);
 
-  // Tipos de Competición: filtrados por Equipo Interno si está seleccionado
+  // Etapa del partido: se deduce de la competición y, si no basta, del equipo interno
+  // (Senior, Juvenil, Cadete, Infantil, Alevín, Benjamín, Prebenjamín).
+  const getEtapa = (match: Match): string =>
+    etapaFromText(match.competition) || etapaFromText(resolveEquipoInterno(match)) || etapaFromText(match.nombreInterno) || '-';
+
+  // Etapas disponibles (es el primer filtro, no depende de los demás)
   const tipoOptions = useMemo(() => {
     const types = new Set<string>();
-    const sourceMatches = equipoInternoFilter.length === 0
-      ? matches
-      : matches.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)));
-    sourceMatches.forEach((m) => {
-      if (m.competition) {
-        const type = getCompetitionType(m.competition);
-        if (type !== '-') types.add(type);
-      }
+    matches.forEach((m) => {
+      const etapa = getEtapa(m);
+      if (etapa !== '-') types.add(etapa);
     });
-    return Array.from(types).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [matches, equipoInternoFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+    return Array.from(types).sort((a, b) => etapaRank(a) - etapaRank(b));
+  }, [matches, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
 
   // Equipos Internos: filtrados por Competición si está seleccionada
   const equipoInternoOptions = useMemo(() => {
@@ -169,8 +190,12 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       addName(isLikelyInternalTeamName(m.nombreInterno) ? m.nombreInterno : undefined);
       addName(isLikelyInternalTeamName(m.team) ? m.team : undefined);
     });
-    return Array.from(names.values()).sort(compareEquipoNames);
-  }, [ownCompetitionTeams, matches, competitionFilter]);
+    // Si hay etapa seleccionada, solo equipos de esa etapa
+    const result = Array.from(names.values()).filter(
+      (name) => tipoFilter.length === 0 || tipoFilter.includes(etapaFromText(name))
+    );
+    return result.sort(compareEquipoNames);
+  }, [ownCompetitionTeams, matches, competitionFilter, tipoFilter]);
 
   // Competiciones: filtradas por Equipo Interno y Tipo si está seleccionados
   const competitionOptions = useMemo(() => {
@@ -183,7 +208,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
 
     // Si hay tipo seleccionado, filtrar por tipo
     if (tipoFilter.length > 0) {
-      sourceMatches = sourceMatches.filter((m) => tipoFilter.includes(getCompetitionType(m.competition)));
+      sourceMatches = sourceMatches.filter((m) => tipoFilter.includes(getEtapa(m)));
     }
 
     sourceMatches.forEach((m) => { if (m.competition) names.add(m.competition); });
@@ -199,7 +224,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }
 
     if (tipoFilter.length > 0) {
-      result = result.filter((m) => tipoFilter.includes(getCompetitionType(m.competition)));
+      result = result.filter((m) => tipoFilter.includes(getEtapa(m)));
     }
 
     if (competitionFilter.length > 0) {
@@ -239,7 +264,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       result = result.filter((m) => equipoInternoFilter.includes(resolveEquipoInterno(m)));
     }
     if (tipoFilter.length > 0) {
-      result = result.filter((m) => tipoFilter.includes(getCompetitionType(m.competition)));
+      result = result.filter((m) => tipoFilter.includes(getEtapa(m)));
     }
     if (competitionFilter.length > 0) {
       result = result.filter((m) => competitionFilter.includes(m.competition));
@@ -422,12 +447,21 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return undefined;
   };
 
+  // Nombres con los que aparece un equipo interno (equipo, nombre en federación, club propio).
+  const ownTeamAliases = new Set(
+    ownCompetitionTeams
+      .flatMap((team) => [team.equipo, team.nombreEnFed, team.nombre])
+      .map((value) => normalizeTeamKey(value))
+      .filter(Boolean)
+  );
+
   const sideDisplayOf = (match: Match, sideName: string, clubId?: string) => {
     const competitionTeam = findCompetitionTeamForSide(match, sideName, clubId);
     const clubName = resolveClubLabel(sideName, clubId) || competitionTeam?.nombre || sideName;
     const sideIsOwn =
       (!!ownClubId && !!clubId && String(clubId) === String(ownClubId)) ||
-      (ownCompetitionTeams.length > 0 && normalizeTeamKey(ownTeamNameOf(match, ownCompetitionTeams)) === normalizeTeamKey(sideName));
+      ownTeamAliases.has(normalizeTeamKey(sideName)) ||
+      isLikelyInternalTeamName(sideName);
     const federationName =
       competitionTeam?.nombreEnFed && normalizeTeamKey(competitionTeam.nombreEnFed) !== normalizeTeamKey(clubName)
         ? competitionTeam.nombreEnFed
@@ -454,6 +488,13 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       const [competition, jornada] = key.split('|');
       return { groupKey: key, competition, jornada, matches: matches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) };
     }).sort((a, b) => {
+      const byEtapa = etapaRank(a.matches[0] ? getEtapa(a.matches[0]) : '-') - etapaRank(b.matches[0] ? getEtapa(b.matches[0]) : '-');
+      if (byEtapa !== 0) return byEtapa;
+      const byEquipo = compareEquipoNames(
+        a.matches[0] ? resolveEquipoInterno(a.matches[0]) : '',
+        b.matches[0] ? resolveEquipoInterno(b.matches[0]) : ''
+      );
+      if (byEquipo !== 0) return byEquipo;
       if (a.competition !== b.competition) return a.competition.localeCompare(b.competition, 'es');
       const numA = parseInt(a.jornada) || 0;
       const numB = parseInt(b.jornada) || 0;
@@ -520,24 +561,39 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     statusLabel: string;
     location: string;
     videoUrl: string;
-    goalsFavor: number;
-    goalsContra: number;
+    goalsFavor: number | string;
+    goalsContra: number | string;
     ocasionesCount: number;
   }
 
   const tableRows: MatchRow[] = useMemo(() => {
-    const rows = filteredMatches.map((match) => {
+    const rows = filteredMatches
+      .filter((m) => statusFilter === '' || (statusFilter === 'played') === (m.status === 'Finished'))
+      .map((match) => {
       const local = match.localTeam || 'DEMO';
       const visitor = match.visitorTeam || 'Rival';
       const localDisplay = sideDisplayOf(match, local, match.localTeamClubId);
       const visitorDisplay = sideDisplayOf(match, visitor, match.visitorTeamClubId);
       const report = matchReportsById.get(String(match.id));
-      const goalsFavor = (report?.matchGoals || []).filter((g) => g.side === 'FAVOR').length;
-      const goalsContra = (report?.matchGoals || []).filter((g) => g.side === 'CONTRA').length;
+      // GOLES LOC / GOLES VIS: primero el marcador "local-visitante"; si no hay, los eventos de gol
+      // del informe (FAVOR/CONTRA) orientados según si nuestro equipo juega de local o visitante.
+      let goalsFavor: number | string = '';
+      let goalsContra: number | string = '';
+      const scoreMatch = typeof match.score === 'string' ? match.score.match(/^\s*(\d+)\s*[-:]\s*(\d+)\s*$/) : null;
+      if (match.status === 'Finished' && scoreMatch) {
+        goalsFavor = Number(scoreMatch[1]);
+        goalsContra = Number(scoreMatch[2]);
+      } else if ((report?.matchGoals || []).length > 0) {
+        const favor = report!.matchGoals.filter((g) => g.side === 'FAVOR').length;
+        const contra = report!.matchGoals.filter((g) => g.side === 'CONTRA').length;
+        const ownIsVisitor = visitorDisplay.isOwn && !localDisplay.isOwn;
+        goalsFavor = ownIsVisitor ? contra : favor;
+        goalsContra = ownIsVisitor ? favor : contra;
+      }
       const ocasionesCount = (report?.videoEvents || []).filter((e) => e.type === 'OCASION').length;
       return {
         match,
-        tipo: getCompetitionType(match.competition),
+        tipo: getEtapa(match),
         competition: match.competition || '-',
         jornada: match.jornada || '-',
         dateLabel: match.date ? new Date(match.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-',
@@ -557,49 +613,102 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         ocasionesCount,
       };
     });
-    // Ordenar por fecha ascendente (pasado hacia adelante)
-    return rows.sort((a, b) => new Date(a.match.date).getTime() - new Date(b.match.date).getTime());
-  }, [filteredMatches, ownCompetitionTeams, competitionTeams, clubes, matchReportsById]);
+    // Orden: etapa > equipo > competición > jornada > partido (fecha)
+    const withEquipo = rows.map((row) => ({ row, equipo: resolveEquipoInterno(row.match) }));
+    withEquipo.sort((a, b) => {
+      const byEtapa = etapaRank(a.row.tipo) - etapaRank(b.row.tipo);
+      if (byEtapa !== 0) return byEtapa;
+      const byEquipo = compareEquipoNames(a.equipo, b.equipo);
+      if (byEquipo !== 0) return byEquipo;
+      const byComp = a.row.competition.localeCompare(b.row.competition, 'es');
+      if (byComp !== 0) return byComp;
+      const byJornada = (parseInt(a.row.jornada) || 0) - (parseInt(b.row.jornada) || 0);
+      if (byJornada !== 0) return byJornada;
+      return new Date(a.row.match.date).getTime() - new Date(b.row.match.date).getTime();
+    });
+    return withEquipo.map((x) => x.row);
+  }, [filteredMatches, statusFilter, ownCompetitionTeams, competitionTeams, clubes, matchReportsById]);
+
+  // KPIs de la lista (como en FEDERACIONES): partidos, competiciones, equipos, goles y reparto de resultados.
+  const listKpis = useMemo(() => {
+    let jugados = 0, goles = 0, local = 0, empates = 0, visitante = 0;
+    const comps = new Set<string>();
+    const teams = new Set<string>();
+    tableRows.forEach((r) => {
+      comps.add(r.competition);
+      teams.add(r.localLabel);
+      teams.add(r.visitorLabel);
+      const sc = r.match.status === 'Finished' && typeof r.match.score === 'string' ? r.match.score.match(/^\s*(\d+)\s*[-:]\s*(\d+)\s*$/) : null;
+      if (!sc) return;
+      const h = Number(sc[1]); const a = Number(sc[2]);
+      jugados += 1; goles += h + a;
+      if (h > a) local += 1; else if (h < a) visitante += 1; else empates += 1;
+    });
+    return { total: tableRows.length, jugados, goles, local, empates, visitante, competiciones: comps.size, equipos: teams.size };
+  }, [tableRows]);
 
   const matchColumnHelper = createColumnHelper<MatchRow>();
   const tableColumns = useMemo(() => [
-    matchColumnHelper.accessor('competition', {
-      header: t('matchesList.colCompetition'),
-      cell: (info) => <span className="text-xs">{info.getValue()}</span>
-    }),
     matchColumnHelper.accessor('dateLabel', {
       header: t('matchesList.colDate'),
+      cell: (info) => <span className="text-xs whitespace-nowrap">{info.getValue()}</span>
+    }),
+    matchColumnHelper.display({
+      id: 'acta',
+      header: '',
+      cell: (info) => (
+        <button
+          type="button"
+          title="Ver detalle del partido"
+          aria-label="Ver detalle del partido"
+          onClick={(e) => { e.stopPropagation(); if (!info.row.original.match.readonly && onClickMatch) onClickMatch(info.row.original.match); }}
+          className="w-6 h-6 rounded-md text-slate-400 hover:text-sport-primary hover:bg-slate-100 flex items-center justify-center"
+        >
+          <i className="fa-regular fa-eye text-xs"></i>
+        </button>
+      ),
+    }),
+    matchColumnHelper.accessor('jornada', {
+      header: 'JORNADA',
+      cell: (info) => <span className="text-xs">{info.getValue()}</span>
+    }),
+    matchColumnHelper.accessor('competition', {
+      header: t('matchesList.colCompetition'),
       cell: (info) => <span className="text-xs">{info.getValue()}</span>
     }),
     matchColumnHelper.accessor('localLabel', {
       header: 'LOCAL',
       cell: (info) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 text-right">
+          <span className={`truncate text-xs ${info.row.original.localIsOwn ? 'own-team-name' : ''}`}>{info.getValue()}</span>
           {info.row.original.localLogo && (
-            <img loading="lazy" decoding="async" src={info.row.original.localLogo} alt="" className="h-4 w-4 object-contain shrink-0" />
+            <img loading="lazy" decoding="async" src={info.row.original.localLogo} alt="" className="h-5 w-5 object-contain shrink-0" />
           )}
-          <span className={`truncate text-xs ${info.row.original.localIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
         </div>
       ),
     }),
-    matchColumnHelper.accessor('goalsFavor', {
-      header: 'GOLES LOC',
-      cell: (info) => <span className="font-black text-emerald-600 text-xs">{info.getValue() || '-'}</span>,
+    matchColumnHelper.accessor('resultLabel', {
+      header: 'RESULTADO',
+      cell: (info) => (
+        <span className={`inline-block min-w-[3.5rem] text-center bg-slate-800 text-white font-black text-[10px] tracking-widest px-2.5 py-1 rounded-md ${info.row.original.match.status === 'Finished' ? '' : 'opacity-50'}`}>
+          {info.row.original.match.status === 'Finished' ? String(info.getValue()).replace(/\s*[-:]\s*/, ' - ') : 'VS'}
+        </span>
+      ),
     }),
     matchColumnHelper.accessor('visitorLabel', {
       header: 'VISITANTE',
       cell: (info) => (
         <div className="flex items-center gap-2">
           {info.row.original.visitorLogo && (
-            <img loading="lazy" decoding="async" src={info.row.original.visitorLogo} alt="" className="h-4 w-4 object-contain shrink-0" />
+            <img loading="lazy" decoding="async" src={info.row.original.visitorLogo} alt="" className="h-5 w-5 object-contain shrink-0" />
           )}
-          <span className={`truncate text-xs ${info.row.original.visitorIsOwn ? 'font-black' : ''}`}>{info.getValue()}</span>
+          <span className={`truncate text-xs ${info.row.original.visitorIsOwn ? 'own-team-name' : ''}`}>{info.getValue()}</span>
         </div>
       ),
     }),
-    matchColumnHelper.accessor('goalsContra', {
-      header: 'GOLES VIS',
-      cell: (info) => <span className="font-black text-red-500 text-xs">{info.getValue() || '-'}</span>,
+    matchColumnHelper.accessor('location', {
+      header: 'ESTADIO',
+      cell: (info) => <span className="text-xs text-slate-500">{info.getValue()}</span>
     }),
     matchColumnHelper.accessor('ocasionesCount', {
       header: 'OCASIONES',
@@ -621,7 +730,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           <span className="text-slate-300">-</span>
         ),
     }),
-  ], [t]);
+  ], [t, onClickMatch]);
 
   const tableActions: DataTableAction<MatchRow>[] = useMemo(() => {
     const actions: DataTableAction<MatchRow>[] = [];
@@ -713,6 +822,18 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         </div>
         <div>
           <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Etapa
+          </label>
+          <MultiSelectFilter
+            value={tipoFilter}
+            onChange={setTipoFilter}
+            allLabel="Todas las etapas"
+            options={tipoOptions.map((name) => ({ value: name, label: name }))}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
             Equipo
           </label>
           <MultiSelectFilter
@@ -720,18 +841,6 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             onChange={setEquipoInternoFilter}
             allLabel="Todos los equipos"
             options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
-            TIPO
-          </label>
-          <MultiSelectFilter
-            value={tipoFilter}
-            onChange={setTipoFilter}
-            allLabel="Todos los tipos"
-            options={tipoOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           />
         </div>
@@ -917,11 +1026,11 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                                   {localDisplay.logo && (
                                     <img loading="lazy" decoding="async" src={localDisplay.logo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
                                   )}
-                                  <span className="truncate">{localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName)}</span>
+                                  <span className={`truncate ${localDisplay.isOwn ? 'own-team-name' : ''}`}>{localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName)}</span>
                                 </div>
                                 <span className={`font-black text-[7px] flex-shrink-0 ${match.status === 'Finished' ? 'text-pink-600' : 'text-lime-600'}`}>VS</span>
                                 <div className="flex items-center gap-0.5 min-w-0 justify-end">
-                                  <span className="truncate">{visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName)}</span>
+                                  <span className={`truncate ${visitorDisplay.isOwn ? 'own-team-name' : ''}`}>{visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName)}</span>
                                   {visitorDisplay.logo && (
                                     <img loading="lazy" decoding="async" src={visitorDisplay.logo} alt="" className="w-3.5 h-3.5 object-contain flex-shrink-0" />
                                   )}
@@ -944,7 +1053,34 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
           </div>
         </div>
       ) : viewMode === 'table' ? (
-        <div className="text-lg">
+        <div className="text-lg space-y-3">
+          <div className="flex flex-wrap items-stretch gap-2">
+            {([
+              ['Partidos', listKpis.total, listKpis.total !== listKpis.jugados ? `${listKpis.jugados} jugados · ${listKpis.total - listKpis.jugados} pendientes` : ''],
+              ['Competiciones', listKpis.competiciones, ''],
+              ['Equipos', listKpis.equipos, ''],
+              ['Goles', listKpis.goles, listKpis.jugados ? `${(listKpis.goles / listKpis.jugados).toFixed(2)} por partido` : ''],
+              ['Victorias local', listKpis.local, listKpis.jugados ? `${Math.round((100 * listKpis.local) / listKpis.jugados)}%` : ''],
+              ['Empates', listKpis.empates, listKpis.jugados ? `${Math.round((100 * listKpis.empates) / listKpis.jugados)}%` : ''],
+              ['Victorias visitante', listKpis.visitante, listKpis.jugados ? `${Math.round((100 * listKpis.visitante) / listKpis.jugados)}%` : ''],
+            ] as [string, number, string][]).map(([label, value, sub]) => (
+              <div key={label} className="bg-white border border-slate-100 rounded-xl px-4 py-2 shadow-sm min-w-[120px]">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+                <p className="text-xl font-black text-slate-800 leading-tight">{value.toLocaleString('es')}</p>
+                {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+              </div>
+            ))}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as '' | 'played' | 'scheduled')}
+              className="ml-auto self-end bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600"
+              aria-label="Estado de los partidos"
+            >
+              <option value="">Jugados y pendientes</option>
+              <option value="played">Solo jugados</option>
+              <option value="scheduled">Solo pendientes</option>
+            </select>
+          </div>
           <DataTable<MatchRow>
             data={tableRows}
             columns={tableColumns}
@@ -1001,7 +1137,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
               className={`group flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 transition-all ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'} ${isReadOnly ? '' : 'hover:bg-red-50/40 cursor-pointer'}`}
             >
               <div className="flex-1 min-w-0 flex items-center justify-end gap-2 text-right">
-                <span className={`font-black text-xs md:text-sm uppercase truncate ${localDisplay.isOwn ? 'text-[var(--accent)]' : 'text-slate-800'}`}>
+                <span className={`font-black text-xs md:text-sm uppercase truncate ${localDisplay.isOwn ? 'own-team-name' : 'text-slate-800'}`}>
                   {localDisplay.isOwn ? localDisplay.teamName : (localDisplay.clubName || localDisplay.teamName)}
                 </span>
                 {localDisplay.logo ? (
@@ -1021,7 +1157,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
                 ) : (
                   <span className="h-6 w-6 rounded-full bg-slate-100 shrink-0" />
                 )}
-                <span className={`font-black text-xs md:text-sm uppercase truncate ${visitorDisplay.isOwn ? 'text-[var(--accent)]' : 'text-slate-800'}`}>
+                <span className={`font-black text-xs md:text-sm uppercase truncate ${visitorDisplay.isOwn ? 'own-team-name' : 'text-slate-800'}`}>
                   {visitorDisplay.isOwn ? visitorDisplay.teamName : (visitorDisplay.clubName || visitorDisplay.teamName)}
                 </span>
               </div>
