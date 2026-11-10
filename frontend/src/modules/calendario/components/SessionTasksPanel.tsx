@@ -425,6 +425,10 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
         fromSessionCreation: true,
         returnEventId: eventId,
         editSessionTaskId: task.id,
+        fallbackSnapshot: task.designerSnapshot,
+        fallbackStructure: task.fieldStructure,
+        fallbackTitle: task.title,
+        fallbackCategory: task.category,
         sessionSquadIds: squad.map(p => String(p.id)),
       },
     });
@@ -1455,8 +1459,8 @@ const SessionTasksPanel: React.FC<SessionTasksPanelProps> = ({ tasks, onChange, 
 
       {pdfPreviewMode && (
         <div className="fixed inset-0 z-[100] bg-black/70 flex flex-col" onClick={() => !pdfDownloading && setPdfPreviewMode(null)}>
-          <div className="flex items-center justify-between gap-4 px-6 py-4 bg-white border-b border-slate-200 flex-shrink-0" onClick={e => e.stopPropagation()}>
-            <h3 className="font-black text-slate-800 text-[16px] uppercase tracking-widest">
+          <div className="relative flex items-center justify-center gap-4 px-6 py-4 bg-white border-b border-slate-200 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <h3 className="hidden xl:block absolute left-6 font-black text-slate-800 text-[16px] uppercase tracking-widest">
               Vista previa · {pdfPreviewMode === 'full' ? 'PDF CON PETOS' : 'PDF SIN PETOS'}
             </h3>
             <div className="flex items-center gap-2">

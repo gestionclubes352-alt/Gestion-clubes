@@ -109,6 +109,9 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   // Id de la tarea de sesión (SessionTask) cuyo dibujo se está editando, para actualizarla en vez de añadir una nueva al volver
   const editSessionTaskIdRef = useRef<string | null>((location.state as any)?.editSessionTaskId ?? null);
   const [incomingTaskApplied, setIncomingTaskApplied] = useState(false);
+  // Copia del dibujo guardada en la tarea de sesión: respaldo si la tarea del repositorio no tiene snapshot
+  const fallbackSnapshotRef = useRef<DesignerItem[] | DesignerItem[][] | null>((location.state as any)?.fallbackSnapshot ?? null);
+  const fallbackStructureRef = useRef<string | null>((location.state as any)?.fallbackStructure ?? null);
 
   // El componente del Diseñador permanece montado entre navegaciones dentro de la SPA (la ruta
   // /disenador no se desmonta), así que los useRef anteriores solo capturan el location.state la
@@ -126,6 +129,8 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     fromSessionCreationRef.current = (location.state as any)?.fromSessionCreation ?? false;
     returnEventIdRef.current = (location.state as any)?.returnEventId ?? null;
     editSessionTaskIdRef.current = (location.state as any)?.editSessionTaskId ?? null;
+    fallbackSnapshotRef.current = (location.state as any)?.fallbackSnapshot ?? null;
+    fallbackStructureRef.current = (location.state as any)?.fallbackStructure ?? null;
     setIncomingTaskApplied(false);
     setIncomingStateVersion(v => v + 1);
   }, [location.state, location.key]);
@@ -473,6 +478,18 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   /** Deep-clone de items del canvas para evitar referencias compartidas */
   const deepCloneFrames = (value: DesignerItem[][]): DesignerItem[][] => JSON.parse(JSON.stringify(value));
 
+  /** Clona los fotogramas para guardarlos, estampando el estado del interruptor "Dorsales" en los jugadores */
+  const snapshotForSave = (value: DesignerItem[][]): DesignerItem[][] =>
+    deepCloneFrames(value).map(frame => frame.map(item =>
+      item.type?.startsWith('player-') ? { ...item, hideNumber: !showPlayerNumbers } : item
+    ));
+
+  /** Restaura el interruptor "Dorsales" a partir de un snapshot cargado */
+  const applyNumbersFromFrames = (loaded: DesignerItem[][]) => {
+    const players = loaded.flat().filter(i => i.type?.startsWith('player-'));
+    setShowPlayerNumbers(!(players.length > 0 && players.every(p => p.hideNumber)));
+  };
+
   /** Persistir snapshot (todos los fotogramas) y miniatura de una tarea en la DB. Devuelve true si se guardó realmente. */
   const persistTaskSnapshot = async (taskId: string, snapshot: DesignerItem[][], thumbnail?: string, structure?: string): Promise<boolean> => {
     try {
@@ -505,7 +522,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
   /** Auto-guardar la tarea activa actual antes de cambiar */
   const autoSaveActiveTask = async () => {
     if (!activeTaskId) return;
-    const snapshot = deepCloneFrames(frames);
+    const snapshot = snapshotForSave(frames);
     const thumbnail = renderThumbnail(snapshot[0] || [], activeStructure);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
     const ok = await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);
@@ -539,6 +556,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     // con tareas antiguas guardadas como un único fotograma plano
     const snapshotFrames = deepCloneFrames(normalizeDesignerFrames(task.designerSnapshot));
     setFrames(snapshotFrames);
+    applyNumbersFromFrames(snapshotFrames);
     setCurrentFrameIndex(0);
     setActiveStructure(task.fieldStructure || 'libre');
   };
@@ -558,18 +576,57 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
     }
     pushHistoryNow();
     setActiveTaskId(target.id);
-    setFrames(deepCloneFrames(normalizeDesignerFrames(target.designerSnapshot)));
+    let targetFrames = deepCloneFrames(normalizeDesignerFrames(target.designerSnapshot));
+    let targetStructure = target.fieldStructure || 'libre';
+    if (targetFrames.every(f => f.length === 0) && fallbackSnapshotRef.current) {
+      const fb = deepCloneFrames(normalizeDesignerFrames(fallbackSnapshotRef.current));
+      if (fb.some(f => f.length > 0)) {
+        targetFrames = fb;
+        targetStructure = fallbackStructureRef.current || targetStructure;
+      }
+    }
+    setFrames(targetFrames);
+    applyNumbersFromFrames(targetFrames);
     setCurrentFrameIndex(0);
-    setActiveStructure(target.fieldStructure || 'libre');
+    setActiveStructure(targetStructure);
     setActiveProject(target.name);
     setIncomingTaskApplied(true);
     navigate(location.pathname, { replace: true, state: null });
   }, [tasks, incomingTaskApplied, incomingStateVersion, activeTaskId, navigate, location.pathname]);
 
+  /** Si la tarea enlazada desde la sesión ya no existe en el repositorio (borrada o nunca guardada),
+   * se recrea a partir de la copia de la sesión para poder abrirla y editarla en vez de dejar el lienzo vacío. */
+  useEffect(() => {
+    const targetId = incomingSelectTaskIdRef.current;
+    const fallback = fallbackSnapshotRef.current;
+    if (!targetId || !fallback) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await db.task_templates.get(true);
+        if (cancelled || (data as TrainingTask[] | undefined)?.some(t => t.id === targetId)) return;
+        const now = new Date().toISOString();
+        await db.task_templates.upsert({
+          id: targetId,
+          name: (location.state as any)?.fallbackTitle || 'Tarea de sesión',
+          category: (location.state as any)?.fallbackCategory || 'Juego',
+          designerSnapshot: fallback as any,
+          fieldStructure: (fallbackStructureRef.current || undefined) as TrainingTask['fieldStructure'],
+          createdAt: now,
+          updatedAt: now,
+        } as TrainingTask);
+        if (!cancelled) await loadSavedTasks(true);
+      } catch (err) {
+        console.error('Error recreando la tarea enlazada:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [incomingStateVersion]);
+
   /** Guardar los cambios del canvas de vuelta a la tarea activa */
   const handleSaveActiveTask = async (options?: { showToast?: boolean }) => {
     if (!activeTaskId) return;
-    const snapshot = deepCloneFrames(frames);
+    const snapshot = snapshotForSave(frames);
     const thumbnail = renderThumbnail(snapshot[0] || [], activeStructure);
     setTasks(prev => prev.map(t => t.id === activeTaskId ? { ...t, designerSnapshot: snapshot, fieldStructure: activeStructure } : t));
     const ok = await persistTaskSnapshot(activeTaskId, snapshot, thumbnail, activeStructure);

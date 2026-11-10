@@ -276,6 +276,10 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                   <span className="text-[13px] leading-none">E</span>
                 ) : hasPhoto ? (
                   <img src={item.playerPhoto} className="w-full h-full object-cover" draggable={false} />
+                ) : item.hideNumber ? (
+                  item.playerId !== undefined ? (
+                    <span className="text-[10px] leading-none">{(item.playerName || '').slice(0, 2).toUpperCase()}</span>
+                  ) : null
                 ) : (
                   <span className="text-[13px] leading-none">
                     {item.playerId !== undefined ? (item.playerDorsal ?? '') : Number(item.type.replace('player-', '')) || ''}

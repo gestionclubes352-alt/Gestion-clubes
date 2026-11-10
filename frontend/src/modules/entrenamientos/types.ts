@@ -33,6 +33,8 @@ export interface DesignerItem {
   text?: string;
   fontSize?: number;
   animation?: DesignerItemAnimation;
+  /** Jugador guardado "sin dorsal" (se persiste para restaurar el interruptor Dorsales al cargar) */
+  hideNumber?: boolean;
   /** Id del jugador real de la plantilla, cuando el elemento representa un jugador de plantilla (no un dorsal genérico) */
   playerId?: string | number;
   /** Nombre a mostrar del jugador de plantilla (apodo si existe, si no nombre) */
