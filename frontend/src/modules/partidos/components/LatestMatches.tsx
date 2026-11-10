@@ -731,6 +731,11 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       size: 80,
       cell: (info) => <span className="text-xs whitespace-nowrap">{info.getValue()}</span>
     }),
+    matchColumnHelper.accessor('time', {
+      header: 'HORA',
+      size: 60,
+      cell: (info) => <span className="text-xs whitespace-nowrap">{info.getValue()}</span>
+    }),
     matchColumnHelper.display({
       id: 'acta',
       header: '',

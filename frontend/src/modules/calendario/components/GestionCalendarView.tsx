@@ -164,13 +164,17 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   }, [clubes, competitionTeams, clubLogoById]);
   const clubNameByTeamName = useMemo(() => {
     const map = new Map<string, string>();
-    competitionTeams.forEach((team) => {
+    // Los equipos de mi club van primero: un rival dado de alta como "Cadete C" no debe
+    // quitarle el nombre de club a mi propio "Cadete C".
+    const isOwn = (team: CompetitionTeam) => !!ownClubId && String(team.clubId ?? '') === String(ownClubId);
+    const ordered = [...competitionTeams].sort((a, b) => Number(isOwn(b)) - Number(isOwn(a)));
+    ordered.forEach((team) => {
       const teamName = team.equipo || team.nombre;
       const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
       if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
     });
     return map;
-  }, [competitionTeams, clubNameById]);
+  }, [competitionTeams, clubNameById, ownClubId]);
   const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
     (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
   const resolveClubLogo = (clubId?: string): string | undefined =>
@@ -227,8 +231,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const resolveMatchSideDisplay = (event: CalendarEvent, teamName?: string, clubId?: string) => {
     const team = findCompetitionTeamForSide(teamName, clubId);
     const rawName = teamName || '';
+    // Lado sin clubId cuyo nombre es el de un equipo interno ("Cadete C"): es de mi club.
+    const ownClubName =
+      !clubId && ownClubId && internalTeamCanonicalByName.has(rawName.trim().toLowerCase())
+        ? clubNameById.get(String(ownClubId))
+        : undefined;
     const clubName =
       (clubId && clubNameById.get(String(clubId))) ||
+      ownClubName ||
       resolveClubLabel(rawName, clubId) ||
       team?.nombre ||
       rawName;
@@ -793,14 +803,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         const isInternalSide = (name?: string, clubId?: string) => {
           const n = (name || '').trim();
           if (!n) return false;
-          return (!!ownClubId && !!clubId && String(clubId) === String(ownClubId))
-            || internalTeamCanonicalByName.has(n.toLowerCase())
+          // Si el lado trae club, manda el club: "Cadete A" de otro club no es mío.
+          if (ownClubId && clubId) return String(clubId) === String(ownClubId);
+          return internalTeamCanonicalByName.has(n.toLowerCase())
             || isLikelyInternalTeamName(n);
         };
         const hasInternal =
           isInternalSide(ev.localTeam, ev.localTeamClubId) ||
           isInternalSide(ev.visitorTeam, ev.visitorTeamClubId) ||
-          isInternalSide(ev.nombreInterno) ||
+          (!(ownClubId && (ev.localTeamClubId || ev.visitorTeamClubId)) && isInternalSide(ev.nombreInterno)) ||
           (!ev.localTeam && !ev.visitorTeam && isInternalSide(ev.team));
         if (!hasInternal) return false;
       }

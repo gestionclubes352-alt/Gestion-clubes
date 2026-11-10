@@ -352,7 +352,12 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
     const compTeam: any = competitionTeams.find(t => (t.equipo || t.nombre) === teamName);
     // Equipos internos (de mi club): siempre el escudo del club.
     const effectiveClubId = clubId ?? compTeam?.clubId;
-    if (ownClubId && effectiveClubId != null && String(effectiveClubId) === String(ownClubId)) {
+    // También si el nombre coincide con un equipo propio (partidos sin clubId guardado).
+    const key = (teamName || '').trim().toLowerCase();
+    const isOwnByName = !!key && !clubId && ownTeams.some(
+      t => (t.nombre || '').trim().toLowerCase() === key || (t.sub_equipo || '').trim().toLowerCase() === key
+    );
+    if (ownClubId && ((effectiveClubId != null && String(effectiveClubId) === String(ownClubId)) || isOwnByName)) {
       const own = clubs.find(c => String(c.id) === String(ownClubId));
       if (own?.escudo_url) return own.escudo_url;
     }

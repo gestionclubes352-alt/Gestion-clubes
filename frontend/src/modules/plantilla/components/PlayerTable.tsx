@@ -345,13 +345,15 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       ...(([
         { id: 'pj', header: 'PJ', icon: 'fa-shirt', title: 'Partidos jugados', get: (m: MatchTotals) => m.pj },
         { id: 'tit', header: 'Tit.', icon: 'fa-star', title: 'Titularidades', get: (m: MatchTotals) => m.tit },
+        { id: 'pctTit', header: '% Tit.', pct: true, title: '% de partidos del equipo como titular', get: (m: MatchTotals, row: Player) => { const pe = row.equipo ? (teamMatches.get(row.equipo) ?? 0) : 0; return pe > 0 ? Math.min(100, Math.round((m.tit / pe) * 100)) : 0; } },
         { id: 'minE', header: 'MIN E', team: true, icon: 'fa-clock', title: 'Minutos del equipo (partidos del equipo × 90)', get: (_m: MatchTotals, row: Player) => (row.equipo ? (teamMatches.get(row.equipo) ?? 0) * 90 : 0) },
         { id: 'minJ', header: 'MINJ', icon: 'fa-stopwatch', title: 'Minutos jugados', get: (m: MatchTotals) => m.min },
+        { id: 'pctMin', header: '% Min.', pct: true, title: '% de minutos jugados sobre los del equipo', get: (m: MatchTotals, row: Player) => { const me = row.equipo ? (teamMatches.get(row.equipo) ?? 0) * 90 : 0; return me > 0 ? Math.min(100, Math.round((m.min / me) * 100)) : 0; } },
         { id: 'goles', header: 'Goles', emoji: '⚽', title: 'Goles marcados', get: (m: MatchTotals) => m.goles },
         { id: 'gc', header: 'GC', icon: 'fa-hand', title: 'Goles recibidos con el jugador en campo', get: (m: MatchTotals) => m.gc },
         { id: 'am', header: 'Amarillas', card: 'bg-yellow-400', title: 'Tarjetas amarillas', get: (m: MatchTotals) => m.am },
         { id: 'ro', header: 'Rojas', card: 'bg-red-600', title: 'Tarjetas rojas', get: (m: MatchTotals) => m.ro },
-      ] as { id: string; header: string; icon?: string; emoji?: string; team?: boolean; card?: string; title: string; get: (m: MatchTotals, row: Player) => number }[]).map(c =>
+      ] as { id: string; header: string; icon?: string; emoji?: string; team?: boolean; pct?: boolean; card?: string; title: string; get: (m: MatchTotals, row: Player) => number }[]).map(c =>
         columnHelper.accessor(row => (matchTotals.get(String(row.id)) ?? EMPTY_TOTALS).pj ? c.get(matchTotals.get(String(row.id))!, row) : null, {
           id: c.id,
           meta: { title: c.title },
@@ -363,10 +365,11 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
               {c.card ? '' : c.header}
             </span>
           ),
-          size: 48,
+          size: c.pct ? 56 : 48,
           cell: info => {
             const v = info.getValue();
             if (v == null) return <span className="text-slate-300">—</span>;
+            if (c.pct) return <span className="text-slate-600 text-xs tabular-nums" title={c.title}>{v}%</span>;
             if (c.card) {
               return v > 0
                 ? <span className="inline-flex items-center gap-1 text-xs tabular-nums text-slate-700 font-semibold" title={c.title}><span className={`inline-block w-2 h-3 rounded-[2px] ${c.card}`}></span>{v}</span>
