@@ -14,7 +14,7 @@ import { useTeam } from '@context/TeamContext';
 import { getFederationTeamLogo } from '../data/teamLogos';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
-import GlobalCompetitionsView, { isOwnTeamInCompetition } from './GlobalCompetitionsView';
+import GlobalCompetitionsView, { isOwnTeamInCompetition, internalNameInCompetition } from './GlobalCompetitionsView';
 import { HorariosPanel, SancionesPanel, useActas, ownSideOf, norm, type ActaRow } from './CompetitionExtraPanels';
 import StandingsCharts from './StandingsCharts';
 import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
@@ -299,6 +299,8 @@ const HUESCA_ETAPAS = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'] as 
 const HUESCA_COMPETITIONS: ReadonlyArray<{ id: string; name: string; etapa: (typeof HUESCA_ETAPAS)[number] }> = [
   { id: '23183316-22-23258924', name: 'Tercera RFEF G-17', etapa: 'Senior' },
   { id: '23183382-22-23183383', name: 'Liga Nacional Juvenil Grupo 6', etapa: 'Juvenil' },
+  { id: '23245982-22-23245995', name: 'Copa - Juvenil Preferente Grupo 1 - Huesca', etapa: 'Juvenil' },
+  { id: '23245982-22-23245996', name: 'Copa - Juvenil Preferente Grupo 2 - Huesca', etapa: 'Juvenil' },
   { id: '23183317-22-23183319', name: 'Juvenil Preferente Grupo 2 - Huesca', etapa: 'Juvenil' },
   { id: '23183321-22-23197223', name: 'Primera Juvenil Grupo 2 - Huesca Occidental', etapa: 'Juvenil' },
   { id: '23183313-22-23183314', name: 'División Honor Cadete Grupo Único', etapa: 'Cadete' },
@@ -540,7 +542,7 @@ const TeamCrest: React.FC<{ name: string; logoUrl?: string; size?: string }> = (
 
 const columnHelper = createColumnHelper<StandingTeam>();
 
-const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false) => {
+const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false, displayName?: (team: string) => string) => {
   const cols = [
     columnHelper.accessor('pos', {
       header: '#',
@@ -552,7 +554,7 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false) =
       cell: info => (
         <div className="flex items-center gap-1.5 min-w-0">
           <TeamCrest name={info.getValue()} logoUrl={info.row.original.logoUrl} size={dense ? "w-5 h-5" : "w-5 h-5"} />
-          <TeamName name={info.getValue()} isMine={isOwn(info.getValue())} className="text-xs font-medium text-slate-700 truncate" />
+          <TeamName name={displayName ? displayName(info.getValue()) : info.getValue()} isMine={isOwn(info.getValue())} className="text-xs font-medium text-slate-700 truncate" />
         </div>
       ),
     }),
@@ -1374,7 +1376,10 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                         <div className="p-2">
                           <DataTable<StandingTeam>
                             data={rows}
-                            columns={buildStandingColumns(name => isOwn(name), true)}
+                            columns={buildStandingColumns(name => isOwn(name), true, name => {
+                              const internal = internalNameInCompetition(comp.id, name);
+                              return internal ? `${name} - ${internal}` : name;
+                            })}
                             compact
                             fit
                             cellTextClassName="text-[11px] [&_span]:!text-[11px]"
@@ -1536,8 +1541,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                       </span>
                     </div>
                   )}
-                  <div className={`grid gap-2 rounded-lg border bg-white px-2.5 py-1.5 md:grid-cols-[64px_minmax(0,1fr)_96px_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#9f1239]/50 bg-[#9f1239]/10 ring-1 ring-inset ring-[#9f1239]/40' : 'border-slate-100'}`}>
-                    <div className="flex flex-row items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 md:flex-col md:items-start md:gap-0.5">
+                  <div className={`grid gap-2 rounded-lg border bg-white px-2.5 py-1 md:grid-cols-[64px_minmax(0,1fr)_96px_minmax(0,1fr)] md:items-center ${isPrimaryMatch ? 'border-[#9f1239]/50 bg-[#9f1239]/10 ring-1 ring-inset ring-[#9f1239]/40' : 'border-slate-100'}`}>
+                    <div className="flex flex-row items-center gap-2 text-[9px] font-black uppercase leading-tight tracking-wider text-slate-400 md:flex-col md:items-start md:gap-0">
                       <span className="whitespace-nowrap">J{match.jornada}</span>
                       <span className="whitespace-nowrap">{matchDate}</span>
                       {activeSection === 'resultados' && matchTime && (
@@ -1545,13 +1550,13 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                       )}
                     </div>
                     <div className="flex min-w-0 items-center justify-end gap-2 text-right">
-                      <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
-                      <TeamCrest name={match.local} size="w-7 h-7" />
+                      <TeamName name={match.local} myTeam={highlightedTeamName} className="truncate text-xs font-semibold leading-tight text-slate-700" />
+                      <TeamCrest name={match.local} size="w-6 h-6" />
                     </div>
-                    <div className="flex flex-col items-center gap-1 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-2 md:py-0">
+                    <div className="flex flex-col items-center gap-0.5 border-y border-slate-100 py-2 md:border-y-0 md:border-x md:px-2 md:py-0">
                       {activeSection === 'resultados' ? (
                         <>
-                          <span className={`rounded-md px-2 py-0.5 text-sm font-black uppercase tabular-nums ${match.resultado === 'vs' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-white'}`}>
+                          <span className={`rounded-md px-2 py-0.5 text-[11px] font-black uppercase leading-tight tabular-nums whitespace-nowrap ${match.resultado === 'vs' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-white'}`}>
                             {match.resultado === 'vs' ? 'Sin jugar' : match.resultado}
                           </span>
                           {(() => {
@@ -1569,15 +1574,15 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                         </>
                       ) : (
                         <>
-                          <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-black uppercase tabular-nums text-white">{match.resultado}</span>
-                          <span className="text-[10px] font-bold text-slate-500">{matchTime || 'Hora pendiente'}</span>
-                          <span className="max-w-full truncate text-[10px] font-semibold text-slate-400" title={matchLocation || 'Campo pendiente'}>{matchLocation || 'Campo pendiente'}</span>
+                          <span className="rounded-md bg-slate-800 px-2.5 py-0.5 text-[11px] font-black uppercase leading-tight tabular-nums text-white">{match.resultado}</span>
+                          <span className="text-[9px] font-bold leading-tight text-slate-500">{matchTime || 'Hora pendiente'}</span>
+                          <span className="max-w-full truncate text-[9px] font-semibold leading-tight text-slate-400" title={matchLocation || 'Campo pendiente'}>{matchLocation || 'Campo pendiente'}</span>
                         </>
                       )}
                     </div>
                     <div className="flex min-w-0 items-center gap-2">
-                      <TeamCrest name={match.visitante} size="w-7 h-7" />
-                      <TeamName name={match.visitante} myTeam={highlightedTeamName} className="truncate text-sm font-semibold text-slate-700" />
+                      <TeamCrest name={match.visitante} size="w-6 h-6" />
+                      <TeamName name={match.visitante} myTeam={highlightedTeamName} className="truncate text-xs font-semibold leading-tight text-slate-700" />
                     </div>
                   </div>
                 </React.Fragment>

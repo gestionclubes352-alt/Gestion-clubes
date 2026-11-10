@@ -35,6 +35,7 @@ export const competicionService = {
         numero_partes: competicion.numero_partes || 2,
         minutos_por_parte: competicion.minutos_por_parte || 45,
         total_minutos: competicion.total_minutos || 90,
+        url: competicion.url || null,
       } as any)
       .select()
       .single();
@@ -53,6 +54,7 @@ export const competicionService = {
         numero_partes: competicion.numero_partes,
         minutos_por_parte: competicion.minutos_por_parte,
         total_minutos: competicion.total_minutos,
+        ...(competicion.url !== undefined ? { url: competicion.url || null } : {}),
       } as any)
       .eq('id', id)
       .select()

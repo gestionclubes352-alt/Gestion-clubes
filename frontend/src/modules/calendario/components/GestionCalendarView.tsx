@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { isLikelyInternalTeamName } from '@modules/partidos/utils/teamResolution';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '../types';
 import type { CompetitionTeam } from '@modules/competicion';
@@ -178,6 +179,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     const clubLogo = resolveClubLogo(clubId);
     if (clubLogo) return clubLogo;
 
+    // Equipos propios (p. ej. "Infantil C", "Primer Equipo"): siempre el escudo de mi club,
+    // aunque el evento importado no traiga el id del club.
+    const ownLogo = resolveClubLogo(ownClubId);
+    if (ownLogo) {
+      const isOwn = teamNames.some((n) => n && internalTeamCanonicalByName.has(n.trim().toLowerCase()));
+      if (isOwn) return ownLogo;
+    }
+
     for (const teamName of teamNames) {
       if (!teamName) continue;
       const normalizedName = normalizeFederationTeamName(teamName);
@@ -262,6 +271,15 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     });
     return map;
   }, [internalCompetitionTeams]);
+  // Nombre del lado de un partido; si es mi equipo interno se resalta en granate y negrita.
+  const renderSideName = (rawName: string | undefined, clubId: string | undefined, displayName?: string) => {
+    const name = displayName ?? rawName ?? '';
+    const isOwn = clubId
+      ? !!ownClubId && String(clubId) === String(ownClubId)
+      : internalTeamCanonicalByName.has((rawName || '').trim().toLowerCase()) ||
+        internalTeamCanonicalByName.has((name || '').trim().toLowerCase());
+    return isOwn ? <span className="font-black text-[#800020]">{name}</span> : <>{name}</>;
+  };
   const getEventTeamKey = (ev: CalendarEvent): string | undefined => {
     if (ev.type === 'Partido') {
       const candidates = [
@@ -388,6 +406,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   });
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('week');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [scheduleExpanded, setScheduleExpanded] = useState(false);
   useEffect(() => {
     if (!isFullscreen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
@@ -464,6 +483,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   };
 
   const [teamFilter, setTeamFilter] = useState<string[]>([]);
+  const [clubFilter, setClubFilter] = useState<string[]>([]);
   const [playerFilter, setPlayerFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>(['Partido', 'Sesión']);
   const [activityFilter, setActivityFilter] = useState<string[]>([]);
@@ -710,6 +730,44 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
     [events, objetivoEvents]
   );
 
+  // Clubes implicados en un evento (local/visitante); los equipos propios caen en ownClubId.
+  const getEventClubNames = (ev: CalendarEvent): string[] => {
+    const names = new Set<string>();
+    const add = (teamName?: string, clubId?: string) => {
+      const ownName = ownClubId ? clubNameById.get(String(ownClubId)) : undefined;
+      // Equipo interno sin clubId (partidos importados): es del club propio, no de un homónimo.
+      const label = !clubId && ownName && isLikelyInternalTeamName(teamName)
+        ? ownName
+        : (clubId || teamName ? resolveClubLabel(teamName || '', clubId) : undefined);
+      if (label) names.add(label);
+    };
+    add(ev.localTeam, ev.localTeamClubId);
+    add(ev.visitorTeam, ev.visitorTeamClubId);
+    if (names.size === 0 && ownClubId) {
+      const own = clubNameById.get(String(ownClubId));
+      if (own) names.add(own);
+    }
+    return Array.from(names);
+  };
+
+  const availableClubs = useMemo(() => {
+    const names = new Set<string>();
+    allEvents.forEach((ev) => getEventClubNames(ev).forEach((n) => names.add(n)));
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEvents, clubNameById, clubNameByTeamName, ownClubId]);
+
+  // Por defecto, solo los eventos del club propio (EF Huesca)
+  const defaultClubApplied = React.useRef(false);
+  useEffect(() => {
+    if (defaultClubApplied.current || !ownClubId) return;
+    const ownName = clubNameById.get(String(ownClubId));
+    if (ownName && availableClubs.includes(ownName)) {
+      defaultClubApplied.current = true;
+      setClubFilter([ownName]);
+    }
+  }, [availableClubs, clubNameById, ownClubId]);
+
   const filteredEvents = useMemo(() => {
     const dateFrom = filterDateFrom ? new Date(filterDateFrom) : null;
     const dateTo = filterDateTo ? new Date(filterDateTo) : null;
@@ -730,6 +788,22 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         return true;
       }
       if (!ev.type || !typeFilter.includes(ev.type)) return false;
+      // Solo partidos que disputa alguno de mis equipos internos (local o visitante).
+      if (ev.type === 'Partido') {
+        const isInternalSide = (name?: string, clubId?: string) => {
+          const n = (name || '').trim();
+          if (!n) return false;
+          return (!!ownClubId && !!clubId && String(clubId) === String(ownClubId))
+            || internalTeamCanonicalByName.has(n.toLowerCase())
+            || isLikelyInternalTeamName(n);
+        };
+        const hasInternal =
+          isInternalSide(ev.localTeam, ev.localTeamClubId) ||
+          isInternalSide(ev.visitorTeam, ev.visitorTeamClubId) ||
+          isInternalSide(ev.nombreInterno) ||
+          (!ev.localTeam && !ev.visitorTeam && isInternalSide(ev.team));
+        if (!hasInternal) return false;
+      }
       if (activityFilter.length > 0 && !activityFilter.includes(getEventActivity(ev))) return false;
       if (localidadId.length > 0 && (!ev.localidad_id || !localidadId.includes(ev.localidad_id))) return false;
       if (instalacionPrincipalId.length > 0) {
@@ -741,6 +815,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       if (teamFilter.length > 0) {
         if (!teamFilter.includes(getEventTeamKey(ev))) return false;
       }
+      if (clubFilter.length > 0 && !getEventClubNames(ev).some((n) => clubFilter.includes(n))) return false;
       if (playerFilter.length > 0) {
         const selectedPlayers = players.filter(player => playerFilter.includes(String(player.id)));
         if (selectedPlayers.length === 0 || !selectedPlayers.some(player => playerParticipatesInEvent(ev, player))) return false;
@@ -755,7 +830,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
       }
       return true;
     });
-  }, [allEvents, teamFilter, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById, localidadId, instalacionPrincipalId, instalacionId, campoParentMap]);
+  }, [allEvents, teamFilter, clubFilter, clubNameById, clubNameByTeamName, ownClubId, playerFilter, typeFilter, activityFilter, monthFilter, filterDateFrom, filterDateTo, players, teamAliasesByCompetitionTeamId, internalTeamCanonicalByName, matchReportById, localidadId, instalacionPrincipalId, instalacionId, campoParentMap]);
 
   const teamColorLegend = useMemo(() => {
     const keys = new Set<string>();
@@ -1013,13 +1088,13 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           onDragEnd={handleEventDragEnd}
                           onClick={() => openEvent(ev)}
                           title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
-                          className={`relative group/ev w-full text-left truncate rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
+                          className={`relative group/ev w-full text-left overflow-hidden rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                         >
                           {isMatchWithSides ? (
                             <span className="flex items-center gap-1 min-w-0">
                               <span className="flex-shrink-0 font-black">{ev.time || '--:--'}</span>
                               {renderMiniCrest(monthLocalLogo)}
-                              <span className="truncate">{monthLocalDisplay?.teamName} - {monthVisitorDisplay?.teamName}</span>
+                              <span className="min-w-0 flex-1 whitespace-normal break-words line-clamp-2 leading-tight">{renderSideName(ev.localTeam, ev.localTeamClubId, monthLocalDisplay?.teamName)} - {renderSideName(ev.visitorTeam, ev.visitorTeamClubId, monthVisitorDisplay?.teamName)}</span>
                               {renderMiniCrest(monthVisitorLogo)}
                               {ev.score && <span className="flex-shrink-0 font-black text-white bg-red-700 rounded px-1 leading-tight">{ev.score}</span>}
                             </span>
@@ -1101,6 +1176,16 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
 
     return (
       <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setScheduleExpanded(v => !v)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+          >
+            <i className={`fa-solid ${scheduleExpanded ? 'fa-compress' : 'fa-expand'} mr-1.5`}></i>
+            {scheduleExpanded ? 'Contraer' : 'Desplegar'} partidos y sesiones
+          </button>
+        </div>
         <div className={dayCount === 1 ? 'min-w-[420px]' : 'min-w-[980px]'}>
           <div
             className="grid gap-px rounded-2xl overflow-hidden border border-slate-200 bg-slate-200"
@@ -1130,7 +1215,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                     if (!parsed || parsed.hour < 0 || parsed.hour > 23) return hour === scheduleHours[0];
                     return parsed.hour === hour;
                   });
-                  const compact = hourEvents.length > 1;
+                  const compact = hourEvents.length > 1 && !scheduleExpanded;
                   // Eventos sin hora: se apilan de arriba a abajo en lugar de repartirse en horizontal
                   const hasUntimed = hourEvents.some(ev => {
                     const parsed = parseEventTime(ev.time);
@@ -1146,7 +1231,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                       onDrop={(e) => handleSlotDrop(e, date, hour)}
                       className={`min-h-12 bg-white p-1.5 transition-colors ${isToday(date) ? 'bg-red-50' : ''} ${dragOverSlot === slotKey ? 'bg-blue-100 ring-2 ring-inset ring-blue-400' : ''}`}
                     >
-                      <div className={hourEvents.length > 0 ? (hasUntimed ? 'flex flex-col gap-1' : 'flex flex-row gap-1 items-stretch') : 'space-y-1'}>
+                      <div className={hourEvents.length > 0 ? (hasUntimed || scheduleExpanded ? 'flex flex-col gap-1' : 'flex flex-row gap-1 items-stretch') : 'space-y-1'}>
                         {hourEvents.map(ev => {
                           const teamColor = getTeamColor(getEventTeamKey(ev));
                           const isMatch = ev.type === 'Partido';
@@ -1202,7 +1287,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                   <span className="flex items-center gap-1 min-w-0 pr-8">
                                     <span className="flex-shrink-0 font-black">{ev.time || '--:--'}</span>
                                     {renderMiniCrest(localLogo)}
-                                    <span className="truncate">{localDisplay.teamName} - {visitorDisplay.teamName}</span>
+                                    <span className="min-w-0 flex-1 whitespace-normal break-words line-clamp-2 leading-tight">{renderSideName(ev.localTeam, ev.localTeamClubId, localDisplay.teamName)} - {renderSideName(ev.visitorTeam, ev.visitorTeamClubId, visitorDisplay.teamName)}</span>
                                     {renderMiniCrest(visitorLogo)}
                                     {ev.score && <span className="flex-shrink-0 font-black text-white bg-red-700 rounded px-1 leading-tight">{ev.score}</span>}
                                   </span>
@@ -1211,7 +1296,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                     <span className="text-[10px] font-black leading-none">{ev.time || '--:--'}</span>
                                     {(ev.localTeam && ev.visitorTeam) ? (
                                       <span className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
-                                        {localDisplay.teamName} <span className="opacity-60">vs</span> {visitorDisplay.teamName}
+                                        {renderSideName(ev.localTeam, ev.localTeamClubId, localDisplay.teamName)} <span className="opacity-60">vs</span> {renderSideName(ev.visitorTeam, ev.visitorTeamClubId, visitorDisplay.teamName)}
                                       </span>
                                     ) : (
                                       <span className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
@@ -1241,7 +1326,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                             </div>
                                           )}
                                           <span className="block text-[8px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{localDisplay.clubName}</span>
-                                          <span className="block truncate w-full text-[10px] leading-tight">{localDisplay.teamName}</span>
+                                          <span className="block truncate w-full text-[10px] leading-tight">{renderSideName(ev.localTeam, ev.localTeamClubId, localDisplay.teamName)}</span>
                                         </div>
                                         <span className="flex-shrink-0 bg-red-600 text-white text-[9px] font-black leading-none px-1.5 py-1 rounded-full shadow-sm">VS</span>
                                         <div className="flex-1 min-w-0 flex flex-col items-center text-center">
@@ -1253,7 +1338,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                             </div>
                                           )}
                                           <span className="block text-[8px] font-bold uppercase tracking-wide opacity-60 truncate w-full leading-none mb-0.5">{visitorDisplay.clubName}</span>
-                                          <span className="block truncate w-full text-[10px] leading-tight">{visitorDisplay.teamName}</span>
+                                          <span className="block truncate w-full text-[10px] leading-tight">{renderSideName(ev.visitorTeam, ev.visitorTeamClubId, visitorDisplay.teamName)}</span>
                                         </div>
                                       </div>
                                     ) : (
@@ -1280,7 +1365,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="truncate leading-tight block">
+                                  <span className={`${scheduleExpanded ? 'whitespace-normal break-words' : 'truncate'} leading-tight block`}>
                                     {formatEventLabel(ev.time, ev.team)} {ev.title}
                                   </span>
                                 )
@@ -1325,6 +1410,14 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         )}
         {showFilters && filtersVisible && (
         <div className="flex items-center gap-2 flex-wrap flex-1">
+          <MultiSelectFilter
+            value={clubFilter}
+            onChange={setClubFilter}
+            showAddAll
+            allLabel={t('calendarView.filterAllClubs', 'Club')}
+            options={availableClubs.map((club) => ({ value: club, label: club }))}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+          />
           <MultiSelectFilter
             value={teamFilter}
             onChange={setTeamFilter}

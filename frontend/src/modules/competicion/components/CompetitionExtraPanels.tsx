@@ -5,6 +5,12 @@ import type { Match } from '../../partidos/types';
 import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
 import { CardIcon } from '@shared/components/MatchIcons';
 
+/** Equipos internos del club (Primer Equipo, Juvenil A, Cadete B…): se resaltan en granate. */
+const isInternalTeam = (name?: string): boolean => {
+  const n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+  return /^(primerequipo|filial|juvenil[a-d]|cadete[a-d]|infantil[a-d]|alevin[a-d])$/.test(n);
+};
+
 export const norm = (v?: string | null) =>
   (v ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
@@ -196,7 +202,11 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
                 <td className="px-4 py-2 font-bold capitalize text-slate-700">{fmtDate(m.date)}</td>
                 <td className="px-2 py-2 tabular-nums">{m.time || 'Pendiente'}</td>
                 <td className="px-2 py-2 tabular-nums">{m.jornada || '—'}</td>
-                <td className="px-2 py-2 font-semibold text-slate-700">{m.localTeam || m.opponent} <span className="text-slate-400">vs</span> {m.visitorTeam || ''}</td>
+                <td className="px-2 py-2 font-semibold text-slate-700">
+                  <span className={isInternalTeam(m.localTeam || m.opponent) ? 'font-black text-[#9f1239]' : ''}>{m.localTeam || m.opponent}</span>{' '}
+                  <span className="text-slate-400">vs</span>{' '}
+                  <span className={isInternalTeam(m.visitorTeam) ? 'font-black text-[#9f1239]' : ''}>{m.visitorTeam || ''}</span>
+                </td>
                 <td className="px-2 py-2 text-slate-500">{m.location || 'Pendiente'}</td>
                 <td className="px-4 py-2 text-slate-500">{m.competition}</td>
               </tr>

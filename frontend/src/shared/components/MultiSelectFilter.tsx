@@ -16,6 +16,8 @@ interface MultiSelectFilterProps {
   disabled?: boolean;
   /** Si true, vacío = "ninguno" (no se muestra nada) y la opción "todos" selecciona todas las opciones. */
   emptyMeansNone?: boolean;
+  /** Si true, muestra un botón para añadir (marcar) todas las opciones a la vez. */
+  showAddAll?: boolean;
 }
 
 const normalize = (value: string) =>
@@ -37,6 +39,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
   className = '',
   disabled,
   emptyMeansNone = false,
+  showAddAll = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -180,6 +183,17 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                 <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{allLabel}</span>
                 {allSelected && <i className="fa-solid fa-check text-[10px] text-blue-600" aria-hidden="true"></i>}
               </button>
+
+              {showAddAll && filteredOptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm font-bold text-blue-700 hover:bg-slate-50"
+                >
+                  <i className="fa-solid fa-eye text-[10px]" aria-hidden="true"></i>
+                  <span className="min-w-0 flex-1">Mostrar todos</span>
+                </button>
+              )}
 
               {filteredOptions.length === 0 ? (
                 <div className="px-3 py-2 text-sm font-semibold text-slate-400">Sin resultados</div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Competicion, Equipo } from '@/shared/services/dataService';
-import { equiposService } from '@shared/services';
+import { equiposService, clubesService } from '@shared/services';
 import { competicionService } from '../services/competicionService';
 import { competicionEquiposService, type EquipoRef } from '../services/competicionEquiposService';
 import { CompetitionTeam } from '../types';
@@ -17,6 +17,7 @@ interface CompetitionConfig {
   partes: number;
   minutosPorParte: number;
   equipoInternaId?: string;
+  url?: string;
 }
 
 interface CompetitionsConfigViewProps {
@@ -72,6 +73,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
   const [equiposSelectorError, setEquiposSelectorError] = useState<string | null>(null);
   const [equiposPorCompeticion, setEquiposPorCompeticion] = useState<Map<string, number>>(new Map());
   const [equipoIdsPorCompeticion, setEquipoIdsPorCompeticion] = useState<Map<string, string[]>>(new Map());
+  const [clubesPorId, setClubesPorId] = useState<Map<string, string>>(new Map());
   const formRef = useRef<HTMLDivElement | null>(null);
 
   // Cargar configuraciones desde Supabase
@@ -80,6 +82,12 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       loadData();
     }
   }, [perfil?.club_id]);
+
+  useEffect(() => {
+    clubesService.list()
+      .then((data: any[]) => setClubesPorId(new Map(data.map(c => [String(c.id), c.nombre]))))
+      .catch(err => console.error('Error loading clubs:', err));
+  }, []);
 
   const loadData = async () => {
     try {
@@ -282,6 +290,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
         numero_partes: formData.partes,
         minutos_por_parte: formData.minutosPorParte,
         total_minutos: formData.partes * formData.minutosPorParte,
+        url: (formData.url || '').trim(),
       };
 
       let competicionId = editingId;
@@ -492,6 +501,20 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
               />
             </div>
 
+            {/* Campo: URL */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                URL
+              </label>
+              <input
+                type="url"
+                value={formData.url || ''}
+                onChange={e => setFormData({ ...formData, url: e.target.value })}
+                placeholder="https://..."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
+              />
+            </div>
+
             {/* Resumen: Total de minutos */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
@@ -521,15 +544,17 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
             {/* Encabezado */}
             <div
               className="grid text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-slate-200"
-              style={{ gridTemplateColumns: '2fr 1fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
+              style={{ gridTemplateColumns: '2fr 1.2fr 1fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr 0.6fr minmax(190px, 1.2fr)' }}
             >
               <div className="px-6 py-4">Competición</div>
+              <div className="px-3 py-4 text-center">Club</div>
               <div className="px-3 py-4 text-center">Equipo interno</div>
               <div className="px-3 py-4 text-center">Tipo</div>
               <div className="px-3 py-4 text-center">Partes</div>
               <div className="px-3 py-4 text-center">Min/Parte</div>
               <div className="px-3 py-4 text-center">Total Minutos</div>
               <div className="px-3 py-4 text-center">Equipos Añadidos</div>
+              <div className="px-3 py-4 text-center">URL</div>
               <div className="px-4 py-4 text-right">Acciones</div>
             </div>
 
@@ -559,44 +584,71 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <div
                   key={comp.id}
                   className="grid items-center border-b border-slate-100 last:border-b-0 bg-white hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '2fr 1fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr minmax(190px, 1.2fr)' }}
+                  style={{ gridTemplateColumns: '2fr 1.2fr 1fr 0.8fr 0.6fr 0.7fr 0.9fr 0.9fr 0.6fr minmax(190px, 1.2fr)' }}
                 >
-                  <div className="px-6 py-4">
-                    <span className="font-semibold text-slate-800">{comp.nombre}</span>
+                  <div className="px-6 py-3">
+                    <span className="text-xs font-semibold text-slate-800 leading-tight">{comp.nombre}</span>
                   </div>
-                  <div className="px-3 py-4 text-center text-sm font-semibold text-slate-700">
+                  <div className="px-3 py-3 text-center text-xs font-semibold text-slate-700 leading-tight">
+                    {(() => {
+                      const idsComp = new Set(equipoIdsPorCompeticion.get(comp.id) || []);
+                      const clubes = Array.from(new Set(
+                        equiposInternas
+                          .filter(e => idsComp.has(String(e.id)) && e.clubId != null)
+                          .map(e => clubesPorId.get(String(e.clubId)))
+                          .filter((n): n is string => !!n)
+                      ));
+                      return clubes.length ? clubes.join(', ') : <span className="text-slate-300">—</span>;
+                    })()}
+                  </div>
+                  <div className="px-3 py-3 text-center text-xs font-semibold text-slate-700 leading-tight">
                     {(() => {
                       const idsComp = new Set(equipoIdsPorCompeticion.get(comp.id) || []);
                       const nombres = equiposInternas.filter(e => idsComp.has(String(e.id))).map(e => e.nombre);
                       return nombres.length ? nombres.join(', ') : <span className="text-slate-300">—</span>;
                     })()}
                   </div>
-                  <div className="px-3 py-4 text-center">
+                  <div className="px-3 py-3 text-center">
                     <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wide">
                       {comp.tipo || 'Liga'}
                     </span>
                   </div>
-                  <div className="px-3 py-4 text-center">
+                  <div className="px-3 py-3 text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-bold text-sm">
                       {comp.numero_partes}
                     </span>
                   </div>
-                  <div className="px-3 py-4 text-center">
-                    <span className="text-sm font-semibold text-slate-700">{comp.minutos_por_parte}'</span>
+                  <div className="px-3 py-3 text-center">
+                    <span className="text-xs font-semibold text-slate-700">{comp.minutos_por_parte}'</span>
                   </div>
-                  <div className="px-3 py-4 text-center">
+                  <div className="px-3 py-3 text-center">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-bold">
                       <i className="fa-solid fa-clock text-[10px]"></i>
                       {comp.total_minutos} min
                     </span>
                   </div>
-                  <div className="px-3 py-4 text-center">
+                  <div className="px-3 py-3 text-center">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
                       <i className="fa-solid fa-people-group text-[10px]"></i>
                       {equiposPorCompeticion.get(comp.id) || 0}
                     </span>
                   </div>
-                  <div className="px-4 py-4 flex items-center justify-end gap-2">
+                  <div className="px-3 py-3 text-center">
+                    {comp.url ? (
+                      <a
+                        href={/^https?:\/\//i.test(comp.url) ? comp.url : `https://${comp.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={comp.url}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 transition-all"
+                      >
+                        <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                      </a>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </div>
+                  <div className="px-4 py-3 flex items-center justify-end gap-2">
                     <button
                       onClick={() => handleOpenEquiposSelector(comp)}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-all flex-shrink-0"
@@ -614,7 +666,7 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                       <i className="fa-solid fa-calendar-days text-[11px]"></i>
                     </button>
                     <button
-                      onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, tipo: comp.tipo || 'Liga', partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte })}
+                      onClick={() => handleEdit({ id: comp.id, nombre: comp.nombre, tipo: comp.tipo || 'Liga', partes: comp.numero_partes, minutosPorParte: comp.minutos_por_parte, url: comp.url || '' })}
                       className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[var(--accent)] hover:text-white text-slate-500 flex items-center justify-center transition-all flex-shrink-0"
                       title="Editar"
                       disabled={loading}

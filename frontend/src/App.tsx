@@ -40,6 +40,7 @@ import { authService } from '@shared/services/authService';
 // Modules - Competicion
 import { CompetitionTable, LeagueTable, LeagueTableFullPage, CompetitionsConfigView } from '@modules/competicion';
 import type { CompetitionTeam } from '@modules/competicion';
+import { isClubCompetitionName } from '@modules/competicion/components/GlobalCompetitionsView';
 import { getFederationTeamLogo } from '@modules/competicion/data/teamLogos';
 import { EquiposInternosView } from '@modules/equiposInternos';
 
@@ -1325,6 +1326,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     [eventsList, selectedTeams, competitionTeams]
   );
 
+  // Calendario y Partidos: los partidos solo de las competiciones del club (el resto se oculta; las sesiones se mantienen).
+  const clubCompetitionEventsList = useMemo(
+    () => filteredEventsList.filter(e => e.type !== 'Partido' || isClubCompetitionName(e.competition)),
+    [filteredEventsList]
+  );
+
   // Un jugador solo debe ver los eventos de su propio equipo, nunca los del resto de la plantilla.
   const playerEventsList = useMemo(() => {
     const player = perfil?.rol === 'Jugador' ? squadList.find(p => String(p.id) === String(perfil.jugador_id)) : undefined;
@@ -1494,6 +1501,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
     () => buildMatchesList(filteredEventsList, competitionCalendarMatchesList),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filteredEventsList, competitionCalendarMatchesList]
+  );
+
+  const clubCompetitionMatchesList = useMemo(
+    () => filteredMatchesList.filter(m => isClubCompetitionName(m.competition)),
+    [filteredMatchesList]
   );
 
   // Componente de carga
@@ -1807,12 +1819,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
               } />
               <Route path="/calendario" element={
                 isLoadingExtra ? <LoadingScreen /> :
-                <GestionCalendarView events={filteredEventsList} players={filteredCurrentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
+                <GestionCalendarView events={clubCompetitionEventsList} players={filteredCurrentClubSquadList} onCreateEvent={(date) => { setNewModalInitialDate(date ?? null); setShowNewModal(true); }} onClickEvent={handleCalendarEventClick} onDeleteEvent={handleDeleteEvent} onSaveEvent={handleSaveEvent} competitionTeams={competitionTeams} clubes={clubesList} ownClubId={currentTeam?.id} />
               } />
               <Route path="/partidos" element={
                 isLoadingExtra ? <LoadingScreen /> :
                 <LatestMatches
-                  matches={filteredMatchesList}
+                  matches={clubCompetitionMatchesList}
                   onSave={async () => { }}
                   onDelete={handleDeleteEvent}
                   onEdit={(m) => handleViewMatchReport(String(m.id))}

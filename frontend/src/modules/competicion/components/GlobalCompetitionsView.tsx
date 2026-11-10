@@ -35,8 +35,8 @@ const ETAPAS: Etapa[] = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'];
 const GLOBAL_ROWS: GlobalRow[] = [
   { etapa: 'Senior', competition: 'Tercera RFEF G-17', compId: '23183316-22-23258924', equipo: 'Primer Equipo', clubLabel: 'Internacional Huesca - Primer Equipo' },
 
-  { etapa: 'Juvenil', competition: 'Copa - Juvenil Preferente Grupo 1 - Huesca', equipo: 'Juvenil B', clubLabel: 'Huesca International Football Academy - Juvenil B' },
-  { etapa: 'Juvenil', competition: 'Copa - Juvenil Preferente Grupo 2 - Huesca', equipo: 'Juvenil C', clubLabel: 'Huesca-S.D. Escuela de Futbol - Juvenil C' },
+  { etapa: 'Juvenil', competition: 'Copa - Juvenil Preferente Grupo 1 - Huesca', compId: '23245982-22-23245995', equipo: 'Juvenil B', clubLabel: 'Huesca International Football Academy - Juvenil B' },
+  { etapa: 'Juvenil', competition: 'Copa - Juvenil Preferente Grupo 2 - Huesca', compId: '23245982-22-23245996', equipo: 'Juvenil C', clubLabel: 'Huesca-S.D. Escuela de Futbol - Juvenil C' },
   { etapa: 'Juvenil', competition: 'Juvenil Preferente Grupo 2 - Huesca', compId: '23183317-22-23183319', equipo: 'Juvenil B', clubLabel: 'Huesca International Football Academy - Juvenil B' },
   { etapa: 'Juvenil', competition: 'Juvenil Preferente Grupo 2 - Huesca', compId: '23183317-22-23183319', equipo: 'Juvenil C', clubLabel: 'Huesca-S.D. Escuela de Futbol - Juvenil C' },
   { etapa: 'Juvenil', competition: 'Liga Nacional Juvenil Grupo 6', compId: '23183382-22-23183383', equipo: 'Juvenil A', clubLabel: 'Ipc la Escuela - Juvenil A' },
@@ -84,6 +84,22 @@ const federationClubName = (clubLabel: string) => clubLabel.replace(/\s-\s[^-]+$
 export const isOwnTeamInCompetition = (compId: string, team: string): boolean => {
   const t = normalizeName(team);
   return GLOBAL_ROWS.some(r => r.compId === compId && normalizeName(federationClubName(r.clubLabel)) === t);
+};
+
+/** ¿Es una de las competiciones 2026-27 del club (las de esta vista)? Compara por nombre normalizado. */
+export const isClubCompetitionName = (name?: string | null): boolean => {
+  if (!name) return false;
+  const n = normalizeName(name);
+  return GLOBAL_ROWS.some(r => normalizeName(r.competition) === n);
+};
+
+/** Nombre interno (ej. "Juvenil A") del equipo del club `team` en la competición `compId`; varios se unen con " / ". */
+export const internalNameInCompetition = (compId: string, team: string): string | undefined => {
+  const t = normalizeName(team);
+  const names = GLOBAL_ROWS
+    .filter(r => r.compId === compId && normalizeName(federationClubName(r.clubLabel)) === t)
+    .map(r => r.equipo);
+  return names.length ? [...new Set(names)].join(' / ') : undefined;
 };
 
 const CompetitionModal: React.FC<{ row: GlobalRow; kind: ModalKind; clubId?: string; onClose: () => void }> = ({ row, kind, clubId, onClose }) => {

@@ -79,6 +79,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   });
 
   const [tipoFilter, setTipoFilter] = useState<string[]>([]);
+  const [clubFilter, setClubFilter] = useState<string[]>([]);
   const [competitionFilter, setCompetitionFilter] = useState<string[]>([]);
   const [jornadaFilter, setJornadaFilter] = useState<string[]>([]);
   const [equipoInternoFilter, setEquipoInternoFilter] = useState<string[]>([]);
@@ -152,6 +153,42 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
 
   const resolveEquipoInterno = (match: Match): string => resolveEquipoInternoUtil(match, ownCompetitionTeams, internalNameByFedName);
 
+  const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
+
+  // Fallback por nombre para partidos antiguos guardados sin clubId por equipo: si dos
+  // clubes tienen un equipo homónimo (p.ej. "Juvenil A"), esto solo puede acertar uno de los dos.
+  const clubNameByTeamName = useMemo(() => {
+    const map = new Map<string, string>();
+    competitionTeams.forEach((team) => {
+      const teamName = team.equipo || team.nombre;
+      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
+      if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
+    });
+    return map;
+  }, [competitionTeams, clubNameById]);
+
+  // Preferimos el clubId guardado con el propio partido (exacto, no ambiguo);
+  // solo caemos al emparejamiento por nombre para partidos guardados antes de este fix.
+  const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
+    (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
+
+  // Clubes que intervienen en un partido (local y visitante).
+  const getMatchClubs = (match: Match): string[] => {
+    const ownClubName = ownClubId ? clubNameById.get(String(ownClubId)) : undefined;
+    const clubOf = (teamName?: string, clubId?: string): string | undefined => {
+      const name = teamName?.trim();
+      if (!name) return undefined;
+      // Equipo interno sin clubId (partidos importados): es del club propio, no de un homónimo.
+      if (!clubId && isLikelyInternalTeamName(name) && ownClubName) return ownClubName;
+      return resolveClubLabel(name, clubId) || name;
+    };
+    const result = new Set<string>();
+    [clubOf(match.localTeam, match.localTeamClubId), clubOf(match.visitorTeam, match.visitorTeamClubId)]
+      .forEach((c) => { if (c) result.add(c); });
+    return Array.from(result);
+  };
+  const matchHasClub = (match: Match, clubs: string[]) => getMatchClubs(match).some((c) => clubs.includes(c));
+
   // Etapa del partido: se deduce de la competición y, si no basta, del equipo interno
   // (Senior, Juvenil, Cadete, Infantil, Alevín, Benjamín, Prebenjamín).
   const getEtapa = (match: Match): string =>
@@ -197,6 +234,13 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     return result.sort(compareEquipoNames);
   }, [ownCompetitionTeams, matches, competitionFilter, tipoFilter]);
 
+  // Clubes que aparecen en los partidos (local o visitante)
+  const clubOptions = useMemo(() => {
+    const names = new Set<string>();
+    matches.forEach((m) => getMatchClubs(m).forEach((c) => names.add(c)));
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [matches, clubNameById, clubNameByTeamName, ownClubId]);
+
   // Competiciones: filtradas por Equipo Interno y Tipo si está seleccionados
   const competitionOptions = useMemo(() => {
     const names = new Set<string>();
@@ -231,6 +275,10 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       result = result.filter((m) => competitionFilter.includes(m.competition));
     }
 
+    if (clubFilter.length > 0) {
+      result = result.filter((m) => matchHasClub(m, clubFilter));
+    }
+
     if (localidadFilter.length > 0) {
       result = result.filter((m) => !!m.localidad_id && localidadFilter.includes(m.localidad_id));
     }
@@ -247,7 +295,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }
 
     return result;
-  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName, localidadFilter, instalacionPrincipalFilter, campoFilter, campoParentMap]);
+  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, clubFilter, clubNameById, clubNameByTeamName, ownClubId, competitionTeams, ownCompetitionTeams, internalNameByFedName, localidadFilter, instalacionPrincipalFilter, campoFilter, campoParentMap]);
 
   // Jornada depende de Equipo Interno y Competición
   const jornadaOptions = useMemo(() => {
@@ -272,8 +320,11 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     if (jornadaFilter.length > 0) {
       result = result.filter((m) => !!m.jornada && jornadaFilter.includes(m.jornada));
     }
+    if (clubFilter.length > 0) {
+      result = result.filter((m) => matchHasClub(m, clubFilter));
+    }
     return result;
-  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, jornadaFilter, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
+  }, [matches, equipoInternoFilter, tipoFilter, competitionFilter, jornadaFilter, clubFilter, clubNameById, clubNameByTeamName, ownClubId, competitionTeams, ownCompetitionTeams, internalNameByFedName]);
 
   // Localidad: solo las que tienen partidos reales dentro del filtrado anterior
   const localidadOptions = useMemo(() => {
@@ -322,6 +373,26 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     () => {
       let result = jornadaFilter.length === 0 ? filteredByEquipoAndCompetition : filteredByEquipoAndCompetition.filter((m) => !!m.jornada && jornadaFilter.includes(m.jornada));
 
+      // Solo partidos que disputa alguno de mis equipos internos (local o visitante).
+      const ownKeys = new Set(
+        ownCompetitionTeams
+          .flatMap((team) => [team.equipo, team.nombreEnFed, team.nombre])
+          .map((value) => normalizeTeamKey(value))
+          .filter(Boolean)
+      );
+      const isInternalSide = (name?: string, clubId?: string) => {
+        const n = (name || '').trim();
+        if (!n) return false;
+        return (!!ownClubId && !!clubId && String(clubId) === String(ownClubId))
+          || ownKeys.has(normalizeTeamKey(n))
+          || isLikelyInternalTeamName(n);
+      };
+      result = result.filter((m) =>
+        isInternalSide(m.localTeam, m.localTeamClubId) ||
+        isInternalSide(m.visitorTeam, m.visitorTeamClubId) ||
+        isInternalSide(m.nombreInterno)
+      );
+
       // Aplicar filtro de rango de fechas
       if (dateFromFilter) {
         result = result.filter((m) => {
@@ -343,7 +414,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       });
       return result;
     },
-    [filteredByEquipoAndCompetition, jornadaFilter, dateFromFilter, dateToFilter]
+    [filteredByEquipoAndCompetition, jornadaFilter, dateFromFilter, dateToFilter, ownCompetitionTeams, ownClubId]
   );
 
   // Si cambia Competición, el equipo interno elegido puede dejar de ser válido
@@ -353,6 +424,25 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
       return next.length === prev.length ? prev : next;
     });
   }, [equipoInternoOptions]);
+
+  // Por defecto, solo los partidos del club propio (EF Huesca)
+  const defaultClubApplied = React.useRef(false);
+  useEffect(() => {
+    if (defaultClubApplied.current || !ownClubId) return;
+    const ownName = clubNameById.get(String(ownClubId));
+    if (ownName && clubOptions.includes(ownName)) {
+      defaultClubApplied.current = true;
+      setClubFilter([ownName]);
+    }
+  }, [clubOptions, clubNameById, ownClubId]);
+
+  // Si cambian los datos, el club elegido puede dejar de existir
+  useEffect(() => {
+    setClubFilter((prev) => {
+      const next = prev.filter((v) => clubOptions.includes(v));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [clubOptions]);
 
   // Si cambia Tipo o Equipo Interno, la competición elegida puede dejar de ser válida
   useEffect(() => {
@@ -402,26 +492,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     });
   }, [camposOptions]);
 
-  const clubNameById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.nombre])), [clubes]);
-
-  // Fallback por nombre para partidos antiguos guardados sin clubId por equipo: si dos
-  // clubes tienen un equipo homónimo (p.ej. "Juvenil A"), esto solo puede acertar uno de los dos.
-  const clubNameByTeamName = useMemo(() => {
-    const map = new Map<string, string>();
-    competitionTeams.forEach((team) => {
-      const teamName = team.equipo || team.nombre;
-      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
-      if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
-    });
-    return map;
-  }, [competitionTeams, clubNameById]);
-
   const clubLogoById = useMemo(() => new Map(clubes.map((club) => [String(club.id), club.logoUrl])), [clubes]);
-
-  // Preferimos el clubId guardado con el propio partido (exacto, no ambiguo);
-  // solo caemos al emparejamiento por nombre para partidos guardados antes de este fix.
-  const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
-    (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
 
   const resolveClubLogo = (clubId?: string): string | undefined =>
     clubId ? clubLogoById.get(String(clubId)) : undefined;
@@ -457,11 +528,17 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
 
   const sideDisplayOf = (match: Match, sideName: string, clubId?: string) => {
     const competitionTeam = findCompetitionTeamForSide(match, sideName, clubId);
-    const clubName = resolveClubLabel(sideName, clubId) || competitionTeam?.nombre || sideName;
     const sideIsOwn =
       (!!ownClubId && !!clubId && String(clubId) === String(ownClubId)) ||
       ownTeamAliases.has(normalizeTeamKey(sideName)) ||
       isLikelyInternalTeamName(sideName);
+    // Un equipo interno sin clubId (p.ej. "Juvenil A") es de mi club, no de un rival homónimo.
+    const ownClubName = ownClubId ? clubNameById.get(String(ownClubId)) : undefined;
+    const clubName =
+      (sideIsOwn && !clubId && ownClubName) ||
+      resolveClubLabel(sideName, clubId) ||
+      competitionTeam?.nombre ||
+      sideName;
     const federationName =
       competitionTeam?.nombreEnFed && normalizeTeamKey(competitionTeam.nombreEnFed) !== normalizeTeamKey(clubName)
         ? competitionTeam.nombreEnFed
@@ -788,7 +865,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         <PlayerStatsSummary matches={matches} onSelectPlayer={onSelectPlayer} competitionTeams={competitionTeams} ownClubId={ownClubId} />
       ) : (
       <>
-      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-2">
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-11 gap-2">
         <div className="flex items-end">
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-full lg:w-auto lg:justify-start">
             <button
@@ -841,6 +918,18 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             onChange={setEquipoInternoFilter}
             allLabel="Todos los equipos"
             options={equipoInternoOptions.map((name) => ({ value: name, label: name }))}
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">
+            Club
+          </label>
+          <MultiSelectFilter
+            value={clubFilter}
+            onChange={setClubFilter}
+            allLabel="Todos los clubes"
+            options={clubOptions.map((name) => ({ value: name, label: name }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           />
         </div>

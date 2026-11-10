@@ -165,6 +165,7 @@ export interface Competicion {
   numero_partes: number;
   minutos_por_parte: number;
   total_minutos: number;
+  url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

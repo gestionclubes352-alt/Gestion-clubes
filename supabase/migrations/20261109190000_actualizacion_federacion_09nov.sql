@@ -10,6 +10,10 @@
 --      y goles recibidos. Idempotente: se puede relanzar.
 -- Ejecutar en el editor SQL de Supabase (una sola sentencia DO).
 -- =====================================================================
+-- Columna usada en el paso 3 (la crea también 20261109120000; aquí por si no se aplicó)
+ALTER TABLE estadisticas_partido_jugador
+    ADD COLUMN IF NOT EXISTS goles_recibidos INTEGER NOT NULL DEFAULT 0 CHECK (goles_recibidos >= 0);
+
 DO $mig$
 BEGIN
 DROP TABLE IF EXISTS pg_temp._fed_p;
