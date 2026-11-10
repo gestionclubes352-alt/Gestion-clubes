@@ -9,3 +9,4 @@ build/
 supabase/.temp/
 .vercel/
 .env.vercel-check
+.vercel
