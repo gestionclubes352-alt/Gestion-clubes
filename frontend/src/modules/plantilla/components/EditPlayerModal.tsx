@@ -289,6 +289,23 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
     return () => { cancelled = true; };
   }, [player.equipoId, formData.equipoId]);
 
+  // Goles recibidos con el jugador en campo (columna posterior: si falta, se queda en 0).
+  const [golesRecibidos, setGolesRecibidos] = useState(0);
+  useEffect(() => {
+    if (!player.id) { setGolesRecibidos(0); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('estadisticas_partido_jugador')
+        .select('goles_recibidos, titular, minutos')
+        .eq('jugador_id', String(player.id));
+      if (cancelled) return;
+      if (error) { setGolesRecibidos(0); return; }
+      setGolesRecibidos((data ?? []).reduce((s: number, r: any) => (r.titular || r.minutos > 0 ? s + (r.goles_recibidos ?? 0) : s), 0));
+    })();
+    return () => { cancelled = true; };
+  }, [player.id]);
+
   // Partidos del jugador en todos los equipos (puede jugar con varios).
   const [allTeamRows, setAllTeamRows] = useState<{ equipo_id: string | null; fed_match_id: number; titular: boolean; minutos: number; goles: number }[]>([]);
   useEffect(() => {
@@ -813,6 +830,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               matchLog={playerActaMatches}
               matchesByTeam={matchesByTeam}
               teamMatches={matchStats.totalTeamMatches}
+              golesRecibidos={golesRecibidos}
               attendance={{
                 total: attendanceStats.total,
                 attended: attendanceStats.attended,

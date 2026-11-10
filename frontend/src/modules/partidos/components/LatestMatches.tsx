@@ -690,18 +690,20 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
         ocasionesCount,
       };
     });
-    // Orden: etapa > equipo > competición > jornada > partido (fecha)
+    // Orden: fecha > hora (cronológico)
     const withEquipo = rows.map((row) => ({ row, equipo: resolveEquipoInterno(row.match) }));
+    const ts = (m: { date?: string; time?: string }) => {
+      const t = m.date ? new Date(m.date).getTime() : Number.MAX_SAFE_INTEGER;
+      return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+    };
     withEquipo.sort((a, b) => {
+      const byDate = ts(a.row.match) - ts(b.row.match);
+      if (byDate !== 0) return byDate;
+      const byTime = (a.row.match.time || '').localeCompare(b.row.match.time || '');
+      if (byTime !== 0) return byTime;
       const byEtapa = etapaRank(a.row.tipo) - etapaRank(b.row.tipo);
       if (byEtapa !== 0) return byEtapa;
-      const byEquipo = compareEquipoNames(a.equipo, b.equipo);
-      if (byEquipo !== 0) return byEquipo;
-      const byComp = a.row.competition.localeCompare(b.row.competition, 'es');
-      if (byComp !== 0) return byComp;
-      const byJornada = (parseInt(a.row.jornada) || 0) - (parseInt(b.row.jornada) || 0);
-      if (byJornada !== 0) return byJornada;
-      return new Date(a.row.match.date).getTime() - new Date(b.row.match.date).getTime();
+      return compareEquipoNames(a.equipo, b.equipo);
     });
     return withEquipo.map((x) => x.row);
   }, [filteredMatches, statusFilter, ownCompetitionTeams, competitionTeams, clubes, matchReportsById]);

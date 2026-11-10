@@ -140,6 +140,17 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
         title: o.nombre_objetivo?.trim() || o.detalle?.trim() || 'Objetivo',
         subtitle: o.tipo,
       });
+      (o.acciones || []).forEach(a => {
+        const aDate = String(a.fecha || '').slice(0, 10);
+        if (!aDate) return;
+        list.push({
+          key: `obj-${o.id}-acc-${a.id}`,
+          kind: 'objetivo',
+          date: aDate,
+          title: `${a.categoria === 'evaluacion' ? 'Evaluación' : 'Acción'}: ${o.nombre_objetivo?.trim() || o.detalle?.trim() || 'Objetivo'}`,
+          subtitle: [a.tipo?.replace('_', ' '), a.detalle].filter(Boolean).join(' · ') || undefined,
+        });
+      });
     });
 
     const map = new Map<string, CalEntry[]>();
@@ -150,6 +161,32 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
     });
     return map;
   }, [events, matchLog, objetivos, filters, teamName]);
+
+  // Días en los que un objetivo está "en curso": desde su fecha hasta hoy (o hasta
+  // la última acción/evaluación si ya está cumplido en verde).
+  const activeObjByDay = useMemo(() => {
+    const map = new Map<string, ObjetivoIndividual[]>();
+    if (!filters.objetivo) return map;
+    const todayStr = toKey(new Date());
+    objetivos.forEach(o => {
+      const start = String(o.fecha || '').slice(0, 10);
+      if (!start) return;
+      const lastAction = (o.acciones || []).map(a => String(a.fecha || '').slice(0, 10)).filter(Boolean).sort().pop();
+      let end = o.estado === 'verde' ? (lastAction || start) : (lastAction && lastAction > todayStr ? lastAction : todayStr);
+      if (end < start) end = start;
+      const [sy, sm, sd] = start.split('-').map(Number);
+      const cur = new Date(sy, sm - 1, sd);
+      for (let guard = 0; guard < 800; guard++) {
+        const k = toKey(cur);
+        if (k > end) break;
+        const arr = map.get(k) ?? [];
+        arr.push(o);
+        map.set(k, arr);
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+    return map;
+  }, [objetivos, filters.objetivo]);
 
   const cells = useMemo(() => {
     const year = cursor.getFullYear();
@@ -224,12 +261,13 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
           const dayEntries = entriesByDay.get(key) ?? [];
           const isToday = key === todayKey;
           const isSel = key === selected;
+          const hasActiveObj = (activeObjByDay.get(key)?.length ?? 0) > 0;
           return (
             <button
               key={key}
               type="button"
               onClick={() => setSelected(key)}
-              className={`bg-white min-h-[44px] p-1 flex flex-col items-start gap-1 text-left transition-colors hover:bg-slate-50 ${isSel ? 'ring-2 ring-inset ring-[var(--accent)]' : ''}`}
+              className={`${hasActiveObj ? 'bg-orange-50/60 border-b-2 border-orange-400' : 'bg-white'} min-h-[44px] p-1 flex flex-col items-start gap-1 text-left transition-colors hover:bg-slate-50 ${isSel ? 'ring-2 ring-inset ring-[var(--accent)]' : ''}`}
             >
               <span className={`text-[10px] font-black tabular-nums leading-none ${isToday ? 'bg-[var(--accent)] text-white rounded-full w-4 h-4 flex items-center justify-center' : 'text-slate-600'}`}>
                 {d.getDate()}
@@ -257,6 +295,16 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-1">
           {selected ? selected.split('-').reverse().join('/') : 'Selecciona un día'}
         </p>
+        {selected && (activeObjByDay.get(selected) ?? []).filter(o => o.nombre_objetivo?.trim() || o.detalle?.trim()).length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mb-1">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide">En curso:</span>
+            {(activeObjByDay.get(selected) ?? []).map(o => (
+              <span key={o.id} className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${KIND_META.objetivo.chip}`}>
+                <i className="fa-solid fa-bullseye mr-1"></i>{o.nombre_objetivo?.trim() || o.detalle?.trim()}
+              </span>
+            ))}
+          </div>
+        )}
         {selectedEntries.length === 0 ? (
           <p className="text-xs text-slate-400 py-1">Sin eventos este día</p>
         ) : (
