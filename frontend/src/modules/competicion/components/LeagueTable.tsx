@@ -49,6 +49,7 @@ interface LeagueTableProps {
   clubName?: string;
   /** Oculta el selector de sub-equipo (ej. para el rol Jugador, que solo puede ver su propio equipo). */
   hideTeamFilter?: boolean;
+  onEquipoChange?: (equipo: string) => void;
   /** Fuerza la sección mostrada (la navegación por pestañas la gestiona el contenedor). */
   forcedSection?: 'horarios' | 'actas' | 'calendario' | 'clasificacion' | 'resultados';
   /** Oculta la barra interna de secciones cuando el contenedor ya ofrece sus propias pestañas. */
@@ -293,6 +294,9 @@ const normalizeTeamLabel = (team: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
+
+/** Equipos que no se muestran como chip en el filtro de equipos. */
+const HIDDEN_EQUIPO_FILTERS = new Set(['prebenjamin', 'efo juv a', 'jb']);
 
 /** Competiciones federativas del club Huesca (id federativo → nombre y etapa) para la vista agrupada "Todos". */
 const HUESCA_ETAPAS = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'] as const;
@@ -638,7 +642,7 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false, d
   return dense ? cols.filter(c => c.id !== 'form' && c.id !== 'lastResult') : cols;
 };
 
-const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName, hideTeamFilter = false, forcedSection, hideSectionTabs = false }) => {
+const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName, hideTeamFilter = false, forcedSection, hideSectionTabs = false, onEquipoChange }) => {
   const [useAI, setUseAI] = useState(true);
   const [sectionState, setActiveSection] = useState<CompetitionSection>('clasificacion');
   const rawSection: CompetitionSection = forcedSection ?? sectionState;
@@ -646,7 +650,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   const activeSection: CompetitionSection = rawSection === 'actas' ? 'resultados' : rawSection;
   const [resultsLeg, setResultsLeg] = useState<'primera' | 'segunda'>('primera');
   const [groupBy, setGroupBy] = useState<'fecha' | 'jornada'>('fecha');
-  const [selectedEquipo, setSelectedEquipo] = useState<string>('TODOS');
+  const [selectedEquipo, setSelectedEquipoState] = useState<string>('TODOS');
+  const setSelectedEquipo = (eq: string) => { setSelectedEquipoState(eq); onEquipoChange?.(eq); };
 
   // Obtener el club activo para aislar datos por club. `clubId` (club real de Supabase) tiene
   // prioridad; si no se pasa, se cae al equipo demo de useTeam() (compatibilidad). Si el club real
@@ -670,14 +675,33 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       const rawEquipo = team.equipo?.trim();
       if (!rawEquipo) return;
       const key = normalizeTeamLabel(rawEquipo);
+      if (HIDDEN_EQUIPO_FILTERS.has(key)) return;
       if (!map.has(key)) {
         map.set(key, rawEquipo);
       }
     });
+    // Huesca: Infantil B y Alevín B tienen competición federativa propia aunque no vengan en `teams`.
+    if (isHuescaClub) {
+      ['Infantil B', 'Alevín B'].forEach(name => {
+        const key = normalizeTeamLabel(name);
+        if (!map.has(key)) map.set(key, name);
+      });
+    }
     // Mismo orden que en Plantillas (Primer equipo, Juvenil, Cadete, Infantil, Alevín...)
     return Array.from(map.values()).sort(compareEquipoNames);
-  }, [teams]);
+  }, [teams, isHuescaClub]);
   const hasMultipleEquipos = availableEquipos.length > 1;
+
+  // En el Dashboard (onEquipoChange presente) no hay opción "Todos": se parte de Primer equipo.
+  const hideTodosOption = !!onEquipoChange;
+  useEffect(() => {
+    if (!hideTodosOption || hideTeamFilter || availableEquipos.length === 0) return;
+    const isValid = availableEquipos.some(eq => normalizeTeamLabel(eq) === normalizeTeamLabel(selectedEquipo));
+    if (isValid) return;
+    const primer = availableEquipos.find(eq => normalizeTeamLabel(eq).includes('primer')) ?? availableEquipos[0];
+    setSelectedEquipo(primer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hideTodosOption, hideTeamFilter, availableEquipos, selectedEquipo]);
 
   // Cuando la cabecera ya ha filtrado a un único equipo, `selectedEquipo` sigue en TODOS.
   // En ese caso usamos el único sub-equipo recibido para no mezclar sus fuentes de datos.
@@ -1100,12 +1124,12 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   }
 
   const filterAndTabs = (
-    <>
+    <div className={hideSectionTabs ? 'contents' : 'sticky top-0 z-30 -mx-1 space-y-2 bg-white px-1 py-2 dark:bg-slate-900'}>
       {/* Filtro por sub-equipo (solo si hay más de uno, ej: Cadete A, Juvenil A) */}
       {!hideTeamFilter && availableEquipos.length > 0 && (
         <div className={`flex items-center gap-2 flex-wrap ${hideSectionTabs ? 'sticky top-12 z-20 bg-white dark:bg-slate-900 py-2' : ''}`}>
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Equipo:</span>
-          {availableEquipos.length > 1 && (
+          {availableEquipos.length > 1 && !hideTodosOption && (
             <button
               onClick={() => setSelectedEquipo('TODOS')}
               className={`h-9 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -1152,7 +1176,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
           </button>
         ))}
       </div>}
-    </>
+    </div>
   );
 
   if (activeSection === 'global' && showGlobalTab) {
@@ -1491,7 +1515,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               </button>
             </div>
           )}
-          <div className="sticky top-0 z-30 mx-auto flex w-full max-w-3xl items-center justify-end gap-2 bg-white/95 py-2 backdrop-blur">
+          <div className={`sticky z-10 top-[6.5rem] mx-auto flex w-full max-w-3xl items-center justify-end gap-2 bg-white/95 py-2 backdrop-blur`}>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Agrupar por</span>
             {(['fecha', 'jornada'] as const).map(opt => (
               <button

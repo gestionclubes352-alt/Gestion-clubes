@@ -154,6 +154,7 @@ export interface Usuario {
   estado: 'Activo' | 'Inactivo' | 'Pendiente';
   equipo_id?: string | null;
   recordar?: string | null;
+  ultimo_acceso?: string | null;
 }
 
 export interface Competicion {

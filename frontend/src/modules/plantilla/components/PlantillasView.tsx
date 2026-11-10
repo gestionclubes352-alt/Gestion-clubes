@@ -28,7 +28,7 @@ interface PlantillasViewProps {
   /** Vista de objetivos individuales. */
   objetivos?: React.ReactNode;
   /** Renderiza la sección de competición (actas, clasificación, resultados, horarios, calendario). */
-  renderCompetition?: (section: CompetitionTab) => React.ReactNode;
+  renderCompetition?: (section: CompetitionTab, opts?: { onEquipoChange?: (equipo: string) => void }) => React.ReactNode;
 }
 
 /** Contenedor de Plantillas con botones internos: Listado · Gráficas · Dashboard · Actas · Clasificaciones · Resultados · Horarios · Calendario. */
@@ -89,7 +89,7 @@ const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campog
       {section === 'lista' && children}
       {section === 'campogramas' && campogramas}
       {section === 'objetivos' && objetivos}
-      {(section === 'graficas' || section === 'dashboard') && <SquadAnalytics squad={squad} mode={section} classification={section === 'dashboard' ? renderCompetition?.('clasificacion') : undefined} />}
+      {(section === 'graficas' || section === 'dashboard') && <SquadAnalytics squad={squad} mode={section} classification={section === 'dashboard' && renderCompetition ? (onEquipoChange => renderCompetition('clasificacion', { onEquipoChange })) : undefined} />}
       {COMPETITION_TABS.includes(section) && renderCompetition?.(section as CompetitionTab)}
     </div>
   );

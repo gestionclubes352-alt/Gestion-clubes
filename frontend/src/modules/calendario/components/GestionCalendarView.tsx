@@ -417,6 +417,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'teams'>('week');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
+  const [hiddenScheduleDays, setHiddenScheduleDays] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!isFullscreen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
@@ -1203,16 +1204,35 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
             style={{ gridTemplateColumns: `72px repeat(${dayCount}, minmax(0, 1fr))` }}
           >
             <div className="bg-white px-3 py-3"></div>
-            {scheduleEvents.map(({ date }) => (
-              <div key={date.toISOString()} className="bg-white px-3 py-3 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  {dayNames[date.getDay()]}
-                </p>
-                <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
-                  {date.getDate()}
-                </p>
-              </div>
-            ))}
+            {scheduleEvents.map(({ date, events: headerEvents }) => {
+              const dayKey = date.toDateString();
+              const isHidden = hiddenScheduleDays.has(dayKey);
+              return (
+                <div key={date.toISOString()} className="bg-white px-3 py-3 text-center relative">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {dayNames[date.getDay()]}
+                  </p>
+                  <p className={`text-sm font-black ${isToday(date) ? 'text-[var(--accent)]' : 'text-slate-700'}`}>
+                    {date.getDate()}
+                  </p>
+                  {headerEvents.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setHiddenScheduleDays(prev => {
+                        const next = new Set(prev);
+                        if (next.has(dayKey)) next.delete(dayKey); else next.add(dayKey);
+                        return next;
+                      })}
+                      className="mt-1 inline-flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
+                      title={isHidden ? 'Mostrar eventos del día' : 'Ocultar eventos del día'}
+                    >
+                      <i className={`fa-solid ${isHidden ? 'fa-eye' : 'fa-eye-slash'}`}></i>
+                      {isHidden ? `Mostrar (${headerEvents.length})` : 'Ocultar'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
 
             {scheduleHours.map(hour => (
               <React.Fragment key={hour}>
@@ -1220,7 +1240,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                   {String(hour).padStart(2, '0')}:00
                 </div>
                 {scheduleEvents.map(({ date, events: dayEvents }) => {
-                  const hourEvents = dayEvents.filter(ev => {
+                  const hourEvents = hiddenScheduleDays.has(date.toDateString()) ? [] : dayEvents.filter(ev => {
                     const parsed = parseEventTime(ev.time);
                     // Eventos sin hora válida: se muestran en la primera fila para no ocultarlos
                     if (!parsed || parsed.hour < 0 || parsed.hour > 23) return hour === scheduleHours[0];

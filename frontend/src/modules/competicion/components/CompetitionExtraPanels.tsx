@@ -171,8 +171,8 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
         </button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-xs">
-          <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+        <table className="w-full min-w-[640px] text-left text-[10px]">
+          <thead className="bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
             <tr>
               <th className="px-4 py-2">Fecha</th>
               <th className="px-2 py-2">Hora</th>
@@ -193,7 +193,7 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
               <React.Fragment key={m.id}>
               {showHeader && wk && (
                 <tr className="border-t border-slate-200 bg-slate-100">
-                  <td colSpan={6} className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <td colSpan={6} className="px-4 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500">
                     Fin de semana {weekLabel(wk)}
                   </td>
                 </tr>

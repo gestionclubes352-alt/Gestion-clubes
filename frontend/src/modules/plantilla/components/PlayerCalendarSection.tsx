@@ -26,6 +26,8 @@ interface CalEntry {
   subtitle?: string;
   /** Detalles extra (icono + texto) mostrados en el detalle del día */
   details?: { icon: string; text: string }[];
+  /** Id del evento de calendario asociado (para abrir su contenido) */
+  eventId?: string | number;
 }
 
 const KIND_META: Record<EntryKind, { label: string; dot: string; chip: string; icon: string }> = {
@@ -95,6 +97,7 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
         date,
         title: !teamName || !m.rival ? (m.rival || 'Partido') : m.es_local === false ? `${m.rival} - ${teamName}` : `${teamName} - ${m.rival}`,
         subtitle: undefined,
+        eventId: ev?.id,
         details,
       });
     });
@@ -112,6 +115,7 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
           kind: 'partido',
           date,
           title: rival || ev.title,
+          eventId: ev.id,
           details: [
             ev.jornada && { icon: 'fa-hashtag', text: ev.jornada },
             ev.competition && { icon: 'fa-trophy', text: ev.competition },
@@ -127,6 +131,7 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
           date,
           title: ev.sessionNumber ? `Sesión ${ev.sessionNumber}` : 'Sesión',
           subtitle: [ev.title, ev.time, ev.location].filter(Boolean).join(' · '),
+          eventId: ev.id,
         });
       }
     });
@@ -291,6 +296,17 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
                 {d.getDate()}
               </span>
               <span className="flex flex-col gap-0.5 w-full min-w-0">
+                {(activeObjByDay.get(key) ?? [])
+                  .filter(o => (o.nombre_objetivo?.trim() || o.detalle?.trim()) && (String(o.fecha || '').slice(0, 10) === key || d.getDay() === 1 || d.getDate() === 1))
+                  .map(o => (
+                    <span
+                      key={`objchip-${o.id}`}
+                      title={o.nombre_objetivo?.trim() || o.detalle?.trim()}
+                      className={`block truncate rounded px-1 py-px text-[8px] font-black leading-tight border ${KIND_META.objetivo.chip}`}
+                    >
+                      <i className="fa-solid fa-bullseye mr-0.5"></i>{o.nombre_objetivo?.trim() || o.detalle?.trim()}
+                    </span>
+                  ))}
                 {dayEntries.slice(0, 3).map(e => (
                   <span
                     key={e.key}
@@ -328,7 +344,10 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
         ) : (
           <div className="space-y-1">
             {selectedEntries.map(e => (
-              <div key={e.key} className="flex items-start gap-2 px-2 py-1.5 bg-white rounded-xl border border-slate-200">
+              <div
+                key={e.key}
+                className="flex items-start gap-2 px-2 py-1.5 bg-white rounded-xl border border-slate-200"
+              >
                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] shrink-0 ${KIND_META[e.kind].dot}`}>
                   <i className={`fa-solid ${KIND_META[e.kind].icon}`}></i>
                 </span>

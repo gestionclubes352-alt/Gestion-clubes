@@ -1051,6 +1051,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
       clubId: u.club_id ?? undefined,
       equipoId: u.equipo_id ?? undefined,
       recordar: u.recordar ?? undefined,
+      ultimoAcceso: u.ultimo_acceso
+        ? new Date(u.ultimo_acceso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : undefined,
     }));
     setUsersList(users);
   };
@@ -1664,7 +1667,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout, teamName }) => {
             <Routes>
               <Route path="/" element={<HomeSectionsView />} />
               <Route path="/plantillas" element={
-                <PlantillasView objetivos={<ObjetivosIndividualesView equipos={misClubCompetitionTeams.map(team => ({ id: String(team.id), nombre: team.nombre }))} />} squad={filteredSquadList.filter(p => !p.clubId || String(p.clubId) === String(currentTeam?.id || ''))} campogramas={campogramasView} renderCompetition={section => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
+                <PlantillasView objetivos={<ObjetivosIndividualesView equipos={misClubCompetitionTeams.map(team => ({ id: String(team.id), nombre: team.nombre }))} />} squad={filteredSquadList.filter(p => !p.clubId || String(p.clubId) === String(currentTeam?.id || ''))} campogramas={campogramasView} renderCompetition={(section, opts) => <LeagueTable teams={filteredCompetitionTeams} matches={filteredMatchesList} calendarMatches={competitionCalendarList} clubId={currentTeam?.id} clubName={currentTeam?.name} forcedSection={section} hideSectionTabs onEquipoChange={opts?.onEquipoChange} />}><PlayerTable squad={filteredSquadList} allSquad={squadList} clubId={currentTeam?.id || ''} onEdit={setEditingPlayer} onSave={async p => {
                   try {
                     if (!p.nombre?.trim()) throw new Error('El nombre del jugador es obligatorio');
                     const toSave = canonicalizePlayer({ ...p, club: p.club || currentTeam?.name || '', clubId: p.clubId || currentTeam?.id || '' });

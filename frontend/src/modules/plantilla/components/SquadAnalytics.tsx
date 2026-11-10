@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CardIcon, StatCount } from '@shared/components/MatchIcons';
 import type { Player } from '../types';
 import { fetchMatchTotals, EMPTY_TOTALS, type MatchTotals } from '../utils/matchTotals';
-import { BallIcon } from '@shared/components/MatchIcons';
 import FullscreenChart from '@shared/components/FullscreenChart';
 import { objetivosIndividualesService, type ObjetivoIndividual } from '@shared/services/dataService';
 import { TIPOS_OBJETIVO } from '../../objetivos/types';
@@ -15,7 +14,7 @@ interface SquadAnalyticsProps {
   squad: Player[];
   mode: 'graficas' | 'dashboard';
   /** Clasificación del equipo, mostrada en el dashboard junto a la plantilla. */
-  classification?: React.ReactNode;
+  classification?: (onEquipoChange: (equipo: string) => void) => React.ReactNode;
 }
 
 const currentYear = new Date().getFullYear();
@@ -536,9 +535,11 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: allSquad, mode, 
           <button
             type="button"
             onClick={() => setTeamFilter(null)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+            title="Volver a todos los equipos"
+            aria-label="Volver a todos los equipos"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-blue-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
-            <i className="fa-solid fa-arrow-left text-[10px]"></i>Todos los equipos
+            <i className="fa-solid fa-arrow-left text-[11px]"></i>Volver
           </button>
           <span className="text-sm font-black text-slate-700">Dashboard · {teamFilter}</span>
         </div>
@@ -554,71 +555,19 @@ const SquadAnalytics: React.FC<SquadAnalyticsProps> = ({ squad: allSquad, mode, 
         <Kpi label="Minutos" value={stats.minutos.toLocaleString('es')} icon="fa-stopwatch" tone="bg-violet-600" />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <h3 className="border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500">Resumen por equipo</h3>
-        {stats.teams.some(t => t.jugadores > MAX_JUGADORES_EQUIPO) && (
-          <div role="alert" className="border-b border-red-100 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">
-            <i className="fa-solid fa-triangle-exclamation mr-1.5"></i>
-            Hay equipos con más de {MAX_JUGADORES_EQUIPO} jugadores: {stats.teams.filter(t => t.jugadores > MAX_JUGADORES_EQUIPO).map(t => `${t.equipo} (+${t.jugadores - MAX_JUGADORES_EQUIPO})`).join(', ')}.
-          </div>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-xs">
-            <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
-              <tr>
-                <th className="px-4 py-2">Equipo</th>
-                {!teamFilter && <th className="px-2 py-2">Dashboard</th>}
-                <th className="px-2 py-2 text-right">Jugadores</th>
-                <th className="px-2 py-2 text-right">Aptos</th>
-                <th className="px-2 py-2 text-right">Lesionados</th>
-                <th className="px-2 py-2 text-right">Edad media</th>
-                <th className="px-2 py-2 text-right"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />Goles</span></th>
-                <th className="px-2 py-2 text-right">Minutos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.teams.map(t => (
-                <tr key={t.equipo} className={`border-t border-slate-100 ${t.jugadores > MAX_JUGADORES_EQUIPO ? 'bg-red-50' : ''}`}>
-                  <td className="px-4 py-2 font-bold text-slate-700">{t.equipo}</td>
-                  {!teamFilter && (
-                    <td className="px-2 py-2">
-                      <button
-                        type="button"
-                        onClick={() => setTeamFilter(t.equipo)}
-                        title={`Ver dashboard de ${t.equipo}`}
-                        aria-label={`Ver dashboard de ${t.equipo}`}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-full border-2 border-blue-400 bg-white px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-blue-50"
-                      >
-                        <i className="fa-solid fa-chart-column text-[10px]"></i>Dashboard
-                      </button>
-                    </td>
-                  )}
-                  <td className={`px-2 py-2 text-right tabular-nums ${t.jugadores > MAX_JUGADORES_EQUIPO ? 'font-black text-red-600' : ''}`}>
-                    {t.jugadores}
-                    {t.duplicados.length > 0 && (
-                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700" title={`Posibles duplicados: ${t.duplicados.join(', ')}`}>
-                        {t.duplicados.length} dup.
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-emerald-600">{t.aptos}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-red-600">{t.lesionados}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{t.edad ? t.edad.toFixed(1) : '—'}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{t.goles}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{t.minutos.toLocaleString('es')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {stats.teams.some(t => t.jugadores > MAX_JUGADORES_EQUIPO) && (
+        <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">
+          <i className="fa-solid fa-triangle-exclamation mr-1.5"></i>
+          Hay equipos con más de {MAX_JUGADORES_EQUIPO} jugadores: {stats.teams.filter(t => t.jugadores > MAX_JUGADORES_EQUIPO).map(t => `${t.equipo} (+${t.jugadores - MAX_JUGADORES_EQUIPO})`).join(', ')}.
         </div>
-      </section>
+      )}
 
       {classification && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500">
-            <i className="fa-solid fa-trophy text-blue-500"></i>Clasificación
+            <i className="fa-solid fa-chart-column text-blue-500"></i>Dashboard
           </h3>
-          {classification}
+          {classification(eq => setTeamFilter(eq === 'TODOS' ? null : eq))}
         </section>
       )}
 
