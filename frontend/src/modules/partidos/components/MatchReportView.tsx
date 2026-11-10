@@ -248,6 +248,7 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
   const [clubs, setClubs] = useState<Club[]>([]);
   const [competitions, setCompetitions] = useState<Competicion[]>([]);
   const [dgSaved, setDgSaved] = useState(false);
+  const [timeDraft, setTimeDraft] = useState<string | null>(null);
   const toDateInputValue = (d: Date | string) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString()).slice(0, 10);
   const [dgForm, setDgForm] = useState({
     date: toDateInputValue(match.date),
@@ -4587,7 +4588,31 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                     ? <img src={item.crest} alt="" className="w-8 h-8 object-contain shrink-0" />
                     : <i className="fa-solid fa-shield-halved text-[var(--text-muted)] text-2xl shrink-0"></i>
                 )}
-                <span>{item.value || '—'}</span>
+                {item.label === 'Hora' && onSave ? (
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={timeDraft ?? (match.time || '')}
+                      onChange={(e) => setTimeDraft(e.target.value)}
+                      className="bg-[var(--surface-0)] border border-[var(--border-soft)] rounded-lg px-2 py-1 text-sm font-bold text-[var(--text)] focus:outline-none"
+                    />
+                    {timeDraft !== null && timeDraft !== (match.time || '') && (
+                      <button
+                        onClick={() => {
+                          onSave({ ...match, time: timeDraft });
+                          setDgForm(f => ({ ...f, time: timeDraft }));
+                          setTimeDraft(null);
+                        }}
+                        title="Guardar hora"
+                        className="px-2 py-1 bg-sport-primary text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                      >
+                        <i className="fa-solid fa-floppy-disk"></i>
+                      </button>
+                    )}
+                  </span>
+                ) : (
+                  <span>{item.value || '—'}</span>
+                )}
               </div>
             </div>
           ))}

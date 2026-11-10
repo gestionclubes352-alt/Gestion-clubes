@@ -58,6 +58,8 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
     partes: 2,
     minutosPorParte: 45,
   });
+  const [filtroEquipoInterno, setFiltroEquipoInterno] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -339,7 +341,10 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
       alert(editingId ? 'Competición actualizada correctamente' : 'Competición guardada correctamente');
     } catch (error) {
       console.error('Error al guardar competición:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string })?.message || JSON.stringify(error) || 'Unknown error';
       setError(errorMsg);
       alert('Error al guardar la competición: ' + errorMsg);
     } finally {
@@ -537,6 +542,39 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
         </div>
       )}
 
+      {/* FILTROS */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <select
+          value={filtroEquipoInterno}
+          onChange={e => setFiltroEquipoInterno(e.target.value)}
+          className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+        >
+          <option value="">Todos los equipos internos</option>
+          {equiposInternas.map(eq => (
+            <option key={eq.id} value={String(eq.id)}>{eq.nombre}</option>
+          ))}
+        </select>
+        <select
+          value={filtroTipo}
+          onChange={e => setFiltroTipo(e.target.value)}
+          className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+        >
+          <option value="">Todos los tipos</option>
+          {COMPETITION_TYPE_OPTIONS.map(tipo => (
+            <option key={tipo} value={tipo}>{tipo}</option>
+          ))}
+        </select>
+        {(filtroEquipoInterno || filtroTipo) && (
+          <button
+            type="button"
+            onClick={() => { setFiltroEquipoInterno(''); setFiltroTipo(''); }}
+            className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 uppercase tracking-wider"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+
       {/* TABLA DE COMPETICIONES */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
         <div className="w-full overflow-x-auto">
@@ -570,7 +608,11 @@ const CompetitionsConfigView: React.FC<CompetitionsConfigViewProps> = ({ misEqui
                 <span className="text-sm font-bold uppercase tracking-widest">Sin competiciones</span>
               </div>
             ) : (
-              [...competiciones].sort((a, b) => {
+              [...competiciones].filter(c => {
+                if (filtroTipo && (c.tipo || 'Liga') !== filtroTipo) return false;
+                if (filtroEquipoInterno && !(equipoIdsPorCompeticion.get(c.id) || []).includes(filtroEquipoInterno)) return false;
+                return true;
+              }).sort((a, b) => {
                 const info = (c: Competicion) => {
                   const ids = new Set(equipoIdsPorCompeticion.get(c.id) || []);
                   const equipo = equiposInternas.filter(e => ids.has(String(e.id))).map(e => e.nombre).join(' ');

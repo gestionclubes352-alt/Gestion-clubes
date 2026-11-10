@@ -1103,7 +1103,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     <>
       {/* Filtro por sub-equipo (solo si hay más de uno, ej: Cadete A, Juvenil A) */}
       {!hideTeamFilter && availableEquipos.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className={`flex items-center gap-2 flex-wrap ${hideSectionTabs ? 'sticky top-12 z-20 bg-white dark:bg-slate-900 py-2' : ''}`}>
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Equipo:</span>
           {availableEquipos.length > 1 && (
             <button

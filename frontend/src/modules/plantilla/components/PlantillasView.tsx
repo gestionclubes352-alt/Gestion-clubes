@@ -56,7 +56,7 @@ const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campog
       ref={containerRef}
       className={`flex flex-col gap-3 ${isFullscreen ? 'bg-slate-50 dark:bg-slate-900 overflow-auto p-4' : ''}`}
     >
-      <div className="flex flex-wrap gap-2 px-1" role="tablist" aria-label="Secciones de plantilla">
+      <div className="sticky top-0 z-30 flex flex-wrap gap-2 px-1 py-2 bg-white dark:bg-slate-900" role="tablist" aria-label="Secciones de plantilla">
         {TABS.map(tab => (
           <button
             key={tab.id}

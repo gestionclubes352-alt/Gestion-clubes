@@ -94,6 +94,8 @@ export interface DataTableProps<T> {
   defaultMode?: 'basic' | 'advanced';
   /** Ajusta la tabla al ancho disponible: sin scroll (horizontal ni vertical), layout fijo y relleno mínimo */
   fit?: boolean;
+  /** Con `fit`, las columnas ocupan su ancho y quedan pegadas a la izquierda (no se estiran). */
+  packLeft?: boolean;
 }
 
 // ============================================================================
@@ -247,7 +249,7 @@ function ScrollWrapper({ fit, children, bodyClassName, bodyStyle }: {
   bodyClassName: string;
   bodyStyle: React.CSSProperties;
 }) {
-  if (fit) return <div className="overflow-hidden">{children}</div>;
+  if (fit) return <div className="overflow-x-hidden overflow-y-auto" style={bodyStyle}>{children}</div>;
   return <TableScrollContainer bodyClassName={bodyClassName} bodyStyle={bodyStyle}>{children}</TableScrollContainer>;
 }
 
@@ -322,6 +324,7 @@ function DataTable<T extends Record<string, any>>({
   defaultMode = 'advanced',
   defaultSorting = [],
   fit = false,
+  packLeft = false,
   fullscreenable = false,
 }: DataTableProps<T>) {
   // Inject animations on mount
@@ -581,7 +584,7 @@ function DataTable<T extends Record<string, any>>({
         bodyClassName="overflow-y-auto"
         bodyStyle={{ maxHeight: isFullscreen ? 'calc(100vh - 120px)' : (maxHeight ?? '640px') }}
       >
-        <table className={`w-full ${fit ? 'table-fixed' : ''}`} role="table">
+        <table className={`${packLeft ? '' : 'w-full'} ${fit ? 'table-fixed' : ''}`} style={packLeft ? { width: table.getTotalSize() } : undefined} role="table">
           <thead className={`${stickyHeader ? 'sticky top-0 z-10 bg-[var(--surface-1)]' : ''}`}>
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id} className="border-b border-[var(--border-soft)] bg-[var(--surface-1)]">
@@ -591,6 +594,7 @@ function DataTable<T extends Record<string, any>>({
                   return (
                     <th
                       key={header.id}
+                      title={(header.column.columnDef.meta as { title?: string } | undefined)?.title}
                       className={`${px} ${py} text-[9px] font-semibold text-slate-400 uppercase tracking-widest text-left group/th select-none ${
                         canSort ? 'cursor-pointer hover:text-slate-600 transition-colors' : ''
                       } ${sorted ? 'text-slate-600' : ''}`}

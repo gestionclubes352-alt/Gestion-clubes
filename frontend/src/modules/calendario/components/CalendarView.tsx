@@ -351,7 +351,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
     const active = sessionSort.key === key;
     return (
       <th
-        className="px-4 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none cursor-pointer select-none hover:text-[var(--accent)]"
+        className="px-2 pr-3 py-0 text-xs font-black uppercase tracking-widest text-slate-400 leading-none cursor-pointer select-none hover:text-[var(--accent)]"
         onClick={() => toggleSessionSort(key)}
         aria-sort={active ? (sessionSort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
       >
@@ -1305,7 +1305,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
               <div className="py-16 text-center text-slate-400 font-bold text-sm">{t('calendarView.noSessionsFound')}</div>
             ) : (
               <TableScrollContainer>
-                <table className="w-full text-left border-collapse">
+                <table className="w-auto min-w-0 text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/60 border-b border-slate-100">
                       {renderSortableTh('date', t('calendarView.colDate'))}
@@ -1316,7 +1316,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       {renderSortableTh('instalacion', t('calendarView.colInstalacion', 'Instalación'))}
                       {renderSortableTh('campo', t('calendarView.colCampo', 'Campo'))}
                       {renderSortableTh('players', t('calendarView.colPlayers', 'Jugadores'))}
-                      <th className="px-4 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right leading-none">{t('calendarView.colActions')}</th>
+                      <th className="px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right leading-none">{t('calendarView.colActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -1326,33 +1326,33 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                       const { instalacion, campo } = resolveEventInstalacionCampo(ev);
                       return (
                         <tr key={ev.id} className="hover:bg-slate-50 transition group">
-                          <td className="px-4 py-0 cursor-pointer" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             <p className="font-black text-slate-700 text-xs leading-normal">
                               {d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </p>
                           </td>
-                          <td className="px-4 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
                             {ev.time || t('calendarView.noTime')}
                           </td>
-                          <td className="px-4 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
                             {ev.team || '—'}
                           </td>
-                          <td className="px-4 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
                             {ev.type || '—'}
                           </td>
-                          <td className="px-4 py-0 cursor-pointer" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 cursor-pointer" onClick={() => handleEventClick(ev)}>
                             <p className="font-black text-[var(--accent)] text-xs leading-normal group-hover:underline">
                               {ev.title || t('calendarView.sessionDefault')}
                               {ev.sessionNumber ? ` — ${t('calendarView.sessionNumber')} ${ev.sessionNumber}` : ''}
                             </p>
                           </td>
-                          <td className="px-4 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
                             {instalacion || '—'}
                           </td>
-                          <td className="px-4 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-0 text-xs font-bold text-slate-500 cursor-pointer whitespace-nowrap leading-normal" onClick={() => handleEventClick(ev)}>
                             {campo || '—'}
                           </td>
-                          <td className="px-6 py-1 cursor-pointer max-w-xs" onClick={() => handleEventClick(ev)}>
+                          <td className="px-2 py-1 cursor-pointer max-w-xs" onClick={() => handleEventClick(ev)}>
                             {selectivePlayerNames.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {selectivePlayerNames.map((name, index) => (
@@ -1365,7 +1365,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                               <span className="text-xs font-bold text-slate-400">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-0">
+                          <td className="px-2 py-0">
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => handleEventClick(ev)}

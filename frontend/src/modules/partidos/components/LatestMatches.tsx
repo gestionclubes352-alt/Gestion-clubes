@@ -728,11 +728,13 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const tableColumns = useMemo(() => [
     matchColumnHelper.accessor('dateLabel', {
       header: t('matchesList.colDate'),
+      size: 80,
       cell: (info) => <span className="text-xs whitespace-nowrap">{info.getValue()}</span>
     }),
     matchColumnHelper.display({
       id: 'acta',
       header: '',
+      size: 32,
       cell: (info) => (
         <button
           type="button"
@@ -747,14 +749,17 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }),
     matchColumnHelper.accessor('jornada', {
       header: 'JORNADA',
+      size: 60,
       cell: (info) => <span className="text-xs">{info.getValue()}</span>
     }),
     matchColumnHelper.accessor('competition', {
       header: t('matchesList.colCompetition'),
+      size: 150,
       cell: (info) => <span className="text-xs">{info.getValue()}</span>
     }),
     matchColumnHelper.accessor('localLabel', {
       header: 'LOCAL',
+      size: 200,
       cell: (info) => (
         <div className="flex items-center justify-end gap-2 text-right">
           <span className={`truncate text-xs ${info.row.original.localIsOwn ? 'own-team-name' : ''}`}>{info.getValue()}</span>
@@ -766,6 +771,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }),
     matchColumnHelper.accessor('resultLabel', {
       header: 'RESULTADO',
+      size: 80,
       cell: (info) => (
         <span className={`inline-block min-w-[3.5rem] text-center bg-slate-800 text-white font-black text-[10px] tracking-widest px-2.5 py-1 rounded-md ${info.row.original.match.status === 'Finished' ? '' : 'opacity-50'}`}>
           {info.row.original.match.status === 'Finished' ? String(info.getValue()).replace(/\s*[-:]\s*/, ' - ') : 'VS'}
@@ -774,6 +780,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }),
     matchColumnHelper.accessor('visitorLabel', {
       header: 'VISITANTE',
+      size: 200,
       cell: (info) => (
         <div className="flex items-center gap-2">
           {info.row.original.visitorLogo && (
@@ -785,14 +792,17 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
     }),
     matchColumnHelper.accessor('location', {
       header: 'ESTADIO',
+      size: 200,
       cell: (info) => <span className="text-xs text-slate-500">{info.getValue()}</span>
     }),
     matchColumnHelper.accessor('ocasionesCount', {
       header: 'OCASIONES',
+      size: 70,
       cell: (info) => <span className="text-xs">{info.getValue() || '-'}</span>
     }),
     matchColumnHelper.accessor('videoUrl', {
       header: 'VÍDEO',
+      size: 50,
       cell: (info) =>
         info.getValue() ? (
           <button
@@ -1182,6 +1192,8 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             exportable
             exportFilename="partidos"
             stickyHeader
+            fit
+            packLeft
             maxHeight="70vh"
             emptyMessage={t('matchesList.noMatches')}
             emptyIcon="fa-solid fa-calendar-xmark"
