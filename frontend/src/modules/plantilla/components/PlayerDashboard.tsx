@@ -392,11 +392,11 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, p
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase tracking-wide text-slate-400">
-              <th className="px-3 py-2 text-emerald-600" title="Partidos del equipo">PE</th>
-              <th className="px-3 py-2" title="Partidos jugados"><i className="fa-solid fa-shirt text-[9px] mr-1"></i>PJ</th>
+              <th className="px-3 py-2 text-emerald-600!" title="Partidos del equipo">PE</th>
+              <th className="px-3 py-2" title="Partidos convocado"><i className="fa-solid fa-shirt text-[9px] mr-1"></i>PC</th>
               <th className="px-3 py-2" title="Titularidades"><i className="fa-solid fa-star text-[9px] mr-1"></i>Tit.</th>
               <th className="px-3 py-2" title="% de partidos del equipo como titular">% Tit.</th>
-              <th className="px-3 py-2 text-emerald-600" title="Minutos del equipo (partidos del equipo × 90)"><i className="fa-solid fa-clock text-[9px] mr-1"></i>MIN E</th>
+              <th className="px-3 py-2 text-emerald-600!" title="Minutos del equipo (partidos del equipo × 90)"><i className="fa-solid fa-clock text-[9px] mr-1"></i>MIN E</th>
               <th className="px-3 py-2" title="Minutos jugados"><i className="fa-solid fa-stopwatch text-[9px] mr-1"></i>MINJ</th>
               <th className="px-3 py-2" title="% de minutos jugados sobre los del equipo">% Min.</th>
               <th className="px-3 py-2" title="Goles marcados"><span className="mr-1">⚽</span>Goles</th>
@@ -407,11 +407,11 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, p
           </thead>
           <tbody>
             <tr className="text-xs tabular-nums text-slate-600">
-              <td className="px-3 py-2 text-emerald-600 font-semibold">{teamMatches && teamMatches > 0 ? teamMatches : '—'}</td>
+              <td className="px-3 py-2 text-emerald-600! font-semibold">{teamMatches && teamMatches > 0 ? teamMatches : '—'}</td>
               <td className="px-3 py-2">{matchStats.partidosJugados}</td>
               <td className="px-3 py-2">{matchStats.titular}</td>
               <td className="px-3 py-2">{teamMatches && teamMatches > 0 ? `${Math.min(100, pct(matchStats.titular, teamMatches))}%` : '—'}</td>
-              <td className="px-3 py-2 text-emerald-600 font-semibold">{teamMatches && teamMatches > 0 ? teamMatches * 90 : '—'}</td>
+              <td className="px-3 py-2 text-emerald-600! font-semibold">{teamMatches && teamMatches > 0 ? teamMatches * 90 : '—'}</td>
               <td className="px-3 py-2">{matchStats.minutos}</td>
               <td className="px-3 py-2">{totals.pctMinutos === null ? '—' : `${Math.min(100, totals.pctMinutos)}%`}</td>
               <td className="px-3 py-2">{matchStats.goles}</td>

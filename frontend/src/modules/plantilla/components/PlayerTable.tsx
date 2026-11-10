@@ -7,6 +7,7 @@ import type { DataTableAction } from '../../../shared/components/DataTable';
 import { useIsMobile } from '@shared/hooks/useIsMobile';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
 import { Player } from '../types';
+import { BallIcon } from '@shared/components/MatchIcons';
 import PlayerTile from './PlayerTile';
 import { useTileConfig } from '../utils/tileConfig';
 import { encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
@@ -343,7 +344,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
       }),
       // Estadísticas de partido (actas)
       ...(([
-        { id: 'pj', header: 'PJ', icon: 'fa-shirt', title: 'Partidos jugados', get: (m: MatchTotals) => m.pj },
+        { id: 'pj', header: 'PC', icon: 'fa-shirt', title: 'Partidos convocado', get: (m: MatchTotals) => m.pj },
         { id: 'tit', header: 'Tit.', icon: 'fa-star', title: 'Titularidades', get: (m: MatchTotals) => m.tit },
         { id: 'pctTit', header: '% Tit.', pct: true, title: '% de partidos del equipo como titular', get: (m: MatchTotals, row: Player) => { const pe = row.equipo ? (teamMatches.get(row.equipo) ?? 0) : 0; return pe > 0 ? Math.min(100, Math.round((m.tit / pe) * 100)) : 0; } },
         { id: 'minE', header: 'MIN E', team: true, icon: 'fa-clock', title: 'Minutos del equipo (partidos del equipo × 90)', get: (_m: MatchTotals, row: Player) => (row.equipo ? (teamMatches.get(row.equipo) ?? 0) * 90 : 0) },
@@ -375,7 +376,12 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
                 ? <span className="inline-flex items-center gap-1 text-xs tabular-nums text-slate-700 font-semibold" title={c.title}><span className={`inline-block w-2 h-3 rounded-[2px] ${c.card}`}></span>{v}</span>
                 : <span className="text-slate-300 text-xs tabular-nums" title={c.title}>0</span>;
             }
-            return <span className={`${c.team ? 'text-emerald-600 font-semibold' : 'text-slate-600'} text-xs tabular-nums`} title={c.title}>{v}</span>;
+            if (c.id === 'goles') {
+              return v > 0
+                ? <span className="inline-flex items-center gap-1 text-xs tabular-nums text-slate-700 font-semibold" title={c.title}><BallIcon className="w-3 h-3" />{v}</span>
+                : <span className="text-slate-300 text-xs tabular-nums" title={c.title}>0</span>;
+            }
+            return <span className={`${c.team ?'text-emerald-600 font-semibold' : 'text-slate-600'} text-xs tabular-nums`} title={c.title}>{v}</span>;
           },
         })
       )),

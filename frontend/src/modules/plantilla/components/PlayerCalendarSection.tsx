@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ObjetivoIndividual } from '@shared/services/dataService';
 import { objetivosIndividualesService } from '@shared/services';
 import type { CalendarEvent } from '../../calendario/types';
@@ -208,8 +209,16 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
   const selectedEntries = selected ? entriesByDay.get(selected) ?? [] : [];
   const todayKey = toKey(today);
 
-  return (
-    <DashboardGroup title="Calendario" icon="fa-calendar-days">
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isFullscreen]);
+
+  const body = (
+    <>
       <div className="flex items-center justify-between gap-2 flex-wrap px-1">
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => shiftMonth(-1)} className="w-6 h-6 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100" aria-label="Mes anterior">
@@ -225,7 +234,16 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
             Hoy
           </button>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(v => !v)}
+            className="w-7 h-7 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 mr-1"
+            aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}
+          >
+            <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-[10px]`}></i>
+          </button>
           {(Object.keys(KIND_META) as EntryKind[]).map(k => (
             <button
               key={k}
@@ -256,7 +274,7 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
           <div key={w} className="bg-slate-50 text-center text-[9px] font-black text-slate-400 py-1">{w}</div>
         ))}
         {cells.map((d, i) => {
-          if (!d) return <div key={`e${i}`} className="bg-slate-50 min-h-[44px]" />;
+          if (!d) return <div key={`e${i}`} className={`bg-slate-50 ${isFullscreen ? 'min-h-[110px]' : 'min-h-[44px]'}`} />;
           const key = toKey(d);
           const dayEntries = entriesByDay.get(key) ?? [];
           const isToday = key === todayKey;
@@ -267,7 +285,7 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
               key={key}
               type="button"
               onClick={() => setSelected(key)}
-              className={`${hasActiveObj ? 'bg-orange-50/60 border-b-2 border-orange-400' : 'bg-white'} min-h-[44px] p-1 flex flex-col items-start gap-1 text-left transition-colors hover:bg-slate-50 ${isSel ? 'ring-2 ring-inset ring-[var(--accent)]' : ''}`}
+              className={`${hasActiveObj ? 'bg-orange-50/60 border-b-2 border-orange-400' : 'bg-white'} ${isFullscreen ? 'min-h-[110px]' : 'min-h-[44px]'} p-1 flex flex-col items-start gap-1 text-left transition-colors hover:bg-slate-50 ${isSel ? 'ring-2 ring-inset ring-[var(--accent)]' : ''}`}
             >
               <span className={`text-[10px] font-black tabular-nums leading-none ${isToday ? 'bg-[var(--accent)] text-white rounded-full w-4 h-4 flex items-center justify-center' : 'text-slate-600'}`}>
                 {d.getDate()}
@@ -335,8 +353,16 @@ const PlayerCalendarSection: React.FC<PlayerCalendarSectionProps> = ({ playerId,
           </div>
         )}
       </div>
-    </DashboardGroup>
+    </>
   );
+
+  if (isFullscreen) {
+    return createPortal(
+      <div className="fixed inset-0 z-[300] bg-white overflow-auto p-4 md:p-6 space-y-3">{body}</div>,
+      document.body
+    );
+  }
+  return <DashboardGroup title="Calendario" icon="fa-calendar-days">{body}</DashboardGroup>;
 };
 
 export default PlayerCalendarSection;

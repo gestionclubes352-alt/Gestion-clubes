@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CardIcon, StatCount } from '@shared/components/MatchIcons';
 import type { Player } from '../types';
 import { fetchMatchTotals, EMPTY_TOTALS, type MatchTotals } from '../utils/matchTotals';
 import { BallIcon } from '@shared/components/MatchIcons';
@@ -120,7 +121,7 @@ const Kpi: React.FC<{ label: string; value: string | number; icon: string; tone?
 
 const RANKING_LIMIT = 8;
 
-type SortKey = 'nombre' | 'posicion' | 'pj' | 'tit' | 'sup' | 'min' | 'minPj' | 'pct' | 'goles' | 'am' | 'ro';
+type SortKey = 'nombre' | 'posicion' | 'pe' | 'pctTit' | 'minE' | 'gc' | 'pj' | 'tit' | 'sup' | 'min' | 'minPj' | 'pct' | 'goles' | 'am' | 'ro';
 
 interface StatsRow {
   id: string;
@@ -128,22 +129,27 @@ interface StatsRow {
   dorsal?: number | null;
   posicion: string;
   equipo: string;
+  pe: number; pctTit: number | null; minE: number; gc: number;
   pj: number; tit: number; sup: number; min: number; minPj: number; pct: number | null;
   goles: number; am: number; ro: number;
 }
 
-const COLUMNS: Array<{ key: SortKey; label: string; title: string; align?: 'left' }> = [
+const COLUMNS: Array<{ key: SortKey; label: string; title: string; align?: 'left'; icon?: string; emoji?: string; card?: 'yellow' | 'red'; team?: boolean }> = [
   { key: 'nombre', label: 'Jugador', title: 'Jugador', align: 'left' },
   { key: 'posicion', label: 'Dem.', title: 'Demarcación', align: 'left' },
-  { key: 'pj', label: 'PJ', title: 'Partidos jugados' },
-  { key: 'tit', label: 'TIT', title: 'Titularidades' },
+  { key: 'pe', label: 'PE', title: 'Partidos del equipo', team: true },
+  { key: 'pj', label: 'PC', title: 'Partidos convocado', icon: 'fa-shirt' },
+  { key: 'tit', label: 'TIT', title: 'Titularidades', icon: 'fa-star' },
+  { key: 'pctTit', label: '% TIT', title: '% de partidos del equipo como titular' },
   { key: 'sup', label: 'SUP', title: 'Entradas como suplente' },
-  { key: 'min', label: 'MIN', title: 'Minutos' },
+  { key: 'minE', label: 'MIN E', title: 'Minutos del equipo (partidos del equipo × 90)', icon: 'fa-clock', team: true },
+  { key: 'min', label: 'MINJ', title: 'Minutos jugados', icon: 'fa-stopwatch' },
   { key: 'minPj', label: 'MIN/PJ', title: 'Minutos por partido jugado' },
   { key: 'pct', label: '% MIN', title: '% de minutos sobre los posibles del equipo' },
-  { key: 'goles', label: 'GOL', title: 'Goles' },
-  { key: 'am', label: 'TA', title: 'Tarjetas amarillas' },
-  { key: 'ro', label: 'TR', title: 'Tarjetas rojas' },
+  { key: 'goles', label: 'GOLES', title: 'Goles', emoji: '⚽' },
+  { key: 'gc', label: 'GC', title: 'Goles recibidos con el jugador en campo', icon: 'fa-hand' },
+  { key: 'am', label: '', title: 'Tarjetas amarillas', card: 'yellow' },
+  { key: 'ro', label: '', title: 'Tarjetas rojas', card: 'red' },
 ];
 
 /** Tabla de plantilla con estadísticas de actas, ordenable por cualquier columna (ranking). */
@@ -166,6 +172,9 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
         dorsal: p.dorsal,
         posicion: p.posicion || '',
         equipo: p.equipo || '',
+        pe: teamMatches.get(p.equipo || 'Sin equipo') ?? 0,
+        pctTit: (teamMatches.get(p.equipo || 'Sin equipo') ?? 0) > 0 ? Math.min(100, Math.round((t.tit / (teamMatches.get(p.equipo || 'Sin equipo') ?? 0)) * 100)) : null,
+        minE: posibles, gc: t.gc,
         pj: t.pj, tit: t.tit, sup: t.pj - t.tit, min: t.min,
         minPj: t.pj > 0 ? Math.round(t.min / t.pj) : 0,
         pct: posibles > 0 ? Math.round((t.min / posibles) * 100) : null,
@@ -201,7 +210,7 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
         <span className="ml-auto text-[9px] font-semibold normal-case tracking-normal text-slate-400">Pulsa una columna para ordenar</span>
       </h3>
       <div className="max-h-[70vh] overflow-auto">
-        <table className="w-full min-w-[720px] text-left text-[10px]!">
+        <table className="w-full min-w-[900px] text-left text-[10px]!">
           <thead className="sticky top-0 z-10 bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
             <tr>
               <th className="w-8 px-3 py-2 text-right">#</th>
@@ -213,7 +222,12 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
                   aria-sort={sortKey === c.key ? (desc ? 'descending' : 'ascending') : 'none'}
                   className={`cursor-pointer select-none whitespace-nowrap px-2 py-2 hover:text-slate-700 ${c.align === 'left' ? 'text-left' : 'text-right'} ${sortKey === c.key ? 'text-blue-600' : ''}`}
                 >
-                  {c.label}
+                  <span className={`inline-flex items-center gap-1 ${c.team ? 'text-emerald-600!' : ''}`}>
+                    {c.icon && <i className={`fa-solid ${c.icon} text-[9px]`}></i>}
+                    {c.emoji && <span className="text-[11px] leading-none">{c.emoji}</span>}
+                    {c.card && <CardIcon kind={c.card} className="w-2 h-3" />}
+                    {c.label}
+                  </span>
                   {sortKey === c.key && <i className={`fa-solid ${desc ? 'fa-caret-down' : 'fa-caret-up'} ml-1`}></i>}
                 </th>
               ))}
@@ -228,9 +242,12 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
                   {r.nombre}
                 </td>
                 <td className="px-2 py-1 text-slate-500">{r.posicion || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums font-semibold text-emerald-600!">{r.pe || '—'}</td>
                 <td className="px-2 py-1 text-right tabular-nums">{r.pj}</td>
                 <td className="px-2 py-1 text-right tabular-nums">{r.tit}</td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.pctTit === null ? '—' : `${r.pctTit}%`}</td>
                 <td className="px-2 py-1 text-right tabular-nums">{r.sup}</td>
+                <td className="px-2 py-1 text-right tabular-nums font-semibold text-emerald-600!">{r.minE || '—'}</td>
                 <td className="px-2 py-1 text-right tabular-nums">
                   <div className="flex items-center justify-end gap-2">
                     <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 sm:block">
@@ -241,9 +258,10 @@ const SquadStatsTable: React.FC<{ squad: Player[]; totals: Map<string, MatchTota
                 </td>
                 <td className="px-2 py-1 text-right tabular-nums">{r.minPj || '—'}</td>
                 <td className="px-2 py-1 text-right tabular-nums">{r.pct === null ? '—' : `${r.pct}%`}</td>
-                <td className="px-2 py-1 text-right font-black tabular-nums">{r.goles || '—'}</td>
-                <td className="px-2 py-1 text-right tabular-nums text-amber-500">{r.am || '—'}</td>
-                <td className="px-2 py-1 text-right tabular-nums text-red-600">{r.ro || '—'}</td>
+                <td className="px-2 py-1 text-right tabular-nums"><div className="flex justify-end"><StatCount kind="goal" count={r.goles} /></div></td>
+                <td className="px-2 py-1 text-right tabular-nums">{r.gc}</td>
+                <td className="px-2 py-1 text-right tabular-nums"><div className="flex justify-end"><StatCount kind="yellow" count={r.am} /></div></td>
+                <td className="px-2 py-1 text-right tabular-nums"><div className="flex justify-end"><StatCount kind="red" count={r.ro} /></div></td>
               </tr>
             ))}
           </tbody>
