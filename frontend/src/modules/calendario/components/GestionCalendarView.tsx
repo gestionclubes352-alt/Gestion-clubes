@@ -290,6 +290,24 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
         internalTeamCanonicalByName.has((name || '').trim().toLowerCase());
     return isOwn ? <span className="font-black text-[#800020]">{name}</span> : <>{name}</>;
   };
+  // Tooltip de partido: mi equipo va marcado con ★ y en mayúsculas (el tooltip nativo no admite negrita).
+  const matchTooltip = (ev: CalendarEvent): string => {
+    const side = (rawName: string | undefined, clubId: string | undefined) => {
+      const name = resolveMatchSideDisplay(ev, rawName, clubId).teamName || rawName || '';
+      const isOwn = clubId
+        ? !!ownClubId && String(clubId) === String(ownClubId)
+        : internalTeamCanonicalByName.has((rawName || '').trim().toLowerCase()) ||
+          internalTeamCanonicalByName.has(name.trim().toLowerCase());
+      return isOwn ? `★ ${name.toUpperCase()} ★` : name;
+    };
+    const visitor = ev.visitorTeam ? side(ev.visitorTeam, ev.visitorTeamClubId) : (ev.opponent || '');
+    return [
+      `${ev.time || '--:--'}  ${side(ev.localTeam, ev.localTeamClubId)} vs ${visitor}`,
+      ev.competition ? `Competición: ${ev.competition}${ev.jornada ? ` · ${ev.jornada}` : ''}` : (ev.jornada ? `Jornada: ${ev.jornada}` : ''),
+      ev.location ? `Campo: ${ev.location}` : '',
+      ev.score ? `Resultado: ${ev.score}` : '',
+    ].filter(Boolean).join('\n');
+  };
   const getEventTeamKey = (ev: CalendarEvent): string | undefined => {
     if (ev.type === 'Partido') {
       const candidates = [
@@ -1099,7 +1117,9 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                           onDragStart={(e) => handleEventDragStart(e, ev)}
                           onDragEnd={handleEventDragEnd}
                           onClick={() => openEvent(ev)}
-                          title={`${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
+                          title={ev.type === 'Partido'
+                            ? matchTooltip(ev)
+                            : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                           className={`relative group/ev w-full text-left overflow-hidden rounded px-1 py-0.5 pr-4 text-[9px] font-bold border cursor-pointer ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                         >
                           {isMatchWithSides ? (
@@ -1282,7 +1302,7 @@ const GestionCalendarView: React.FC<GestionCalendarViewProps> = ({ events, onCre
                               onClick={() => openEvent(ev)}
                               className={`relative group/ev flex-1 min-w-0 rounded-lg px-1.5 py-1.5 text-[10px] font-bold cursor-pointer transition-all hover:shadow-md border-2 ${teamColor?.thick || EVENT_THICK_COLORS[ev.type] || EVENT_THICK_COLORS.Otro} ${isMatch ? 'flex flex-col gap-1' : ''} ${draggedEvent?.id === ev.id ? 'opacity-40' : ''}`}
                               title={isMatch
-                                ? `${ev.time || ''} ${displayLocalTeam || ''} vs ${displayVisitorTeam || ev.opponent || ''}`
+                                ? matchTooltip(ev)
                                 : `${formatEventLabel(ev.time, ev.team)} - ${ev.title}`}
                             >
                               <div className={`absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 opacity-0 group-hover/ev:opacity-100 ${isObjetivoEvent(ev) ? 'hidden' : ''}`}>
