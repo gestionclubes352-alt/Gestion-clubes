@@ -171,15 +171,15 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
         </button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-[10px]">
-          <thead className="bg-slate-50 text-[9px] uppercase tracking-widest text-slate-400">
+        <table className="w-full min-w-[640px] text-left text-xs">
+          <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
             <tr>
-              <th className="px-4 py-2">Fecha</th>
-              <th className="px-2 py-2">Hora</th>
-              <th className="px-2 py-2">Jor.</th>
-              <th className="px-2 py-2">Partido</th>
-              <th className="px-2 py-2">Campo</th>
-              <th className="px-4 py-2">Competición</th>
+              <th className="px-4 py-2 text-[10px]">Fecha</th>
+              <th className="px-2 py-2 text-[10px]">Hora</th>
+              <th className="px-2 py-2 text-[10px]">Jor.</th>
+              <th className="px-2 py-2 text-[10px]">Partido</th>
+              <th className="px-2 py-2 text-[10px]">Campo</th>
+              <th className="px-4 py-2 text-[10px]">Competición</th>
             </tr>
           </thead>
           <tbody>
@@ -193,22 +193,22 @@ export const HorariosPanel: React.FC<HorariosPanelProps> = ({ matches, equipo })
               <React.Fragment key={m.id}>
               {showHeader && wk && (
                 <tr className="border-t border-slate-200 bg-slate-100">
-                  <td colSpan={6} className="px-4 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                  <td colSpan={6} className="px-4 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">
                     Fin de semana {weekLabel(wk)}
                   </td>
                 </tr>
               )}
               <tr className="border-t border-slate-100">
-                <td className="px-4 py-2 font-bold capitalize text-slate-700">{fmtDate(m.date)}</td>
-                <td className="px-2 py-2 tabular-nums">{m.time || 'Pendiente'}</td>
-                <td className="px-2 py-2 tabular-nums">{m.jornada || '—'}</td>
-                <td className="px-2 py-2 font-semibold text-slate-700">
+                <td className="px-4 py-2 text-xs font-bold capitalize text-slate-700">{fmtDate(m.date)}</td>
+                <td className="px-2 py-2 text-xs tabular-nums">{m.time || 'Pendiente'}</td>
+                <td className="px-2 py-2 text-xs tabular-nums">{m.jornada || '—'}</td>
+                <td className="px-2 py-2 text-xs font-semibold text-slate-700">
                   <span className={isInternalTeam(m.localTeam || m.opponent) ? 'font-black text-[#9f1239]' : ''}>{m.localTeam || m.opponent}</span>{' '}
                   <span className="text-slate-400">vs</span>{' '}
                   <span className={isInternalTeam(m.visitorTeam) ? 'font-black text-[#9f1239]' : ''}>{m.visitorTeam || ''}</span>
                 </td>
-                <td className="px-2 py-2 text-slate-500">{m.location || 'Pendiente'}</td>
-                <td className="px-4 py-2 text-slate-500">{m.competition}</td>
+                <td className="px-2 py-2 text-xs text-slate-500">{m.location || 'Pendiente'}</td>
+                <td className="px-4 py-2 text-xs text-slate-500">{m.competition}</td>
               </tr>
               </React.Fragment>
               );
@@ -323,13 +323,13 @@ export const ActasPanel: React.FC<ActasDataProps> = ({ clubId, equipo }) => {
             key={r.id}
             type="button"
             onClick={() => setOpenId(r.id)}
-            className="grid items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 text-left transition-colors hover:border-slate-300 md:grid-cols-[110px_60px_minmax(0,1fr)_80px_minmax(0,1fr)]"
+            className="grid items-center gap-3 rounded-lg border border-slate-100 bg-white px-2.5 py-1 text-left transition-colors hover:border-slate-300 md:grid-cols-[110px_60px_minmax(0,1fr)_96px_minmax(0,1fr)]"
           >
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{r.acta.date || fmtDate(r.date)}</span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{r.jornada}</span>
-            <span className={`truncate text-right text-sm ${ownSideOf(r) === 'home' ? 'font-black text-[#9f1239]' : 'font-semibold text-slate-700'}`}>{r.acta.homeTeam.name}</span>
-            <span className="rounded-md bg-slate-800 px-2 py-1 text-center text-sm font-black tabular-nums text-white">{r.acta.score}</span>
-            <span className={`truncate text-sm ${ownSideOf(r) === 'away' ? 'font-black text-[#9f1239]' : 'font-semibold text-slate-700'}`}>{r.acta.awayTeam.name}</span>
+            <span className="text-[9px] font-black uppercase leading-tight tracking-wider text-slate-400">{r.acta.date || fmtDate(r.date)}</span>
+            <span className="text-[9px] font-black uppercase leading-tight tracking-wider text-slate-400">{r.jornada}</span>
+            <span className={`truncate text-right text-xs leading-tight ${ownSideOf(r) === 'home' ? 'font-black text-[#9f1239]' : 'font-semibold text-slate-700'}`}>{r.acta.homeTeam.name}</span>
+            <span className="rounded-md bg-slate-800 px-2 py-0.5 text-center text-[11px] font-black leading-tight tabular-nums text-white">{r.acta.score}</span>
+            <span className={`truncate text-xs leading-tight ${ownSideOf(r) === 'away' ? 'font-black text-[#9f1239]' : 'font-semibold text-slate-700'}`}>{r.acta.awayTeam.name}</span>
           </button>
         ))}
       </div>
