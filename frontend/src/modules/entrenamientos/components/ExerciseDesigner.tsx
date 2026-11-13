@@ -1993,7 +1993,7 @@ const ExerciseDesigner: React.FC<ExerciseDesignerProps> = ({ squad = [], allSqua
             <button
               type="button"
               onClick={handleBackClick}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--accent)] bg-[var(--accent)] text-white font-black shadow-lg hover:brightness-110 active:scale-95 transition-all"
               title="Volver al repositorio de tareas"
               aria-label="Volver al repositorio de tareas"
             >

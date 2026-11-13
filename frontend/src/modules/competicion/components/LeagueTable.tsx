@@ -1476,7 +1476,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
           <button
             type="button"
             onClick={() => setOpenActaId(null)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 hover:border-slate-400"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs uppercase tracking-wider border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all"
           >
             <i className="fa-solid fa-arrow-left"></i>Volver a resultados
           </button>

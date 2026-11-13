@@ -286,6 +286,14 @@ const DesignerPreview: React.FC<DesignerPreviewProps> = ({ items, fieldStructure
                   </span>
                 )}
               </div>
+              {isPlayer && item.playerId !== undefined && item.playerName && (
+                <div
+                  className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-black uppercase text-white shadow-lg"
+                  style={{ transform: `translateX(-50%) rotate(${-rotation}deg)` }}
+                >
+                  {item.playerName}
+                </div>
+              )}
             </div>
           );
         }

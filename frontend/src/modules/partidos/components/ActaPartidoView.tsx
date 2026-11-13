@@ -374,7 +374,7 @@ const ActaPartidoView: React.FC = () => {
         {/* Back button */}
         <button
           onClick={() => { setActaData(null); setView('jornada'); }}
-          className="mb-4 flex items-center gap-2 text-[10px] font-bold text-white/30 hover:text-white transition-colors"
+          className="mb-4 flex items-center gap-2 rounded-xl px-4 py-2 text-xs border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all"
         >
           <i className="fa-solid fa-arrow-left"></i>
           <span className="uppercase tracking-widest">Volver a Jornada {currentJornada}</span>

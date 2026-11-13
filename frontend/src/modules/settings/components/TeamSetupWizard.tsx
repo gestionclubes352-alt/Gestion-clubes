@@ -627,7 +627,7 @@ export const TeamSetupWizard: React.FC = () => {
             </h4>
             <button
               onClick={handleBack}
-              className="text-sm text-slate-500 hover:text-slate-700"
+              className="inline-flex items-center rounded-xl px-3 py-1.5 text-sm border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all"
             >
               <i className="fa-solid fa-arrow-left mr-1"></i>
               Volver
@@ -723,7 +723,7 @@ export const TeamSetupWizard: React.FC = () => {
               </div>
               <button
                 onClick={handleBack}
-                className="text-sm text-slate-500 hover:text-slate-700"
+                className="inline-flex items-center rounded-xl px-3 py-1.5 text-sm border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all"
               >
                 <i className="fa-solid fa-arrow-left mr-1"></i>
                 Volver

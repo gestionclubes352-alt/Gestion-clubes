@@ -57,7 +57,7 @@ const SettingsPage: React.FC = () => {
           <div className="flex items-center gap-3 sm:gap-4 mb-2">
             <button
               onClick={() => navigate('/')}
-              className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-[var(--accent)] transition-all shadow-sm"
+              className="w-10 h-10 rounded-xl border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all flex items-center justify-center"
             >
               <i className="fa-solid fa-arrow-left"></i>
             </button>

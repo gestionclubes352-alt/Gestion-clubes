@@ -750,7 +750,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                   navigate(from);
                 }
               }}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-sport-primary shadow-sm flex items-center gap-2 text-xs"
+              className="px-4 py-2 rounded-xl border-2 border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-black shadow-sm hover:bg-[var(--accent)] hover:text-white transition-all flex items-center gap-2 text-sm"
             >
               <i className="fa-solid fa-arrow-left"></i> {t('calendarView.back')}
             </button>
@@ -980,6 +980,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                                     <option value="Descanso">{t('calendarView.attendRest')}</option>
                                     <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
                                     <option value="Otro">{t('calendarView.other')}</option>
+                                    <option value="Otro Equipo">{t('calendarView.otherTeam')}</option>
                                   </>
                                 )}
                               </SearchableSelect>
@@ -1035,6 +1036,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
                                   <option value="Descanso">{t('calendarView.attendRest')}</option>
                                   <option value="No justificada">{t('calendarView.attendUnjustified')}</option>
                                   <option value="Otro">{t('calendarView.other')}</option>
+                                  <option value="Otro Equipo">{t('calendarView.otherTeam')}</option>
                                 </>
                               )}
                             </SearchableSelect>

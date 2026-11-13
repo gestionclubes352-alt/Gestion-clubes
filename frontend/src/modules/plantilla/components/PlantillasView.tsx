@@ -29,10 +29,12 @@ interface PlantillasViewProps {
   objetivos?: React.ReactNode;
   /** Renderiza la sección de competición (actas, clasificación, resultados, horarios, calendario). */
   renderCompetition?: (section: CompetitionTab, opts?: { onEquipoChange?: (equipo: string) => void }) => React.ReactNode;
+  /** Abre la ficha de un jugador nuevo (botón "Añadir jugador" en el Dashboard). */
+  onAddPlayer?: () => void;
 }
 
 /** Contenedor de Plantillas con botones internos: Listado · Gráficas · Dashboard · Actas · Clasificaciones · Resultados · Horarios · Calendario. */
-const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campogramas, objetivos, renderCompetition }) => {
+const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campogramas, objetivos, renderCompetition, onAddPlayer }) => {
   const [section, setSection] = useState<PlantillaSection>('lista');
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -74,12 +76,22 @@ const PlantillasView: React.FC<PlantillasViewProps> = ({ squad, children, campog
             {tab.label}
           </button>
         ))}
+        {section === 'dashboard' && onAddPlayer && (
+          <button
+            type="button"
+            onClick={onAddPlayer}
+            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--accent)] px-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap text-white shadow transition-all hover:bg-[var(--accent-dark)]"
+          >
+            <i className="fa-solid fa-plus text-[10px]"></i>
+            Añadir jugador
+          </button>
+        )}
         <button
           type="button"
           onClick={toggleFullscreen}
           title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
           aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-          className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-slate-300 bg-white px-3 text-xs font-semibold whitespace-nowrap text-slate-700 transition-all hover:bg-slate-100"
+          className={`${section === 'dashboard' && onAddPlayer ? '' : 'ml-auto'} inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-slate-300 bg-white px-3 text-xs font-semibold whitespace-nowrap text-slate-700 transition-all hover:bg-slate-100`}
         >
           <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-[10px]`}></i>
           {isFullscreen ? 'Salir' : 'Pantalla completa'}

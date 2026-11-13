@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import type { Player } from '../types';
-import { calculatePlayerAge } from '../utils/tileConfig';
 import { encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 import { BallIcon, CardIcon, GoalIcons } from '@shared/components/MatchIcons';
 
@@ -259,10 +258,7 @@ const MiniStat: React.FC<{ label: string; value: React.ReactNode; tone?: 'amber'
 
 /** Cabecera compacta del jugador: foto, nombre, dorsal, estado y datos básicos. */
 export const PlayerHeader: React.FC<{ player: Player; photoUrl?: string | null; extra?: React.ReactNode }> = ({ player, photoUrl, extra }) => {
-  const age = calculatePlayerAge(player.fechaNacimiento);
   const estado = player.estado || 'APTO';
-  const subtitle = [player.posicion, player.otraDemarcacion, player.equipo].filter(Boolean).join(' · ');
-  const info = [formatBirthDate(player.fechaNacimiento), age !== undefined ? `${age} años` : null, player.club].filter(Boolean).join(' · ');
   return (
     <div className="flex items-center gap-3 min-w-0">
       <div className="w-10 h-12 shrink-0 rounded-lg overflow-hidden bg-slate-200 flex items-center justify-center">
@@ -280,10 +276,12 @@ export const PlayerHeader: React.FC<{ player: Player; photoUrl?: string | null; 
             <span className="bg-slate-900 text-white text-xs font-black rounded-md px-2 py-0.5 tabular-nums">#{player.dorsal}</span>
           )}
           <span className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-0.5 ${ESTADO_STYLE[estado] || ESTADO_STYLE.OTRO}`}>{estado}</span>
+          <span className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-0.5 ${player.residencia ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>
+            Residencia: {player.residencia ? 'SÍ' : 'NO'}
+          </span>
           {extra}
           {player.apodo && <span className="text-sm font-black text-[var(--accent)] uppercase">{player.apodo}</span>}
         </div>
-        <p className="text-[11px] text-slate-500 font-medium truncate">{[subtitle, info].filter(Boolean).join(' · ')}</p>
       </div>
     </div>
   );
@@ -521,6 +519,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, p
                     <th className="py-0.5 pr-2">Jor.</th>
                     <th className="py-0.5 pr-2">Rival</th>
                     <th className="py-0.5 pr-2 text-center">Rol</th>
+                    <th className="py-0.5 pr-2 text-center">Tit.</th>
                     <th className="py-0.5 pr-2 text-right">Min</th>
                     <th className="py-0.5 pr-2 text-right"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />Goles</span></th>
                     <th className="py-0.5 text-right">Tarj.</th>
@@ -545,6 +544,7 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, p
                           {m.titular ? 'TIT' : m.minutos > 0 ? 'SUP' : 'BANQ'}
                         </span>
                       </td>
+                      <td className="py-0.5 pr-2 text-center font-black">{m.titular ? <span className="text-emerald-600">✓</span> : <span className="text-slate-300">–</span>}</td>
                       <td className="py-0.5 pr-2 text-right tabular-nums">{m.minutos}</td>
                       <td className="py-0.5 pr-2 text-right tabular-nums">{m.goles > 0 ? <GoalIcons count={m.goles} /> : '–'}</td>
                       <td className="py-0.5 text-right whitespace-nowrap">

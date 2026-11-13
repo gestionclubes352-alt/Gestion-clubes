@@ -136,7 +136,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
   const [isSaving, setIsSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File|null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'edit' | 'tile'>('tile');
+  const [activeTab, setActiveTab] = useState<'edit' | 'tile'>(player.nombre?.trim() ? 'tile' : 'edit');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -155,7 +155,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
         [team.equipo, team.nombre, team.nombreEnFed].forEach((v) => { if (v) keys.add(normalizeTeamKey(v)); });
       }
     });
-    return (events || []).filter((ev) => keys.size === 0 || !ev.team || keys.has(normalizeTeamKey(ev.team)));
+    return (events || []).filter((ev) => keys.size > 0 && (!ev.team || keys.has(normalizeTeamKey(ev.team))));
   }, [events, equipos, player.equipoId, player.equipo]);
 
   const attendanceStats = useMemo(() => {
@@ -185,7 +185,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
         .map((v) => normalizeTeamKey(resolveSessionTeam(String(v)))),
     );
     const isOwnTeamSession = (session: { team?: string }) =>
-      ownTeamKeys.size === 0 || ownTeamKeys.has(normalizeTeamKey(resolveSessionTeam(session.team)));
+      ownTeamKeys.size > 0 && ownTeamKeys.has(normalizeTeamKey(resolveSessionTeam(session.team)));
 
     const stats = (events || []).filter(hasRecordedAttendance).filter(isOwnTeamSession).reduce((acc, session) => {
       const sessionTeam = resolveSessionTeam(session.team);
@@ -1289,6 +1289,8 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
             </>
           )}
 
+          {/* Jugador nuevo (sin nombre al abrir): aún no hay datos generados que mostrar */}
+          {player.nombre?.trim() && (<>
           {/* === DIVISOR: DATOS GENERADOS === */}
           <div className="my-6 pt-6 border-t-2 border-slate-200">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -1395,6 +1397,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
               />
             </Suspense>
           )}
+          </>)}
         </div>
         </fieldset>
 
