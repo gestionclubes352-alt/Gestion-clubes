@@ -18,7 +18,6 @@ import PlayerDashboard, { PlayerHeader } from './PlayerDashboard';
 import { ENCUADRE_DEFAULT, ZOOM_MAX, ZOOM_MIN, encuadreStyle, getFotoEncuadre } from '../utils/fotoEncuadre';
 
 const PlayerMatchBreakdown = lazy(() => import('./PlayerMatchBreakdown'));
-const PlayerPositionMap = lazy(() => import('./PlayerPositionMap'));
 const PlayerVideosSection = lazy(() => import('./PlayerVideosSection'));
 const PlayerMedicionesSection = lazy(() => import('./PlayerMedicionesSection'));
 const PlayerObjetivosSection = lazy(() => import('./PlayerObjetivosSection'));
@@ -1368,22 +1367,9 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({ player, clubId, equip
           )}
 
           {/* === DESGLOSE POR COMPETICIÓN Y PARTIDO === */}
-          {showDetailedStats && matches && matches.length > 0 && (
+          {playerActaMatches.length > 0 && (
             <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
-              <PlayerMatchBreakdown playerId={String(player.id)} matches={matches} equipos={equipos} clubes={clubes} matchReports={matchReports} />
-            </Suspense>
-          )}
-
-          {/* === MINUTOS POR POSICIÓN EN EL CAMPO === */}
-          {showDetailedStats && matches && matches.length > 0 && (
-            <Suspense fallback={<div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4"><p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p></div>}>
-              <PlayerPositionMap
-                playerId={String(player.id)}
-                playerName={formData.apodo || formData.nombre}
-                photoUrl={preview || undefined}
-                matches={matches}
-                matchReports={matchReports}
-              />
+              <PlayerMatchBreakdown actaMatches={playerActaMatches} />
             </Suspense>
           )}
 

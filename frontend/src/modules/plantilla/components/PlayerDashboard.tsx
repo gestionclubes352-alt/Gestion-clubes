@@ -518,7 +518,6 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, p
                     <th className="py-0.5 pr-2">Fecha</th>
                     <th className="py-0.5 pr-2">Jor.</th>
                     <th className="py-0.5 pr-2">Rival</th>
-                    <th className="py-0.5 pr-2 text-center">Rol</th>
                     <th className="py-0.5 pr-2 text-center">Tit.</th>
                     <th className="py-0.5 pr-2 text-right">Min</th>
                     <th className="py-0.5 pr-2 text-right"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />Goles</span></th>
@@ -538,11 +537,6 @@ const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ hideHeader, player, p
                       <td className="py-0.5 pr-2 font-semibold">
                         <span className="text-slate-400 mr-1">{m.es_local === null ? '' : m.es_local ? 'vs' : '@'}</span>
                         {m.rival || '–'}
-                      </td>
-                      <td className="py-0.5 pr-2 text-center">
-                        <span className={`text-[8px] font-black rounded px-1 py-0.5 ${m.titular ? 'bg-emerald-100 text-emerald-700' : m.minutos > 0 ? 'bg-sky-100 text-sky-700' : 'bg-slate-200 text-slate-500'}`}>
-                          {m.titular ? 'TIT' : m.minutos > 0 ? 'SUP' : 'BANQ'}
-                        </span>
                       </td>
                       <td className="py-0.5 pr-2 text-center font-black">{m.titular ? <span className="text-emerald-600">✓</span> : <span className="text-slate-300">–</span>}</td>
                       <td className="py-0.5 pr-2 text-right tabular-nums">{m.minutos}</td>

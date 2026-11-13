@@ -1,45 +1,32 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Match, MatchReport } from '@modules/partidos/types';
-import type { CompetitionTeam } from '@modules/competicion/types';
-import type { Club } from '@modules/clubes/types';
-import { computeMatchStats, MATCH_DURATION_MINUTES } from '../../partidos/components/PlayerStatsSummary';
-import { db } from '@shared/services/dataService';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
 import FullscreenChart from '@shared/components/FullscreenChart';
 import { BallIcon, CardIcon, StatCount } from '@shared/components/MatchIcons';
 
-interface PlayerMatchBreakdownProps {
-  playerId: string;
-  matches: Match[];
-  /** Equipos reales de Supabase, para resolver el club al que pertenece cada equipo del partido */
-  equipos?: CompetitionTeam[];
-  /** Clubes reales de Supabase, para mostrar el nombre del club en lugar (o además) de la categoría */
-  clubes?: Club[];
-  /** Match reports precargados para evitar consultas duplicadas */
-  matchReports?: MatchReport[];
+/** Fila de `estadisticas_partido_jugador` (acta importada de la Federación) de un jugador. */
+export interface ActaMatchRow {
+  fed_match_id: number;
+  titular: boolean;
+  minutos: number;
+  goles: number;
+  amarillas: number;
+  rojas: number;
+  fecha: string;
+  jornada: string | null;
+  competicion: string | null;
+  rival: string | null;
+  es_local: boolean | null;
 }
 
-/** Abrevia una categoría de equipo tipo "Juvenil A" a sus iniciales, p.ej. "JA". */
-const abbreviateTeamName = (name: string): string => {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= 1) return name;
-  return words.map(w => w[0]?.toUpperCase() || '').join('');
-};
-
-interface MatchRow {
-  match: Match;
-  report?: MatchReport;
-  minutes: number;
-  isStarter: boolean;
-  goals: number;
-  yellowCards: number;
-  redCards: number;
+interface PlayerMatchBreakdownProps {
+  /** Partidos del jugador procedentes de actas federativas (únicos que se muestran) */
+  actaMatches: ActaMatchRow[];
 }
 
 interface CompetitionGroup {
   competition: string;
-  rows: MatchRow[];
+  rows: ActaMatchRow[];
   matchesPlayed: number;
   starterCount: number;
   minutes: number;
@@ -48,73 +35,17 @@ interface CompetitionGroup {
   redCards: number;
 }
 
-const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, matches, equipos = [], clubes = [], matchReports = [] }) => {
+const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ actaMatches }) => {
   const { t } = useTranslation();
-  const [reports, setReports] = useState<MatchReport[]>(matchReports);
-  const [isLoading, setIsLoading] = useState(!matchReports || matchReports.length === 0);
   const [view, setView] = useState<'TABLE' | 'CHART'>('TABLE');
 
-  const clubNameById = useMemo(() => new Map(clubes.map(club => [String(club.id), club.nombre])), [clubes]);
-
-  // Fallback por nombre para partidos guardados sin clubId por equipo: si dos clubes
-  // tienen un equipo homónimo (p.ej. "Juvenil A"), esto solo puede acertar uno de los dos.
-  const clubNameByTeamName = useMemo(() => {
-    const map = new Map<string, string>();
-    equipos.forEach(team => {
-      const teamName = team.equipo || team.nombre;
-      const clubName = team.clubId != null ? clubNameById.get(String(team.clubId)) : undefined;
-      if (teamName && clubName && !map.has(teamName)) map.set(teamName, clubName);
-    });
-    return map;
-  }, [equipos, clubNameById]);
-
-  const resolveClubLabel = (teamName: string, clubId?: string): string | undefined =>
-    (clubId && clubNameById.get(String(clubId))) || clubNameByTeamName.get(teamName);
-
-  const formatTeam = (teamName?: string, clubId?: string): string => {
-    if (!teamName) return '—';
-    const clubLabel = resolveClubLabel(teamName, clubId);
-    const abbreviated = abbreviateTeamName(teamName);
-    return clubLabel ? `${clubLabel} (${abbreviated})` : teamName;
-  };
-
-  useEffect(() => {
-    if (matchReports && matchReports.length > 0) {
-      setReports(matchReports);
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      try {
-        const { data } = await db.match_reports.get();
-        if (!cancelled) setReports((data as MatchReport[]) || []);
-      } catch (err) {
-        console.error('No se pudieron cargar los partes de partido', err);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [matchReports]);
-
-  const reportById = useMemo(() => new Map(reports.map(r => [String(r.id), r])), [reports]);
-
   const groups = useMemo(() => {
-    const pid = String(playerId);
     const byCompetition = new Map<string, CompetitionGroup>();
 
-    [...matches]
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .forEach(match => {
-        const report = reportById.get(String(match.id));
-        if (!report) return;
-        const stats = computeMatchStats(report);
-        if (!stats.involvedIds.has(pid)) return;
-
-        const competition = match.competition || t('editPlayer.noCompetition', 'Sin competición');
+    [...actaMatches]
+      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
+      .forEach(row => {
+        const competition = row.competicion || t('editPlayer.noCompetition', 'Sin competición');
         const group = byCompetition.get(competition) || {
           competition,
           rows: [],
@@ -125,41 +56,21 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
           yellowCards: 0,
           redCards: 0,
         };
-
-        const cards = stats.cardsByPlayer.get(pid);
-        const row: MatchRow = {
-          match,
-          report,
-          minutes: stats.minutesByPlayer.get(pid) ?? 0,
-          isStarter: stats.starterIds.has(pid),
-          goals: stats.goalsByPlayer.get(pid) ?? 0,
-          yellowCards: cards?.amarillas ?? 0,
-          redCards: cards?.rojas ?? 0,
-        };
-
         group.rows.push(row);
         group.matchesPlayed += 1;
-        if (row.isStarter) group.starterCount += 1;
-        group.minutes += row.minutes;
-        group.goals += row.goals;
-        group.yellowCards += row.yellowCards;
-        group.redCards += row.redCards;
+        if (row.titular) group.starterCount += 1;
+        group.minutes += row.minutos || 0;
+        group.goals += row.goles || 0;
+        group.yellowCards += row.amarillas || 0;
+        group.redCards += row.rojas || 0;
         byCompetition.set(competition, group);
       });
 
     return Array.from(byCompetition.values()).sort((a, b) => b.matchesPlayed - a.matchesPlayed);
-  }, [matches, reportById, playerId, t]);
+  }, [actaMatches, t]);
 
   const maxCompetitionMinutes = Math.max(1, ...groups.map(g => g.minutes));
-  const maxMatchMinutes = Math.max(1, ...groups.flatMap(g => g.rows.map(r => r.minutes)));
-
-  if (isLoading) {
-    return (
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4">
-        <p className="text-xs font-bold text-slate-400 text-center py-2">{t('playerStatsSummary.loading')}</p>
-      </div>
-    );
-  }
+  const maxMatchMinutes = Math.max(1, ...groups.flatMap(g => g.rows.map(r => r.minutos || 0)));
 
   if (groups.length === 0) {
     return null;
@@ -206,8 +117,6 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                     <tr className="text-slate-400 uppercase text-[8px] font-black tracking-widest">
                       <th className="px-3 py-2 text-left">{t('common.date', 'Fecha')}</th>
                       <th className="px-3 py-2 text-left">{t('playerStatsSummary.filterMatch', 'Partido')}</th>
-                      <th className="px-3 py-2 text-center">{t('common.position', 'Posición')}</th>
-                      <th className="px-3 py-2 text-center">{t('matchReport.generalData.formation', 'Sistema')}</th>
                       <th className="px-3 py-2 text-center">{t('editPlayer.minutes')}</th>
                       <th className="px-3 py-2 text-center">{t('editPlayer.starter')}</th>
                       <th className="px-3 py-2 text-center"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />{t('players.goals')}</span></th>
@@ -216,35 +125,23 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {group.rows.map(row => {
-                      const playerPositionInMatch = row.report?.lineupPositions?.find(
-                        p => p.playerIds?.some(id => String(id) === String(playerId))
-                      )?.label;
-                      return (
-                        <tr key={String(row.match.id)} className="text-slate-700">
-                          <td className="px-3 py-2 font-semibold whitespace-nowrap">
-                            {row.match.date ? new Date(row.match.date).toLocaleDateString() : '—'}
-                          </td>
-                          <td className="px-3 py-2 font-semibold truncate max-w-56">
-                            {formatTeam(row.match.localTeam, row.match.localTeamClubId)} vs{' '}
-                            {formatTeam(row.match.visitorTeam || row.match.opponent, row.match.visitorTeamClubId)}
-                          </td>
-                          <td className="px-3 py-2 text-center font-semibold text-[var(--accent)]">
-                            {playerPositionInMatch || '—'}
-                          </td>
-                          <td className="px-3 py-2 text-center font-semibold">
-                            {row.report?.formation || '—'}
-                          </td>
-                          <td className="px-3 py-2 text-center font-bold text-[var(--accent)]">{row.minutes}'</td>
-                          <td className="px-3 py-2 text-center font-semibold">
-                            {row.isStarter ? t('editPlayer.starter') : t('editPlayer.substitute', 'Suplente')}
-                          </td>
-                          <td className="px-3 py-2 text-center font-semibold"><StatCount kind="goal" count={row.goals} /></td>
-                          <td className="px-3 py-2 text-center font-semibold"><StatCount kind="yellow" count={row.yellowCards} /></td>
-                          <td className="px-3 py-2 text-center font-semibold"><StatCount kind="red" count={row.redCards} /></td>
-                        </tr>
-                      );
-                    })}
+                    {group.rows.map(row => (
+                      <tr key={row.fed_match_id} className="text-slate-700">
+                        <td className="px-3 py-2 font-semibold whitespace-nowrap">
+                          {row.fecha ? new Date(row.fecha).toLocaleDateString() : '—'}
+                        </td>
+                        <td className="px-3 py-2 font-semibold truncate max-w-56">
+                          {row.es_local === false ? '@ ' : 'vs '}{row.rival || '—'}
+                        </td>
+                        <td className="px-3 py-2 text-center font-bold text-[var(--accent)]">{row.minutos || 0}'</td>
+                        <td className="px-3 py-2 text-center font-semibold">
+                          {row.titular ? t('editPlayer.starter') : t('editPlayer.substitute', 'Suplente')}
+                        </td>
+                        <td className="px-3 py-2 text-center font-semibold"><StatCount kind="goal" count={row.goles || 0} /></td>
+                        <td className="px-3 py-2 text-center font-semibold"><StatCount kind="yellow" count={row.amarillas || 0} /></td>
+                        <td className="px-3 py-2 text-center font-semibold"><StatCount kind="red" count={row.rojas || 0} /></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </TableScrollContainer>
@@ -285,10 +182,10 @@ const PlayerMatchBreakdown: React.FC<PlayerMatchBreakdownProps> = ({ playerId, m
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{group.competition}</span>
                   <div className="flex items-end gap-1 mt-1 h-16">
                     {group.rows.map(row => (
-                      <div key={String(row.match.id)} className="flex-1 flex flex-col items-center justify-end h-full" title={`${row.match.opponent || ''} · ${row.minutes}'`}>
+                      <div key={row.fed_match_id} className="flex-1 flex flex-col items-center justify-end h-full" title={`${row.rival || ''} · ${row.minutos || 0}'`}>
                         <div
-                          className={`w-full rounded-t ${row.isStarter ? 'bg-[var(--accent)]' : 'bg-slate-400'}`}
-                          style={{ height: `${Math.max(4, (row.minutes / maxMatchMinutes) * 100)}%` }}
+                          className={`w-full rounded-t ${row.titular ? 'bg-[var(--accent)]' : 'bg-slate-400'}`}
+                          style={{ height: `${Math.max(4, ((row.minutos || 0) / maxMatchMinutes) * 100)}%` }}
                         />
                       </div>
                     ))}
