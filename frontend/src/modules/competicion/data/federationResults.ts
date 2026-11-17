@@ -1,5 +1,5 @@
 // Resultados de partidos jugados por competición federativa (rivales incluidos).
-// Generado el 2026-11-09 desde la tabla match del Docker local (ffv-postgres, BD statsbomb).
+// Generado el 2026-11-17 desde la tabla match del Docker local (ffv-postgres, BD statsbomb).
 // Para actualizar: volver a exportar match (jornada, local, visitante, goles) de cada competición.
 // Formato de fila: [jornada, local, visitante, 'goles local-goles visitante'].
 
@@ -363,12 +363,6 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
   ],
   [
    8,
-   "Racing Club Zaragoza",
-   "San Gregorio Arrabal-C.D.",
-   "3-2"
-  ],
-  [
-   8,
    "Oliver-C.D.",
    "Montecarlo-U.D.",
    "0-2"
@@ -389,6 +383,60 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    8,
    "Amistad-U.D.",
    "Stadium Casablanca-C.D.",
+   "2-0"
+  ],
+  [
+   8,
+   "Racing Club Zaragoza",
+   "San Gregorio Arrabal-C.D.",
+   "3-2"
+  ],
+  [
+   9,
+   "San Gregorio Arrabal-C.D.",
+   "Oliver-C.D.",
+   "1-6"
+  ],
+  [
+   9,
+   "Montecarlo-U.D.",
+   "Teruel-C.D.",
+   "3-0"
+  ],
+  [
+   9,
+   "San Agustin-C.D.",
+   "Escuela Futbol Oscense-C.D. R. Blasco",
+   "1-1"
+  ],
+  [
+   9,
+   "Real Zaragoza S.A.D.",
+   "Stadium Casablanca-C.D.",
+   "5-3"
+  ],
+  [
+   9,
+   "Santo Domingo Juventud C.F.",
+   "Huesca-S.D.",
+   "1-3"
+  ],
+  [
+   9,
+   "Hernan Cortes Junquera-C.F.",
+   "Binefar-Futbol Base",
+   "3-1"
+  ],
+  [
+   9,
+   "Balsas Picarral-U.D.",
+   "Racing Club Zaragoza",
+   "1-3"
+  ],
+  [
+   24,
+   "Amistad-U.D.",
+   "Huesca-S.D. Escuela de Futbol",
    "2-0"
   ]
  ],
@@ -719,12 +767,6 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
   ],
   [
    8,
-   "Stadium Casablanca-C.D. Patatas Gómez",
-   "Racing Club Zaragoza",
-   "4-5"
-  ],
-  [
-   8,
    "Cuarte-C.D.",
    "Amistad-U.D.",
    "1-2"
@@ -743,12 +785,6 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
   ],
   [
    8,
-   "Montecarlo-U.D.",
-   "Oliver-C.D.",
-   "1-4"
-  ],
-  [
-   8,
    "Teruel-C.D.",
    "Fraga-Fútbol Base",
    "2-1"
@@ -764,6 +800,66 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Hernan Cortes Junquera-C.F.",
    "Santo Domingo Juventud C.F.",
    "0-1"
+  ],
+  [
+   8,
+   "Stadium Casablanca-C.D. Patatas Gómez",
+   "Racing Club Zaragoza",
+   "4-5"
+  ],
+  [
+   8,
+   "Montecarlo-U.D.",
+   "Oliver-C.D.",
+   "1-4"
+  ],
+  [
+   9,
+   "Stadium Casablanca-C.D. Patatas Gómez",
+   "Cuarte-C.D.",
+   "3-0"
+  ],
+  [
+   9,
+   "Amistad-U.D.",
+   "Huesca-S.D.",
+   "0-0"
+  ],
+  [
+   9,
+   "Escuela Futbol Oscense-C.D. Chat. y Desg. Marquina",
+   "Real Zaragoza S.A.D.",
+   "0-7"
+  ],
+  [
+   9,
+   "Oliver-C.D.",
+   "Teruel-C.D.",
+   "4-5"
+  ],
+  [
+   9,
+   "Fraga-Fútbol Base",
+   "Balsas Picarral-U.D.",
+   "5-3"
+  ],
+  [
+   9,
+   "Huesca-S.D. Escuela de Futbol",
+   "Hernan Cortes Junquera-C.F.",
+   "1-0"
+  ],
+  [
+   9,
+   "Racing Club Zaragoza",
+   "Santo Domingo Juventud C.F.",
+   "1-0"
+  ],
+  [
+   9,
+   "Atletico Teruel C.F.",
+   "Montecarlo-U.D.",
+   "3-1"
   ]
  ],
  "23183316-22-23258924": [
@@ -1123,6 +1219,12 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
   ],
   [
    8,
+   "Real Zaragoza Deportivo Aragón",
+   "Almudevar A.D.",
+   "4-0"
+  ],
+  [
+   8,
    "Epila-C.F.-A.D.",
    "Monzon-Atletico Alumbra",
    "2-2"
@@ -1135,14 +1237,14 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
   ],
   [
    8,
-   "Illueca-C.F.",
-   "Tamarite-C.D.J.",
-   "4-0"
+   "Belchite 97-C.D.",
+   "La Almunia-C.D.",
+   "0-2"
   ],
   [
    8,
-   "Real Zaragoza Deportivo Aragón",
-   "Almudevar A.D.",
+   "Illueca-C.F.",
+   "Tamarite-C.D.J.",
    "4-0"
   ],
   [
@@ -1162,12 +1264,6 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Ejea-S.D.",
    "Caspe-C.D.",
    "0-0"
-  ],
-  [
-   8,
-   "Belchite 97-C.D.",
-   "La Almunia-C.D.",
-   "0-2"
   ],
   [
    8,
@@ -1282,6 +1378,60 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Andorra-C.F.",
    "Tamarite-C.D.J.",
    "2-1"
+  ],
+  [
+   11,
+   "Binefar-C.D.",
+   "Epila-C.F.-A.D.",
+   "0-0"
+  ],
+  [
+   11,
+   "Real Zaragoza Deportivo Aragón",
+   "Cuarte-C.D.",
+   "0-0"
+  ],
+  [
+   11,
+   "Huesca-S.D.",
+   "Brea-C.D.",
+   "3-0"
+  ],
+  [
+   11,
+   "Monzon-Atletico Alumbra",
+   "Ejea-S.D.",
+   "3-3"
+  ],
+  [
+   11,
+   "Fraga-U.D.",
+   "Belchite 97-C.D.",
+   "2-1"
+  ],
+  [
+   11,
+   "Robres-C.D.",
+   "Illueca-C.F.",
+   "3-2"
+  ],
+  [
+   11,
+   "Caspe-C.D.",
+   "Internacional Huesca",
+   "2-0"
+  ],
+  [
+   11,
+   "La Almunia-C.D.",
+   "Andorra-C.F.",
+   "2-1"
+  ],
+  [
+   11,
+   "Almudevar A.D.",
+   "Tamarite-C.D.J.",
+   "2-0"
   ]
  ],
  "23183321-22-23197223": [
@@ -1428,6 +1578,24 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Sabiñanigo-A.D. Futbol Base",
    "Futbol Base Peñas Oscenses Aridos Boiria",
    "6-4"
+  ],
+  [
+   7,
+   "Peñas Oscenses-C.D. Hoscafrost \"A\"",
+   "Huesca International Football Academy",
+   "1-2"
+  ],
+  [
+   7,
+   "Frula-A.D.",
+   "Peñas Sariñena-C.D.",
+   "0-3"
+  ],
+  [
+   7,
+   "Escuela Futbol Oscense-C.D. Humeco \"A\"",
+   "Sabiñanigo-A.D. Futbol Base",
+   "1-0"
   ]
  ],
  "23183325-22-23198218": [
@@ -1574,6 +1742,42 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Peñas Sariñena-C.D.",
    "Binefar-Futbol Base",
    "5-4"
+  ],
+  [
+   5,
+   "La Litera-Escuela Dep.",
+   "Sobrarbe-Escuela Dep.",
+   "1-3"
+  ],
+  [
+   5,
+   "Sabiñanigo-A.D. Futbol Base",
+   "Peñas Oscenses-C.D. Climetel",
+   "8-0"
+  ],
+  [
+   5,
+   "Barbastro-U.D.",
+   "Cantera Oscense",
+   "2-3"
+  ],
+  [
+   5,
+   "Escuela Futbol Oscense-C.D. Apartamentos Rio Gallego",
+   "Monzon Futbol Base-At. Sgr Kafe Var One Friomonzón",
+   "3-3"
+  ],
+  [
+   5,
+   "Jacetano-C.F. Peña Enta Deban",
+   "Peñas Sariñena-C.D.",
+   "2-0"
+  ],
+  [
+   18,
+   "Binefar-Futbol Base",
+   "Ipc la Escuela",
+   "2-1"
   ]
  ],
  "23183329-22-23200389": [
@@ -1744,6 +1948,48 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Peñas Sariñena-C.D.",
    "Binefar-Futbol Base",
    "1-5"
+  ],
+  [
+   5,
+   "La Litera-Escuela Dep.",
+   "Sobrarbe-Escuela Dep.",
+   "1-2"
+  ],
+  [
+   5,
+   "Sabiñanigo-A.D. Futbol Base",
+   "Peñas Oscenses-C.D. Miguel Escuer",
+   "3-1"
+  ],
+  [
+   5,
+   "Barbastro-U.D.",
+   "Cantera Oscense",
+   "3-0"
+  ],
+  [
+   5,
+   "Escuela Futbol Oscense-C.D. Riegos Comenge",
+   "Monzón Fútbol Base-At. Politejo",
+   "2-0"
+  ],
+  [
+   5,
+   "Futbol Base Peñas Oscenses Globaltec",
+   "Almudevar A.D.",
+   "3-5"
+  ],
+  [
+   5,
+   "Jacetano-C.F. Frankfurter",
+   "Peñas Sariñena-C.D.",
+   "3-2"
+  ],
+  [
+   5,
+   "Binefar-Futbol Base",
+   "Huesca-S.D. Escuela de Futbol",
+   "2-2"
   ]
  ],
  "23183332-22-23362987": [
@@ -1836,6 +2082,24 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Jacetano-C.F. Turismo Villanúa",
    "Escuela Futbol Oscense-C.D. R. Blasco",
    "2-4"
+  ],
+  [
+   6,
+   "Sabiñanigo-A.D. Futbol Base",
+   "Jacetano-C.F. Turismo Villanúa",
+   "3-2"
+  ],
+  [
+   6,
+   "Cantera Oscense",
+   "Huesca-S.D. Escuela de Futbol",
+   "0-2"
+  ],
+  [
+   6,
+   "Santiago Grañen-C.D.",
+   "Escuela Futbol Oscense-C.D. R. Blasco",
+   "3-2"
   ]
  ],
  "23183333-22-23362986": [
@@ -1946,6 +2210,24 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Escuela Futbol Oscense-C.D. P. Castillo Finanweska",
    "Ipc la Escuela \"B\"",
    "4-0"
+  ],
+  [
+   7,
+   "Ipc la Escuela \"B\"",
+   "Sabiñanigo-A.D. Futbol Base",
+   "3-1"
+  ],
+  [
+   7,
+   "Cantera Oscense",
+   "Ipc la Escuela \"A\"",
+   "2-5"
+  ],
+  [
+   7,
+   "Jacetano-C.F. Castiello de Jaca",
+   "Escuela Futbol Oscense-C.D. P. Castillo Finanweska",
+   "0-4"
   ]
  ],
  "23183372-22-23442812": [
@@ -2092,6 +2374,30 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "El Salvador-S.D. \"A\"",
    "Ipc la Escuela",
    "1-3"
+  ],
+  [
+   7,
+   "Valdefierro-C.D. \"B\"",
+   "Estadio Miralbueno El Olivar \"B\"",
+   "2-2"
+  ],
+  [
+   7,
+   "Amistad-U.D. \"C\"",
+   "Oliver-C.D. \"A\"",
+   "1-0"
+  ],
+  [
+   7,
+   "Ranillas-At. \"A\"",
+   "El Salvador-S.D. \"A\"",
+   "1-4"
+  ],
+  [
+   7,
+   "San Mateo-C.D.",
+   "Ipc la Escuela",
+   "1-4"
   ]
  ],
  "23183382-22-23183383": [
@@ -2580,6 +2886,66 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "San Gregorio Arrabal-C.D.",
    "Stadium Casablanca-C.D.",
    "0-3"
+  ],
+  [
+   10,
+   "Huesca-S.D.",
+   "La Litera-Escuela Dep.",
+   "1-1"
+  ],
+  [
+   10,
+   "Ebro-C.D.",
+   "Ipc la Escuela",
+   "6-2"
+  ],
+  [
+   10,
+   "Balsas Picarral-U.D.",
+   "Estadio Miralbueno El Olivar",
+   "4-1"
+  ],
+  [
+   10,
+   "E.F.B. Ejea \"A\"",
+   "Racing Club Zaragoza",
+   "4-2"
+  ],
+  [
+   10,
+   "Stadium Casablanca-C.D.",
+   "Hernan Cortes Junquera-C.F.",
+   "2-1"
+  ],
+  [
+   10,
+   "Real Zaragoza S.A.D.",
+   "San Gregorio Arrabal-C.D.",
+   "4-0"
+  ],
+  [
+   10,
+   "Calamocha-C.F.",
+   "Fraga-Fútbol Base",
+   "2-3"
+  ],
+  [
+   10,
+   "Montecarlo-U.D.",
+   "Santo Domingo Juventud C.F.",
+   "1-1"
+  ],
+  [
+   10,
+   "Oliver-C.D.",
+   "Amistad-U.D.",
+   "1-1"
+  ],
+  [
+   12,
+   "Real Zaragoza S.A.D.",
+   "Racing Club Zaragoza",
+   "1-0"
   ]
  ],
  "23185096-22-23198208": [
@@ -2966,6 +3332,54 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Santo Domingo Juventud C.F.",
    "Huesca-S.D. Escuela de Futbol",
    "3-4"
+  ],
+  [
+   9,
+   "Valdefierro-C.D.",
+   "Huesca-S.D. Escuela de Futbol",
+   "2-2"
+  ],
+  [
+   9,
+   "Santo Domingo Juventud C.F.",
+   "E.F.B. Ejea",
+   "4-1"
+  ],
+  [
+   9,
+   "Estadio Miralbueno El Olivar",
+   "Escalerillas Distrito 8-AT.",
+   "6-0"
+  ],
+  [
+   9,
+   "San Jose-U.D.",
+   "Fraga-Fútbol Base",
+   "1-4"
+  ],
+  [
+   9,
+   "Huesca-S.D.",
+   "Oliver-C.D.",
+   "6-1"
+  ],
+  [
+   9,
+   "Cuarte-C.D.",
+   "Balsas Picarral-U.D.",
+   "0-0"
+  ],
+  [
+   9,
+   "Monzón Fútbol Base - At. Ahp Guarvi",
+   "Barbastro-U.D.",
+   "5-4"
+  ],
+  [
+   9,
+   "Amistad-U.D.",
+   "Borja-E.F.B.",
+   "1-2"
   ]
  ],
  "23596848-22-23596900": [
@@ -2989,15 +3403,15 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
   ],
   [
    2,
-   "Peñas Oscenses-C.D. Ecomputer/La10ma",
-   "Escuela Futbol Oscense-C.D. 'C'",
-   "5-4"
-  ],
-  [
-   2,
    "Ipc la Escuela",
    "Siglo Xxi Oscense Zynk 'C'",
    "6-1"
+  ],
+  [
+   2,
+   "Peñas Oscenses-C.D. Ecomputer/La10ma",
+   "Escuela Futbol Oscense-C.D. 'C'",
+   "5-4"
   ],
   [
    2,
@@ -3040,6 +3454,24 @@ const RAW_FEDERATION_RESULTS_BY_COMPETITION: Record<string, FederationResultRow[
    "Siglo Xxi Oscense Zynk 'C'",
    "Jacetano-C.F. Automoviles Serrablo 'C'",
    "2-3"
+  ],
+  [
+   5,
+   "Peñas Oscenses-C.D. Ecomputer/La10ma",
+   "Sabiñanigo-A.D. Futbol Base 'C'",
+   "5-4"
+  ],
+  [
+   5,
+   "Siglo Xxi Oscense Peña los 30 'D'",
+   "Ipc la Escuela",
+   "2-7"
+  ],
+  [
+   5,
+   "Escuela Futbol Oscense-C.D. 'C'",
+   "Siglo Xxi Oscense Zynk 'C'",
+   "1-6"
   ]
  ]
 };
