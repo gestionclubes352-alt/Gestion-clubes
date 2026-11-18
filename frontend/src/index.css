@@ -288,7 +288,20 @@ body {
 
 /* Reducir tamaños de fuente en tablas */
 table {
-  font-size: 0.95em;
+  font-size: 13px;
+}
+
+/* Estilo unificado de tablas (referencia: DataTable / Objetivos individuales):
+   celdas 13px; cabeceras 9px en mayúsculas, gris y con tracking amplio.
+   En @layer base para que cualquier clase de utilidad pueda sobrescribirlo. */
+@layer base {
+  th {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+  }
 }
 
 /* Reducir padding en botones sutilmente */
@@ -337,7 +350,7 @@ ul, ol {
 
   /* Tamaños de fuente aumentados en tablas */
   table {
-    font-size: 1rem;
+    font-size: 13px;
   }
 
   @layer base {
@@ -371,7 +384,7 @@ ul, ol {
   }
 
   table {
-    font-size: 1.125rem;
+    font-size: 13px;
   }
 
   @layer base {
@@ -408,7 +421,7 @@ ul, ol {
 
   /* Tamaños de fuente grandes */
   table {
-    font-size: 1.25rem;
+    font-size: 13px;
   }
 
   @layer base {

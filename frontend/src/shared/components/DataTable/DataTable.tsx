@@ -82,6 +82,8 @@ export interface DataTableProps<T> {
   cellTextClassName?: string;
   /** Sticky header */
   stickyHeader?: boolean;
+  /** Si se define (px), la cabecera queda fija respecto a la PÁGINA a esa distancia del top, sin scroll interno */
+  pageStickyTop?: number;
   /** Max height for scrollable body (e.g., '500px') */
   maxHeight?: string;
   /** Place the toolbar buttons (export / mode toggle) next to the search box instead of at the right edge */
@@ -243,12 +245,14 @@ function RowsSummary<T>({ table }: { table: Table<T> }) {
 }
 
 /** Con `fit` no hay barras de scroll; si no, scroll horizontal con barra superior sincronizada. */
-function ScrollWrapper({ fit, children, bodyClassName, bodyStyle }: {
+function ScrollWrapper({ fit, pageSticky, children, bodyClassName, bodyStyle }: {
   fit: boolean;
+  pageSticky?: boolean;
   children: React.ReactNode;
   bodyClassName: string;
   bodyStyle: React.CSSProperties;
 }) {
+  if (pageSticky) return <div>{children}</div>;
   if (fit) return <div className="overflow-x-hidden overflow-y-auto" style={bodyStyle}>{children}</div>;
   return <TableScrollContainer bodyClassName={bodyClassName} bodyStyle={bodyStyle}>{children}</TableScrollContainer>;
 }
@@ -317,6 +321,7 @@ function DataTable<T extends Record<string, any>>({
   compact = false,
   cellTextClassName = 'text-[13px]',
   stickyHeader = false,
+  pageStickyTop,
   maxHeight,
   actionsAlignLeft = false,
   footer,
@@ -506,7 +511,7 @@ function DataTable<T extends Record<string, any>>({
   return (
     <div className={isFullscreen
       ? 'fixed inset-0 z-[200] flex flex-col bg-white overflow-hidden'
-      : 'bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden'}>
+      : `bg-white rounded-2xl border border-slate-200/70 shadow-sm ${pageStickyTop !== undefined ? 'overflow-clip' : 'overflow-hidden'}`}>
       {/* TOOLBAR */}
       {showToolbar && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-3 border-b border-[var(--border-soft)] bg-[var(--surface-1)] dt-toolbar-enter">
@@ -581,11 +586,15 @@ function DataTable<T extends Record<string, any>>({
       {/* TABLE */}
       <ScrollWrapper
         fit={fit}
+        pageSticky={pageStickyTop !== undefined && !isFullscreen}
         bodyClassName="overflow-y-auto"
         bodyStyle={{ maxHeight: isFullscreen ? 'calc(100vh - 120px)' : (maxHeight ?? '640px') }}
       >
         <table className={`${packLeft ? '' : 'w-full'} ${fit ? 'table-fixed' : ''}`} style={packLeft ? { width: table.getTotalSize() } : undefined} role="table">
-          <thead className={`${stickyHeader ? 'sticky top-0 z-10 bg-[var(--surface-1)]' : ''}`}>
+          <thead
+            className={`${stickyHeader || pageStickyTop !== undefined ? 'sticky top-0 z-10 bg-[var(--surface-1)]' : ''}`}
+            style={pageStickyTop !== undefined && !isFullscreen ? { top: pageStickyTop } : undefined}
+          >
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id} className="border-b border-[var(--border-soft)] bg-[var(--surface-1)]">
                 {headerGroup.headers.map(header => {

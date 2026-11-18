@@ -5835,19 +5835,19 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
     const renderAbsenceTable = (rows: typeof allRows, title: string, className: string) => (
       <div className="space-y-3">
-        <h3 className={`text-xs font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
+        <h3 className={`text-xs font-black uppercase tracking-wider px-2 py-1 rounded-lg ${className}`}>
           {title} ({rows.length})
         </h3>
         {rows.length === 0 ? (
           <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
         ) : (
           <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
-            <table className="w-full text-[9px]">
+            <table className="w-full">
               <thead>
                 <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
-                  <th className="px-3 py-3 text-left">#</th>
-                  <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
-                  <th className="px-3 py-3 text-left">Motivo de ausencia</th>
+                  <th className="px-2 py-2 text-left">#</th>
+                  <th className="px-2 py-2 text-left">{t('matchReport.playerStats.player')}</th>
+                  <th className="px-2 py-2 text-left">Motivo de ausencia</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-soft)]">
@@ -5855,9 +5855,9 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
                   const reason = (report.notConvocadoReasons || {})[String(player.id)];
                   return (
                     <tr key={player.id} className="text-[var(--text-strong)]">
-                      <td className="px-3 py-2 font-black">{player.dorsal ?? '-'}</td>
-                      <td className="px-3 py-2 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
-                      <td className="px-3 py-2 font-bold">{reason ? String(reason) : <span className="text-[var(--text-muted)]">-</span>}</td>
+                      <td className="px-2 py-1 font-black">{player.dorsal ?? '-'}</td>
+                      <td className="px-2 py-1 font-bold truncate max-w-40">{player.apodo || player.nombre}</td>
+                      <td className="px-2 py-1 font-bold">{reason ? String(reason) : <span className="text-[var(--text-muted)]">-</span>}</td>
                     </tr>
                   );
                 })}
@@ -5870,23 +5870,23 @@ const MatchReportView: React.FC<MatchReportViewProps> = ({ match, onBack, ownClu
 
     const renderTable = (rows: typeof allRows, title: string, className: string) => (
       <div className="space-y-3">
-        <h3 className={`text-xs font-black uppercase tracking-wider px-3 py-2 rounded-lg ${className}`}>
+        <h3 className={`text-xs font-black uppercase tracking-wider px-2 py-1 rounded-lg ${className}`}>
           {title} ({rows.length})
         </h3>
         {rows.length === 0 ? (
           <p className="text-xs font-bold text-[var(--text-muted)] px-3">{t('matchReport.playerStats.noPlayers')}</p>
         ) : (
           <TableScrollContainer className="rounded-2xl border border-[var(--border-soft)]">
-            <table className="w-full text-[9px]">
+            <table className="w-full">
               <thead>
                 <tr className="bg-[var(--surface-1)] text-[var(--text-muted)] uppercase text-[6px] font-black tracking-widest">
-                  <th className="px-3 py-3 text-left">#</th>
-                  <th className="px-3 py-3 text-left">{t('matchReport.playerStats.player')}</th>
-                  <th className="px-3 py-3 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
-                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />{t('matchReport.playerStats.goals')}</span></th>
-                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />{t('matchReport.playerStats.yellowCards')}</span></th>
-                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="red" className="w-2 h-3" />{t('matchReport.playerStats.redCards')}</span></th>
-                  <th className="px-3 py-3 text-center"><span className="inline-flex items-center gap-1"><SubInIcon className="w-3 h-3" /><SubOutIcon className="w-3 h-3" />Cambios</span></th>
+                  <th className="px-2 py-2 text-left">#</th>
+                  <th className="px-2 py-2 text-left">{t('matchReport.playerStats.player')}</th>
+                  <th className="px-2 py-2 text-center">{t('matchReport.playerStats.minutesPlayed')}</th>
+                  <th className="px-2 py-2 text-center"><span className="inline-flex items-center gap-1"><BallIcon className="w-3 h-3" />{t('matchReport.playerStats.goals')}</span></th>
+                  <th className="px-2 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="yellow" className="w-2 h-3" />{t('matchReport.playerStats.yellowCards')}</span></th>
+                  <th className="px-2 py-2 text-center"><span className="inline-flex items-center gap-1"><CardIcon kind="red" className="w-2 h-3" />{t('matchReport.playerStats.redCards')}</span></th>
+                  <th className="px-2 py-2 text-center"><span className="inline-flex items-center gap-1"><SubInIcon className="w-3 h-3" /><SubOutIcon className="w-3 h-3" />Cambios</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-soft)]">

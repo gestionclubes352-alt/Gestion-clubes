@@ -113,6 +113,19 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
     }
     return m;
   }, [allSquad, squad, matchTotals]);
+  // Altura de la barra de filtros sticky: la cabecera de la tabla se fija justo debajo
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const [filterBarH, setFilterBarH] = useState(0);
+  useEffect(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    const update = () => setFilterBarH(Math.round(el.getBoundingClientRect().height));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   useEffect(() => {
     if (simplified) return;
     let cancelled = false;
@@ -461,7 +474,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
   return (
     <div className="flex flex-col gap-3 animate-fade-in">
       {/* FILTER BAR */}
-      <div className="sticky top-0 z-30 bg-[var(--surface-0)]/90 backdrop-blur-xl border border-[var(--border-soft)] shadow-sm rounded-2xl p-3.5">
+      <div ref={filterBarRef} className="sticky top-0 z-30 bg-[var(--surface-0)]/90 backdrop-blur-xl border border-[var(--border-soft)] shadow-sm rounded-2xl p-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             {/* Grupo de equipos: una sola fila en todos los dispositivos (scroll horizontal si no caben) */}
@@ -639,6 +652,7 @@ const PlayerTable: React.FC<PlayerTableProps> = ({ squad, allSquad, onEdit, onSa
           actions={actions}
           fit
           stickyHeader
+          pageStickyTop={filterBarH + 12}
           fullscreenable
           searchable
           searchPlaceholder={t('playerTable.searchPlaceholder')}

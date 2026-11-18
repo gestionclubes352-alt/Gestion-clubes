@@ -18,7 +18,7 @@ type ModalKind = 'clasificacion' | 'horarios' | 'resultados' | 'calendario' | 'a
 
 type Etapa = 'Senior' | 'Juvenil' | 'Cadete' | 'Infantil' | 'Alevín';
 
-interface GlobalRow {
+export interface GlobalRow {
   etapa: Etapa;
   competition: string;
   /** Id federativo `competición-temporada-grupo`; ausente si la competición no tiene datos propios (ej. Copa). */
@@ -32,7 +32,7 @@ interface GlobalRow {
 const ETAPAS: Etapa[] = ['Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín'];
 
 /** Competiciones 2026-27 del club, en el orden de la ficha federativa. */
-const GLOBAL_ROWS: GlobalRow[] = [
+export const GLOBAL_ROWS: GlobalRow[] = [
   { etapa: 'Senior', competition: 'Tercera RFEF G-17', compId: '23183316-22-23258924', equipo: 'Primer Equipo', clubLabel: 'Internacional Huesca - Primer Equipo' },
 
   { etapa: 'Juvenil', competition: 'Copa - Juvenil Preferente Grupo 1 - Huesca', compId: '23245982-22-23245995', equipo: 'Juvenil B', clubLabel: 'Huesca International Football Academy - Juvenil B' },
@@ -74,11 +74,11 @@ const ActionButton: React.FC<{
 };
 
 
-const normalizeName = (n: string) =>
+export const normalizeName = (n: string) =>
   n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
 /** Nombre federativo del club: la etiqueta sin el sufijo " - Etapa". */
-const federationClubName = (clubLabel: string) => clubLabel.replace(/\s-\s[^-]+$/, '');
+export const federationClubName = (clubLabel: string) => clubLabel.replace(/\s-\s[^-]+$/, '');
 
 /** ¿Es `team` uno de los equipos internos del club dentro de la competición `compId`? */
 export const isOwnTeamInCompetition = (compId: string, team: string): boolean => {

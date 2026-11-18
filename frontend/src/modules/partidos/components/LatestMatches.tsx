@@ -90,8 +90,19 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   const [instalacionesCampos, setInstalacionesCampos] = useState<InstalacionCampo[]>([]);
   const [matchReportsById, setMatchReportsById] = useState<Map<string, MatchReport>>(new Map());
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
-  const [dateFromFilter, setDateFromFilter] = useState<string>('');
-  const [dateToFilter, setDateToFilter] = useState<string>('');
+  // Por defecto: semana pasada + semana actual (lunes de la semana pasada → domingo de esta)
+  const defaultRange = (() => {
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const now = new Date();
+    const diffToMonday = (now.getDay() + 6) % 7;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+    const prevMonday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    return { from: fmt(prevMonday), to: fmt(sunday) };
+  })();
+  const [dateFromFilter, setDateFromFilter] = useState<string>(defaultRange.from);
+  const [dateToFilter, setDateToFilter] = useState<string>(defaultRange.to);
   const [statusFilter, setStatusFilter] = useState<'' | 'played' | 'scheduled'>('');
 
   useEffect(() => {
@@ -847,7 +858,7 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
   }, [onEdit, onDelete, t]);
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-6 pl-4 md:pl-8 pr-4 md:pr-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
         <div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('matchesList.matchHistoryDesc')}</p>
@@ -1031,6 +1042,28 @@ const LatestMatches: React.FC<LatestMatchesProps> = ({ matches, onSave, onDelete
             options={camposOptions.map((campo) => ({ value: campo.id, label: campo.nombre }))}
             className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-sport-primary"
           />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={() => {
+              setTipoFilter([]);
+              setEquipoInternoFilter([]);
+              setClubFilter([]);
+              setCompetitionFilter([]);
+              setJornadaFilter([]);
+              setLocalidadFilter([]);
+              setInstalacionPrincipalFilter([]);
+              setCampoFilter([]);
+              setDateFromFilter('');
+              setDateToFilter('');
+              setStatusFilter('');
+            }}
+            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-black uppercase tracking-wider text-slate-500 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all"
+          >
+            <i className="fa-solid fa-eraser mr-1.5"></i>
+            Limpiar
+          </button>
         </div>
       </div>
 

@@ -14,7 +14,8 @@ import { useTeam } from '@context/TeamContext';
 import { getFederationTeamLogo } from '../data/teamLogos';
 import TableScrollContainer from '@shared/components/TableScrollContainer';
 import { compareEquipoNames } from '@shared/components/EquipoSelect';
-import GlobalCompetitionsView, { isOwnTeamInCompetition, internalNameInCompetition } from './GlobalCompetitionsView';
+import GlobalCompetitionsView, { isOwnTeamInCompetition, internalNameInCompetition, GLOBAL_ROWS, federationClubName, normalizeName as normalizeGlobalName } from './GlobalCompetitionsView';
+import JugadoresPanel from './JugadoresPanel';
 import { HorariosPanel, SancionesPanel, useActas, ownSideOf, norm, type ActaRow } from './CompetitionExtraPanels';
 import StandingsCharts from './StandingsCharts';
 import ActaMatchSheet from '../../partidos/components/ActaMatchSheet';
@@ -76,6 +77,7 @@ type CompetitionSection =
   | 'resultados'
   | 'goleadores'
   | 'porteros'
+  | 'jugadores'
   | 'cruzada';
 
 
@@ -642,6 +644,79 @@ const buildStandingColumns = (isOwn: (team: string) => boolean, dense = false, d
   return dense ? cols.filter(c => c.id !== 'form' && c.id !== 'lastResult') : cols;
 };
 
+/** Resumen en tabla de la posición de cada equipo del club en su competición (vista "Todos" de Huesca). */
+const ClubTeamsPositionTable: React.FC = () => {
+  const rows = useMemo(() => {
+    const all = GLOBAL_ROWS.map(r => {
+    const standing = r.compId
+      ? (FEDERATION_STANDINGS_BY_COMPETITION[r.compId] ?? []).find(
+          s => normalizeGlobalName(s.team) === normalizeGlobalName(federationClubName(r.clubLabel))
+        )
+      : undefined;
+    return { ...r, standing };
+    });
+    // Juvenil A va en segundo lugar, justo después del Primer Equipo.
+    const idx = all.findIndex(r => r.equipo === 'Juvenil A');
+    if (idx > 1) all.splice(1, 0, ...all.splice(idx, 1));
+    return all;
+  }, []);
+  const num = 'px-1.5 py-1.5 text-center tabular-nums';
+  return (
+    <aside className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:sticky xl:top-4">
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#c8102e] shadow">
+          <i className="fa-solid fa-ranking-star text-white text-xs"></i>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-slate-800">Posición de nuestros equipos</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{rows.length} equipos · Temporada 2026/2027</p>
+        </div>
+      </div>
+      <div className="overflow-x-auto p-2">
+        <table className="w-full text-[11px] [&_td]:!text-[11px] [&_th]:!text-[10px]">
+          <thead>
+            <tr className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <th className="px-1.5 py-1.5 text-left">Equipo</th>
+              <th className="px-1.5 py-1.5 text-left">Competición</th>
+              <th className={num}>Pos</th>
+              <th className={num}>Pts</th>
+              <th className={num}>PJ</th>
+              <th className={num}>G</th>
+              <th className={num}>E</th>
+              <th className={num}>P</th>
+              <th className={num}>GF</th>
+              <th className={num}>GC</th>
+              <th className={num}>DG</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const s = r.standing;
+              const dg = s ? (s.goalsFor ?? 0) - (s.goalsAgainst ?? 0) : 0;
+              const newEtapa = i === 0 || rows[i - 1].etapa !== r.etapa;
+              return (
+                <tr key={`${r.compId ?? r.competition}-${r.equipo}`} className={`border-b border-slate-100 hover:bg-slate-50 ${newEtapa && i > 0 ? 'border-t-2 border-t-slate-200' : ''}`}>
+                  <td className="px-1.5 py-1.5 font-medium text-slate-700 whitespace-nowrap">{r.equipo}</td>
+                  <td className="px-1.5 py-1.5 font-medium text-slate-500">{r.competition}</td>
+                  <td className={`${num} font-bold text-slate-700`}>{s ? s.pos : '–'}</td>
+                  <td className={`${num} font-bold text-slate-700`}>{s ? s.points : '–'}</td>
+                  <td className={`${num} font-bold text-slate-700`}>{s ? s.played : '–'}</td>
+                  <td className={`${num} font-semibold text-emerald-600`}>{s ? s.won : '–'}</td>
+                  <td className={`${num} font-semibold text-amber-500`}>{s ? s.drawn : '–'}</td>
+                  <td className={`${num} font-semibold text-red-400`}>{s ? s.lost : '–'}</td>
+                  <td className={`${num} text-slate-500`}>{s ? s.goalsFor ?? 0 : '–'}</td>
+                  <td className={`${num} text-slate-500`}>{s ? s.goalsAgainst ?? 0 : '–'}</td>
+                  <td className={`${num} font-semibold ${dg > 0 ? 'text-emerald-600' : dg < 0 ? 'text-red-400' : 'text-slate-400'}`}>{s ? (dg > 0 ? `+${dg}` : dg) : '–'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </aside>
+  );
+};
+
 const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], calendarMatches = [], myTeamName = '', leagueName = '', clubId, clubName, hideTeamFilter = false, forcedSection, hideSectionTabs = false, onEquipoChange }) => {
   const [useAI, setUseAI] = useState(true);
   const [sectionState, setActiveSection] = useState<CompetitionSection>('clasificacion');
@@ -984,10 +1059,11 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
   }, [resultsData, groupBy]);
 
   // Partido que marca "esta semana": el primero desde el lunes actual (o el último si ya pasó todo).
+  const [weekOffset, setWeekOffset] = useState(0);
   const thisWeekMatch = useMemo<CalendarDisplayMatch | null>(() => {
     const now = new Date();
     const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7) + weekOffset * 7);
     const monKey = `${mon.getFullYear()}${String(mon.getMonth() + 1).padStart(2, '0')}${String(mon.getDate()).padStart(2, '0')}`;
     const keyOf = (v?: string | null) => {
       const m = formatMatchDate(v).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -1004,7 +1080,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       if (!last || k > lastKey) { last = m; lastKey = k; }
     });
     return best ?? last;
-  }, [resultsData]);
+  }, [resultsData, weekOffset]);
 
   const scrollToThisWeek = React.useCallback(() => {
     document.getElementById('results-this-week')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1015,7 +1091,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     if (activeSection !== 'resultados' || !thisWeekMatch) return;
     const t = setTimeout(scrollToThisWeek, 150);
     return () => clearTimeout(t);
-  }, [activeSection, thisWeekMatch, scrollToThisWeek]);
+  }, [activeSection, thisWeekMatch, weekOffset, scrollToThisWeek]);
 
   // Competición federativa del equipo interno de Huesca seleccionado (para goleadores/porteros reales)
   const federationCompetition = standingsKey.startsWith('escuela-huesca::')
@@ -1092,6 +1168,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
     { id: 'sanciones', label: 'Sanciones', icon: 'fa-square' },
     { id: 'goleadores', label: 'Goleadores', icon: 'fa-futbol' },
     { id: 'porteros', label: 'Porteros', icon: 'fa-hand' },
+    { id: 'jugadores', label: 'Jugadores', icon: 'fa-user' },
     { id: 'cruzada', label: 'Cruzada', icon: 'fa-table-cells-large' },
   ];
 
@@ -1358,7 +1435,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
       )}
 
       {activeSection === 'clasificacion' && !federationStandingsUrl && standingsKey === 'escuela-huesca' && (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,44rem)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-8">
           {HUESCA_ETAPAS.map(etapa => {
             const comps = HUESCA_COMPETITIONS.filter(c => c.etapa === etapa && FEDERATION_STANDINGS_BY_COMPETITION[c.id]?.length);
             if (comps.length === 0) return null;
@@ -1369,7 +1447,7 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
                   {etapa}
                   <span className="text-[10px] font-bold text-slate-400">· {comps.length} {comps.length === 1 ? 'competición' : 'competiciones'}</span>
                 </h3>
-                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {comps.map(comp => {
                     const rows: StandingTeam[] = FEDERATION_STANDINGS_BY_COMPETITION[comp.id].map(row => ({
                       pos: row.pos,
@@ -1420,6 +1498,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
               </section>
             );
           })}
+        </div>
+        <ClubTeamsPositionTable />
         </div>
       )}
 
@@ -1531,11 +1611,29 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
             ))}
             <button
               type="button"
-              onClick={scrollToThisWeek}
+              onClick={() => setWeekOffset(o => o - 1)}
+              title="Semana anterior"
+              aria-label="Semana anterior"
+              className="rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700 transition-all hover:bg-blue-100"
+            >
+              <i className="fa-solid fa-chevron-left"></i>
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (weekOffset !== 0) setWeekOffset(0); else scrollToThisWeek(); }}
               disabled={!thisWeekMatch}
               className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-blue-700 transition-all hover:bg-blue-100 disabled:opacity-50"
             >
-              Esta semana
+              {weekOffset === 0 ? 'Esta semana' : weekOffset > 0 ? `Semana +${weekOffset}` : `Semana ${weekOffset}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekOffset(o => o + 1)}
+              title="Semana siguiente"
+              aria-label="Semana siguiente"
+              className="rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700 transition-all hover:bg-blue-100"
+            >
+              <i className="fa-solid fa-chevron-right"></i>
             </button>
           </div>
           <div className="mx-auto grid w-full max-w-3xl gap-1.5">
@@ -1666,6 +1764,8 @@ const LeagueTable: React.FC<LeagueTableProps> = ({ teams = [], matches = [], cal
           ))}
         </div>
       )}
+
+      {activeSection === 'jugadores' && <JugadoresPanel equipo={effectiveSelectedEquipo} />}
 
       {activeSection === 'cruzada' && (
         <TableScrollContainer className="rounded-2xl border border-slate-100 bg-white">

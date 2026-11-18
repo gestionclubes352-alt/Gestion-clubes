@@ -75,8 +75,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, squad = [], onSaveE
   const openedFromRef = useRef<string | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const weekRange = (() => {
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const now = new Date();
+    const diffToMonday = (now.getDay() + 6) % 7;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    return { from: fmt(monday), to: fmt(sunday) };
+  })();
+  const [filterDateFrom, setFilterDateFrom] = useState<string>(weekRange.from);
+  const [filterDateTo, setFilterDateTo] = useState<string>(weekRange.to);
   const [localidadId, setLocalidadId] = useState<string[]>([]);
   const [instalacionId, setInstalacionId] = useState<string[]>([]);
   const [localidades, setLocalidades] = useState<Localidad[]>([]);

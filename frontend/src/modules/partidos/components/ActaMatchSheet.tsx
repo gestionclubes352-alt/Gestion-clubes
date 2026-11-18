@@ -122,15 +122,15 @@ const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean; show
   );
   return (
     <div className="min-w-0">
-      <h3 className={`inline-block text-[11px] font-black uppercase tracking-wider mb-3 px-2 py-1 rounded ${highlight ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-muted)]'}`}>{title}</h3>
-      <table className="w-full text-xs leading-tight">
+      <h3 className={`inline-block text-[10px] font-black uppercase tracking-wider mb-3 px-2 py-1 rounded ${highlight ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-muted)]'}`}>{title}</h3>
+      <table className="w-full leading-tight">
         <tbody>
           {starters.length > 0 && (
-            <tr><td colSpan={5} className="pb-1 text-xs font-bold text-[var(--text-muted)]">Titulares</td></tr>
+            <tr><td colSpan={5} className="pb-1 text-[10px] font-bold text-[var(--text-muted)]">Titulares</td></tr>
           )}
           {starters.map(r => renderRow(r, false))}
           {bench.length > 0 && (
-            <tr><td colSpan={5} className="pt-3 pb-1 text-xs font-bold text-[var(--text-muted)]">Suplentes</td></tr>
+            <tr><td colSpan={5} className="pt-3 pb-1 text-[10px] font-bold text-[var(--text-muted)]">Suplentes</td></tr>
           )}
           {bench.map(r => renderRow(r, true))}
           {showMinutes && onChangeMinutes && (() => {
@@ -139,7 +139,7 @@ const TeamTable: React.FC<{ title: string; rows: Row[]; highlight: boolean; show
             return (
               <tr>
                 <td colSpan={5} className="pt-3">
-                  <div className={`text-xs font-bold ${ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <div className={`text-[10px] font-bold ${ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     TOTAL: {total} / 360
                   </div>
                   {!ok && (
@@ -224,17 +224,17 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes, man
   const hasCardsWithoutMinute = [...acta.homeTeam.cards, ...acta.awayTeam.cards].some(c => c.minute === undefined);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-5xl mx-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-1)] shadow-sm p-6 lg:p-8">
       <div className="text-center space-y-2">
-        <p className="text-sm text-[var(--text-muted)]">{[acta.competition, acta.jornada].filter(Boolean).join(' · ')}</p>
+        <p className="text-xs text-[var(--text-muted)]">{[acta.competition, acta.jornada].filter(Boolean).join(' · ')}</p>
         <div className="flex items-center justify-center gap-4 flex-wrap">
-          <span className={`font-black text-base lg:text-lg px-2 py-0.5 rounded ${ownSide === 'home' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-strong)]'}`}>{acta.homeTeam.name}</span>
-          {acta.homeTeam.logoUrl && <img loading="lazy" src={acta.homeTeam.logoUrl} alt="" className="w-12 h-12 object-contain" />}
-          <span className="text-3xl font-black tracking-wider text-[var(--text-strong)]">{acta.homeScore} - {acta.awayScore}</span>
-          {acta.awayTeam.logoUrl && <img loading="lazy" src={acta.awayTeam.logoUrl} alt="" className="w-12 h-12 object-contain" />}
-          <span className={`font-black text-base lg:text-lg px-2 py-0.5 rounded ${ownSide === 'away' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-strong)]'}`}>{acta.awayTeam.name}</span>
+          <span className={`font-black text-sm lg:text-base px-2 py-0.5 rounded ${ownSide === 'home' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-strong)]'}`}>{acta.homeTeam.name}</span>
+          {acta.homeTeam.logoUrl && <img loading="lazy" src={acta.homeTeam.logoUrl} alt="" className="w-9 h-9 object-contain" />}
+          <span className="text-2xl font-black tracking-wider text-[var(--text-strong)]">{acta.homeScore} - {acta.awayScore}</span>
+          {acta.awayTeam.logoUrl && <img loading="lazy" src={acta.awayTeam.logoUrl} alt="" className="w-9 h-9 object-contain" />}
+          <span className={`font-black text-sm lg:text-base px-2 py-0.5 rounded ${ownSide === 'away' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'text-[var(--text-strong)]'}`}>{acta.awayTeam.name}</span>
         </div>
-        <p className="text-sm text-[var(--text-muted)]">
+        <p className="text-xs text-[var(--text-muted)]">
           {[`${acta.date} ${acta.time}`.trim(), [acta.stadium, acta.city && `(${acta.city})`].filter(Boolean).join(' '), acta.referees[0] && `Árbitro: ${cleanReferee(acta.referees[0])}`].filter(Boolean).join(' · ')}
         </p>
         <label className="inline-flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
@@ -251,7 +251,7 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes, man
       </div>
 
       <div>
-        <h3 className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-4">Eventos</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-4">Eventos</h3>
         {events.length === 0 ? (
           <p className="text-xs text-[var(--text-muted)]">El acta no contiene eventos.</p>
         ) : (
@@ -267,7 +267,7 @@ const ActaMatchSheet: React.FC<Props> = ({ acta, ownSide, configuredMinutes, man
                       <span className="px-3 py-0.5 rounded-full bg-slate-600 text-white text-[11px]">Descanso</span>
                     </div>
                   )}
-                  <div className="relative grid grid-cols-[1fr_auto_1fr] gap-3 items-center py-2 text-sm text-[var(--text-strong)]">
+                  <div className="relative grid grid-cols-[1fr_auto_1fr] gap-3 items-center py-1.5 text-xs text-[var(--text-strong)]">
                     <div className="text-right space-y-0.5">{ev.home}</div>
                     <span className="z-10 min-w-[2.5rem] text-center text-xs px-2 py-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface-0)] tabular-nums">{min}'</span>
                     <div className="text-left space-y-0.5">{ev.away}</div>
